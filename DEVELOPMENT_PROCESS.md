@@ -101,6 +101,7 @@ Rules for agents:
 - **QA automation is part of each team**, not a separate phase: no ticket reaches Done without automated tests passing.
 - **Keep it simple** (ponytail): no speculative abstractions, no heavy layered architectures. Modules with clear boundaries, minimum code that works, boring over clever.
 - Small, frequent commits. The CEO reviews by diffs.
+- **Model per task (CEO Round 7, cost rule)**: every Asana ticket carries a `Model:` line — **Sonnet** for simple tasks, **Opus 4.8** for complex ones. **Fable** is reserved for orchestration that needs it; simple orchestration runs on Opus. Team leads may run on Opus. The orchestrator sets the model when dispatching agents.
 
 ## Project phases
 

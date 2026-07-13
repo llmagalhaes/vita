@@ -2,6 +2,11 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-13 — Round 7 (model policy + Anthropic key)
+
+1. **Model assignment per task (cost rule)**: every Asana ticket gets an explicit Claude model. Simple tasks → **Sonnet**; complex tasks → **Opus 4.8**; **Fable** only for orchestration that needs it — simple orchestration uses Opus. Team-lead agents may run on Opus. The orchestrator sets the model when dispatching and records `Model:` on each ticket.
+2. **Anthropic API key delivered** (unblocks BE-013 parse when it starts). CEO placed it in `application.yaml`; orchestrator moved it to `backend/services/vita-api/secrets.yaml` (gitignored, auto-imported by Spring locally — never commit real keys; prod uses env vars/Secrets Manager). Key was never committed/pushed, so no rotation needed.
+
 ## 2026-07-13 — Round 6 (unblocked)
 
 1. Repo pushed to GitHub by the CEO (`llmagalhaes/vita`).
