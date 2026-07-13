@@ -16,9 +16,18 @@ const config: ExpoConfig = {
   ios: {
     bundleIdentifier: "com.llmagal.vita",
     supportsTablet: false, // phone-only (CEO Round 5)
+    // Voice capture (APP-012). Real recognition needs a dev build (not Expo Go);
+    // the copy lives here now so the manifest is ready when APP-007 lands.
+    infoPlist: {
+      NSMicrophoneUsageDescription:
+        "Vita uses the microphone so you can speak what you had instead of typing. Audio never leaves your device.",
+      NSSpeechRecognitionUsageDescription:
+        "Vita turns your speech into text on your device to log meals, water and workouts. Only the text is used.",
+    },
   },
   android: {
     package: "com.llmagal.vita",
+    permissions: ["android.permission.RECORD_AUDIO"], // voice capture (APP-012)
     adaptiveIcon: {
       backgroundColor: "#EDE5D6",
       foregroundImage: "./assets/android-icon-foreground.png",

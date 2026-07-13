@@ -1,6 +1,11 @@
 # App Team — Next Session
 
-## Current state (Phase 2 — session 3b done 2026-07-13: APP-014 meal detail ✅)
+## Current state (Phase 2 — session 4 done 2026-07-13: APP-012 voice capture ✅ recognition stubbed)
+
+- **APP-012 hold-to-talk built** (In progress on Asana). Press-and-hold the pill's mic → live-transcript overlay → release-to-send routes the final text through the **existing APP-011 parse→confirm path** (no parallel stack). Quick tap still toggles the text field. Slide up while holding → "Release to cancel". Calm permission/denied/unavailable/error states with a **Type instead** fallback to text. New files: `src/capture/speech.ts` (`SpeechRecognizer` interface + `stubRecognizer` + `getRecognizer`/`setRecognizer`), `src/capture/useVoiceCapture.ts` (state machine), `src/capture/VoiceOverlay.tsx`. Mic gesture = gesture-handler `Pan` (runOnJS) on the pill. i18n `capture.voice.*`. Mic/speech permission strings pre-declared in `app.config.ts` (inert in Expo Go). `tsc` clean · **Jest 39/39 (8 suites)**, +14 · `expo install --check` up to date (no new deps, SDK 56 preserved) · `expo export` iOS OK. See `Progress/APP-012-voice-capture-Progress.md` + **ADR-0003**.
+- **Real recognition does NOT run in Expo Go SDK 56 — by design.** `expo-speech-recognition@56.0.1` is a native module + config plugin (verified from tarball) → needs a dev-client build, not in the Expo Go binary. Per the ticket stop-condition it was NOT installed. Recognition is stubbed behind the interface; the real engine drops in at **APP-007** (dev build) via `setRecognizer(real)` with zero UI changes. **Blocker: APP-007 (CEO Apple/Play accounts).**
+
+## Prior state (Phase 2 — session 3b done 2026-07-13: APP-014 meal detail ✅)
 
 - **APP-014 meal detail built** (In progress on Asana; DoD = tester build). New route `app/(main)/meal/[id].tsx`, read-only over SQLite/`getEntry`, faithful to the prototype: hero + estimate tag, source-phrase quote, item breakdown, **macro donut** (new `src/ui/Donut.tsx` primitive), micronutrients vs FDA daily reference (aggregated by name across items), footer. Timeline **meal** cards now `router.push('/meal/<id>')`; water/workout cards don't navigate (their detail screens are later tickets). Seed meal gained `micros` so the screen is full in Expo Go. i18n `mealDetail.*`. Exported `MealItem`/`Micro` from `src/api/client.ts`. `tsc` clean · **Jest 25/25 (7 suites)** · `expo export` iOS OK · SDK-56 guard green. See `Progress/APP-014-meal-detail-Progress.md`.
 
@@ -25,7 +30,7 @@
 ## Next steps
 
 1. **APP-008 auth screens + magic link** (vita://auth deep link, expo-secure-store, serialized refresh) — client auth endpoints still to add in `src/api`.
-2. **APP-012 voice capture** (hold-to-talk on the pill; pill already reserves the gesture).
+2. **APP-012 real recognition** — deferred to APP-007 dev build: `npm i expo-speech-recognition`, add its config plugin, implement `SpeechRecognizer`, `setRecognizer(real)`; then a Maestro flow where the simulator permits. UI is done.
 3. **Workout detail** (interactive muscle map) + **water detail** — timeline workout/water cards don't navigate yet; `Donut` primitive now exists to reuse.
 4. Offline pending-interpretation for capture (unparsed outbox op) once a real API URL exists; NetInfo reconnect drain trigger.
 5. Maestro E2E smoke (deferred this session — RNTL covers flows; add when tester builds exist).

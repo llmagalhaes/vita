@@ -154,7 +154,18 @@
     "addedToast": "Added to your log",
     "photoNotYet": "Photo capture isn't in this build yet.",
     "parseError": "Vita couldn't be reached. Your words are kept — try again.",
-    "log": "Log"
+    "log": "Log",
+    "voice": {
+      "a11yHint": "Tap to type. Press and hold to speak.",
+      "listening": "Listening…",
+      "transcribing": "Just a moment…",
+      "slideToCancel": "Slide up to cancel",
+      "releaseToCancel": "Release to cancel",
+      "typeInstead": "Type instead",
+      "denied": "Vita needs the microphone to hear you. Turn it on in Settings, or type instead. Audio never leaves your device.",
+      "unavailable": "Voice input isn't available on this device yet. You can type instead.",
+      "error": "Vita didn't catch that. Try again, or type instead."
+    }
   },
   "pill": {
     "today": "Today",

@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Text, colors, fonts, motion } from "../ui";
 import { useCapture } from "./CaptureContext";
+import { useVoiceCapture } from "./useVoiceCapture";
+import { VoiceOverlay } from "./VoiceOverlay";
+
+// A press shorter than this is a tap (toggle the text field); longer starts voice.
+const HOLD_MS = 240;
 
 const FIELD_W = 208; // input + camera button
 const NAV_W = 198; // 3 × 66 shortcuts
@@ -106,11 +112,48 @@ export function CapturePill() {
     setExpanded(false);
   };
 
+  // Hold-to-talk: press-and-hold the mic → voice; a quick tap toggles the field.
+  const voice = useVoiceCapture((transcript) => capture.submit(transcript));
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const held = useRef(false);
+
+  const micGesture = Gesture.Pan()
+    .runOnJS(true)
+    .minDistance(0)
+    .maxPointers(1)
+    .onBegin(() => {
+      held.current = false;
+      holdTimer.current = setTimeout(() => {
+        held.current = true;
+        void voice.holdStart();
+      }, HOLD_MS);
+    })
+    .onUpdate((e) => {
+      if (held.current) voice.holdMove(e.translationY);
+    })
+    .onFinalize(() => {
+      if (holdTimer.current) clearTimeout(holdTimer.current);
+      holdTimer.current = null;
+      if (held.current) voice.holdEnd();
+      else setExpanded((e) => !e); // quick tap
+    });
+
   return (
-    <View
-      pointerEvents="box-none"
-      style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", paddingBottom: 22 }}
-    >
+    <>
+      <VoiceOverlay
+        status={voice.status}
+        transcript={voice.transcript}
+        willCancel={voice.willCancel}
+        onTypeInstead={() => {
+          voice.dismiss();
+          setExpanded(true);
+        }}
+        onDismiss={voice.dismiss}
+      />
+      <View
+        pointerEvents="box-none"
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", paddingBottom: 22 }}
+      >
       <View
         style={{
           flexDirection: "row",
@@ -127,29 +170,32 @@ export function CapturePill() {
           elevation: 8,
         }}
       >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("capture.log")}
-          onPress={() => setExpanded((e) => !e)}
-          style={{
-            width: 66,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: expanded ? colors.estimateBg : "transparent",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: 3,
-          }}
-        >
-          <Svg width={16} height={18} viewBox="0 0 16 18">
-            <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={colors.accent} />
-            <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={colors.accent} strokeWidth={1.6} strokeLinecap="round" />
-            <Path d="M8 14 v2.5" stroke={colors.accent} strokeWidth={1.6} strokeLinecap="round" />
-          </Svg>
-          <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={colors.accent}>
-            {t("capture.log")}
-          </Text>
-        </Pressable>
+        <GestureDetector gesture={micGesture}>
+          <View
+            accessibilityRole="button"
+            accessibilityLabel={t("capture.log")}
+            accessibilityHint={t("capture.voice.a11yHint")}
+            onAccessibilityTap={() => setExpanded((e) => !e)}
+            style={{
+              width: 66,
+              height: 56,
+              borderRadius: 28,
+              backgroundColor: expanded || voice.status !== "idle" ? colors.estimateBg : "transparent",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 3,
+            }}
+          >
+            <Svg width={16} height={18} viewBox="0 0 16 18">
+              <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={colors.accent} />
+              <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={colors.accent} strokeWidth={1.6} strokeLinecap="round" />
+              <Path d="M8 14 v2.5" stroke={colors.accent} strokeWidth={1.6} strokeLinecap="round" />
+            </Svg>
+            <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={colors.accent}>
+              {t("capture.log")}
+            </Text>
+          </View>
+        </GestureDetector>
 
         <Animated.View style={[{ flexDirection: "row", alignItems: "center", overflow: "hidden" }, fieldStyle]}>
           <TextInput
@@ -195,6 +241,7 @@ export function CapturePill() {
           <NavButton label={t("pill.habits")} icon="habits" active={pathname === "/habits"} onPress={() => router.replace("/habits")} />
         </Animated.View>
       </View>
-    </View>
+      </View>
+    </>
   );
 }
