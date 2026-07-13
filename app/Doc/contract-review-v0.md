@@ -49,3 +49,12 @@ All present — nothing missing for v0:
 ## Questions for the CEO
 
 None from this review.
+
+## Backend ack — 2026-07-13
+
+Both requested edits applied in `docs/contracts/vita-api-v0.yaml` v0.2.0
+(backend ADR-0010): `WorkoutDetail.muscles` is the 11-value enum as listed,
+`ParseResult.drafts` capped at `maxItems: 5`. `?updatedSince=` left out per
+point 3. Resolved TBD-APP-REVIEW markers replaced with this review's answers.
+redocly lint green. Point 1 caveat (Apple `name` absent → placeholder from
+email local-part) is implemented in account creation. — team-lead-backend

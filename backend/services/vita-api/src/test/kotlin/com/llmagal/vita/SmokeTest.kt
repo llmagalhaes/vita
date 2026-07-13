@@ -90,6 +90,7 @@ class SmokeTest {
             "users.name_enc",
             "log_entry.source_phrase_enc",
             "log_entry.detail_enc",
+            "magic_link_token.email_enc",
         )
     }
 

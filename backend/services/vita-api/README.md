@@ -38,3 +38,23 @@ Rules (ADR-0002/0003):
 | `DB_URL` | `jdbc:postgresql://localhost:5432/vita` | JDBC URL |
 | `DB_USERNAME` | `vita` | DB user |
 | `DB_PASSWORD` | `vita` | DB password |
+| `VITA_MASTER_KEY` | committed dev key | Wraps per-user DEKs (LocalKeyWrapper; prod = KMS CMK) |
+| `VITA_SERVICE_DEK` | committed dev key | Encrypts account-boundary fields (email) |
+| `VITA_HMAC_KEY` | committed dev key | Email blind index |
+| `VITA_JWT_SECRET` | committed dev key | HS256 access-token signing |
+| `VITA_MAGIC_LINK_BASE_URL` | `vita://auth` | Prefix of the magic-link URL |
+
+The committed defaults protect throwaway local data only; production overrides all of
+them from Secrets Manager / KMS (devops).
+
+## Auth in local dev
+
+There is no SES yet: the magic-link email is faked by `LogMailer`, which prints the
+link to the app log. Flow:
+
+```bash
+curl -X POST localhost:8080/v1/auth/magic-link -H 'Content-Type: application/json' \
+  -d '{"email":"you@local.dev"}'                       # 202; link appears in the bootRun log
+curl -X POST localhost:8080/v1/auth/magic-link/verify -H 'Content-Type: application/json' \
+  -d '{"token":"<token from the logged link>"}'        # -> {accessToken, refreshToken, expiresIn}
+```

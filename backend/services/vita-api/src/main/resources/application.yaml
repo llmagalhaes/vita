@@ -1,11 +1,37 @@
 spring:
   application:
     name: vita-api
+  config:
+    # Local secrets live in secrets.yaml (gitignored) next to the service; prod uses env vars.
+    import: optional:file:./secrets.yaml
   datasource:
     # Local defaults match docker-compose.yml (BE-002). Prod overrides via env vars.
     url: ${DB_URL:jdbc:postgresql://localhost:5432/vita}
     username: ${DB_USERNAME:vita}
     password: ${DB_PASSWORD:vita}
+  mvc:
+    problemdetails:
+      enabled: true # RFC 7807 for framework-raised errors (ADR-0006)
 
 server:
   port: 8080
+
+vita:
+  crypto:
+    # Local-dev keys only — they protect throwaway local data. Production
+    # injects all four from Secrets Manager / KMS via env vars (devops).
+    master-key: ${VITA_MASTER_KEY:tW72mlhgUsBNwaVxvuKf9hg8GiwbJl3ltv0eQZG8gBg=} # LocalKeyWrapper stand-in for the KMS CMK
+    service-dek: ${VITA_SERVICE_DEK:miPHUrqMdXlXeU9W6VcKk527rLA4O/JHXTGgs36mGuw=}
+    hmac-key: ${VITA_HMAC_KEY:htaXJkT4dsD7vcrZKZwzvujzoO0Ejgn5CpcHL+Y8kP4=}
+  auth:
+    jwt-secret: ${VITA_JWT_SECRET:iQ++oV3e0wPik59c+COiHteevtkkC4AF/urU8W8t6j4=}
+    access-ttl-seconds: 900
+    refresh-ttl-days: 60
+    rate-limit-per-email: 3 # magic-link requests per 15-min window
+    rate-limit-per-ip: 10
+    # v1 links open the app scheme directly; becomes an https redirect once a domain exists.
+    magic-link-base-url: ${VITA_MAGIC_LINK_BASE_URL:vita://auth}
+
+keys:
+  # Never put the real key here — this file is committed. Local: secrets.yaml; prod: env var.
+  anthropic: ${ANTHROPIC_API_KEY:}

@@ -1,12 +1,13 @@
 openapi: 3.1.0
 info:
   title: Vita API
-  version: 0.1.0
+  version: 0.2.0
   description: |
-    Contract v0 — auth, user profile, log entries, AI parse. Drafted by backend,
-    awaiting app-team review (Phase 1). Open points are marked "TBD-APP-REVIEW" in
-    field descriptions. Governed by ADR-0006 (contract-first REST, RFC 7807,
-    cursor pagination) and ADR-0005 (AI drafts are never persisted server-side).
+    Contract v0 — auth, user profile, log entries, AI parse. App-team review
+    complete 2026-07-13 (`app/Doc/contract-review-v0.md`): approved, with two
+    edits applied in 0.2.0 (muscles enum, drafts maxItems — backend ADR-0010).
+    Governed by ADR-0006 (contract-first REST, RFC 7807, cursor pagination)
+    and ADR-0005 (AI drafts are never persisted server-side).
 
     Conventions:
     - Base path /v1, JSON, camelCase.
@@ -118,9 +119,11 @@ paths:
                   type: string
                   maxLength: 100
                   description: >-
-                    TBD-APP-REVIEW: Apple only exposes the user's name to the app on
-                    first authorization and it is absent from the id token — the app
-                    passes it here on first sign-in. Confirm the app can do this.
+                    Apple only exposes the user's name to the app on first
+                    authorization and it is absent from the id token — the app
+                    passes it here on first sign-in. Can be absent even then;
+                    the backend derives a placeholder from the email local-part
+                    and the user sets their name in onboarding (PATCH /me).
       responses:
         "200":
           description: Session created (account created on first sign-in).
@@ -292,16 +295,10 @@ paths:
       description: |
         Flat list ordered by occurredAt descending, cursor-paginated. Pass
         `date` for a single day (the Today screen); omit it and follow
-        `nextCursor` for infinite scroll into the past.
-
-        TBD-APP-REVIEW: response is a flat list — the app groups by day
-        client-side. Confirm this beats server-side day buckets for the
-        timeline UI.
-
-        TBD-APP-REVIEW: offline delta sync — entries carry `updatedAt`; if the
-        app wants a changes-since endpoint (including tombstones for deletes)
-        rather than re-fetching by day, say so now and v0 grows
-        `?updatedSince=`.
+        `nextCursor` for infinite scroll into the past. The app groups by day
+        client-side (app review pt 2). No `?updatedSince=` delta sync in v0 —
+        the app refreshes by day and infers deletes from omissions (app
+        review pt 3; revisit with tombstones only if multi-device happens).
       parameters:
         - name: date
           in: query
@@ -459,10 +456,9 @@ paths:
         discarded, never stored. A plate photo yields a meal draft; a
         whiteboard photo yields a workout draft.
 
-        TBD-APP-REVIEW: multipart chosen over base64 JSON (~33% smaller
-        upload). Confirm multipart is comfortable in the app's HTTP stack,
-        and agree a client-side downscale target (e.g. longest edge 1568px,
-        JPEG) before upload.
+        Multipart confirmed by app review (pt 4). The app downscales
+        client-side to longest edge 1568 px, JPEG quality 0.8, before upload;
+        the 5 MB limit is a server-side backstop only.
       requestBody:
         required: true
         content:
@@ -721,9 +717,8 @@ components:
           type: string
           maxLength: 50
           description: >-
-            TBD-APP-REVIEW: free-form name (e.g. "Vitamin C", "Iron") rather
-            than a fixed enum — confirm the app renders whatever comes, or ask
-            for a closed list to map to icons.
+            Free-form name (e.g. "Vitamin C", "Iron") — the app renders it
+            verbatim (app review pt 7).
         amount:
           type: number
           minimum: 0
@@ -782,12 +777,23 @@ components:
           type: array
           items:
             type: string
-            maxLength: 30
+            enum:
+              - chest
+              - back
+              - shoulders
+              - biceps
+              - triceps
+              - forearms
+              - core
+              - glutes
+              - quads
+              - hamstrings
+              - calves
           description: >-
-            TBD-APP-REVIEW: the body-map UI needs a closed vocabulary
-            (chest, back, shoulders, biceps, triceps, core, glutes, quads,
-            hamstrings, calves…). App team to confirm the exact list their
-            silhouettes support; it then becomes an enum here.
+            Closed vocabulary — exactly the 11 silhouettes the body-map UI
+            supports (app review pt 6). Backend maps model output onto this
+            list and drops anything unmappable ("lats"/"traps" → back,
+            "abs"/"obliques" → core).
         exercises:
           type: array
           items: { $ref: "#/components/schemas/Exercise" }
@@ -818,9 +824,10 @@ components:
         drafts:
           type: array
           minItems: 1
+          maxItems: 5
           items: { $ref: "#/components/schemas/NewEntry" }
           description: >-
             Usually one. A phrase like "had a sandwich and a big glass of
-            water" yields two (meal + water). TBD-APP-REVIEW: confirm the app
-            can stack multiple confirmation cards; otherwise we cap at 1 and
-            merge/discard secondaries.
+            water" yields two (meal + water). Capped at 5 so the app's
+            stacked confirmation cards stay bounded (app review pt 5); the
+            model merges or drops beyond that.

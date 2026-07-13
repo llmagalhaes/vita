@@ -1,30 +1,29 @@
 # Backend — Next session
 
-## Current state (Phase 2 first implementation session, 2026-07-13)
+## Current state (Phase 2 session 2, 2026-07-13)
 
-- **W0 code complete: BE-001, BE-002, BE-003** — all three In progress on Asana (Done requires production, blocked on BE-004/devops). Details in `Progress/BE-00{1,2,3}-Progress.md`.
-- `services/vita-api/` exists and runs: Kotlin 2.2.21, **Spring Boot 4.0.7** (no 3.5.x fallback needed), Gradle 9.6.1 wrapper, JDK 21 toolchain. Flat packages per ADR-0001: `auth/` (SecurityConfig, JwtAuthFilter stub — extracts bearer, validates nothing yet), `users/` (MeController 401 proof), `shared/` (GET /health with SELECT 1). 401 = RFC 7807 problem+json.
-- Flyway `V001__baseline.sql`: `users`, `user_keys` (wrapped DEK row = crypto-shred target), `log_entry` (C2 plaintext numbers + C3 `*_enc` bytea + idempotency pair). docker-compose (Postgres 16) + README with the local loop. SmokeTest asserts migrations applied and every `*_enc` column is bytea (ADR-0003 enforcement).
-- CI: `.github/workflows/backend-ci.yml` (`./gradlew check`) + `contract-lint.yml` (redocly). No GitHub remote yet — they activate on first push. Contract lints valid with 21 cosmetic warnings (missing operationIds); left untouched pending app review.
-- **Verified this session**: `./gradlew check` green (7/7 tests incl. Testcontainers), full local loop (compose up → bootRun → Flyway applied → /health 200 → /v1/me 401 → compose down), redocly exit 0.
+- **Code complete: BE-001/002/003 (W0) + BE-005 (crypto) + BE-006 (magic link) + BE-008 (sessions)** — all In progress on Asana (Done = production, blocked on BE-004/devops). Details in `Progress/BE-00{1,2,3,5,6,8}-Progress.md`.
+- **Contract v0.2.0**: app review (APP-001) answered and acked — muscles 11-value enum, `drafts` maxItems 5, `?updatedSince=` declined, TBD markers resolved. ADR-0010. redocly exit 0 (same 21 cosmetic operationId warnings).
+- `crypto/` package per ADR-0003: `AesGcm` (GCM, iv‖ct‖tag, AAD), `KeyWrapper` interface + `LocalKeyWrapper` (static-key fake — real KMS impl pending devops CMK), `CryptoService` (per-user DEK in `user_keys`, 15-min cache, service DEK, email blind index, `shred()`).
+- `auth/` complete for magic link + sessions: `V002__auth_tokens.sql` (`magic_link_token`, `refresh_token`), `MagicLinkService` (single-use hashed tokens, no-enumeration 202, in-memory rate limits → 429+Retry-After, find-or-create with placeholder name from local-part, deletion cancel), `TokenService` (HS256 JWT 900 s + hashed rotating refresh, family revocation on reuse), `AuthController`, `SecurityConfig` now a real Spring resource server (JwtAuthFilter stub deleted). `Mailer`/`LogMailer` fake SES — link printed to the log (see README "Auth in local dev").
+- Config: `vita.crypto.*` + `vita.auth.*` (`AuthProps`); committed dev keys, prod overrides via env from Secrets Manager/KMS. `spring.mvc.problemdetails.enabled=true`.
+- **Verified this session**: `./gradlew check` green — 23/23 tests (AesGcm 5, CryptoService 5, AuthFlow 8, Smoke 5); full local loop live (compose up → bootRun → /health 200 → magic-link 202 → verify 200 → /v1/me 401/500-stub → refresh rotate 200 → reuse 401 → sign-out 204 → compose down); redocly exit 0.
 
-### Boot 4 gotchas (save yourself an hour)
+### Boot 4 gotchas (still valid, save yourself an hour)
 
-- Canonical web starter is `spring-boot-starter-webmvc`; Flyway autoconfig now needs `spring-boot-starter-flyway`.
-- Testcontainers versions no longer BOM-managed — pinned 1.21.4 in build.gradle.kts.
-- No TestRestTemplate/WebTestClient autoconfig on this classpath — use Spring Framework 7's `RestTestClient.bindToServer()` (see SmokeTest).
-- detekt 1.23.8 needs Kotlin 2.0.21 forced on its `detekt` configuration (workaround in build.gradle.kts).
+- Canonical web starter `spring-boot-starter-webmvc`; Flyway needs `spring-boot-starter-flyway`; `spring-boot-starter-oauth2-resource-server` works as-is.
+- Testcontainers pinned 1.21.4; `RestTestClient.bindToServer()` instead of TestRestTemplate; detekt needs Kotlin 2.0.21 forced on its configuration.
+- New this session: detekt caps constructor params at 7 (use `@ConfigurationProperties` like `AuthProps`), and `./gradlew ktlintFormat` fixes style fallout cheaply.
 
 ## Next steps
 
-1. **BE-005 (crypto)** — can start: envelope encryption service (AES-256-GCM, per-user DEK, blind index). Local dev can fake KMS behind one small interface; real CMK/Secrets from devops before prod.
-2. **BE-006 (auth/profile)** after BE-005; **BE-011 (entries)** after contract sign-off.
-3. **BE-004 (first prod deploy)** — waiting on devops prod environment.
-4. Still waiting: app-team review of `docs/contracts/vita-api-v0.yaml` (TBD-APP-REVIEW markers) gates W1/W2/W3 endpoints.
+1. **BE-009 (GET/PATCH /v1/me)** — unblocked: replace the MeController stub using CryptoService (decrypt name/email); the AuthFlow test already asserts the route accepts our JWT.
+2. **BE-011 (log_entry + POST /entries)** — unblocked: contract 0.2.0 is signed off.
+3. **BE-007 (OIDC)** still waits on CEO Google/Apple accounts; **BE-010 (deletion)** can reuse `CryptoService.shred()` + needs the job table (which also owns token purges).
+4. **BE-004 (first prod deploy)** — waiting on devops prod environment.
 
 ## Blockers / waiting on
 
-- BE-004: devops prod env (ECS + RDS + Secrets Manager + pipeline). SES production access should be filed early.
-- BE-005/006 prod configs: KMS CMK `vita-app-data`, Secrets Manager (service DEK, HMAC key), SES sandbox identities — devops tickets.
+- Devops: prod env (BE-004), KMS CMK `vita-app-data` + Secrets Manager entries (real `KeyWrapper` + prod keys), SES sandbox identities (real `Mailer`).
 - BE-007: CEO Google/Apple developer accounts (deferred per Round 5).
-- GitHub remote: CI workflows are dormant until the orchestrator/CEO creates the repo remote and pushes.
+- Nothing from the app team — contract loop is closed.
