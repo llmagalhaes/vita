@@ -3,7 +3,7 @@
 ## Current state (Phase 1 — Specification, in progress)
 
 - Phase 0 approved: stack is **React Native + Expo** (CEO decision log Round 4).
-- **`Doc/foundations.md` written** — fixed decisions: bundle id `com.vita` (immutable, both stores), deep-link scheme `vita://` (auth callback `vita://auth` via https redirect), API base URL from build config only (API Gateway execute-api URL), react-i18next with `en` as the sole locale file, manual one-command release flow on the CEO's Mac, local-only notifications.
+- **`Doc/foundations.md` written** — fixed decisions: bundle id `com.llmagal.vita` (immutable, both stores), deep-link scheme `vita://` (auth callback `vita://auth` via https redirect), API base URL from build config only (API Gateway execute-api URL), react-i18next with `en` as the sole locale file, manual one-command release flow on the CEO's Mac, local-only notifications.
 - **Asana backlog populated**: APP-001 … APP-014 in "Vita frontend" Backlog (waves 0–2: foundations → identity & onboarding → capture & the log). APP-001 is the contract review of `docs/contracts/vita-api-v0.yaml` (backend is drafting it now).
 - Still pending from Phase 0: **ADR-001 (stack choice)** not yet written in `Doc/ADRs/` — write it when implementation starts (or next session).
 - No app code yet (`services/` empty by design — Phase 1 is spec only).
@@ -25,5 +25,5 @@
 
 - `app/Doc/foundations.md` — fixed technical decisions.
 - `app/Doc/kickoff-proposal.md` — architecture, waves, QA strategy, dependency list.
-- `docs/ceo-decisions.md` — Rounds 3+4 are the newest constraints (placeholder DNS, budgets, `com.vita`).
+- `docs/ceo-decisions.md` — Rounds 3+4 are the newest constraints (placeholder DNS, budgets, `com.llmagal.vita`).
 - Asana board "Vita frontend" project GID `1216519867368576`, Backlog section GID `1216523313289549`.

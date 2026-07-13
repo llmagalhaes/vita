@@ -60,7 +60,7 @@ Your **existing AWS account becomes the management account** (org root, billing,
 ## 4. Apple Developer Program — $99/yr
 
 1. developer.apple.com → enroll as an **Individual** with your Apple ID (2FA required). Identity verification typically takes **~2 days**.
-2. Once approved, **reserve the bundle ID**: Certificates, Identifiers & Profiles → Identifiers → new App ID. **Decided (Round 4 decision #1): `com.vita`** — permanent once published.
+2. Once approved, **reserve the bundle ID**: Certificates, Identifiers & Profiles → Identifiers → new App ID. **Decided (Round 4 decision #1): `com.llmagal.vita`** — permanent once published.
 3. You build/submit from your Mac (your decision), so no CI certificates are needed — Xcode's automatic signing with your account is enough.
 
 **Hand back**: the chosen bundle ID → app team.
@@ -69,7 +69,7 @@ Your **existing AWS account becomes the management account** (org root, billing,
 
 1. play.google.com/console → sign up as **personal developer account**; $25 fee; **identity verification can take up to a week**.
 2. Note: personal accounts created now must run a **closed test with ~12 testers for 14 days** before production release — with ~5 users, plan to recruit a few extra testers, or factor it into Android launch timing.
-3. Package name: same as iOS — **`com.vita`** (Round 4 decision #1). **Immutable after first upload.**
+3. Package name: same as iOS — **`com.llmagal.vita`** (Round 4 decision #1). **Immutable after first upload.**
 
 **Hand back**: the chosen package name → app team.
 

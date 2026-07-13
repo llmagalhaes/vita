@@ -2,6 +2,14 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-13 — Round 5 (implementation go)
+
+1. **AWS**: CEO created a **brand-new dedicated AWS account** (free tier applies — year-1 ~$16/mo estimate restored) and configured the AWS CLI locally with an access key. Implementation of infra is authorized to start.
+2. **Bundle ID / package name: `com.llmagal.vita`** (supersedes Round 4's `com.vita`). "Vita" is an internal codename — the public app name is NOT final; keep store-facing naming open where possible (display name stays easily changeable until release), keep "vita" internally.
+3. **Apple Developer / Google Play accounts: deferred** — CEO will create them later. APP-007 (tester builds) and BE-007 (Google/Apple sign-in) stay blocked on this.
+4. **UX answers**: capture bar = **v2 pill only**; **light mode only** in v1; **phone-only, iOS 16+ / Android 10+**; cycle chip ships in v1 sourced **only from Apple Health / Health Connect** (Flo stays v2).
+5. **Go**: start everything that isn't blocked (BE-001–003, APP-001–006, OPS bootstrap).
+
 ## 2026-07-13 — Round 4 (Phase 1 go)
 
 1. **Bundle ID / package name: `com.vita`** (iOS and Android). Immutable once published. (Orchestrator note: valid two-segment identifier; convention implies owning vita.com, which we don't — accepted by the CEO.)
