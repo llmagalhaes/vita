@@ -2,6 +2,12 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-13 — Round 4 (Phase 1 go)
+
+1. **Bundle ID / package name: `com.vita`** (iOS and Android). Immutable once published. (Orchestrator note: valid two-segment identifier; convention implies owning vita.com, which we don't — accepted by the CEO.)
+2. **Phase 1 approved**: teams write specs/contracts and populate the Asana backlogs.
+3. **AWS account already exists** (CEO's). DevOps adapts the bootstrap: existing account becomes the management account (enable Organizations, create the prod account from it) — or justifies single-account if simpler. CEO will provide a local AWS CLI profile; credentials are configured by the CEO on his machine, never shared in chat.
+
 ## 2026-07-13 — Round 3 (data & cost review)
 
 1. **Domain purchase deferred.** Run on placeholder DNS for now: API Gateway default URL for the API; SES sandbox with the ~5 testers' emails as verified identities; magic-link emails point at an https redirect that opens the app (custom scheme). Bundle ID / package name must NOT depend on the future domain.
