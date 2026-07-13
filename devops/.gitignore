@@ -1,0 +1,21 @@
+# Terraform working dirs & state — never commit
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+
+# Variable files may hold secrets; keep only examples
+*.tfvars
+!*.tfvars.example
+
+# Local overrides
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Keep the provider lock file committed (pins versions):
+# .terraform.lock.hcl is intentionally NOT ignored.
