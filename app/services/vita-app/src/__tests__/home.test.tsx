@@ -5,7 +5,7 @@ import { addLocalEntry } from "../db/entries";
 import { resetDbForTests } from "../db/db";
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ replace: jest.fn() }),
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
   usePathname: () => "/home",
 }));
 

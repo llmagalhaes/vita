@@ -131,6 +131,21 @@
     "byPhoto": "Logged by photo",
     "byTap": "Quick add"
   },
+  "mealDetail": {
+    "eyebrow": "Meal",
+    "back": "Back",
+    "today": "Today",
+    "inThisMeal": "In this meal",
+    "howBuilt": "how the estimate was built",
+    "micronutrients": "Micronutrients",
+    "percentDaily": "% of daily reference",
+    "footer": "Estimated by Vita from your description.",
+    "byVoice": "logged by voice",
+    "byText": "logged by text",
+    "byPhoto": "logged by photo",
+    "byTap": "quick add",
+    "notFound": "This entry isn't available."
+  },
   "capture": {
     "placeholder": "Tell Vita what you had…",
     "makingSense": "Making sense of it…",

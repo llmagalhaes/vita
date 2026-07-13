@@ -50,8 +50,32 @@ export function seedDemoDataOnce(): void {
       detail: {
         title: "Yogurt & granola",
         items: [
-          { name: "Yogurt", quantity: 170, unit: "g", kcal: 100, proteinG: 10, carbsG: 8, fatG: 2.5 },
-          { name: "Granola", quantity: 30, unit: "g", kcal: 140, proteinG: 4.8, carbsG: 25, fatG: 4.2 },
+          {
+            name: "Yogurt",
+            quantity: 170,
+            unit: "g",
+            kcal: 100,
+            proteinG: 10,
+            carbsG: 8,
+            fatG: 2.5,
+            micros: [
+              { name: "Calcium", amount: 210, unit: "mg", percentDaily: 16 },
+              { name: "Vitamin B12", amount: 1.1, unit: "µg", percentDaily: 46 },
+            ],
+          },
+          {
+            name: "Granola",
+            quantity: 30,
+            unit: "g",
+            kcal: 140,
+            proteinG: 4.8,
+            carbsG: 25,
+            fatG: 4.2,
+            micros: [
+              { name: "Fiber", amount: 4.1, unit: "g", percentDaily: 15 },
+              { name: "Iron", amount: 3.1, unit: "mg", percentDaily: 17 },
+            ],
+          },
         ],
         totals: { kcal: 240, proteinG: 14.8, carbsG: 33, fatG: 6.7 },
       },

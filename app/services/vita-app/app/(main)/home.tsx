@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { api, type MealDetail, type WaterDetail, type WorkoutDetail } from "../../src/api";
 import { addLocalEntry, entriesForDay, type LocalEntry } from "../../src/db/entries";
@@ -47,6 +48,7 @@ function inputMethodLabel(e: LocalEntry, t: (k: string) => string): string {
 
 function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const kind = entry.type;
   const pal = entryPalette[kind];
   const { title, meta } = (() => {
@@ -68,8 +70,16 @@ function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
     };
   })();
 
+  // Meal cards open the detail screen; other kinds have their own tickets.
+  const openable = kind === "meal";
+
   return (
     <Animated.View entering={FadeIn.duration(500).delay(index * 70)}>
+      <Pressable
+        accessibilityRole={openable ? "button" : undefined}
+        disabled={!openable}
+        onPress={openable ? () => router.push(`/meal/${entry.id}`) : undefined}
+      >
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <View
           style={{
@@ -101,6 +111,7 @@ function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
         </View>
         <WaveIllustration kind={kind} />
       </Card>
+      </Pressable>
     </Animated.View>
   );
 }

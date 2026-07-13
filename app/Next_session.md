@@ -1,6 +1,10 @@
 # App Team — Next Session
 
-## Current state (Phase 2 — session 3 done 2026-07-13: SDK 56 pin so store Expo Go opens M1 ✅)
+## Current state (Phase 2 — session 3b done 2026-07-13: APP-014 meal detail ✅)
+
+- **APP-014 meal detail built** (In progress on Asana; DoD = tester build). New route `app/(main)/meal/[id].tsx`, read-only over SQLite/`getEntry`, faithful to the prototype: hero + estimate tag, source-phrase quote, item breakdown, **macro donut** (new `src/ui/Donut.tsx` primitive), micronutrients vs FDA daily reference (aggregated by name across items), footer. Timeline **meal** cards now `router.push('/meal/<id>')`; water/workout cards don't navigate (their detail screens are later tickets). Seed meal gained `micros` so the screen is full in Expo Go. i18n `mealDetail.*`. Exported `MealItem`/`Micro` from `src/api/client.ts`. `tsc` clean · **Jest 25/25 (7 suites)** · `expo export` iOS OK · SDK-56 guard green. See `Progress/APP-014-meal-detail-Progress.md`.
+
+## Prior state (session 3 — SDK 56 pin so store Expo Go opens M1)
 
 - **SDK pinned to 56** (was 57). Public-store Expo Go tracks the latest **stable** shipped SDK = **56**; SDK 57 is not yet in the stores (awaiting Apple approval, runs only via eas go/TestFlight/simulator/CLI). CEO's store Expo Go (on 56) now opens the app. SDK 54 was too old for his device. See `Doc/ADRs/ADR-0002-expo-sdk-56-store-expo-go.md` + `Progress/APP-SDK56-expo-go-fix-Progress.md`.
 - **Version alignment, not a rewrite**: SDK 56 bundles Reanimated **4.3.1** + worklets 0.8.3, so the capture pill and SQLite survive untouched. Changes: dep versions pinned to SDK 56 bundle; kept the worklets Jest resolver; re-added `@react-native/jest-preset ^0.85.3` (SDK 56's jest-expo needs it as a peer). No app source touched.
@@ -22,7 +26,7 @@
 
 1. **APP-008 auth screens + magic link** (vita://auth deep link, expo-secure-store, serialized refresh) — client auth endpoints still to add in `src/api`.
 2. **APP-012 voice capture** (hold-to-talk on the pill; pill already reserves the gesture).
-3. **APP-014 meal detail** (Donut primitive; timeline meal cards currently don't navigate).
+3. **Workout detail** (interactive muscle map) + **water detail** — timeline workout/water cards don't navigate yet; `Donut` primitive now exists to reuse.
 4. Offline pending-interpretation for capture (unparsed outbox op) once a real API URL exists; NetInfo reconnect drain trigger.
 5. Maestro E2E smoke (deferred this session — RNTL covers flows; add when tester builds exist).
 6. Fidelity pass vs prototype (wave draw-on animation, check-ins banner with habits wave).
