@@ -13,6 +13,28 @@
     "tryAgain": "Try again",
     "cancel": "Cancel"
   },
+  "auth": {
+    "tagline": "A quiet log of meals, water & movement.",
+    "google": "Continue with Google",
+    "apple": "Continue with Apple",
+    "orEmail": "or get a link by email",
+    "emailPlaceholder": "you@email.com",
+    "sendLink": "Send link",
+    "noPasswords": "No passwords — ever. The link signs you in.",
+    "consentTitle": "Continue with {{provider}}",
+    "consentBody": "Vita receives your name and email — nothing else. No posting, no contacts.",
+    "accept": "Accept & continue",
+    "sentTitle": "Check your inbox",
+    "sentBody": "We sent a sign-in link to",
+    "openDemo": "Open the link · demo",
+    "useAnother": "Use another address",
+    "signingIn": "Signing you in…",
+    "invalidLink": "That sign-in link didn't work — it may have expired or already been used. Ask for a fresh one below.",
+    "sendError": "Vita couldn't send the link just now. Try again in a moment.",
+    "oidcUnavailable": "Google and Apple sign-in need the full app. Use an email link for now.",
+    "google_provider": "Google",
+    "apple_provider": "Apple"
+  },
   "onboarding": {
     "stepLabel": "Step {{current}} of {{total}}",
     "welcome": {

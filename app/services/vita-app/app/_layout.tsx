@@ -12,6 +12,8 @@ import { StatusBar } from "expo-status-bar";
 import { useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { api, isMockApi } from "../src/api";
+import { load as loadSession } from "../src/auth/session";
+import { useAuthReady } from "../src/auth/useAuth";
 import { getDb } from "../src/db/db";
 import { drainOutbox } from "../src/db/outbox";
 import { seedDemoDataOnce } from "../src/db/seed";
@@ -28,14 +30,17 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
   });
 
-  // Open/migrate the db once, seed the mock-mode demo log, drain leftovers.
+  // Open/migrate the db once, seed the mock-mode demo log, drain leftovers,
+  // and read the stored session from secure-store before gating navigation.
   useState(() => {
     getDb();
     if (isMockApi) seedDemoDataOnce();
     void drainOutbox(api).catch(() => {});
+    void loadSession();
   });
 
-  if (!fontsLoaded) return null;
+  const authReady = useAuthReady();
+  if (!fontsLoaded || !authReady) return null;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

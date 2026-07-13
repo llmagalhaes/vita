@@ -8,7 +8,7 @@
  * Every numeric value is an estimate and flagged isEstimate: true.
  */
 import { uuid } from "../lib/uuid";
-import type { Api, LogEntry, NewEntry, ParseResult, User } from "./client";
+import { ApiError, type Api, type LogEntry, type NewEntry, type ParseResult, type TokenPair, type User } from "./client";
 
 const LATENCY_MS = 700; // long enough to see "Making sense of it…"
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -181,7 +181,37 @@ export function createMockApi(): Api {
   };
   const byIdempotencyKey = new Map<string, LogEntry>();
 
+  // Deterministic fake session. Tokens "expired"/"invalid" model the 401 paths so
+  // the sign-in error copy and refresh-family-revoked branch are demoable offline.
+  const issue = (): TokenPair => ({
+    accessToken: `mock-access.${uuid()}`,
+    refreshToken: `mock-refresh.${uuid()}`,
+    expiresIn: 900,
+  });
+  const authError = () =>
+    new ApiError(401, { type: "about:blank", title: "Unauthorized", status: 401 });
+
   return {
+    async requestMagicLink() {
+      await delay(300);
+    },
+    async verifyMagicLink(token) {
+      await delay(300);
+      if (token === "expired" || token === "invalid") throw authError();
+      return issue();
+    },
+    async oidc() {
+      await delay(300);
+      return issue();
+    },
+    async refresh(refreshToken) {
+      await delay(150);
+      if (!refreshToken.startsWith("mock-refresh.")) throw authError();
+      return issue();
+    },
+    async signOut() {
+      await delay(100);
+    },
     async parseText({ text, capturedAt }) {
       await delay(LATENCY_MS);
       return mockParse(text, capturedAt);

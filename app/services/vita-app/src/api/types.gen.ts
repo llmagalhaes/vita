@@ -757,6 +757,203 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/parse/eating-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse an eating plan (text or PDF) into a draft for confirmation
+         * @description Onboarding step 3 ("eating plan"). Stateless like /parse/text: the
+         *     model reads the described plan or the uploaded nutritionist PDF and
+         *     returns a structured draft plus a human-readable summary the user
+         *     confirms before anything is saved (ADR-0005 — nothing is persisted
+         *     server-side on this call; the uploaded PDF is read and discarded). All
+         *     nutrition values are estimates. Single synchronous Claude call (native
+         *     PDF input, no OCR of our own) — supersedes the async import-job sketch;
+         *     on timeout/failure the app falls back to manual entry. On Confirm the
+         *     app POSTs the draft to the plan-create endpoint (a later ticket).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PlanImportRequest"];
+                };
+            };
+            responses: {
+                /** @description Draft eating plan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EatingPlanDraft"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description The input could not be interpreted as an eating plan, or the `fileRef` is unknown/expired. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parse/training-program": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Parse a training program (text or PDF) into a draft for confirmation
+         * @description Onboarding step 4 ("training program"). Stateless like
+         *     /parse/eating-plan — structured draft plus human-readable summary,
+         *     confirmed before anything is saved (ADR-0005). Durations and loads are
+         *     estimates or as-stated. On Confirm the app POSTs the draft to the
+         *     program-create endpoint (a later ticket).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PlanImportRequest"];
+                };
+            };
+            responses: {
+                /** @description Draft training program. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrainingProgramDraft"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description The input could not be interpreted as a training program, or the `fileRef` is unknown/expired. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a presigned URL to upload a document
+         * @description Two-phase upload for payloads that must not pass through the JSON body:
+         *     API Gateway caps requests at 10 MB (OPS-011), and the parse pattern
+         *     does not proxy file bytes. The app requests a short-lived presigned PUT
+         *     URL, uploads the file straight to S3, then references the returned
+         *     opaque `fileRef` on a parse call (e.g. /parse/eating-plan). The backend
+         *     reads the object server-side for that one call and never persists it
+         *     beyond the parse (ADR-0005); the bucket expires objects automatically.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description What the upload feeds. v0 only supports plan/program import.
+                         * @enum {string}
+                         */
+                        purpose: "plan_document";
+                        /**
+                         * @description MIME type of the file; the PUT must send the same Content-Type.
+                         * @enum {string}
+                         */
+                        contentType: "application/pdf";
+                    };
+                };
+            };
+            responses: {
+                /** @description Presigned upload target. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Opaque handle to pass to a parse endpoint after the PUT succeeds. */
+                            fileRef: string;
+                            /**
+                             * Format: uri
+                             * @description Presigned S3 PUT URL (single use). Upload the bytes with the same Content-Type.
+                             */
+                            uploadUrl: string;
+                            /**
+                             * Format: date-time
+                             * @description After this the URL and fileRef are void.
+                             */
+                            expiresAt: string;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -901,6 +1098,49 @@ export interface components {
         ParseResult: {
             /** @description Usually one. A phrase like "had a sandwich and a big glass of water" yields two (meal + water). Capped at 5 so the app's stacked confirmation cards stay bounded (app review pt 5); the model merges or drops beyond that. */
             drafts: components["schemas"]["NewEntry"][];
+        };
+        /** @description Provide the plan either as free text (described/pasted) or as a reference to a PDF uploaded via POST /uploads. Exactly one of `text` or `fileRef`. */
+        PlanImportRequest: {
+            /** @description The plan or program described or pasted as text. */
+            text?: string;
+            /** @description `fileRef` from POST /uploads, pointing at an uploaded nutritionist/coach PDF. */
+            fileRef?: string;
+        } & (unknown | unknown);
+        /** @description Never persisted server-side — response only (ADR-0005). Shaped so the confirmed draft is POSTed as-is to the plan-create endpoint (later ticket). All nutrition is estimate. */
+        EatingPlanDraft: {
+            /** @description Human-readable read-back shown for confirmation ("AI reads back a plan summary"). */
+            summary: string;
+            dailyTotals?: components["schemas"]["MacroTotals"];
+            /** @description Daily micronutrient chips (estimates) for the Eating Plan screen. */
+            micros?: components["schemas"]["Micro"][];
+            meals: components["schemas"]["PlanMeal"][];
+        };
+        PlanMeal: {
+            /** @description Meal slot label, e.g. "Breakfast", "Lunch", "Snack", "Dinner". */
+            name: string;
+            /** @description Local time-of-day (HH:MM) the plan suggests, when it states one. */
+            time?: string;
+            items: components["schemas"]["PlanItem"][];
+        };
+        PlanItem: {
+            name: string;
+            quantity?: number;
+            /** @description Free-form ("g", "ml", "slice"). Display verbatim. */
+            unit?: string;
+            nutritionPerUnit?: components["schemas"]["MacroTotals"];
+        };
+        /** @description Never persisted server-side — response only (ADR-0005). */
+        TrainingProgramDraft: {
+            /** @description Human-readable read-back shown for confirmation. */
+            summary: string;
+            /** @description The overall split in a phrase, e.g. "Push / Pull / Legs, 5 days". */
+            splitDescription?: string;
+            days: components["schemas"]["ProgramDay"][];
+        };
+        ProgramDay: {
+            /** @description Day label, e.g. "Day 1 - Push", "Upper A". */
+            name: string;
+            exercises: components["schemas"]["Exercise"][];
         };
     };
     responses: {
