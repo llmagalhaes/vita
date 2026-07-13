@@ -1,6 +1,6 @@
 # ADR-0002 — eu-west-1, region-agnostic Terraform
 
-**Status**: Accepted 2026-07-13
+**Status**: Accepted 2026-07-13 · Reviewed 2026-07-13 against eu-north-1 (the CEO's CLI default): pricing API shows Fargate ARM ~10% **cheaper in eu-west-1** ($0.03238 vs $0.0356/vCPU-h, $0.00356 vs $0.00392/GB-h) while RDS db.t4g.micro is $0.001/h cheaper in eu-north-1 — net ≈ $0.10/mo in Ireland's favor on our bill. Decision stands; Terraform pins eu-west-1 regardless of the CLI default.
 
 ## Context
 

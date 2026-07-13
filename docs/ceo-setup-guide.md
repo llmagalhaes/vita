@@ -15,7 +15,7 @@
 
 | # | What | Cost | Your time | Wait time | Blocks |
 |---|---|---|---|---|---|
-| 1 | AWS org (2 accounts) + MFA + $40 budget | $0 | ~45 min | none | all infra |
+| 1 | AWS account security (IAM admin, **delete root key**, MFA) | $0 | ~20 min | none | all infra |
 | 2 | GitHub repo + push + apply gate | $0 | ~30 min | none | all CI/CD |
 | 3 | Anthropic API key ($10 limit, zero-retention) | usage-based | ~10 min | none | product AI |
 | 4 | Apple Developer Program | $99/yr | ~30 min | **~2 days verification** | iOS TestFlight |
@@ -23,21 +23,24 @@
 
 ---
 
-## 1. AWS — organization from your existing account, MFA, budget, CLI profile
+## 1. AWS — account security baseline (root key deletion, IAM admin, MFA)
 
-Your **existing AWS account becomes the management account** (org root, billing, budgets, cross-account backup copy — per Round 4 decision #3 and ADR-0003). Nothing gets recreated.
+You already created the **dedicated Vita account** (201261380352) — good, that's the whole account structure for now: **single account, no Organization** (ADR-0010 superseded the 2-account plan; the backup-isolation account comes later, before the first real user's data).
 
-1. **Root MFA check**: sign in as root → IAM → verify MFA is enabled on the root user; add it now if not, plus a second device as backup.
-2. Enable **AWS Organizations**: console → Organizations → "Create an organization" (skip if already enabled).
-3. Create the **prod account**: Organizations → "Add an AWS account" → "Create": name `vita-prod`, email `lucasmagalhaes2007+vita-prod@gmail.com`. Set its root password once via the "Forgot password" flow with that alias, then enable root MFA on it too.
-4. **Free-tier reality check**: AWS free tier is assessed org-wide, keyed to the oldest account. If your existing account is older than 12 months, `vita-prod` gets **no** 12-month free tier — year 1 costs the year-2 figure (~$37/mo instead of ~$16/mo), still under the $40 alarm. Tell the orchestrator your account's age so the estimate is honest.
-5. **Local CLI profile** (what devops uses, through you, for the one-time Terraform bootstrap):
-   - **Preferred**: enable **IAM Identity Center** (home region **eu-west-1**), create user `lucas`, permission set `AdministratorAccess` (predefined), assign it on **both** accounts. On your Mac: `aws configure sso`, profile name e.g. `vita-bootstrap`.
-   - **If you'd rather not enable Identity Center yet**: create an admin IAM role in the management account and configure a profile with `aws configure`. Treat any long-lived keys as temporary — delete them right after bootstrap.
-   - Either way: **credentials never leave your machine — never in chat, never in git.** After bootstrap, CI uses GitHub OIDC roles and no stored keys exist anywhere.
-6. **Budget**: Billing → Budgets → monthly cost budget **$40**, email alerts at 50% / 80% / 100%. If this account carries any non-Vita usage, add a second budget filtered to the `vita-prod` linked account so Vita's alarm isn't polluted by it.
+**Urgent security fix first**: your CLI is currently configured with a **root access key** — the one credential AWS says never to create. It can't be scoped, can't be audited per-action, and if leaked gives up the whole account. Fix (~20 min):
 
-**Hand back** (only this, to the orchestrator): the CLI **profile name**, both 12-digit **account IDs**, and **region confirmation (eu-west-1)** — plus root-MFA confirmation. Goes to `bootstrap-ids.md`. Never credentials.
+1. Sign in to the **console as root**.
+2. Create your admin identity — either (preferred) enable **IAM Identity Center** (region eu-west-1), user `lucas`, predefined `AdministratorAccess` permission set, then on your Mac `aws configure sso` (profile name `vita`); or (simpler) IAM → Users → create `lucas-admin` → attach `AdministratorAccess` → enable MFA → one access key → `aws configure --profile vita`.
+3. Verify: `aws sts get-caller-identity --profile vita` must NOT show `:root` in the ARN.
+4. **Delete the root access key**: account menu → Security credentials → Access keys → deactivate → delete. Remove the old entry from `~/.aws/credentials` too.
+5. Enable **MFA on root** (same page) if not already on — plus a second device as backup.
+6. **Region note**: your CLI default is `eu-north-1`; Terraform pins `eu-west-1` itself (we price-checked — Ireland is net cheaper for our stack), so nothing breaks, but `aws configure set region eu-west-1 --profile vita` keeps ad-hoc CLI calls consistent.
+
+The **$40 budget is now Terraform** (bootstrap stack), not a console step — it's created in runbook step 1. Same for state bucket and security baseline: follow `devops/Doc/apply-runbook.md` when devops hands you the apply request.
+
+**Free-tier note (honesty check)**: accounts created after July 2025 get the **credit-based** free tier ($100 sign-up + up to $100 earnable) instead of the legacy 12-month offers our ~$16/mo year-1 figure assumed. Realistic picture: ~$37/mo run rate offset by credits for the first months — still under the $40 alarm either way. Check Billing → Credits to see your balance.
+
+**Hand back** (only this, to the orchestrator): the CLI **profile name**, the **account ID**, region confirmation, and confirmation that **the root key is deleted and root MFA is on**. Never credentials.
 
 ## 2. GitHub — repo, push, apply gate (Free plan)
 
