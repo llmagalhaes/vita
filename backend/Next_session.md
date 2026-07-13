@@ -1,5 +1,14 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 5, 2026-07-13)
+
+- **BE-010 (account deletion + first job-queue use) done locally** — In progress on Asana (Done = production, blocked on BE-004). New `account/` package (controller→service→repository) + `jobs/` (ADR-0007 queue). Details in `Progress/BE-010-account-deletion-Progress.md`.
+  - `DELETE /v1/account` → 202 `{deletionEffectiveAt}` (now+7d); idempotent (repeat doesn't move the date or re-enqueue); revokes all refresh tokens.
+  - Sign-in cancels deletion: magic-link verify (pre-existing) **+ new** `TokenService.rotate` hook (`deletion_requested_at = NULL`).
+  - Job queue: `V003__jobs.sql` (generic `job` table, `FOR UPDATE SKIP LOCKED`), `JobWorker` (`@EnableScheduling`, one-job-per-tx, failure recorded in a fresh tx, 5-attempt cap, 1-min backoff), poll interval `vita.jobs.poll-ms` (default 60s).
+  - Deletion job guarded by `deletionDue` (pending AND `<= now()-7d`) → shred DEK first, then `DELETE FROM users` (cascade). Guard, not schedule, decides → cancel/re-request safe; retry-idempotent.
+  - Suite **62/62**; redocly exit 0 (contract unchanged — `DELETE /account` already in v0.3.0).
+
 ## Current state (Phase 2 session 4, 2026-07-13)
 
 - **Code complete: BE-001/002/003 (W0) + BE-005 (crypto) + BE-006 (magic link) + BE-008 (sessions) + BE-011 (POST /entries) + BE-009 (/me) + BE-012 (timeline + entry get/update/delete)** — all In progress on Asana (Done = production, blocked on BE-004/devops). Details in `Progress/BE-00{1,2,3,5,6,8,9}` + `BE-011` + `BE-012`.
@@ -25,7 +34,7 @@
 
 1. **BE-013 (Claude client + POST /parse/text)** — unblocked by BE-011 (NewEntry schema live). Needs the zero-retention Anthropic key in Secrets Manager (devops); key is already in local `secrets.yaml`.
 2. **BE-016 (deferred refactor)** — migrate the flat auth/users(old)/crypto/shared packages into the controller→service→repository layout. `entries/` and `users/` already conform.
-3. **BE-007 (OIDC)** waits on CEO Google/Apple accounts; **BE-010 (deletion)** reuses `CryptoService.shred()` + needs the job table.
+3. **BE-007 (OIDC)** waits on CEO Google/Apple accounts. **BE-010 (deletion) done locally** — job queue now exists (`jobs/` + `V003`), reuse it for future async work (magic-link cleanup, PDF import, exports).
 4. **BE-004 (first prod deploy)** — Dockerfile now present (arm64). Waiting on devops prod env + CI deploy chain (OPS-004 → OPS-014 pushes the image).
 
 ## Blockers / waiting on

@@ -81,6 +81,8 @@ class TokenService(
             )
         }
         val (userId, familyId) = live
+        // A successful refresh is a sign-in: it cancels a pending deletion (ADR-0004).
+        jdbc.update("UPDATE users SET deletion_requested_at = NULL WHERE id = ?", userId)
         return issue(userId, familyId)
     }
 
