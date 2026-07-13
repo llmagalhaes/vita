@@ -35,20 +35,24 @@ checkov custom gate (`devops/services/ci/checkov/`):
 Docs: `devops/Doc/ci-oidc-verification.md` (post-apply setup + positive/negative tests),
 `.tflint.hcl` at the terraform root.
 
-## Verification done here (no apply — CEO-gated)
+## APPLIED 2026-07-13 (CEO-approved via orchestrator)
 
-- `terraform fmt -recursive` clean; `bootstrap validate` Success.
-- `terraform -chdir=bootstrap plan`: **6 to add, 0 to change, 0 to destroy** (OIDC
-  provider + 2 roles + 3 policy resources). State bucket + budget untouched.
+`terraform -chdir=bootstrap apply`: **6 added, 0 changed, 0 destroyed**. CLI-verified:
+- OIDC provider live (`token.actions.githubusercontent.com`, aud `sts.amazonaws.com`).
+- `vita-ci-plan` trust = `sub: repo:llmagalhaes/vita:pull_request` (+ aud). ReadOnlyAccess.
+- `vita-ci-apply` trust = `sub: ...:ref:refs/heads/main` **AND**
+  `job_workflow_ref: llmagalhaes/vita/.github/workflows/apply.yml@refs/heads/main` (+ aud).
+- ARNs: plan `arn:aws:iam::201261380352:role/vita-ci-plan`,
+  apply `arn:aws:iam::201261380352:role/vita-ci-apply`.
 
-## Remaining (blocks Done)
+## Remaining (blocks Done — CEO's steps)
 
-1. CEO applies `bootstrap` (adds the 6 resources).
-2. CEO sets repo Variables `AWS_PLAN_ROLE_ARN` / `AWS_APPLY_ROLE_ARN` / `AWS_REGION`.
-3. Run the positive + negative tests in `ci-oidc-verification.md` (incl. the CEO
-   no-op apply end to end, and apply-role-not-assumable-from-PR/fork).
+1. Set repo Variables (relayed to CEO): `AWS_PLAN_ROLE_ARN`, `AWS_APPLY_ROLE_ARN`, `AWS_REGION=eu-west-1`.
+2. Positive: PR plan green; one no-op apply end to end.
+3. Negative tests (need a PR/fork — CEO's to run): apply role NOT assumable from a PR
+   branch, another workflow on main, or a fork — per `ci-oidc-verification.md` §4.
 
-Stays **In progress** until applied + verified in production (DoD).
+Stays **In progress** until those are verified in production (DoD).
 
 ## Decisions / flags for the CEO
 

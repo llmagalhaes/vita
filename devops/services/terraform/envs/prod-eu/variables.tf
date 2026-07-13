@@ -15,3 +15,9 @@ variable "audit_retention_days" {
   type        = number
   default     = 400
 }
+
+variable "rds_backup_retention_days" {
+  description = "RDS automated backup retention. CEO Round 8: 45 days."
+  type        = number
+  default     = 45
+}

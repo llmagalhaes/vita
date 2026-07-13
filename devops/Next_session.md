@@ -2,20 +2,32 @@
 
 ## Current state (Phase 2 implementation, session 3 close — 2026-07-13)
 
-**OPS-004 codified + planned, awaiting CEO apply.** GitHub OIDC (no stored AWS keys):
-`bootstrap/cicd.tf` adds the OIDC provider + `vita-ci-plan` (ReadOnlyAccess, PR-scoped)
-+ `vita-ci-apply` (PowerUserAccess + scoped IAM, pinned to `apply.yml`@main via
-`job_workflow_ref`). Workflows in `.github/workflows/`: `terraform-pr.yml`
-(fmt/validate/tflint/checkov + read-only plan), `terraform-main.yml` (plan + upload
-artifact), `apply.yml` (CEO `workflow_dispatch`, applies the reviewed `tfplan`).
-checkov custom gate `CKV_VITA_1/2` (no 0.0.0.0/0 or ::/0 SG ingress) hard-fails PRs;
-negative-test fixture + full procedure in `devops/Doc/ci-oidc-verification.md`.
-`terraform -chdir=bootstrap plan` = **6 to add, 0 change, 0 destroy**; nothing applied
-(CEO-gated). OPS-004 stays **In progress** until applied + verified.
+**OPS-004 APPLIED + CLI-verified.** GitHub OIDC (no stored AWS keys) is live in AWS:
+OIDC provider + `vita-ci-plan` (ReadOnlyAccess, PR-scoped) + `vita-ci-apply`
+(PowerUserAccess + scoped IAM, pinned to `apply.yml`@main via `job_workflow_ref`).
+`bootstrap apply` = 6 added / 0 / 0. Trust conditions verified via `aws iam get-role`.
+Workflows in `.github/workflows/`: `terraform-pr.yml`, `terraform-main.yml`, `apply.yml`;
+checkov gate `CKV_VITA_1/2`. Procedure in `devops/Doc/ci-oidc-verification.md`.
+Role ARNs: `arn:aws:iam::201261380352:role/vita-ci-plan` and `.../vita-ci-apply`.
+OPS-004 stays **In progress** until the CEO runs the PR/fork negative tests + no-op apply.
 
-**CEO must, to close OPS-004:** (1) `terraform apply` the bootstrap stack; (2) set repo
-Variables `AWS_PLAN_ROLE_ARN`/`AWS_APPLY_ROLE_ARN`/`AWS_REGION`; (3) run positive +
-negative tests (incl. one no-op apply end to end) per `ci-oidc-verification.md`.
+**CEO to finish OPS-004:** set repo Variables `AWS_PLAN_ROLE_ARN`=`.../vita-ci-plan`,
+`AWS_APPLY_ROLE_ARN`=`.../vita-ci-apply`, `AWS_REGION`=`eu-west-1`; then positive +
+negative tests per `ci-oidc-verification.md`.
+
+**OPS-008/009/010/011 written + planned (NOT applied — awaiting CEO OK).** New modules
+`ecr`, `rds`, `ssm`, `storage` wired into prod-eu. `terraform -chdir=envs/prod-eu plan`
+= **27 to add, 0 change, 0 destroy** (ecr 2 · rds 8 · ssm 7 · storage 10); existing
+network/kms/audit untouched. Highlights:
+- OPS-008 ECR: immutable tags, scan-on-push, KMS, keep-last-10.
+- OPS-009 RDS pg16 t4g.micro single-AZ 20 GB, storage CMK, force_ssl, deletion
+  protection + prevent_destroy. **Backup retention 45 d via AWS Backup vault**
+  (RDS automated caps at 35 d) + 14 d PITR. Cross-account copy DEFERRED (single
+  account). Master password = placeholder + ignore_changes (see flag below).
+- OPS-010 SSM: 7 SecureString under `/vita/prod/` incl. `jwt-secret` (VITA_JWT_SECRET);
+  placeholders + ignore_changes; CEO pastes real values.
+- OPS-011 S3: `vita-prod-uploads-<acct>` + `vita-prod-exports-<acct>`, SSE-KMS,
+  public-access blocked, TLS-only, expire 30 d, prevent_destroy.
 
 ## Prior state (session 2 close — 2026-07-13)
 
@@ -30,19 +42,27 @@ negative tests (incl. one no-op apply end to end) per `ci-oidc-verification.md`.
 
 ## Next steps
 
-1. **OPS-004** — CEO applies bootstrap + wires repo vars + runs verification (above). Then move to Done.
-2. Once the CI apply path is live, all remaining infra applies flow through `apply.yml` (no more runbook).
-3. Queue (all depend on OPS-004's apply path): OPS-008 (ECR) → OPS-009 (RDS — blocked on the 14 d vs 35 d backup-retention decision) → OPS-010/011/013/014 → unblocks BE-004.
-4. Close OPS-003 once the CEO confirms the budget subscriber email.
+1. **CEO approves the OPS-008/009/010/011 batch plan** (27 add / 0 / 0). Then apply —
+   via `apply.yml` once OPS-004 CI is CEO-verified, or locally against S3 state meanwhile.
+2. Finish OPS-004: CEO sets the 3 repo Variables + runs PR/fork negative tests + no-op apply.
+3. Post-apply setup (CEO): paste real SSM values; set the RDS master password in console
+   AND matching `/vita/prod/db-credentials`; create the quarterly RDS restore-rehearsal ticket.
+4. Then OPS-013 (API Gateway HTTP API + VPC Link) → OPS-014 (ECS Fargate, task-role
+   least-privilege scoping to the SSM path / buckets / app-data CMK) → unblocks BE-004.
+5. Close OPS-003 — already CEO-confirmed in Round 8 (#2); move to Done if not already.
 
 ## Open questions for the CEO
 
+- **OPS-009 backups**: 45 d is delivered by AWS Backup (RDS caps at 35 d), same-account
+  only (cross-account copy deferred, ADR-0010). OK? PITR window set to 14 d — OK?
+- **OPS-009/010 DB password sync**: app reads DB creds from SSM (`db-credentials`), so
+  after apply you set the RDS password in console AND paste the same value into that SSM
+  param. OK, or should we use RDS-managed password (needs backend to read Secrets Manager)?
 - OPS-004: OK with apply role = PowerUserAccess + scoped IAM (no user/key creation), or want it tighter? (see Progress file)
-- Confirm budget subscriber email in console → Billing → Budgets → `vita-monthly-total` (closes OPS-003).
-- RDS backup retention: 14 d (devops) vs 35 d (backend ask) — needed before OPS-009.
+- RDS backup retention: **DECIDED 45 d (Round 8)** — implemented via AWS Backup. (Stale 14/35 split retired.)
 - Carried: audit/log retention 400 d default; exports 90 d; domain-purchase trigger.
 
 ## Blockers
 
-- OPS-004 Done is gated on the CEO apply + verification (by design). No engineering blockers.
-- OPS-008+ effectively wait on OPS-004's apply path being live.
+- OPS-008/009/010/011 apply is gated on CEO plan approval (by design) — no engineering blockers.
+- OPS-004 Done gated on CEO PR/fork negative tests + no-op apply (roles already applied).

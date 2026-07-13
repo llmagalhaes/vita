@@ -10,6 +10,17 @@ Aurora Serverless v2's 0.5-ACU floor (~$48/mo) never pauses under a live API —
 
 **RDS PostgreSQL `db.t4g.micro`, single-AZ, 20 GB gp3** (~$16/mo; **$0 in year 1** — 750 h/mo + 20 GB storage + 20 GB backup are free-tier). Never bends: KMS CMK at rest, `rds.force_ssl`, automated backups 14 d + cross-account vault copy (ADR-0003), deletion protection, `prevent_destroy`.
 
+## Amendment 2026-07-13 (OPS-009 implementation)
+
+- **Backup retention = 45 days** (CEO Round 8, supersedes the 14 d above). RDS
+  *automated* backups cap at 35 d, so 45 d is delivered by an **AWS Backup** vault
+  + daily plan (`delete_after = 45`), KMS-encrypted with the storage CMK. RDS
+  automated backups stay a 14 d PITR window (recover-recent-mistakes).
+- **Cross-account vault copy DEFERRED.** ADR-0010 collapsed us to a single account,
+  so there is no management-account vault to copy to yet. When the org is stood up,
+  add a `copy_action { destination_vault_arn = ... }` to the backup rule. The
+  same-account vault already isolates backups from the DB's own lifecycle.
+
 ## Consequences
 
 - **Single-AZ**: AZ failure ⇒ restore-from-snapshot, RTO ~1 h, RPO minutes (PITR). Upgrade is one tfvars flip: `multi_az = true` (+$13/mo).
