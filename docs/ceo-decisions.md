@@ -2,6 +2,13 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-13 — Round 8 (M1 test feedback)
+
+1. **RDS backup retention = 45 days** (supersedes the 14 d devops / 35 d backend disagreement). Rationale: not in production yet, cheap to change later. Reconcile ADR-0006 + set the value when OPS-009 lands. Blocks nothing now.
+2. **OPS-003 confirmed**: CEO verified the `$40/mo` budget lists his email as subscriber → ticket closed.
+3. **Plan/program parse-import endpoint approved** for the contract (onboarding steps 3–4). Backend specs it now (contract-only, no impl); PDF import goes via S3 presigned URL, not the JSON body.
+4. **Expo Go incompatibility (M1 blocker)**: project scaffolded on Expo SDK 57 (RN 0.86); store Expo Go only runs an older SDK. Fix = downgrade the app to the store-Expo-Go SDK so the CEO walks it on his physical phone (app team). Immediate workaround: `npx expo start` → `i` (iOS simulator) runs SDK 57 fine.
+
 ## 2026-07-13 — Round 7 (model policy + Anthropic key)
 
 1. **Model assignment per task (cost rule)**: every Asana ticket gets an explicit Claude model. Simple tasks → **Sonnet**; complex tasks → **Opus 4.8**; **Fable** only for orchestration that needs it — simple orchestration uses Opus. Team-lead agents may run on Opus. The orchestrator sets the model when dispatching and records `Model:` on each ticket.
