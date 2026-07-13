@@ -31,6 +31,13 @@ vita:
     rate-limit-per-ip: 10
     # v1 links open the app scheme directly; becomes an https redirect once a domain exists.
     magic-link-base-url: ${VITA_MAGIC_LINK_BASE_URL:vita://auth}
+  ai:
+    # Product AI — Claude parse endpoint (BE-013, ADR-0005). base-url points at a
+    # WireMock stub in tests. Key comes from keys.anthropic (env/secrets.yaml only).
+    model: ${VITA_AI_MODEL:claude-haiku-4-5}
+    base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
+    max-output-tokens: 1024
+    timeout-seconds: 10
 
 keys:
   # Never put the real key here — this file is committed. Local: secrets.yaml; prod: env var.

@@ -24,6 +24,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
     implementation("tools.jackson.module:jackson-module-kotlin") // Jackson 3 — Boot 4 MVC uses tools.jackson
+    // ponytail: BE-013 ClaudeClient has a private Jackson 2 ObjectMapper for Anthropic payloads
+    // (isolated from MVC's Jackson 3). Converge to tools.jackson later — tracked in BE-013 Progress.
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
@@ -35,6 +38,8 @@ dependencies {
     testImplementation("org.testcontainers:postgresql:1.21.4")
     testImplementation("org.testcontainers:junit-jupiter:1.21.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("io.mockk:mockk:1.14.11")
+    testImplementation("org.wiremock:wiremock-standalone:3.9.1") // BE-013: golden Claude responses (shaded, no Jackson clash)
 }
 
 detekt {
