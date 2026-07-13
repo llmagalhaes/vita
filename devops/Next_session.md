@@ -1,27 +1,24 @@
 # DevOps — Next session
 
-## Current state (after Round 3 amendments + ADR round, 2026-07-13)
+## Current state (Phase 1 specification, 2026-07-13)
 
-- **CEO approved the cost revision with amendments** (Round 3, `docs/ceo-decisions.md`): domain purchase deferred (placeholder DNS), GitHub Free `workflow_dispatch` apply gate, budgets $40 AWS / $10 Claude, free tier maximized, zero-retention Anthropic key.
-- **`Doc/cost-revision.md` amended**: §1.8 placeholder-DNS architecture (default `execute-api` URL, SES sandbox with verified tester emails, magic-link redirect route on the backend, bundle ID `com.lucasmagalhaes.vita` not domain-derived); §3.1 GitHub Free gate design (OIDC apply role pinned to `apply.yml`@`main` via `job_workflow_ref`, plan-artifact reuse, stale-plan refusal); trims (Route 53 deferred, Secrets Manager → SSM SecureString, 2→1 CMK, X-Ray always-free). **New totals: ~$16/mo year 1 (free tier), ~$37/mo year 2+** — under the $40 alarm.
-- **`docs/ceo-setup-guide.md` amended**: critical path is now AWS org → GitHub → Anthropic ($10 limit, zero-retention) → Apple → Google Play. Domain + SES production access moved to a "When we buy the domain (later)" section (SES domain identity + prod access, API custom domain, universal links — nothing else changes).
-- **ADRs written**: `Doc/ADRs/ADR-0001`–`0009` (single prod env, eu-west-1 region-agnostic, 2-account org, no-NAT public-subnet Fargate, API GW HTTP API, RDS t4g.micro single-AZ, observability OTel/AMP/local Grafana, GitHub Free CI/CD gate, placeholder DNS + budgets). All Accepted 2026-07-13.
-- Still nothing provisioned, no Terraform code written.
+- **Backlog is ready**: 16 tickets OPS-001…OPS-016 created on the Asana devops board (project `1216519867368584`, section Backlog), in execution order: org bootstrap → state backend (S3 + native lockfile, no DynamoDB) → budgets → GitHub OIDC/CI gate → VPC → KMS (2 CMKs) → CloudTrail/GuardDuty → ECR → RDS → SSM secrets → S3 buckets → SES sandbox → API GW → ECS Fargate → AMP/Grafana → magic-link redirect. Backend kickoff-addendum §6 requests folded in (buckets = OPS-011, app-data CMK = OPS-006, task-role scoping = OPS-014; their SES-domain and Secrets-Manager asks superseded by Round 3 decisions and noted in the tickets).
+- **Round 4**: the CEO's **existing AWS account becomes the management account** (Organizations enabled on it, `vita-prod` created from it). `docs/ceo-setup-guide.md` step 1 rewritten accordingly (root MFA check, prod account creation, local CLI profile — Identity Center `aws configure sso` preferred, admin IAM role fallback; credentials never in chat). Bundle ID references in the guide updated to the decided `com.vita`.
+- **Free-tier caveat recorded**: free tier is org-wide, keyed to the oldest account — if the CEO's account is >12 months old, year 1 costs ~$37/mo (the year-2 figure), still under the $40 alarm. CEO to confirm account age with the step-1 hand-back.
+- Nothing provisioned, no Terraform code written yet. Nothing applied.
 
 ## Next steps
 
-1. **Phase 1 — Terraform skeleton: awaiting orchestrator go.** On go: create Asana tickets on the DevOps board (GID `1216519867368584`), Wave 0 first: bootstrap (state bucket + DynamoDB lock, OIDC provider + plan/apply roles), org/accounts module, VPC (public app subnets, private DB subnets, no NAT), budget $40 + SNS alarms, CI skeleton (plan-only PR workflow + `apply.yml` workflow_dispatch), SSM parameters, SES email identities.
-2. Blocked on CEO setup-guide execution: AWS account IDs + SSO start URL + repo path → `devops/Doc/bootstrap-ids.md`.
-3. Sync with backend: magic-link redirect route (`GET /auth/open` 302 → `vita://auth`) is a backend endpoint; ARM64 Docker build; container health-check endpoint; OTel SDK → ADOT sidecar; async pattern for AI parses (29 s API GW timeout); token-usage metric for the $10 Claude budget watch.
-4. Sync with app team: bundle ID `com.lucasmagalhaes.vita` (proposed, CEO to confirm — immutable); API base URL as build config; `vita://auth` scheme handling.
+1. **Blocked on the CEO's step-1 hand-back** to start OPS-001: CLI profile name + both account IDs + region (eu-west-1) + root-MFA confirmation → commit `devops/Doc/bootstrap-ids.md`.
+2. Terraform code (modules + `envs/prod-eu` root) can be written before the hand-back; applies cannot.
+3. Escalations riding with the orchestrator: (a) 2nd CMK (+$1/mo, backend §6.2) vs the 1-CMK cost line — recommended keep 2; (b) backup window 14d (ADR-0006) vs backend's 35d ask — reconcile with backend; (c) free-tier reality per above.
 
-## Open questions for the CEO (also in cost-revision §7)
+## Open questions for the CEO
 
-- Confirm bundle ID `com.lucasmagalhaes.vita` before first store upload.
-- What event triggers buying the domain.
-- Retention windows (defaulting 400 d logs / 90 d exports unless objected).
+- Confirm existing-account age (free-tier eligibility → honest year-1 estimate).
+- OK with the 2nd KMS CMK (+$1/mo) for app-data envelope encryption?
+- Carried over: domain-purchase trigger; retention windows (default 400 d logs / 90 d exports).
 
 ## Blockers
 
-- Orchestrator go for Phase 1 ticket creation.
-- CEO execution of the setup guide step 1 (AWS) — blocks all bootstrap applies (Terraform code can be written before it).
+- CEO execution of setup-guide step 1 (AWS) — blocks OPS-001 and every apply after it.

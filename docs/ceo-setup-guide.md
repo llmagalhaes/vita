@@ -23,17 +23,21 @@
 
 ---
 
-## 1. AWS — organization, MFA, budget, admin access
+## 1. AWS — organization from your existing account, MFA, budget, CLI profile
 
-1. Create the **management account** at aws.amazon.com → "Create an AWS Account". Email: use a plus-alias, e.g. `lucasmagalhaes2007+vita-aws@gmail.com`. Account name: `vita-management`. Needs a credit card and phone verification.
-2. **Immediately enable MFA on root**: sign in as root → IAM → "Add MFA for root user" → use your phone's authenticator app (add a second MFA device as backup).
-3. Enable **AWS Organizations**: console → Organizations → "Create an organization".
-4. Create the **prod account** from Organizations → "Add an AWS account" → "Create": name `vita-prod`, email `lucasmagalhaes2007+vita-prod@gmail.com`. (Its root password: use "Forgot password" flow with that alias once, then enable root MFA on it too.) **A fresh account also means 12 months of AWS free tier** — the cost table counts on it.
-5. Enable **IAM Identity Center** (console → IAM Identity Center → Enable, home region **eu-west-1**). Create user `lucas`, create permission set `AdministratorAccess` (predefined), assign it to yourself on **both** accounts. Note the **SSO start URL**.
-6. Create a **budget**: console (management account) → Billing → Budgets → monthly cost budget, **$40**, email alerts at 50% / 80% / 100% to your email. (Per your Round 3 decision — estimate is ~$16/mo year 1, ~$37/mo year 2+.)
-7. This admin access is what devops uses (through you or session credentials you run locally) for the one-time Terraform bootstrap; after bootstrap, CI uses OIDC roles and no keys exist.
+Your **existing AWS account becomes the management account** (org root, billing, budgets, cross-account backup copy — per Round 4 decision #3 and ADR-0003). Nothing gets recreated.
 
-**Hand back**: both 12-digit account IDs + the Identity Center SSO start URL + confirmation MFA is on both roots → orchestrator (goes to `bootstrap-ids.md`).
+1. **Root MFA check**: sign in as root → IAM → verify MFA is enabled on the root user; add it now if not, plus a second device as backup.
+2. Enable **AWS Organizations**: console → Organizations → "Create an organization" (skip if already enabled).
+3. Create the **prod account**: Organizations → "Add an AWS account" → "Create": name `vita-prod`, email `lucasmagalhaes2007+vita-prod@gmail.com`. Set its root password once via the "Forgot password" flow with that alias, then enable root MFA on it too.
+4. **Free-tier reality check**: AWS free tier is assessed org-wide, keyed to the oldest account. If your existing account is older than 12 months, `vita-prod` gets **no** 12-month free tier — year 1 costs the year-2 figure (~$37/mo instead of ~$16/mo), still under the $40 alarm. Tell the orchestrator your account's age so the estimate is honest.
+5. **Local CLI profile** (what devops uses, through you, for the one-time Terraform bootstrap):
+   - **Preferred**: enable **IAM Identity Center** (home region **eu-west-1**), create user `lucas`, permission set `AdministratorAccess` (predefined), assign it on **both** accounts. On your Mac: `aws configure sso`, profile name e.g. `vita-bootstrap`.
+   - **If you'd rather not enable Identity Center yet**: create an admin IAM role in the management account and configure a profile with `aws configure`. Treat any long-lived keys as temporary — delete them right after bootstrap.
+   - Either way: **credentials never leave your machine — never in chat, never in git.** After bootstrap, CI uses GitHub OIDC roles and no stored keys exist anywhere.
+6. **Budget**: Billing → Budgets → monthly cost budget **$40**, email alerts at 50% / 80% / 100%. If this account carries any non-Vita usage, add a second budget filtered to the `vita-prod` linked account so Vita's alarm isn't polluted by it.
+
+**Hand back** (only this, to the orchestrator): the CLI **profile name**, both 12-digit **account IDs**, and **region confirmation (eu-west-1)** — plus root-MFA confirmation. Goes to `bootstrap-ids.md`. Never credentials.
 
 ## 2. GitHub — repo, push, apply gate (Free plan)
 
@@ -56,7 +60,7 @@
 ## 4. Apple Developer Program — $99/yr
 
 1. developer.apple.com → enroll as an **Individual** with your Apple ID (2FA required). Identity verification typically takes **~2 days**.
-2. Once approved, **reserve the bundle ID**: Certificates, Identifiers & Profiles → Identifiers → new App ID. **Per your Round 3 decision it must NOT derive from the future domain.** Proposed: `com.lucasmagalhaes.vita` (reverse-DNS of something you permanently control; Apple doesn't verify domain ownership). Bundle IDs are permanent — confirm with the app team, then reserve.
+2. Once approved, **reserve the bundle ID**: Certificates, Identifiers & Profiles → Identifiers → new App ID. **Decided (Round 4 decision #1): `com.vita`** — permanent once published.
 3. You build/submit from your Mac (your decision), so no CI certificates are needed — Xcode's automatic signing with your account is enough.
 
 **Hand back**: the chosen bundle ID → app team.
@@ -65,7 +69,7 @@
 
 1. play.google.com/console → sign up as **personal developer account**; $25 fee; **identity verification can take up to a week**.
 2. Note: personal accounts created now must run a **closed test with ~12 testers for 14 days** before production release — with ~5 users, plan to recruit a few extra testers, or factor it into Android launch timing.
-3. Package name: same as iOS, e.g. `com.lucasmagalhaes.vita`. **Immutable after first upload** — same confirmation as step 4.
+3. Package name: same as iOS — **`com.vita`** (Round 4 decision #1). **Immutable after first upload.**
 
 **Hand back**: the chosen package name → app team.
 

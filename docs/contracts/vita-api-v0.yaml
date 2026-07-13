@@ -1,0 +1,826 @@
+openapi: 3.1.0
+info:
+  title: Vita API
+  version: 0.1.0
+  description: |
+    Contract v0 — auth, user profile, log entries, AI parse. Drafted by backend,
+    awaiting app-team review (Phase 1). Open points are marked "TBD-APP-REVIEW" in
+    field descriptions. Governed by ADR-0006 (contract-first REST, RFC 7807,
+    cursor pagination) and ADR-0005 (AI drafts are never persisted server-side).
+
+    Conventions:
+    - Base path /v1, JSON, camelCase.
+    - Auth: `Authorization: Bearer <accessToken>` (JWT, ~15 min) unless marked public.
+    - All errors are RFC 7807 application/problem+json.
+    - Timestamps are RFC 3339 date-time with offset.
+servers:
+  - url: /v1
+    description: Placeholder — API Gateway default URL until a domain is purchased (CEO Round 3).
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: auth
+  - name: account
+  - name: entries
+  - name: parse
+
+paths:
+  # ── Auth ────────────────────────────────────────────────────────────────
+  /auth/magic-link:
+    post:
+      tags: [auth]
+      summary: Request a magic-link email
+      description: |
+        Always returns 202 with an identical body whether or not the email is
+        registered (no account enumeration). Rate-limited per email and per IP.
+        The email contains a link that opens the app with a single-use token
+        (15-min expiry).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email:
+                  type: string
+                  format: email
+      responses:
+        "202":
+          description: Accepted (regardless of whether the email is registered).
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /auth/magic-link/verify:
+    post:
+      tags: [auth]
+      summary: Exchange a magic-link token for a session
+      description: |
+        Consumes the single-use token from the email deep link. Creates the
+        account on first sign-in. Signing in during a pending account deletion
+        cancels the deletion (ADR-0004).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  description: Opaque token from the magic-link URL.
+      responses:
+        "200":
+          description: Session created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401":
+          description: Token invalid, expired, or already consumed.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /auth/oidc:
+    post:
+      tags: [auth]
+      summary: Sign in with a Google or Apple id token
+      description: |
+        The app performs native sign-in and sends the provider id token; the
+        backend verifies signature/issuer/audience/nonce and finds-or-creates
+        the user keyed on (provider, subject), linking by verified email.
+        Signing in during a pending account deletion cancels the deletion.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider, idToken]
+              properties:
+                provider:
+                  type: string
+                  enum: [google, apple]
+                idToken:
+                  type: string
+                nonce:
+                  type: string
+                  description: Raw nonce used in the native sign-in request, when the platform requires it.
+                name:
+                  type: string
+                  maxLength: 100
+                  description: >-
+                    TBD-APP-REVIEW: Apple only exposes the user's name to the app on
+                    first authorization and it is absent from the id token — the app
+                    passes it here on first sign-in. Confirm the app can do this.
+      responses:
+        "200":
+          description: Session created (account created on first sign-in).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401":
+          description: Id token failed verification.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      summary: Rotate a refresh token
+      description: |
+        Exchanges a valid refresh token for a new token pair. The old refresh
+        token is revoked (single-use rotation). Reuse of a rotated token
+        revokes the whole token family and returns 401.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "200":
+          description: New token pair.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TokenPair" }
+        "401":
+          description: Refresh token invalid, expired, revoked, or reused.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /auth/sign-out:
+    post:
+      tags: [auth]
+      summary: Sign out (revoke a refresh token)
+      description: Revokes the given refresh token. Always 204, even if already revoked.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+      responses:
+        "204":
+          description: Revoked (idempotent).
+        default: { $ref: "#/components/responses/Problem" }
+
+  # ── Account / profile ───────────────────────────────────────────────────
+  /me:
+    get:
+      tags: [account]
+      summary: Get the current user's profile
+      responses:
+        "200":
+          description: Profile.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [account]
+      summary: Update profile (name, units)
+      description: '"Changes apply everywhere, right away" — units affect display only; stored values stay metric.'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                units:
+                  $ref: "#/components/schemas/Units"
+      responses:
+        "200":
+          description: Updated profile.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /account:
+    delete:
+      tags: [account]
+      summary: Request account deletion (7-day grace)
+      description: |
+        Starts the 7-day grace period (ADR-0004): account marked pending
+        deletion, all refresh tokens revoked. Any successful sign-in during the
+        window cancels the deletion. After 7 days: crypto-shred + hard delete.
+        Idempotent — repeating the request does not move the date.
+      responses:
+        "202":
+          description: Deletion scheduled.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deletionEffectiveAt]
+                properties:
+                  deletionEffectiveAt:
+                    type: string
+                    format: date-time
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  # ── Log entries ─────────────────────────────────────────────────────────
+  /entries:
+    post:
+      tags: [entries]
+      summary: Create a log entry (user-confirmed)
+      description: |
+        The single write path to the log — AI drafts reach it only after the
+        user confirms. Requires an Idempotency-Key: retrying the same key
+        returns the original entry (200) instead of duplicating; the same key
+        with a different body returns 409.
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NewEntry" }
+      responses:
+        "201":
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "200":
+          description: Idempotent replay — the entry previously created with this key.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409":
+          description: Idempotency-Key was already used with a different request body.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        default: { $ref: "#/components/responses/Problem" }
+    get:
+      tags: [entries]
+      summary: List entries (timeline)
+      description: |
+        Flat list ordered by occurredAt descending, cursor-paginated. Pass
+        `date` for a single day (the Today screen); omit it and follow
+        `nextCursor` for infinite scroll into the past.
+
+        TBD-APP-REVIEW: response is a flat list — the app groups by day
+        client-side. Confirm this beats server-side day buckets for the
+        timeline UI.
+
+        TBD-APP-REVIEW: offline delta sync — entries carry `updatedAt`; if the
+        app wants a changes-since endpoint (including tombstones for deletes)
+        rather than re-fetching by day, say so now and v0 grows
+        `?updatedSince=`.
+      parameters:
+        - name: date
+          in: query
+          description: Local calendar day to fetch, interpreted with `tz`.
+          schema:
+            type: string
+            format: date
+        - name: tz
+          in: query
+          description: >-
+            IANA timezone used to resolve `date` to a time range
+            (e.g. Europe/Lisbon). Required when `date` is present.
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous response.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Page of entries.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/LogEntry" }
+                  nextCursor:
+                    type: string
+                    description: Absent when there are no older entries.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /entries/{entryId}:
+    parameters:
+      - name: entryId
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    get:
+      tags: [entries]
+      summary: Get one entry (meal/workout detail screens)
+      responses:
+        "200":
+          description: The entry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+    patch:
+      tags: [entries]
+      summary: Update an entry
+      description: |
+        Partial update. `type` is immutable; sending a `detail` replaces the
+        whole detail object (no per-field merge inside it) and it must match
+        the entry's type.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                occurredAt:
+                  type: string
+                  format: date-time
+                detail:
+                  $ref: "#/components/schemas/EntryDetail"
+      responses:
+        "200":
+          description: Updated entry.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LogEntry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+    delete:
+      tags: [entries]
+      summary: Delete an entry
+      description: Hard delete — the log belongs to the user.
+      responses:
+        "204":
+          description: Deleted (idempotent — deleting a missing entry also returns 204).
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  # ── AI parse (drafts only — never persisted server-side) ────────────────
+  /parse/text:
+    post:
+      tags: [parse]
+      summary: Parse natural language into draft entries
+      description: |
+        Stateless: text in, draft entries out — nothing is stored (ADR-0005).
+        The app shows the confirmation card and, on Confirm, POSTs the
+        (possibly adjusted) draft to /entries. All numeric values are
+        estimates. Rate-limited per user per day (abuse guard). On timeout the
+        app falls back to manual entry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text:
+                  type: string
+                  minLength: 1
+                  maxLength: 2000
+                  description: The transcript or typed phrase, verbatim.
+                capturedAt:
+                  type: string
+                  format: date-time
+                  description: >-
+                    Device time (with offset) when the phrase was captured —
+                    anchors relative phrases like "around 4".
+      responses:
+        "200":
+          description: Draft entries — usually one.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParseResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422":
+          description: The text could not be interpreted as a meal, water, or workout.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /parse/photo:
+    post:
+      tags: [parse]
+      summary: Parse a photo (plate or gym whiteboard) into draft entries
+      description: |
+        Stateless like /parse/text — the image is sent to the model and
+        discarded, never stored. A plate photo yields a meal draft; a
+        whiteboard photo yields a workout draft.
+
+        TBD-APP-REVIEW: multipart chosen over base64 JSON (~33% smaller
+        upload). Confirm multipart is comfortable in the app's HTTP stack,
+        and agree a client-side downscale target (e.g. longest edge 1568px,
+        JPEG) before upload.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  format: binary
+                  description: JPEG/PNG/WebP, max 5 MB.
+                caption:
+                  type: string
+                  maxLength: 500
+                  description: Optional user hint spoken/typed with the photo.
+                capturedAt:
+                  type: string
+                  format: date-time
+      responses:
+        "200":
+          description: Draft entries.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ParseResult" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "413":
+          description: Image too large.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
+          description: Nothing recognizable (no food, no workout) in the image.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Problem" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-generated UUID, unique per logical create. Reused on retries.
+      schema:
+        type: string
+        format: uuid
+
+  responses:
+    Problem:
+      description: Error (RFC 7807).
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    Unauthorized:
+      description: Missing, expired, or invalid access token.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    NotFound:
+      description: Resource does not exist or belongs to another user.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+    TooManyRequests:
+      description: Rate limit exceeded. Retry after the indicated delay.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait.
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+
+  schemas:
+    Problem:
+      type: object
+      description: RFC 7807 problem details. `detail` is developer-facing English; the app owns user-facing copy (ADR-0006).
+      required: [title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          type: string
+        instance:
+          type: string
+
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken:
+          type: string
+          description: JWT, ~15 min lifetime.
+        refreshToken:
+          type: string
+          description: Opaque, single-use (rotated on refresh), 60-day lifetime.
+        expiresIn:
+          type: integer
+          description: Access-token lifetime in seconds.
+
+    Units:
+      type: string
+      enum: [metric, imperial]
+
+    User:
+      type: object
+      required: [id, name, email, units, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        units:
+          $ref: "#/components/schemas/Units"
+        createdAt:
+          type: string
+          format: date-time
+        deletionEffectiveAt:
+          type: string
+          format: date-time
+          description: Present only while an account deletion is pending (7-day grace).
+
+    InputMethod:
+      type: string
+      enum: [voice, text, photo, tap, checkin, import]
+      description: checkin and import appear from W5/W6 onward; the app only sends the first four in v0.
+
+    EntrySource:
+      type: string
+      enum: [user, apple_health, health_connect]
+      description: Server-set. /entries creates are always `user`; health ingestion (W6, separate contract) writes the others.
+
+    NewEntry:
+      type: object
+      description: >-
+        Create payload for /entries — also exactly the draft shape returned by
+        the parse endpoints, so a confirmed draft is POSTed as-is.
+      required: [type, occurredAt, inputMethod, detail]
+      properties:
+        type:
+          type: string
+          enum: [meal, water, workout]
+        occurredAt:
+          type: string
+          format: date-time
+          description: When it happened (user-adjustable), with offset.
+        inputMethod:
+          $ref: "#/components/schemas/InputMethod"
+        sourcePhrase:
+          type: string
+          maxLength: 2000
+          description: The user's original words, quoted on the detail screen ("logged by voice").
+        isEstimate:
+          type: boolean
+          default: false
+          description: True for AI-derived numbers — drives the "Estimated by Vita" label.
+        detail:
+          $ref: "#/components/schemas/EntryDetail"
+
+    LogEntry:
+      allOf:
+        - $ref: "#/components/schemas/NewEntry"
+        - type: object
+          required: [id, source, loggedAt, updatedAt]
+          properties:
+            id:
+              type: string
+              format: uuid
+            source:
+              $ref: "#/components/schemas/EntrySource"
+            loggedAt:
+              type: string
+              format: date-time
+              description: Server receive time.
+            updatedAt:
+              type: string
+              format: date-time
+              description: Bumped on every change — the app's offline-sync freshness marker.
+
+    EntryDetail:
+      description: Typed payload; discriminated by the sibling `type` field on the entry.
+      oneOf:
+        - $ref: "#/components/schemas/MealDetail"
+        - $ref: "#/components/schemas/WaterDetail"
+        - $ref: "#/components/schemas/WorkoutDetail"
+
+    MealDetail:
+      type: object
+      required: [items]
+      properties:
+        title:
+          type: string
+          maxLength: 100
+          description: Short display title, e.g. "Banana & peanuts".
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/MealItem" }
+        totals:
+          $ref: "#/components/schemas/MacroTotals"
+
+    MealItem:
+      type: object
+      required: [name, kcal]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        quantity:
+          type: number
+        unit:
+          type: string
+          maxLength: 20
+          description: Free-form ("g", "ml", "handful", "slice"). Display verbatim.
+        kcal:
+          type: number
+          minimum: 0
+        proteinG:
+          type: number
+          minimum: 0
+        carbsG:
+          type: number
+          minimum: 0
+        fatG:
+          type: number
+          minimum: 0
+        micros:
+          type: array
+          items: { $ref: "#/components/schemas/Micro" }
+
+    Micro:
+      type: object
+      required: [name, amount, unit]
+      properties:
+        name:
+          type: string
+          maxLength: 50
+          description: >-
+            TBD-APP-REVIEW: free-form name (e.g. "Vitamin C", "Iron") rather
+            than a fixed enum — confirm the app renders whatever comes, or ask
+            for a closed list to map to icons.
+        amount:
+          type: number
+          minimum: 0
+        unit:
+          type: string
+          maxLength: 10
+          description: mg, µg, g…
+        percentDaily:
+          type: number
+          minimum: 0
+          description: Percent of the FDA Daily Value (ADR-0009). Estimate.
+
+    MacroTotals:
+      type: object
+      description: Denormalized totals for cards/aggregation. Server recomputes from items on write; clients treat as read-mostly.
+      required: [kcal]
+      properties:
+        kcal:
+          type: number
+          minimum: 0
+        proteinG:
+          type: number
+          minimum: 0
+        carbsG:
+          type: number
+          minimum: 0
+        fatG:
+          type: number
+          minimum: 0
+
+    WaterDetail:
+      type: object
+      required: [amountMl]
+      properties:
+        amountMl:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: Always milliliters on the wire; the app converts for imperial display.
+
+    WorkoutDetail:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          maxLength: 100
+        durationMin:
+          type: integer
+          minimum: 1
+        kcal:
+          type: number
+          minimum: 0
+          description: Energy estimate.
+        muscles:
+          type: array
+          items:
+            type: string
+            maxLength: 30
+          description: >-
+            TBD-APP-REVIEW: the body-map UI needs a closed vocabulary
+            (chest, back, shoulders, biceps, triceps, core, glutes, quads,
+            hamstrings, calves…). App team to confirm the exact list their
+            silhouettes support; it then becomes an enum here.
+        exercises:
+          type: array
+          items: { $ref: "#/components/schemas/Exercise" }
+
+    Exercise:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        sets:
+          type: integer
+          minimum: 1
+        reps:
+          type: integer
+          minimum: 1
+        loadKg:
+          type: number
+          minimum: 0
+          description: Always kg on the wire; the app converts for imperial display.
+
+    ParseResult:
+      type: object
+      description: Never persisted server-side — response only (ADR-0005).
+      required: [drafts]
+      properties:
+        drafts:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/NewEntry" }
+          description: >-
+            Usually one. A phrase like "had a sandwich and a big glass of
+            water" yields two (meal + water). TBD-APP-REVIEW: confirm the app
+            can stack multiple confirmation cards; otherwise we cap at 1 and
+            merge/discard secondaries.

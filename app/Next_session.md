@@ -1,33 +1,29 @@
 # App Team — Next Session
 
-## Current state (Phase 0 — Kickoff, done)
+## Current state (Phase 1 — Specification, in progress)
 
-- Team folder structure created (`Backlog/` + `Wip/` + `Done/`, `Progress/`, `Doc/ADRs/`, `services/`).
-- `Doc/kickoff-proposal.md` written and awaiting CEO review. Key content:
-  - **Stack recommendation: React Native + Expo** (Reanimated 3 + react-native-skia + Gesture Handler core), compared honestly against Flutter and KMP/Compose on the CEO's criteria (fluidity, animation fidelity, future-proofing).
-  - Architecture: TypeScript strict, Expo Router, TanStack Query + Zustand, offline-first via local SQLite + outbox queue with idempotency keys, `@vita/ui` design-system package from brief tokens, accent theming + vacation-mode sea-tone theme.
-  - Platform: on-device voice transcription, expo-camera, actionable lock-screen check-in notifications, Apple Health / Health Connect device-side reads with daily summary sync-up.
-  - QA: Jest + RNTL component tests, Maestro E2E, OpenAPI-generated client + MSW mocks.
-  - 7 delivery waves (Foundations → Identity/Onboarding → Capture & Log → Plans/Habits/Notifications → Movement/Trends → Account/Modes/Export → Store release).
+- Phase 0 approved: stack is **React Native + Expo** (CEO decision log Round 4).
+- **`Doc/foundations.md` written** — fixed decisions: bundle id `com.vita` (immutable, both stores), deep-link scheme `vita://` (auth callback `vita://auth` via https redirect), API base URL from build config only (API Gateway execute-api URL), react-i18next with `en` as the sole locale file, manual one-command release flow on the CEO's Mac, local-only notifications.
+- **Asana backlog populated**: APP-001 … APP-014 in "Vita frontend" Backlog (waves 0–2: foundations → identity & onboarding → capture & the log). APP-001 is the contract review of `docs/contracts/vita-api-v0.yaml` (backend is drafting it now).
+- Still pending from Phase 0: **ADR-001 (stack choice)** not yet written in `Doc/ADRs/` — write it when implementation starts (or next session).
+- No app code yet (`services/` empty by design — Phase 1 is spec only).
 
-## Next steps (blocked on Phase 0 approval)
+## Next steps
 
-1. On CEO approval: write **ADR-001 (stack choice)** in `Doc/ADRs/`.
-2. Phase 1: turn each wave's epics into `APP-NNN` tickets in `Backlog/` (start with Wave 0).
-3. Coordinate with backend (via orchestrator) on the first contracts in `docs/contracts/`: auth, capture parsing, log CRUD with idempotency keys + `updatedAt` (offline outbox depends on it).
-4. Request from DevOps: EAS (or self-hosted build) decision, store accounts, APNs/FCM.
+1. Write ADR-001 (React Native + Expo) in `Doc/ADRs/`.
+2. Start APP-001: review `docs/contracts/vita-api-v0.yaml` once backend publishes it — verify idempotency keys + `updatedAt` on every log entity (outbox depends on it), auth endpoints (magic link token exchange for `vita://auth`), parse endpoints.
+3. On Phase 2 approval: APP-002 (Expo scaffold) → APP-003/004/005 in parallel-ish order.
+4. Ticket the rest of wave 2 later: **photo capture (plate + whiteboard)** was deliberately left out of this batch — add it after APP-011/012 land.
 
 ## Blockers / open items
 
-- CEO answers to the 9 questions in `Doc/kickoff-proposal.md` §7 (EAS budget, dark mode, tablets, min OS, localization, cycle chip in v1, capture-bar chrome variant, voice privacy posture, trends computation split).
-- `docs/contracts/` is empty — no app implementation against APIs until contracts exist.
-- No app code exists yet (`services/` is empty by design for Phase 0).
+- `docs/contracts/vita-api-v0.yaml` not yet published (backend, in progress) — blocks APP-001/006 onward.
+- **Open CEO question (keep alive): capture-bar chrome — v1 bar vs v2 pill.** Default recorded in APP-011: build v2 pill only, component kept cheap to swap. Also still open from kickoff §7: dark mode (assumed light-only), tablets (assumed phone-only), min OS versions (proposed iOS 16+/Android 10+), cycle chip in v1 (hidden pending answer, see APP-013), trends computation split (app-side vs backend aggregates).
+- Apple Developer + Play Console accounts needed before APP-007 (CEO creates; devops guide if missing).
 
-## CEO decisions affecting the app (2026-07-13, recorded by orchestrator)
+## Key references
 
-- Stack accepted: React Native + Expo. Tickets now live in Asana ("Vita frontend" board); Notion Mobile page must be kept updated (see DEVELOPMENT_PROCESS.md).
-- i18n-ready from day one; English-only launch.
-- Check-in/habit notifications: local on device (matches our plan; no push infra in v1).
-- Release builds: manual on the CEO's Mac — no EAS subscription/macOS CI. Provide a documented one-command build flow.
-- Single AWS environment (production only): app points at prod API; pre-prod testing is local/mocked.
-- See docs/ceo-decisions.md for the full log.
+- `app/Doc/foundations.md` — fixed technical decisions.
+- `app/Doc/kickoff-proposal.md` — architecture, waves, QA strategy, dependency list.
+- `docs/ceo-decisions.md` — Rounds 3+4 are the newest constraints (placeholder DNS, budgets, `com.vita`).
+- Asana board "Vita frontend" project GID `1216519867368576`, Backlog section GID `1216523313289549`.
