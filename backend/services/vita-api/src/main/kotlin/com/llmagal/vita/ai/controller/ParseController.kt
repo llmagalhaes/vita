@@ -2,10 +2,7 @@ package com.llmagal.vita.ai.controller
 
 import com.llmagal.vita.ai.service.ParseQuota
 import com.llmagal.vita.ai.service.ParseService
-import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus
-import org.springframework.http.MediaType
-import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
@@ -40,17 +37,6 @@ class ParseController(
 
         val capturedAt = body.capturedAt ?: OffsetDateTime.now()
         return ResponseEntity.ok(service.parseText(text, capturedAt))
-    }
-
-    private fun tooManyRequests(retryAfterSeconds: Long): ResponseEntity<Any> {
-        val problem = ProblemDetail.forStatus(HttpStatus.TOO_MANY_REQUESTS)
-        problem.title = "Too Many Requests"
-        problem.detail = "Daily parse limit reached. Retry after the indicated delay."
-        return ResponseEntity
-            .status(HttpStatus.TOO_MANY_REQUESTS)
-            .header(HttpHeaders.RETRY_AFTER, retryAfterSeconds.toString())
-            .contentType(MediaType.APPLICATION_PROBLEM_JSON)
-            .body(problem)
     }
 
     private fun badRequest(message: String): Nothing = throw ResponseStatusException(HttpStatus.BAD_REQUEST, message)

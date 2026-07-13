@@ -1,5 +1,16 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 6, 2026-07-13)
+
+- **BE-015 (plan/program parse-import) done locally** — In progress on Asana (Done = production, blocked on BE-004 + devops OPS-011). Details in `Progress/BE-015-impl-plan-program-parse-Progress.md`.
+  - `POST /v1/parse/eating-plan` + `/v1/parse/training-program`: synchronous tool-forced Claude call, nothing persisted (ADR-0005). Body `PlanImportRequest` = exactly one of `text`/`fileRef` (controller validates; oneOf → 400, text > 8000 → 400). Returns `EatingPlanDraft`/`TrainingProgramDraft` (structured + human `summary`). Empty/unusable output → 422; unknown fileRef → 422.
+  - **Model tiering (config, `vita.ai.*`): text → `claude-haiku-4-5` (`plan-model`); PDF → `claude-sonnet-4-6` (`plan-pdf-model`, native document input, ADR-0005 Sonnet-class for PDF).** PDF posted as a native base64 `document` block, not our own OCR. `plan-timeout-seconds:25` (a second RestClient in ClaudeClient; plan calls are bigger than capture parse, still inside API Gateway's 29 s).
+  - **BE-014 guardrails reused, not duplicated**: same `ParseQuota` (429 + Retry-After) + `ParseMetrics`. New shared `tooManyRequests(...)` (`ai/controller/RateLimitResponses.kt`) used by both parse controllers.
+  - **`POST /v1/uploads`** vends a presigned PUT URL + opaque fileRef (OPS-011). purpose `plan_document`/type `application/pdf` enforced.
+  - **S3 seam** (`uploads/service/FileStore.kt`, mirrors the BE-005 KMS seam): `presignPut` + `read`, one `LocalFileStore` impl — stub URL locally, reads fixtures from `vita.uploads.local-dir`, no AWS in `./gradlew check`. Real S3 presigner drops in as a replacement bean for prod (devops OPS-011).
+  - `ClaudeClient` gained a generic `callTool(model, system, tool, toolName, userContent, type)` that deserializes tool input into a draft type — `parseText` behaviour unchanged.
+  - Suite **84/84**; redocly exit 0 (contract v0.3.0 unchanged — already specced these).
+
 ## Current state (Phase 2 session 5, 2026-07-13)
 
 - **BE-010 (account deletion + first job-queue use) done locally** — In progress on Asana (Done = production, blocked on BE-004). New `account/` package (controller→service→repository) + `jobs/` (ADR-0007 queue). Details in `Progress/BE-010-account-deletion-Progress.md`.
@@ -32,13 +43,14 @@
 
 ## Next steps
 
-1. **BE-013 (Claude client + POST /parse/text)** — unblocked by BE-011 (NewEntry schema live). Needs the zero-retention Anthropic key in Secrets Manager (devops); key is already in local `secrets.yaml`.
-2. **BE-016 (deferred refactor)** — migrate the flat auth/users(old)/crypto/shared packages into the controller→service→repository layout. `entries/` and `users/` already conform.
+1. **Plan-create / program-create endpoints (later W4 ticket)** — the confirmed `EatingPlanDraft`/`TrainingProgramDraft` is shaped to be POSTed as-is; the persist endpoints are out of scope for BE-015 (ADR-0011). File a ticket when W4 lands.
+2. **BE-016 (deferred refactor)** — migrate the flat auth/users(old)/crypto/shared packages into the controller→service→repository layout. `entries/`, `users/`, `uploads/` already conform.
 3. **BE-007 (OIDC)** waits on CEO Google/Apple accounts. **BE-010 (deletion) done locally** — job queue now exists (`jobs/` + `V003`), reuse it for future async work (magic-link cleanup, PDF import, exports).
 4. **BE-004 (first prod deploy)** — Dockerfile now present (arm64). Waiting on devops prod env + CI deploy chain (OPS-004 → OPS-014 pushes the image).
 
 ## Blockers / waiting on
 
 - Devops: prod env (BE-004), KMS CMK `vita-app-data` + Secrets Manager entries (real `KeyWrapper` + prod keys), SES sandbox identities (real `Mailer`). **arm64 Dockerfile now ready** (OPS-014 can push it); ECS/ALB health check should target `/health`.
+- **Devops OPS-011 (NEW dependency for BE-015)**: S3 bucket for plan-document uploads with presigned PUT + short lifecycle expiry, and the prod `FileStore` presigner bean (replaces `LocalFileStore`). Until then `fileRef` upload works only via the local stub. PDF import also spends on a Sonnet-class model — keep the $10/mo Claude budget alarm (OPS-015) in view.
 - BE-007: CEO Google/Apple developer accounts (deferred per Round 5).
 - Nothing from the app team — contract loop is closed (v0.3.0).

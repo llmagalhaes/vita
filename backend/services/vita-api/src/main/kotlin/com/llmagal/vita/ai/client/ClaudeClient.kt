@@ -39,6 +39,12 @@ data class ParseResult(
     val usage: ClaudeUsage,
 )
 
+/** A tool-forced call deserialized into a caller-supplied draft type (null if no usable tool call). */
+data class TypedToolCall<T>(
+    val value: T?,
+    val usage: ClaudeUsage,
+)
+
 /**
  * Single, tool-forced Claude call for natural-language parse (ADR-0005): Haiku-class
  * model, prompt caching on the system + nutrition preamble, capped output tokens,
@@ -51,12 +57,15 @@ data class ParseResult(
  * a WireMock stub in tests.
  */
 @Component
+@Suppress("LongParameterList") // config values + per-call tool args; grouping into a holder buys nothing
 class ClaudeClient(
     @Value("\${vita.ai.base-url:https://api.anthropic.com}") baseUrl: String,
     @Value("\${vita.ai.model:claude-haiku-4-5}") private val model: String,
     @Value("\${vita.ai.max-output-tokens:1024}") private val maxTokens: Int,
     @Value("\${vita.ai.timeout-seconds:10}") private val timeoutSeconds: Long,
     @Value("\${keys.anthropic:}") private val apiKey: String,
+    @Value("\${vita.ai.plan-timeout-seconds:25}") planTimeoutSeconds: Long,
+    @Value("\${vita.ai.plan-max-output-tokens:2048}") private val planMaxTokens: Int,
 ) {
     private val log = LoggerFactory.getLogger(ClaudeClient::class.java)
 
@@ -65,14 +74,23 @@ class ClaudeClient(
             .registerKotlinModule()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-    private val rest: RestClient =
+    private val rest: RestClient = restClient(baseUrl, timeoutSeconds)
+
+    // Plan/PDF imports run a single, larger tool-forced call (BE-015) — a longer read
+    // timeout than capture parse, still well inside API Gateway's 29 s ceiling (ADR-0011).
+    private val planRest: RestClient = restClient(baseUrl, planTimeoutSeconds)
+
+    private fun restClient(
+        baseUrl: String,
+        readTimeoutSeconds: Long,
+    ): RestClient =
         RestClient
             .builder()
             .baseUrl(baseUrl)
             .requestFactory(
                 SimpleClientHttpRequestFactory().apply {
                     setConnectTimeout(Duration.ofSeconds(CONNECT_TIMEOUT_SECONDS))
-                    setReadTimeout(Duration.ofSeconds(timeoutSeconds))
+                    setReadTimeout(Duration.ofSeconds(readTimeoutSeconds))
                 },
             ).build()
 
@@ -82,8 +100,27 @@ class ClaudeClient(
         capturedAt: OffsetDateTime,
     ): ParseResult {
         val body = requestBody(text, capturedAt)
-        val response = post(body) ?: return ParseResult(null, ClaudeUsage(0, 0))
+        val response = post(rest, body) ?: return ParseResult(null, ClaudeUsage(0, 0))
         return ParseResult(extractToolOutput(response), extractUsage(response))
+    }
+
+    /**
+     * Single tool-forced call (BE-015, ADR-0011) that deserializes the model's tool
+     * input straight into [type] (an EatingPlanDraft / TrainingProgramDraft). `userContent`
+     * is the Messages-API content array — a text block, or a native PDF document block
+     * plus a text block. The content is DATA; the system prompt forbids following it.
+     */
+    fun <T : Any> callTool(
+        model: String,
+        systemPrompt: String,
+        tool: Map<String, Any>,
+        toolName: String,
+        userContent: List<Map<String, Any?>>,
+        type: Class<T>,
+    ): TypedToolCall<T> {
+        val body = toolRequestBody(model, systemPrompt, tool, toolName, userContent)
+        val response = post(planRest, body) ?: return TypedToolCall(null, ClaudeUsage(0, 0))
+        return TypedToolCall(extractTyped(response, type), extractUsage(response))
     }
 
     private fun extractUsage(response: String): ClaudeUsage =
@@ -98,11 +135,14 @@ class ClaudeClient(
             ClaudeUsage(0, 0)
         }
 
-    private fun post(body: String): String? {
+    private fun post(
+        client: RestClient,
+        body: String,
+    ): String? {
         var last: RestClientException? = null
         repeat(MAX_ATTEMPTS) {
             try {
-                return rest
+                return client
                     .post()
                     .uri("/v1/messages")
                     .header("x-api-key", apiKey)
@@ -129,6 +169,47 @@ class ClaudeClient(
             log.debug("Discarding unparseable Claude tool output: {}", e.message)
             null
         }
+
+    private fun <T : Any> extractTyped(
+        response: String,
+        type: Class<T>,
+    ): T? =
+        try {
+            val content = mapper.readTree(response).get("content") ?: return null
+            val toolUse = content.firstOrNull { it.get("type")?.asText() == "tool_use" } ?: return null
+            val input = toolUse.get("input") ?: return null
+            mapper.treeToValue(input, type)
+        } catch (e: com.fasterxml.jackson.core.JacksonException) {
+            // Missing required fields / wrong shape → treated as uninterpretable (422) upstream.
+            log.debug("Discarding unparseable Claude tool output: {}", e.message)
+            null
+        }
+
+    private fun toolRequestBody(
+        model: String,
+        systemPrompt: String,
+        tool: Map<String, Any>,
+        toolName: String,
+        userContent: List<Map<String, Any?>>,
+    ): String {
+        val payload =
+            mapOf(
+                "model" to model,
+                "max_tokens" to planMaxTokens,
+                "system" to
+                    listOf(
+                        mapOf(
+                            "type" to "text",
+                            "text" to systemPrompt,
+                            "cache_control" to mapOf("type" to "ephemeral"),
+                        ),
+                    ),
+                "tools" to listOf(tool),
+                "tool_choice" to mapOf("type" to "tool", "name" to toolName),
+                "messages" to listOf(mapOf("role" to "user", "content" to userContent)),
+            )
+        return mapper.writeValueAsString(payload)
+    }
 
     private fun requestBody(
         text: String,
