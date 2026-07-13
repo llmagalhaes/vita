@@ -1,6 +1,23 @@
 # DevOps — Next session
 
-## Current state (Phase 2 implementation, session 2 close — 2026-07-13)
+## Current state (Phase 2 implementation, session 3 close — 2026-07-13)
+
+**OPS-004 codified + planned, awaiting CEO apply.** GitHub OIDC (no stored AWS keys):
+`bootstrap/cicd.tf` adds the OIDC provider + `vita-ci-plan` (ReadOnlyAccess, PR-scoped)
++ `vita-ci-apply` (PowerUserAccess + scoped IAM, pinned to `apply.yml`@main via
+`job_workflow_ref`). Workflows in `.github/workflows/`: `terraform-pr.yml`
+(fmt/validate/tflint/checkov + read-only plan), `terraform-main.yml` (plan + upload
+artifact), `apply.yml` (CEO `workflow_dispatch`, applies the reviewed `tfplan`).
+checkov custom gate `CKV_VITA_1/2` (no 0.0.0.0/0 or ::/0 SG ingress) hard-fails PRs;
+negative-test fixture + full procedure in `devops/Doc/ci-oidc-verification.md`.
+`terraform -chdir=bootstrap plan` = **6 to add, 0 change, 0 destroy**; nothing applied
+(CEO-gated). OPS-004 stays **In progress** until applied + verified.
+
+**CEO must, to close OPS-004:** (1) `terraform apply` the bootstrap stack; (2) set repo
+Variables `AWS_PLAN_ROLE_ARN`/`AWS_APPLY_ROLE_ARN`/`AWS_REGION`; (3) run positive +
+negative tests (incl. one no-op apply end to end) per `ci-oidc-verification.md`.
+
+## Prior state (session 2 close — 2026-07-13)
 
 **First infra is LIVE in production.** Both applies were CEO-approved plan-by-plan (rule in force: every `terraform plan` is CEO-reviewed before its apply; CI will formalize this in OPS-004).
 
@@ -13,16 +30,19 @@
 
 ## Next steps
 
-1. **OPS-004** — GitHub OIDC plan-only CI with CEO-gated `workflow_dispatch` apply, so the runbook becomes the last manual apply path; add the checkov 0.0.0.0/0-ingress rule there.
-2. Close OPS-003 once the CEO confirms the budget subscriber email.
-3. Queue: OPS-008 (ECR) → OPS-009 (RDS — blocked on the 14 d vs 35 d backup-retention decision) → OPS-010/011.
+1. **OPS-004** — CEO applies bootstrap + wires repo vars + runs verification (above). Then move to Done.
+2. Once the CI apply path is live, all remaining infra applies flow through `apply.yml` (no more runbook).
+3. Queue (all depend on OPS-004's apply path): OPS-008 (ECR) → OPS-009 (RDS — blocked on the 14 d vs 35 d backup-retention decision) → OPS-010/011/013/014 → unblocks BE-004.
+4. Close OPS-003 once the CEO confirms the budget subscriber email.
 
 ## Open questions for the CEO
 
+- OPS-004: OK with apply role = PowerUserAccess + scoped IAM (no user/key creation), or want it tighter? (see Progress file)
 - Confirm budget subscriber email in console → Billing → Budgets → `vita-monthly-total` (closes OPS-003).
 - RDS backup retention: 14 d (devops) vs 35 d (backend ask) — needed before OPS-009.
 - Carried: audit/log retention 400 d default; exports 90 d; domain-purchase trigger.
 
 ## Blockers
 
-- None. OPS-004 is fully unblocked.
+- OPS-004 Done is gated on the CEO apply + verification (by design). No engineering blockers.
+- OPS-008+ effectively wait on OPS-004's apply path being live.

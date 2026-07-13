@@ -1,0 +1,17 @@
+# Vita zero-inbound baseline (OPS-005 / ADR-0004): no security-group ingress may
+# open 0.0.0.0/0. The codebase uses the modern split rule resources, so this
+# targets aws_vpc_security_group_ingress_rule.cidr_ipv4. Egress
+# (aws_vpc_security_group_egress_rule) is deliberately NOT matched — the app tier
+# needs open egress. Rules that reference another SG have no cidr_ipv4 and pass.
+metadata:
+  id: "CKV_VITA_1"
+  name: "SG ingress must not allow 0.0.0.0/0 (Vita zero-inbound baseline)"
+  category: "NETWORKING"
+  severity: "HIGH"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "aws_vpc_security_group_ingress_rule"
+  attribute: "cidr_ipv4"
+  operator: "not_equals"
+  value: "0.0.0.0/0"

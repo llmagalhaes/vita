@@ -15,3 +15,9 @@ variable "monthly_budget_usd" {
   type        = string
   default     = "40"
 }
+
+variable "github_repo" {
+  description = "owner/repo the CI OIDC roles trust (OPS-004 / ADR-0008)."
+  type        = string
+  default     = "llmagalhaes/vita"
+}

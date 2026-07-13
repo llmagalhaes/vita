@@ -1,0 +1,55 @@
+# OPS-004 / ADR-0008 — on merge to main, re-plan with the read-only role and save
+# the plan as an artifact. apply.yml (CEO-triggered) consumes exactly this file, so
+# what the CEO reviewed is what applies; if state drifts, Terraform refuses the
+# stale plan at apply time.
+name: terraform-main
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "devops/services/terraform/**"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TF_DIR: devops/services/terraform/envs/prod-eu
+  TF_IN_AUTOMATION: "1"
+
+jobs:
+  plan-artifact:
+    name: plan + upload artifact
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.6"
+          terraform_wrapper: false
+
+      - name: terraform plan -out=tfplan
+        run: |
+          terraform -chdir=${{ env.TF_DIR }} init -input=false
+          terraform -chdir=${{ env.TF_DIR }} plan -input=false -lock=false -out=tfplan -no-color
+          terraform -chdir=${{ env.TF_DIR }} show -no-color tfplan > ${{ env.TF_DIR }}/tfplan.txt
+
+      # tfplan is committed-config-specific: apply.yml must check out this same SHA.
+      - name: record commit
+        run: echo "${{ github.sha }}" > ${{ env.TF_DIR }}/PLAN_SHA
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-prod-eu
+          path: |
+            ${{ env.TF_DIR }}/tfplan
+            ${{ env.TF_DIR }}/tfplan.txt
+            ${{ env.TF_DIR }}/PLAN_SHA
+          retention-days: 5

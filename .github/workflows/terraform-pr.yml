@@ -1,0 +1,87 @@
+# OPS-004 / ADR-0008 — PR gate: fmt/validate/tflint/checkov (no AWS) + read-only
+# plan via OIDC. No AWS keys are ever stored; the plan role is read-only and only
+# assumable by pull_request tokens of this repo. Fork PRs get no OIDC token, so
+# the plan job is skipped for them (they still get the static checks).
+name: terraform-pr
+
+on:
+  pull_request:
+    paths:
+      - "devops/services/terraform/**"
+      - "devops/services/ci/**"
+      - ".github/workflows/terraform-*.yml"
+      - ".github/workflows/apply.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  TF_ROOT: devops/services/terraform
+  TF_DIR: devops/services/terraform/envs/prod-eu
+  CKV_DIR: devops/services/ci/checkov
+  TF_IN_AUTOMATION: "1"
+
+jobs:
+  checks:
+    name: fmt / validate / tflint / checkov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.6"
+          terraform_wrapper: false
+
+      - name: terraform fmt
+        run: terraform -chdir=${{ env.TF_ROOT }} fmt -check -recursive
+
+      - name: terraform validate (backend-less)
+        run: |
+          terraform -chdir=${{ env.TF_DIR }} init -backend=false -input=false
+          terraform -chdir=${{ env.TF_DIR }} validate
+
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+
+      - name: tflint
+        run: |
+          cd ${{ env.TF_ROOT }}
+          tflint --init
+          tflint --recursive
+
+      - name: checkov (custom no-public-ingress gate is hard-fail)
+        run: |
+          pip install --quiet checkov
+          checkov -d ${{ env.TF_ROOT }} \
+            --external-checks-dir ${{ env.CKV_DIR }} \
+            --download-external-modules false \
+            --quiet --compact \
+            --soft-fail \
+            --hard-fail-on CKV_VITA_1,CKV_VITA_2,CKV_AWS_24,CKV_AWS_25,CKV_AWS_260
+
+  plan:
+    name: terraform plan (read-only OIDC)
+    needs: checks
+    runs-on: ubuntu-latest
+    # Skip forks: their pull_request tokens can't assume the plan role anyway.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.6"
+          terraform_wrapper: false
+
+      - name: terraform plan (no lock — read-only role)
+        run: |
+          terraform -chdir=${{ env.TF_DIR }} init -input=false
+          terraform -chdir=${{ env.TF_DIR }} plan -input=false -lock=false -no-color

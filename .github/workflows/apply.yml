@@ -1,0 +1,65 @@
+# OPS-004 / ADR-0008 — the ONLY path that applies infra. CEO-triggered manually
+# (workflow_dispatch). On a private repo only collaborators (the CEO) can dispatch,
+# and the apply role's trust policy pins job_workflow_ref to THIS file on main —
+# no other workflow, branch, or fork can assume it. It applies the exact plan the
+# CEO reviewed (from the terraform-main run he names); a drifted state makes
+# Terraform reject the stale plan.
+name: apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      plan_run_id:
+        description: "Run ID of the terraform-main run whose reviewed plan to apply"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+  actions: read # download-artifact from another run
+
+env:
+  TF_DIR: devops/services/terraform/envs/prod-eu
+  TF_IN_AUTOMATION: "1"
+
+jobs:
+  apply:
+    name: terraform apply reviewed plan
+    runs-on: ubuntu-latest
+    steps:
+      - name: download reviewed plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-prod-eu
+          run-id: ${{ inputs.plan_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/plan
+
+      - name: resolve plan commit
+        id: sha
+        run: echo "sha=$(cat ${{ runner.temp }}/plan/PLAN_SHA)" >> "$GITHUB_OUTPUT"
+
+      # Check out the EXACT commit the plan was built from, so config matches the
+      # saved plan (Terraform rejects it otherwise).
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.sha }}
+
+      - name: place reviewed plan
+        run: cp ${{ runner.temp }}/plan/tfplan ${{ env.TF_DIR }}/tfplan
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_APPLY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.15.6"
+          terraform_wrapper: false
+
+      - name: terraform apply tfplan
+        run: |
+          terraform -chdir=${{ env.TF_DIR }} init -input=false
+          terraform -chdir=${{ env.TF_DIR }} apply -input=false -no-color tfplan

@@ -1,0 +1,14 @@
+# Same baseline as CKV_VITA_1, for the IPv6 form. ::/0 is the all-of-internet
+# ingress in IPv6; a rule with cidr_ipv6 = ::/0 is just as public.
+metadata:
+  id: "CKV_VITA_2"
+  name: "SG ingress must not allow ::/0 (Vita zero-inbound baseline, IPv6)"
+  category: "NETWORKING"
+  severity: "HIGH"
+definition:
+  cond_type: "attribute"
+  resource_types:
+    - "aws_vpc_security_group_ingress_rule"
+  attribute: "cidr_ipv6"
+  operator: "not_equals"
+  value: "::/0"
