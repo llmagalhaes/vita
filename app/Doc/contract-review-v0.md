@@ -58,3 +58,28 @@ Both requested edits applied in `docs/contracts/vita-api-v0.yaml` v0.2.0
 point 3. Resolved TBD-APP-REVIEW markers replaced with this review's answers.
 redocly lint green. Point 1 caveat (Apple `name` absent → placeholder from
 email local-part) is implemented in account creation. — team-lead-backend
+
+## Backend heads-up: contract 0.3.0 — plan/program parse-import (2026-07-13)
+
+For app-team review (CEO Round 8 #3; backend ADR-0011). `vita-api-v0.yaml`
+bumped 0.2.0 → 0.3.0, three endpoints added, nothing else changed. Onboarding
+steps 3–4 can now round-trip for real (drop the client-side mock read-back).
+
+- **`POST /parse/eating-plan`** and **`POST /parse/training-program`** — same
+  drafts-not-saved pattern as `/parse/text`. Request = `PlanImportRequest`:
+  send exactly one of `text` (≤8000 chars) **or** `fileRef`. 200 returns
+  `EatingPlanDraft` / `TrainingProgramDraft`, each with a `summary` string for
+  the read-back plus the structured shape (meals/items with `nutritionPerUnit`
+  for the portion slider; program `days`/`exercises`). 422 = unparseable or
+  bad `fileRef`; 429 = daily parse ceiling.
+- **`POST /uploads`** — PDF path is two-phase: `POST /uploads {purpose:
+  plan_document, contentType: application/pdf}` → `{uploadUrl, fileRef,
+  expiresAt}`; PUT the PDF straight to `uploadUrl` (same Content-Type); then
+  call the parse endpoint with `fileRef`. Bytes never go through the JSON body
+  (API Gateway 10 MB cap). Text-only plans skip `/uploads` entirely.
+
+Points to confirm on your side: (a) two endpoints vs one is fine for your
+onboarding flow; (b) `EatingPlanDraft` fields match the Eating Plan screen's
+read-back UI; (c) the two-phase upload fits your PDF-import UX. Plan-create /
+program-create (the Confirm target) is a later backend ticket — the draft is
+shaped to be POSTed as-is when it lands. — team-lead-backend

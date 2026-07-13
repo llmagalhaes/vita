@@ -1,11 +1,13 @@
 openapi: 3.1.0
 info:
   title: Vita API
-  version: 0.2.0
+  version: 0.3.0
   description: |
     Contract v0 — auth, user profile, log entries, AI parse. App-team review
     complete 2026-07-13 (`app/Doc/contract-review-v0.md`): approved, with two
     edits applied in 0.2.0 (muscles enum, drafts maxItems — backend ADR-0010).
+    0.3.0 adds plan/program parse-import for onboarding steps 3-4 (two parse
+    endpoints + a presigned-upload endpoint — backend ADR-0011).
     Governed by ADR-0006 (contract-first REST, RFC 7807, cursor pagination)
     and ADR-0005 (AI drafts are never persisted server-side).
 
@@ -26,6 +28,7 @@ tags:
   - name: account
   - name: entries
   - name: parse
+  - name: uploads
 
 paths:
   # ── Auth ────────────────────────────────────────────────────────────────
@@ -498,6 +501,126 @@ paths:
         "429": { $ref: "#/components/responses/TooManyRequests" }
         default: { $ref: "#/components/responses/Problem" }
 
+  /parse/eating-plan:
+    post:
+      tags: [parse]
+      summary: Parse an eating plan (text or PDF) into a draft for confirmation
+      description: |
+        Onboarding step 3 ("eating plan"). Stateless like /parse/text: the
+        model reads the described plan or the uploaded nutritionist PDF and
+        returns a structured draft plus a human-readable summary the user
+        confirms before anything is saved (ADR-0005 — nothing is persisted
+        server-side on this call; the uploaded PDF is read and discarded). All
+        nutrition values are estimates. Single synchronous Claude call (native
+        PDF input, no OCR of our own) — supersedes the async import-job sketch;
+        on timeout/failure the app falls back to manual entry. On Confirm the
+        app POSTs the draft to the plan-create endpoint (a later ticket).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanImportRequest" }
+      responses:
+        "200":
+          description: Draft eating plan.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422":
+          description: >-
+            The input could not be interpreted as an eating plan, or the
+            `fileRef` is unknown/expired.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /parse/training-program:
+    post:
+      tags: [parse]
+      summary: Parse a training program (text or PDF) into a draft for confirmation
+      description: |
+        Onboarding step 4 ("training program"). Stateless like
+        /parse/eating-plan — structured draft plus human-readable summary,
+        confirmed before anything is saved (ADR-0005). Durations and loads are
+        estimates or as-stated. On Confirm the app POSTs the draft to the
+        program-create endpoint (a later ticket).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PlanImportRequest" }
+      responses:
+        "200":
+          description: Draft training program.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingProgramDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "422":
+          description: >-
+            The input could not be interpreted as a training program, or the
+            `fileRef` is unknown/expired.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  # ── Uploads (presigned; bytes never pass through the API) ────────────────
+  /uploads:
+    post:
+      tags: [uploads]
+      summary: Request a presigned URL to upload a document
+      description: |
+        Two-phase upload for payloads that must not pass through the JSON body:
+        API Gateway caps requests at 10 MB (OPS-011), and the parse pattern
+        does not proxy file bytes. The app requests a short-lived presigned PUT
+        URL, uploads the file straight to S3, then references the returned
+        opaque `fileRef` on a parse call (e.g. /parse/eating-plan). The backend
+        reads the object server-side for that one call and never persists it
+        beyond the parse (ADR-0005); the bucket expires objects automatically.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose, contentType]
+              properties:
+                purpose:
+                  type: string
+                  enum: [plan_document]
+                  description: What the upload feeds. v0 only supports plan/program import.
+                contentType:
+                  type: string
+                  enum: [application/pdf]
+                  description: MIME type of the file; the PUT must send the same Content-Type.
+      responses:
+        "200":
+          description: Presigned upload target.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [fileRef, uploadUrl, expiresAt]
+                properties:
+                  fileRef:
+                    type: string
+                    description: Opaque handle to pass to a parse endpoint after the PUT succeeds.
+                  uploadUrl:
+                    type: string
+                    format: uri
+                    description: Presigned S3 PUT URL (single use). Upload the bytes with the same Content-Type.
+                  expiresAt:
+                    type: string
+                    format: date-time
+                    description: After this the URL and fileRef are void.
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -831,3 +954,112 @@ components:
             water" yields two (meal + water). Capped at 5 so the app's
             stacked confirmation cards stay bounded (app review pt 5); the
             model merges or drops beyond that.
+
+    PlanImportRequest:
+      type: object
+      description: >-
+        Provide the plan either as free text (described/pasted) or as a
+        reference to a PDF uploaded via POST /uploads. Exactly one of `text`
+        or `fileRef`.
+      oneOf:
+        - required: [text]
+        - required: [fileRef]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 8000
+          description: The plan or program described or pasted as text.
+        fileRef:
+          type: string
+          description: >-
+            `fileRef` from POST /uploads, pointing at an uploaded
+            nutritionist/coach PDF.
+
+    EatingPlanDraft:
+      type: object
+      description: >-
+        Never persisted server-side — response only (ADR-0005). Shaped so the
+        confirmed draft is POSTed as-is to the plan-create endpoint (later
+        ticket). All nutrition is estimate.
+      required: [summary, meals]
+      properties:
+        summary:
+          type: string
+          maxLength: 1000
+          description: >-
+            Human-readable read-back shown for confirmation ("AI reads back a
+            plan summary").
+        dailyTotals:
+          $ref: "#/components/schemas/MacroTotals"
+        micros:
+          type: array
+          items: { $ref: "#/components/schemas/Micro" }
+          description: Daily micronutrient chips (estimates) for the Eating Plan screen.
+        meals:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/PlanMeal" }
+
+    PlanMeal:
+      type: object
+      required: [name, items]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Meal slot label, e.g. "Breakfast", "Lunch", "Snack", "Dinner".
+        time:
+          type: string
+          pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+          description: Local time-of-day (HH:MM) the plan suggests, when it states one.
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/PlanItem" }
+
+    PlanItem:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        quantity:
+          type: number
+        unit:
+          type: string
+          maxLength: 20
+          description: Free-form ("g", "ml", "slice"). Display verbatim.
+        nutritionPerUnit:
+          $ref: "#/components/schemas/MacroTotals"
+
+    TrainingProgramDraft:
+      type: object
+      description: Never persisted server-side — response only (ADR-0005).
+      required: [summary, days]
+      properties:
+        summary:
+          type: string
+          maxLength: 1000
+          description: Human-readable read-back shown for confirmation.
+        splitDescription:
+          type: string
+          maxLength: 500
+          description: The overall split in a phrase, e.g. "Push / Pull / Legs, 5 days".
+        days:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/ProgramDay" }
+
+    ProgramDay:
+      type: object
+      required: [name, exercises]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+          description: Day label, e.g. "Day 1 - Push", "Upper A".
+        exercises:
+          type: array
+          items: { $ref: "#/components/schemas/Exercise" }
