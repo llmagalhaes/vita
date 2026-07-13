@@ -28,6 +28,7 @@ dependencies {
     // (isolated from MVC's Jackson 3). Converge to tools.jackson later — tracked in BE-013 Progress.
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
     implementation("org.jetbrains.kotlin:kotlin-reflect")
+    implementation("io.micrometer:micrometer-core") // BE-014: parse token/cost counters (no actuator; version from Boot BOM)
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
@@ -57,5 +58,15 @@ configurations.matching { it.name == "detekt" }.all {
 }
 
 tasks.withType<Test> {
-    useJUnitPlatform()
+    // Live-API eval (BE-014) never runs in the normal build — it hits api.anthropic.com and spends budget.
+    useJUnitPlatform { excludeTags("live") }
+}
+
+// On-demand live Claude eval: ./gradlew liveEval (needs ANTHROPIC_API_KEY in the env).
+tasks.register<Test>("liveEval") {
+    description = "Runs the live Claude API parse eval (@Tag(\"live\"))."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("live") }
 }

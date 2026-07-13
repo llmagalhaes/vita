@@ -38,6 +38,8 @@ vita:
     base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
     max-output-tokens: 1024
     timeout-seconds: 10
+    # BE-014 abuse guard: per-user parses per UTC day; over it → 429 + Retry-After. Invisible in normal use.
+    daily-parse-limit: ${VITA_AI_DAILY_PARSE_LIMIT:50}
 
 keys:
   # Never put the real key here — this file is committed. Local: secrets.yaml; prod: env var.

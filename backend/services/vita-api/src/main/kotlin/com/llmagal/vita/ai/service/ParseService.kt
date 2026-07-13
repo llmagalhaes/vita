@@ -6,6 +6,7 @@ import com.llmagal.vita.ai.controller.Draft
 import com.llmagal.vita.ai.controller.ParseResponse
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
+import org.springframework.web.client.RestClientException
 import org.springframework.web.server.ResponseStatusException
 import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
@@ -20,16 +21,29 @@ import java.time.format.DateTimeParseException
 @Service
 class ParseService(
     private val client: ClaudeClient,
+    private val metrics: ParseMetrics,
 ) {
     fun parseText(
         text: String,
         capturedAt: OffsetDateTime,
     ): ParseResponse {
-        val output = client.parseText(text, capturedAt) ?: uninterpretable()
+        val result =
+            try {
+                client.parseText(text, capturedAt)
+            } catch (e: RestClientException) {
+                metrics.record("error", 0, 0)
+                throw e
+            }
         val drafts =
-            (output.drafts ?: emptyList())
+            (result.output?.drafts ?: emptyList())
                 .mapNotNull { toDraft(text, capturedAt, it) }
                 .take(MAX_DRAFTS)
+        // Tokens were spent whatever the shape of the output — record before the 422 branch.
+        metrics.record(
+            outcome = if (drafts.isEmpty()) "uninterpretable" else "success",
+            inputTokens = result.usage.inputTokens,
+            outputTokens = result.usage.outputTokens,
+        )
         if (drafts.isEmpty()) uninterpretable()
         return ParseResponse(drafts)
     }

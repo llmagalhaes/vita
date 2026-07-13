@@ -27,6 +27,18 @@ data class ToolDraft(
     val detail: Map<String, Any?>?,
 )
 
+/** Token usage from the Messages API `usage` block — zero when absent (ADR-0005 cost metrics). */
+data class ClaudeUsage(
+    val inputTokens: Int,
+    val outputTokens: Int,
+)
+
+/** The model's structured tool output plus the tokens it cost. */
+data class ParseResult(
+    val output: ToolOutput?,
+    val usage: ClaudeUsage,
+)
+
 /**
  * Single, tool-forced Claude call for natural-language parse (ADR-0005): Haiku-class
  * model, prompt caching on the system + nutrition preamble, capped output tokens,
@@ -64,15 +76,27 @@ class ClaudeClient(
                 },
             ).build()
 
-    /** Returns the model's structured tool output, or null if it produced no usable tool call. */
+    /** Returns the model's structured tool output (null if no usable tool call) plus its token usage. */
     fun parseText(
         text: String,
         capturedAt: OffsetDateTime,
-    ): ToolOutput? {
+    ): ParseResult {
         val body = requestBody(text, capturedAt)
-        val response = post(body) ?: return null
-        return extractToolOutput(response)
+        val response = post(body) ?: return ParseResult(null, ClaudeUsage(0, 0))
+        return ParseResult(extractToolOutput(response), extractUsage(response))
     }
+
+    private fun extractUsage(response: String): ClaudeUsage =
+        try {
+            val usage = mapper.readTree(response).get("usage")
+            ClaudeUsage(
+                inputTokens = usage?.get("input_tokens")?.asInt(0) ?: 0,
+                outputTokens = usage?.get("output_tokens")?.asInt(0) ?: 0,
+            )
+        } catch (e: com.fasterxml.jackson.core.JacksonException) {
+            log.debug("No readable usage in Claude response: {}", e.message)
+            ClaudeUsage(0, 0)
+        }
 
     private fun post(body: String): String? {
         var last: RestClientException? = null

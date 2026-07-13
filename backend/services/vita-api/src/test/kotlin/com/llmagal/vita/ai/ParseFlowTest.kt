@@ -9,7 +9,9 @@ import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED
 import com.llmagal.vita.ai.client.ClaudeClient
+import com.llmagal.vita.ai.service.ParseMetrics
 import com.llmagal.vita.ai.service.ParseService
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
@@ -33,7 +35,7 @@ class ParseFlowTest {
     fun setUp() {
         wm.resetAll()
         val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key")
-        service = ParseService(client)
+        service = ParseService(client, ParseMetrics(SimpleMeterRegistry()))
     }
 
     @Test
