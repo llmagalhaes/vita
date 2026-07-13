@@ -1,11 +1,12 @@
 # Cost Revision — single production environment, ~5 users
 
 > Revises `kickoff-proposal.md` per CEO decisions of 2026-07-13 (items 4, 5, 6, 9, 10, 12 in `docs/ceo-decisions.md`).
+> **Amended 2026-07-13 per Round 3 decisions**: domain purchase deferred (placeholder DNS, §1.8), GitHub Free apply gate (§3.1), budgets $40 AWS / $10 Claude, free tier maximized (§5).
 > Author: team-lead-devops. Date: 2026-07-13. Documents only — nothing provisioned.
 
-**New reality**: production only (all pre-prod testing is local), ~5 initial users, cost is the top priority, security/encryption never bends. Region: Europe, region-agnostic Terraform. Grafana runs only on the CEO's Mac. No mobile build pipeline.
+**New reality**: production only (all pre-prod testing is local), ~5 initial users, cost is the top priority, security/encryption never bends. Region: Europe, region-agnostic Terraform. Grafana runs only on the CEO's Mac. No mobile build pipeline. No domain yet.
 
-**Result: ~$42/mo AWS (±30%) vs the previous ~$590/mo.**
+**Result: ~$16/mo year 1 (free tier), ~$37/mo year 2+ (±30%) — under the $40 budget alarm — vs the previous ~$590/mo.**
 
 ---
 
@@ -58,8 +59,8 @@ An ALB costs ~$18/mo before a single request. For one HTTP service:
 
 **Decision: API Gateway HTTP API → VPC Link (free) → Cloud Map service discovery → the Fargate task.**
 
-- Cost: ~$1.11 per **million** requests in EU. At 5 users: cents.
-- TLS: ACM certificate on the custom domain (`api.<domain>`), free, TLS 1.2+.
+- Cost: ~$1.11 per **million** requests in EU. At 5 users: cents (first 1 M req/mo free for 12 months).
+- TLS: the **default `https://<api-id>.execute-api.<region>.amazonaws.com` endpoint** (AWS-managed cert, TLS 1.2+). No custom domain until one is bought (§1.8) — then it's an ACM cert + one `aws_apigatewayv2_domain_name` resource, no re-architecture.
 - Built-in throttling (free, crude DDoS/cost protection an ALB doesn't give us).
 - Task SG inbound: only the VPC Link ENIs' SG on the container port.
 
@@ -79,6 +80,26 @@ Deploy health: without ALB target-group checks, ECS uses the **container health 
 ### 1.7 Mobile pipeline: deleted
 
 CEO builds and submits from his Mac (decision #9). Removes GitHub macOS runner minutes (~$40–80/mo), Fastlane signing infrastructure, and the paid GitHub tier pressure. CI for the app repo folder is lint + unit tests on Linux runners only (free tier).
+
+### 1.8 Placeholder DNS — domain purchase deferred (Round 3 decision #1)
+
+No domain in v1. What replaces each thing a domain would have given us:
+
+| Need | Placeholder solution | Cost |
+|---|---|---:|
+| API hostname | Default `execute-api` URL. App reads the base URL from build config — swapping in a custom domain later is a config change + app update | $0 |
+| Email sender/recipients | **SES stays in sandbox.** Sender = CEO's verified email address; recipients = the ~5 testers' addresses as verified identities (Terraform `aws_ses_email_identity`; each tester clicks one verification email). No production-access request | $0 |
+| Magic-link open-the-app | Email links to an https route **on the backend itself** (e.g. `GET /auth/open?token=…` behind the same API GW) which 302-redirects to the custom scheme `vita://auth?token=…`, with a tiny HTML fallback ("open the Vita app"). No S3/CloudFront needed — the backend is already there | $0 |
+| Bundle ID / package name | **Must not derive from the future domain.** Reverse-DNS of something the CEO permanently controls, e.g. `com.lucasmagalhaes.vita` — Apple/Google don't verify domain ownership for identifiers. Unblocks store enrollment now | $0 |
+
+Sandbox limits, all fine at our size: recipients must be verified, max 200 emails/24 h, 1 msg/s.
+
+Honest risks of this setup (also in ADR-0009):
+- **Custom-scheme links are not verified**: on Android, any installed app can claim `vita://` (universal/app links require a domain). Mitigation: magic-link tokens are single-use + short TTL, and the audience is 5 known testers. Fixed automatically when the domain arrives (universal links).
+- **Every new tester needs a manual SES identity verification** before receiving mail — onboarding friction, acceptable at 5.
+- **The `execute-api` URL is coupled to the API resource's lifecycle**: if the API GW is ever destroyed/recreated, the URL changes and shipped apps break until updated. Mitigation: `prevent_destroy` on the API, and the app treats the base URL as config.
+
+`# ponytail: redirect route on the backend, not S3/CloudFront — one less thing; revisit only if the redirect must outlive backend deploys`
 
 ---
 
@@ -124,11 +145,23 @@ Logs deliberately skip the collector: the ECS `awslogs` driver is zero-config an
 
 ## 3. What we keep no matter what
 
-- **KMS CMK encryption at rest**: RDS, S3, Secrets Manager, CloudWatch Logs. Key policy scoped to the specific service roles.
-- **TLS 1.2+ in transit**: API GW ACM cert, `rds.force_ssl`, SES TLS.
-- **Least-privilege IAM**: no IAM users, no long-lived keys anywhere. Humans via Identity Center SSO; CI via **GitHub OIDC** roles (plan-only role vs apply role); the ECS task role sees exactly its secrets/buckets/AMP write.
-- **Plan-only CI, CEO-gated apply**: PR runs fmt/validate/tflint/checkov + `terraform plan` (read-only role). Apply is a separate `workflow_dispatch` job from `main` only, runnable only by the CEO, using the saved plan artifact. `prevent_destroy` on DB/S3/KMS.
+- **KMS CMK encryption at rest**: RDS, S3, secrets, CloudWatch Logs — **one data CMK** (was two; at this scale one key policy scoped to the specific service roles covers it, −$1/mo). Split keys later if audit scope ever demands it.
+- **Secrets**: **SSM Parameter Store SecureString** (standard tier, free, KMS-encrypted, native ECS injection) instead of Secrets Manager (−$1.60/mo). We lose managed rotation — the Anthropic key is rotated manually anyway. `# ponytail: SSM SecureString; move to Secrets Manager if we ever need automatic rotation`
+- **TLS 1.2+ in transit**: API GW default endpoint (AWS-managed cert), `rds.force_ssl`, SES TLS.
+- **Least-privilege IAM**: no IAM users, no long-lived keys anywhere. Humans via Identity Center SSO; CI via **GitHub OIDC** roles (plan-only role vs apply role); the ECS task role sees exactly its parameters/buckets/AMP write.
+- **Plan-only CI, CEO-gated apply** on GitHub Free — design in §3.1. `prevent_destroy` on DB/S3/KMS/API GW.
 - **Backups with tested restore**: RDS automated backups 14 d + AWS Backup cross-account copy to `management`; a restore rehearsal is a standing quarterly ticket — a backup that was never restored is a hope, not a backup.
+- **Budgets as enforcement**: AWS Budget **$40/mo** (management account, consolidated) with email alerts at 50/80/100%; **Claude API $10/mo** as a hard spend limit in the Anthropic console (the API stops, it doesn't overspend) — backend also emits token-usage metrics to AMP so the Grafana dashboard shows approach before the wall.
+
+### 3.1 GitHub Free apply gate (Round 3 decision #4)
+
+No paid Environment approvals. The gate is built from what Free gives us:
+
+1. **Plan on PR**: fmt/validate/tflint/checkov + `terraform plan` under the **plan role** (read-only, trust policy `sub` scoped to `repo:<owner>/vita:pull_request`).
+2. **Plan on `main`**: after merge, a plan job runs on `main` and uploads the plan file as a **workflow artifact**.
+3. **Apply = CEO-triggered `workflow_dispatch`** on `apply.yml`, input = the run ID of step 2. It downloads that exact artifact and runs `terraform apply saved.tfplan` — if state drifted since the plan, Terraform refuses the stale plan. No re-plan inside apply, so what the CEO saw is what runs.
+4. **OIDC apply role locked to that workflow**: GitHub's `sub` claim is customized to include `job_workflow_ref`, so the apply role's trust policy matches only `repo:<owner>/vita` + `ref:refs/heads/main` + workflow file `.github/workflows/apply.yml`. A PR branch, a fork, or any other workflow cannot assume it. On a private repo, only collaborators (the CEO) can trigger `workflow_dispatch` at all.
+5. **Branch protection caveat, stated honestly**: enforced branch-protection/rulesets on **private** repos require a paid plan. On Free the compensating controls are: sole collaborator, the PR-plan-review habit, and the fact that the apply role only works from `main` via the pinned workflow. If a second human collaborator ever joins, that's the moment to pay for Team ($4/mo) and turn real protection on.
 
 ---
 
@@ -149,25 +182,30 @@ Region-agnostic pattern (the Brazil clause):
 
 ## 5. New monthly cost estimate (eu-west-1, USD, ±30%)
 
-| Line item | $/mo | Sizing |
-|---|---:|---|
-| ECS Fargate API task (ARM, 0.25 vCPU / 1 GB, 24/7, incl. OTel sidecar) | 8.50 | 1 task, no autoscaling |
-| API Gateway HTTP API + VPC Link | 0.10 | ~$1.11/M requests; VPC Link free |
-| RDS PostgreSQL t4g.micro single-AZ + 20 GB gp3 (KMS) | 15.60 | backups ≤ DB size free |
-| NAT gateway | 0 | eliminated (§1.2) |
-| S3 (uploads/exports, SSE-KMS) + ECR | 2.00 | low volume |
-| CloudWatch Logs + alarms | 3.00 | JSON logs, 400 d retention, Insights queries |
-| Amazon Managed Prometheus | 2.00 | ~22 M samples/mo |
-| X-Ray (sampled traces) | 1.00 | mostly inside free tier |
-| Secrets Manager (4 secrets) + KMS (2 CMKs) | 3.60 | |
-| Route 53 (zone + queries) | 1.50 | |
-| SES (magic links) | 0.10 | |
-| CloudTrail + audit S3 | 0.50 | first trail free |
-| GuardDuty | 3.00 | low event volume |
-| AWS Backup cross-account copy | 1.00 | snapshot storage in `management` |
-| **Total AWS** | **~$42** | **vs ~$590 previously** |
+New AWS account = 12 months of free tier on exactly the lines that dominate here (RDS t4g.micro 750 h/mo, 20 GB storage + 20 GB backup, 1 M API GW requests, 5 GB S3, 500 MB ECR) plus always-free allowances (CloudWatch 10 alarms + 5 GB log ingest, SNS 1 k emails, X-Ray 100 k traces, SSM standard parameters, first CloudTrail trail).
 
-Non-AWS: GitHub **Free** (private repo; apply gate via CEO-only `workflow_dispatch` — formal Environment approval rules would need Team at $4/mo, upgrade any time); Apple Developer $99/yr; Google Play $25 once; domain ~$15–45/yr. Claude API product usage remains a backend budget line with its own spend limit (§ setup guide).
+| Line item | Year 1 (free tier) | Year 2+ | Sizing / free-tier note |
+|---|---:|---:|---|
+| ECS Fargate API task (ARM, 0.25 vCPU / 1 GB, 24/7, incl. ADOT sidecar) | 8.50 | 8.50 | no Fargate free tier |
+| API Gateway HTTP API + VPC Link | 0.00 | 0.10 | 1 M req/mo free 12 mo; VPC Link free |
+| RDS PostgreSQL t4g.micro single-AZ + 20 GB gp3 (KMS) | 0.00 | 15.60 | 750 h + 20 GB storage + 20 GB backup free 12 mo |
+| NAT gateway | 0 | 0 | eliminated (§1.2) |
+| S3 (uploads/exports, SSE-KMS) + ECR | 0.20 | 2.00 | 5 GB S3 + 500 MB ECR free 12 mo |
+| CloudWatch Logs + alarms + SNS email | 0.50 | 3.00 | 5 GB ingest, 10 alarms, 1 k emails always free |
+| Amazon Managed Prometheus | 2.00 | 2.00 | ~22 M samples/mo, no free tier |
+| X-Ray (sampled traces) | 0.00 | 0.00 | 100 k traces/mo **always** free — we sample under that |
+| Secrets: SSM Parameter Store SecureString | 0.00 | 0.00 | standard tier always free (was Secrets Manager $1.60) |
+| KMS (1 data CMK) | 1.00 | 1.00 | was 2 CMKs; one scoped key suffices |
+| Route 53 | — | — | deferred with the domain (§1.8); +~$0.50/zone when bought |
+| SES (magic links, sandbox) | 0.00 | 0.10 | 3 k msgs/mo free 12 mo; pennies after |
+| CloudTrail + audit S3 | 0.30 | 0.50 | first trail free |
+| GuardDuty | 3.00 | 3.00 | 30-day trial, then ~$3 at our volume |
+| AWS Backup cross-account copy | 0.50 | 1.00 | snapshot storage in `management` |
+| **Total AWS** | **~$16** | **~$37** | **budget alarm $40 — headroom ~$24 / ~$3** |
+
+Trims vs the earlier ~$42: Route 53 deferred (−$1.50), Secrets Manager → SSM (−$1.60), 2 CMKs → 1 (−$1.00), X-Ray recognized as always-free at our volume (−$1.00).
+
+Non-AWS: GitHub **Free** (gate design §3.1); Apple Developer $99/yr; Google Play $25 once; domain **deferred** (~$15–45/yr when bought). Claude API: hard $10/mo limit in the Anthropic console, zero-retention arrangement on the key.
 
 ### What was cut, and the risk each cut carries
 
@@ -181,6 +219,9 @@ Non-AWS: GitHub **Free** (private repo; apply gate via CEO-only `workflow_dispat
 | Security Hub (kept GuardDuty) | ~$10 | No continuous compliance scoring | checkov in CI; revisit at public launch |
 | Mobile CI (macOS runners, Fastlane) | ~$40–80 | Builds depend on one human + one Mac | CEO's explicit decision; document the manual build steps |
 | Multi-AZ ECS (2 tasks) | ~$8.50 | Task/AZ death ⇒ minutes of downtime while ECS reschedules | Acceptable at 5 users |
+| Domain + Route 53 (deferred) | ~$1.50 + $15–45/yr | Unverified `vita://` deep links; SES sandbox friction per tester; app coupled to the `execute-api` URL | §1.8: single-use short-TTL tokens, `prevent_destroy` on the API, base URL as app config |
+| Secrets Manager → SSM SecureString | ~$1.60 | No managed rotation | Keys rotated manually anyway; swap back if rotation is ever needed |
+| Paid GitHub Environment approvals | $4 | No enforced branch protection on a Free private repo | §3.1: sole collaborator, OIDC apply role pinned to `apply.yml`@`main`, stale-plan refusal |
 
 ## 6. Single-environment operational discipline
 
@@ -195,8 +236,8 @@ No staging means the pipeline and habits are the safety net:
 
 ## 7. Questions for the CEO
 
-1. **Domain**: still open from kickoff — blocks SES verification, API hostname, and app bundle IDs (see setup guide).
-2. **GitHub Free + CEO-only `workflow_dispatch` apply gate** ok, or do you want formal Environment approval reviews (GitHub Team, $4/mo)?
-3. **Budget alarm threshold**: proposing a $60/mo AWS budget with alerts at 50/80/100% — confirm the number.
-4. **Grafana access flow** (§2.2, `aws sso login` then open Grafana) acceptable?
-5. Carried over from kickoff, still open: Anthropic DPA/zero-retention confirmation; data-retention windows for uploads/exports/logs.
+Round 3 answered the big ones (domain deferred → §1.8; GitHub Free gate → §3.1; budgets $40/$10; zero-retention confirmed). Still open:
+
+1. **Bundle ID / package name**: proposing `com.lucasmagalhaes.vita` (permanent, not domain-derived per your directive) — confirm before the first store upload, it's immutable.
+2. **Domain trigger**: what event makes us buy it — first non-tester user, Android launch (verified app links), or a date? The switch list lives in the setup guide ("When we buy the domain").
+3. Data-retention windows for uploads/exports/logs (carried over; defaulting to 400 d logs, 90 d exports unless you object).
