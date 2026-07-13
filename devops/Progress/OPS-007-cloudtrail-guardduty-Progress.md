@@ -1,6 +1,6 @@
 # OPS-007 · CloudTrail + GuardDuty — Progress
 
-Asana: https://app.asana.com/1/1216482759560814/project/1216519867368584/task/1216521831850510 · Status: **In progress** (code done, apply pending)
+Asana: https://app.asana.com/1/1216482759560814/project/1216519867368584/task/1216521831850510 · Status: **Done** (applied + verified 2026-07-13)
 
 ## 2026-07-13
 
@@ -9,3 +9,9 @@ Asana: https://app.asana.com/1/1216482759560814/project/1216519867368584/task/12
 - `validate` + `fmt` pass.
 
 Remaining for Done: apply (runbook step 3); `get-trail-status` IsLogging + GuardDuty sample-findings verification.
+
+## 2026-07-13 (session 2)
+
+- In the `prod-eu` plan (30 to add): audit bucket (+4 config resources), trail `vita-trail`, GuardDuty detector. Plan saved as `prod-eu.tfplan`; **awaiting CEO approval before apply**.
+- **CEO APPROVED → APPLIED.** Verified: `get-trail-status` → `IsLogging: true`; GuardDuty detector `ffe1dc3d5c63408dadb37638bb9069f7` active; audit bucket `vita-audit-201261380352` live.
+- **DONE — in production.** (GuardDuty sample-findings drill skipped — detector active is the DoD at 0 users.)
