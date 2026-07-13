@@ -19,6 +19,34 @@ export const colors = {
     carbs: "#C98A3F",
     fat: "#E0A375",
   },
+  // Supporting neutrals/accents lifted from the prototype
+  labelMuted: "#B7AB9C", // uppercase section labels
+  track: "#F0E9DA", // empty bar/donut track
+  estimateBg: "#F7E7D4",
+  estimateInk: "#A66A3F",
+  border: "rgba(120,100,75,0.10)",
+  sheet: "#FBF6EC",
+} as const;
+
+/**
+ * Per-entry-kind palette for timeline cards and wave illustrations
+ * (prototype `tl` mapping; workout color-mix values flattened for the
+ * default accent — light-only v1).
+ */
+export const entryPalette = {
+  meal: { c1: "#F0C9A8", c2: "#E8B48C", line: "#C98A3F", badgeBg: "#F7E7D4", badgeInk: "#A66A3F" },
+  water: { c1: "#C9D6BE", c2: "#A9BC9B", line: "#5F7A61", badgeBg: "#E7EDE1", badgeInk: "#5F7A61" },
+  workout: { c1: "#F0D8CB", c2: "#E4B7A0", line: "#C4704E", badgeBg: "#F7E9DF", badgeInk: "#C4704E" },
+} as const;
+
+/**
+ * Motion tokens — the prototype's two cubic-beziers plus standard durations.
+ * Use with Reanimated: Easing.bezier(...motion.pop.bezier).
+ */
+export const motion = {
+  pop: { durationMs: 350, bezier: [0.2, 0.8, 0.3, 1] as const }, // vtPop / sheet entrance
+  unfold: { durationMs: 450, bezier: [0.22, 0.9, 0.32, 1] as const }, // pill field expand
+  fade: { durationMs: 250 },
 } as const;
 
 /** Nunito (200–800) loaded in the root layout via @expo-google-fonts/nunito. */

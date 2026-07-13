@@ -32,7 +32,7 @@ const config: ExpoConfig = {
     //   VITA_API_BASE_URL=https://<api-gateway-id>.execute-api.<region>.amazonaws.com/v1
     apiBaseUrl: process.env.VITA_API_BASE_URL ?? "",
   },
-  plugins: ["expo-router", "expo-font"],
+  plugins: ["expo-router", "expo-font", "expo-sqlite"],
 };
 
 export default config;

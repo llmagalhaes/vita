@@ -1,8 +1,157 @@
 {
-  "home": {
-    "greeting": "Hello",
-    "tagline": "A quiet log of meals, water & movement",
+  "common": {
     "estimate": "estimate",
-    "capturePlaceholder": "Tell Vita what you had…"
+    "estimates": "estimates",
+    "next": "Next",
+    "start": "Start",
+    "confirm": "Confirm",
+    "adjust": "Adjust",
+    "discard": "Discard",
+    "kcal": "kcal",
+    "ml": "ml",
+    "min": "min",
+    "tryAgain": "Try again",
+    "cancel": "Cancel"
+  },
+  "onboarding": {
+    "stepLabel": "Step {{current}} of {{total}}",
+    "welcome": {
+      "eyebrow": "Welcome to Vita",
+      "title": "What should we call you?",
+      "nameLabel": "Your name",
+      "unitsLabel": "Units",
+      "metric": "Metric",
+      "imperial": "Imperial"
+    },
+    "keepTrack": {
+      "title": "What would you like to keep an eye on?",
+      "subtitle": "Just your own reference — Vita never sets targets or scores.",
+      "meals": "Meals",
+      "water": "Water",
+      "workouts": "Workouts",
+      "habits": "Habits",
+      "cycle": "Cycle"
+    },
+    "plan": {
+      "title": "Do you follow an eating plan?",
+      "subtitle": "Describe it, paste it, or import your nutritionist's PDF — Vita reads it back for you to confirm.",
+      "describe": "Describe it",
+      "describeSub": "type or dictate, in your own words",
+      "import": "Paste or import",
+      "importSub": "text or a PDF from your nutritionist",
+      "importNote": "PDF import isn't in this build yet — paste the plan as text.",
+      "none": "Not right now",
+      "noneSub": "you can add one anytime",
+      "noneNoted": "No plan — noted",
+      "summaryLabel": "Plan summary",
+      "inputPlaceholder": "e.g. low carb on weekdays, flexible weekends…"
+    },
+    "program": {
+      "title": "A training program in progress?",
+      "subtitle": "Same idea — describe it or import it, and confirm the summary.",
+      "describe": "Describe it",
+      "describeSub": "“3 strength days, Mon–Wed–Fri…”",
+      "import": "Import from my gym app",
+      "importSub": "or paste the plan as text",
+      "importNote": "Gym-app import isn't in this build yet — paste the program as text.",
+      "none": "No program",
+      "noneSub": "workouts can still be logged anytime",
+      "noneNoted": "No program — noted",
+      "summaryLabel": "Program summary",
+      "inputPlaceholder": "e.g. Mon — legs · Wed — push · Fri — pull"
+    },
+    "planShared": {
+      "readBack": "Read back",
+      "looksRight": "Looks right",
+      "saved": "Saved to your profile",
+      "clear": "Clear and answer another way",
+      "changeAnswer": "Change answer",
+      "answeredByTap": "answered by tap"
+    },
+    "connect": {
+      "title": "Bring what you already use",
+      "subtitle": "Vita reads workouts, activity and cycle data from apps you approve.",
+      "privacy": "Vita reads only what you approve.",
+      "connect": "Connect",
+      "connected": "Connected",
+      "comingLater": "Arrives in v2",
+      "appleHealth": "Apple Health",
+      "appleHealthSub": "workouts · activity · cycle",
+      "healthConnect": "Health Connect",
+      "healthConnectSub": "workouts · activity · cycle",
+      "garmin": "Garmin",
+      "strava": "Strava",
+      "flo": "Flo",
+      "gymApp": "Gym app"
+    },
+    "allSet": {
+      "title": "All set, {{name}}.",
+      "recapName": "Name",
+      "recapUnits": "Units",
+      "recapKeepTrack": "Keeping an eye on",
+      "recapPlan": "Eating plan",
+      "recapProgram": "Training program",
+      "recapConnected": "Connected",
+      "planYes": "Saved",
+      "planNo": "None",
+      "connectedNone": "Nothing yet",
+      "philosophy": "Vita records what you tell it and shows it back — it never sets goals, grades your day, or gives advice.",
+      "tryIt": "Try it — say what you ate today."
+    }
+  },
+  "home": {
+    "goodMorning": "Good morning",
+    "goodAfternoon": "Good afternoon",
+    "goodEvening": "Good evening",
+    "loggedToday": "Logged today",
+    "water": "Water",
+    "quickAdd": "+ 250 ml",
+    "macros": "Macros",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
+    "energy": "Energy today",
+    "energyNote": "kcal · estimates",
+    "consumed": "consumed",
+    "spent": "spent so far",
+    "balance": "balance",
+    "last7": "Last 7 days",
+    "inVsOut": "in vs out",
+    "in": "in",
+    "out": "out",
+    "eatingPlan": "Eating plan",
+    "today": "Today",
+    "emptyTimeline": "Nothing logged yet today. Tell Vita below.",
+    "waitingToSync": "waiting to sync",
+    "meal": "Meal",
+    "waterEntry": "Water",
+    "workout": "Workout",
+    "byVoice": "Logged by voice",
+    "byText": "Logged by text",
+    "byPhoto": "Logged by photo",
+    "byTap": "Quick add"
+  },
+  "capture": {
+    "placeholder": "Tell Vita what you had…",
+    "makingSense": "Making sense of it…",
+    "estimatedBy": "Estimated by Vita from your description",
+    "draftCount": "{{current}} of {{total}}",
+    "addedToast": "Added to your log",
+    "photoNotYet": "Photo capture isn't in this build yet.",
+    "parseError": "Vita couldn't be reached. Your words are kept — try again.",
+    "log": "Log"
+  },
+  "pill": {
+    "today": "Today",
+    "trends": "Trends",
+    "habits": "Habits"
+  },
+  "trends": {
+    "title": "Trends",
+    "notYet": "Trends aren't in this build yet."
+  },
+  "habits": {
+    "title": "Habits & check-ins",
+    "notYet": "Habits aren't in this build yet."
   }
 }

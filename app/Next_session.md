@@ -1,32 +1,33 @@
 # App Team — Next Session
 
-## Current state (Phase 2 — Implementation, session 1 done 2026-07-13)
+## Current state (Phase 2 — session 2 done 2026-07-13: M1 walkable mocked app ✅)
 
-- **ADR-0001 written** (`Doc/ADRs/ADR-0001-stack-react-native-expo.md`) — stack decision recorded.
-- **`Doc/foundations.md` updated with CEO Round 5**: v2 pill only, light-only, phone-only iOS 16+/Android 10+, cycle chip v1 via health platforms only, display name TBD (single config constant).
-- **APP-001 done-pending-ack**: `Doc/contract-review-v0.md` answers all 7 TBD-APP-REVIEW points. Two contract edits requested from backend (muscles → 11-value enum; `ParseResult.drafts` maxItems 5); `?updatedSince=` explicitly declined for v0. Hand to backend via orchestrator; close on their ack.
-- **APP-002 built**: `services/vita-app/` — Expo SDK 57 + TS strict + Expo Router, `com.llmagal.vita` both platforms, scheme `vita://`, API base URL from `VITA_API_BASE_URL` build env (`src/config.ts`), light-only, phone-only. `tsc --noEmit` clean, Jest 5/5 green. Build quirks documented in `Progress/APP-002-expo-scaffold-Progress.md` (jest 29 pin, test-renderer + @react-native/jest-preset peers, .npmrc legacy-peer-deps).
-- **APP-003 first slice**: `src/ui/` — full token set from the brief + Text/Card/Button/Chip with tests. Theming provider (accent options + vacation sea-tone swap) deliberately deferred.
-- **APP-004 done-pending-prod**: react-i18next, `en.json` sole locale, all scaffold strings through `t()`.
-- Asana: APP-001/002/003/004 all in "In progress" (nothing moved to Done — DoD is in production, tester builds blocked on store accounts).
+- **The app is walkable end to end with mock data**: `cd app/services/vita-app && npm install && npx expo start` → Expo Go → onboarding (6 steps) → Home/Today → capture pill → type a phrase ("Had a banana and a handful of peanuts around 4") → "Making sense of it…" → confirmation card → Confirm → timeline. No backend needed: with no `VITA_API_BASE_URL`, `src/api` serves a deterministic in-process mock and SQLite is seeded with a demo morning.
+- `tsc --noEmit` clean · **Jest 23/23 green (6 suites)** · iOS + Android Metro bundles verified (200, ~2000 modules).
+- **APP-001 closed-pending-nothing**: backend applied both contract edits (contract v0.2.0 — muscles 11-enum, drafts maxItems 5); generated types match.
+- **APP-005 built**: SQLite (`entries`/`outbox`/`kv`), instant local writes, idempotency-key drain with backoff + LWW; node:sqlite-backed Jest mock (`__mocks__/expo-sqlite.ts`).
+- **APP-006 built**: openapi-typescript codegen (`npm run api:gen` / `api:check` drift gate), typed `Api` iface, http client (RFC 7807), mock client (MSW-equivalent by design — see Progress). TanStack Query deliberately skipped.
+- **APP-009/010 built**: single-route 6-step onboarding; shared `PlanStep` for plan/program; settings→kv + fire-and-forget PATCH /me; skippable paths.
+- **APP-011 built**: v2 pill (Reanimated unfold, motion tokens in `src/ui`), capture sheet with parse→confirm/adjust/stacked drafts; camera/mic = factual placeholders.
+- **APP-013 built**: Home fully offline from SQLite — kcal hero (estimates tag), water quick-add via outbox, macros bars, energy (spent placeholder), plan row, wave-illustrated timeline with "waiting to sync".
+- New deps: expo-sqlite, react-native-reanimated 4 (+worklets), gesture-handler, react-native-svg, expo-crypto; dev openapi-typescript. Jest needs `"resolver": "react-native-worklets/jest/resolver.js"` (already in package.json). `app.json` deleted (was duplicating `app.config.ts`).
 
 ## Next steps
 
-1. APP-005 (whatever wave-0 remains per backlog) then APP-006: API client + auth flow against `vita-api-v0.yaml` (magic link via `vita://auth`, token pair storage in expo-secure-store, serialized refresh).
-2. APP-011 capture pill (v2 only) — bring in Reanimated + Gesture Handler then; add motion tokens to `src/ui`.
-3. Extend `src/ui` as screens demand (Bar, Donut, EstimateTag, WaveIllustration, theming provider).
-4. When backend applies the two contract edits, regenerate/verify app-side types (codegen not set up yet — decide openapi-typescript when the API client starts).
-5. Min-OS pinning (iOS 16 / Android 10) via expo-build-properties at first prebuild.
+1. **APP-008 auth screens + magic link** (vita://auth deep link, expo-secure-store, serialized refresh) — client auth endpoints still to add in `src/api`.
+2. **APP-012 voice capture** (hold-to-talk on the pill; pill already reserves the gesture).
+3. **APP-014 meal detail** (Donut primitive; timeline meal cards currently don't navigate).
+4. Offline pending-interpretation for capture (unparsed outbox op) once a real API URL exists; NetInfo reconnect drain trigger.
+5. Maestro E2E smoke (deferred this session — RNTL covers flows; add when tester builds exist).
+6. Fidelity pass vs prototype (wave draw-on animation, check-ins banner with habits wave).
 
-## Blockers / open items
+## Blockers / dependencies
 
-- Apple Developer + Play Console accounts (CEO, deferred Round 5) — blocks APP-007 tester builds, and thus any ticket reaching Done.
-- Backend ack of `Doc/contract-review-v0.md` + the two contract edits.
-- API Gateway URL (devops) needed before the API client can be exercised against production.
+- **Plan/program parse-import endpoint missing from contract** — onboarding steps 3–4 use a client-side mock read-back; backend ticket needed (raised to orchestrator).
+- Apple Developer + Play Console accounts (CEO) — still blocks APP-007 and any Done.
+- API Gateway URL (devops) — blocks exercising the http client for real.
 
 ## Key references
 
-- `app/Doc/foundations.md` — fixed decisions (now includes Round 5).
-- `app/Doc/contract-review-v0.md` — contract verdicts.
-- `app/Doc/ADRs/ADR-0001-stack-react-native-expo.md`.
-- Asana "Vita frontend" GID `1216519867368576`; In progress section GID `1216521805290095`, Backlog `1216523313289549`.
+- `app/Doc/foundations.md`, `app/Doc/contract-review-v0.md` (all 7 points settled; edits applied in contract v0.2.0).
+- Asana "Vita frontend" `1216519867368576`; In progress section `1216521805290095`, Backlog `1216523313289549`.

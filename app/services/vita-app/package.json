@@ -6,16 +6,22 @@
     "@expo-google-fonts/nunito": "^0.4.2",
     "expo": "~57.0.4",
     "expo-constants": "~57.0.3",
+    "expo-crypto": "~57.0.0",
     "expo-font": "~57.0.0",
     "expo-linking": "~57.0.2",
     "expo-router": "~57.0.4",
+    "expo-sqlite": "~57.0.0",
     "expo-status-bar": "~57.0.0",
     "i18next": "^26.3.6",
     "react": "19.2.3",
     "react-i18next": "^17.0.9",
     "react-native": "0.86.0",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.0",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-screens": "4.25.2"
+    "react-native-screens": "4.25.2",
+    "react-native-svg": "15.15.4",
+    "react-native-worklets": "0.10.0"
   },
   "devDependencies": {
     "@react-native/jest-preset": "^0.86.0",
@@ -24,6 +30,7 @@
     "@types/react": "~19.2.2",
     "jest": "~29.7.0",
     "jest-expo": "^57.0.1",
+    "openapi-typescript": "^7.13.0",
     "test-renderer": "^1.2.0",
     "typescript": "~6.0.3"
   },
@@ -33,10 +40,13 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "api:gen": "openapi-typescript ../../../docs/contracts/vita-api-v0.yaml -o src/api/types.gen.ts",
+    "api:check": "openapi-typescript ../../../docs/contracts/vita-api-v0.yaml -o .api-drift.tmp.ts && diff -q .api-drift.tmp.ts src/api/types.gen.ts && rm .api-drift.tmp.ts"
   },
   "private": true,
   "jest": {
-    "preset": "jest-expo"
+    "preset": "jest-expo",
+    "resolver": "react-native-worklets/jest/resolver.js"
   }
 }
