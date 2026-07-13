@@ -23,17 +23,19 @@ Done.** OPS-009 In progress (first backup lands tomorrow; CEO sets RDS password 
 db-credentials; **OPS-017** restore-rehearsal ticket created). OPS-010 In progress (CEO
 pastes 7 real values; task-role read verified in OPS-014).
 
-**OPS-013/014 written + planned (NOT applied — awaiting CEO OK).** New modules `apigw`,
-`ecs`. `plan` = **19 to add, 1 to change, 0 to destroy** (apigw 10 · ecs 9; the 1 change
-= app-data CMK key policy granting the ECS task role).
-- OPS-013 API GW HTTP API + VPC Link + Cloud Map `vita.local`; adds the app SG's only
-  ingress (from VPC-Link SG, port 8080); `prevent_destroy` on the API. Apply-ready
-  independent of the image.
-- OPS-014 ECS Fargate ARM64 (app + ADOT sidecar), circuit-breaker rollback, health
-  check `curl /health:8080` (confirmed vs backend Dockerfile). Least-privilege task role
-  (2 buckets, `/vita/prod/*`, SES, aps:RemoteWrite; app-data CMK via key policy).
-  **APPLY BLOCKED on BE-004 pushing the arm64 image to ECR** — plan is image-agnostic.
-- Also fixed a benign RDS param-group perpetual-diff (`apply_method=pending-reboot`).
+**OPS-013/014 APPLIED, then CEO PIVOT → milestone-only deploys; ECS PARKED at 0.**
+apigw + ecs modules applied (19 add / 1 change). Then CEO changed policy (2026-07-13):
+**development is local (docker-compose + bootRun); prod deploys only at milestones, not
+per-ticket.** So the BE-004 first-deploy was **cancelled** (no image built/pushed) and I
+set `module.ecs.desired_count = 0` (applied) → Fargate $0, no crash-loop.
+- OPS-013 API GW live: `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/` (503 until
+  a deploy milestone runs a real image). Cloud Map `vita.local`, VPC Link, app-SG ingress:8080.
+- OPS-014 ECS cluster/service/roles/task-def applied but **parked** (desired_count 0).
+- Foundational infra (RDS/SSM/S3/ECR/KMS/audit) stays applied as-is. CEO's SSM secret-paste
+  + RDS-password steps are now **non-urgent** — only needed at the first real deploy milestone.
+- Fixed a benign RDS param-group perpetual-diff (`apply_method=pending-reboot`) earlier.
+
+**STOOD DOWN — no more prod work until the CEO calls a deploy milestone.**
 
 ## Prior state (session 2 close — 2026-07-13)
 
@@ -46,19 +48,20 @@ pastes 7 real values; task-role read verified in OPS-014).
 - **Round 7 rule (CEO)**: every Asana ticket carries a `Model:` line (Sonnet = simple, Opus 4.8 = complex) — existing tickets updated by the orchestrator; include it on any new ticket we create.
 - CLI identity: IAM `vita-admin` (root key gone). Repo on GitHub. Cost posture: free-tier credits as-is; $40 alarm live.
 
-## Next steps
+## Next steps — HELD until the CEO calls a deploy milestone
 
-1. **CEO approves the OPS-013/014 plan** (19 add / 1 change / 0 destroy). Then apply
-   OPS-013 (API GW — image-independent); **OPS-014 apply waits on BE-004 pushing the
-   arm64 image to ECR**. After OPS-014: e2e health 200 over https, rollback + task-role
-   negative tests.
-2. Finish OPS-004: CEO sets the 3 repo Variables + runs PR/fork negative tests + no-op apply.
-3. Post-apply setup (CEO): paste 7 real SSM values; set the RDS master password in console
-   AND matching `/vita/prod/db-credentials`. Verify tomorrow that the first AWS Backup ran.
-4. Record the API GW URL in bootstrap-ids.md + hand to the app team once OPS-013 applies.
-5. Remaining infra: OPS-012 (SES sandbox + tester identities) → observability ticket
-   (AMP workspace + ADOT config + CloudWatch alarms; scope `aps:RemoteWrite` to it then)
-   → OPS-016 (magic-link redirect, backend-owned route).
+**At the first deploy milestone (resume the chain):**
+1. BE-004: build backend arm64 image (`backend/services/vita-api/Dockerfile`, verified),
+   `aws ecr get-login-password` → push to `…/vita-api` by git SHA.
+2. CEO sets the RDS master password (console) + pastes 7 real SSM values (`/vita/prod/*`),
+   db-credentials matching the RDS password.
+3. Flip `module.ecs.desired_count` → 1; run Flyway one-off ECS task; roll the service.
+4. Verify health 200 through `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/`;
+   hand the URL to the app team (APP-008); rollback + task-role negative tests.
+
+**Independent of the milestone (can do anytime):**
+- Finish OPS-004: CEO sets the 3 repo Variables + PR/fork negative tests + no-op apply.
+- OPS-012 (SES sandbox), observability ticket (AMP + ADOT + alarms), OPS-016 (magic-link).
 
 ## Open questions for the CEO
 

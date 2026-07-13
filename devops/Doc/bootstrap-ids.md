@@ -19,6 +19,10 @@
 - SSM secrets path: `/vita/prod/*` (7 SecureString, storage CMK) — CEO pastes real values
 - S3 buckets: `vita-prod-uploads-201261380352`, `vita-prod-exports-201261380352`
 
-## Pending apply (OPS-013/014, planned 2026-07-13)
-- API Gateway URL: known after OPS-013 apply → record here + hand to app team
-- ECS task role: `arn:aws:iam::201261380352:role/vita-ecs-task` (once applied)
+## Ingress + compute (OPS-013/014, applied 2026-07-13; ECS PARKED)
+- **API Gateway URL**: `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/`
+  (live; no backend behind it yet — 503 until the ECS service runs an image)
+- ECS cluster `vita`, service `vita` — **desired_count = 0 (parked)**: prod deploys only
+  at milestones (CEO 2026-07-13); flip `module.ecs.desired_count` to 1 at first deploy.
+- ECS task role: `arn:aws:iam::201261380352:role/vita-ecs-task`
+- Cloud Map: private DNS namespace `vita.local`, service `api`

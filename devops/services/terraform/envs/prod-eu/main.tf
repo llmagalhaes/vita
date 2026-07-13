@@ -67,4 +67,7 @@ module "ecs" {
   storage_key_arn               = module.kms.storage_key_arn
   bucket_arns                   = module.storage.bucket_arns
   service_discovery_service_arn = module.apigw.service_discovery_service_arn
+  # Parked at 0 — no image yet and prod deploys only at milestones (CEO, 2026-07-13).
+  # Flip to 1 at the first real deploy after BE-004 pushes an arm64 image.
+  desired_count = 0
 }

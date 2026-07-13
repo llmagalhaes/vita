@@ -31,6 +31,12 @@ variable "log_retention_days" {
   default = 30
 }
 
+# 0 = parked (no image / not a deploy milestone). Flip to 1 at the first real deploy.
+variable "desired_count" {
+  type    = number
+  default = 1
+}
+
 # env var -> SSM param short name under /vita/prod/. Backend confirms/extends the
 # full contract before apply; VITA_JWT_SECRET is the one firm mapping today.
 variable "container_secrets" {
@@ -223,7 +229,7 @@ resource "aws_ecs_service" "this" {
   name            = "vita"
   cluster         = aws_ecs_cluster.this.id
   task_definition = aws_ecs_task_definition.this.arn
-  desired_count   = 1
+  desired_count   = var.desired_count
   launch_type     = "FARGATE"
 
   network_configuration {

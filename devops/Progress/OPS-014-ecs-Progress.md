@@ -3,10 +3,14 @@
 Asana: https://app.asana.com/0/1216519867368584/1216514543845558 (OPS-014)
 Model: Opus 4.8 · cost-revision §1.5 · Status: In progress (planned, NOT applied)
 
-## APPLY IS BLOCKED on BE-004: no arm64 image exists in ECR yet.
-The plan is image-agnostic (image ref is just a string), so it plans clean. But the
-ECS service won't reach healthy until backend builds+pushes a `linux/arm64` image with
-a working `/health` endpoint. **Order: BE-004 pushes image → then apply OPS-014.**
+## APPLIED 2026-07-13, then PARKED (CEO pivot to milestone-only deploys)
+The ECS cluster/service/roles/task-def are applied. The service was created at
+desired_count=1, could not pull the (nonexistent) `vita-api:bootstrap` image, and the
+deployment circuit breaker rolled back to 0 running tasks. CEO then changed policy to
+local-dev + milestone-only prod deploys, so I set **`module.ecs.desired_count = 0`**
+(applied) — service parked, **$0 Fargate cost**, no crash-loop noise. No image was built
+or pushed. **To resume at a milestone**: BE-004 pushes an arm64 image by git SHA, CEO
+pastes the SSM secrets, then flip `desired_count` to 1 and deploy.
 
 ## Built (session 3, 2026-07-13)
 `modules/ecs/main.tf`, wired as `module.ecs` in prod-eu.
