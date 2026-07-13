@@ -1,29 +1,32 @@
 # App Team — Next Session
 
-## Current state (Phase 1 — Specification, in progress)
+## Current state (Phase 2 — Implementation, session 1 done 2026-07-13)
 
-- Phase 0 approved: stack is **React Native + Expo** (CEO decision log Round 4).
-- **`Doc/foundations.md` written** — fixed decisions: bundle id `com.llmagal.vita` (immutable, both stores), deep-link scheme `vita://` (auth callback `vita://auth` via https redirect), API base URL from build config only (API Gateway execute-api URL), react-i18next with `en` as the sole locale file, manual one-command release flow on the CEO's Mac, local-only notifications.
-- **Asana backlog populated**: APP-001 … APP-014 in "Vita frontend" Backlog (waves 0–2: foundations → identity & onboarding → capture & the log). APP-001 is the contract review of `docs/contracts/vita-api-v0.yaml` (backend is drafting it now).
-- Still pending from Phase 0: **ADR-001 (stack choice)** not yet written in `Doc/ADRs/` — write it when implementation starts (or next session).
-- No app code yet (`services/` empty by design — Phase 1 is spec only).
+- **ADR-0001 written** (`Doc/ADRs/ADR-0001-stack-react-native-expo.md`) — stack decision recorded.
+- **`Doc/foundations.md` updated with CEO Round 5**: v2 pill only, light-only, phone-only iOS 16+/Android 10+, cycle chip v1 via health platforms only, display name TBD (single config constant).
+- **APP-001 done-pending-ack**: `Doc/contract-review-v0.md` answers all 7 TBD-APP-REVIEW points. Two contract edits requested from backend (muscles → 11-value enum; `ParseResult.drafts` maxItems 5); `?updatedSince=` explicitly declined for v0. Hand to backend via orchestrator; close on their ack.
+- **APP-002 built**: `services/vita-app/` — Expo SDK 57 + TS strict + Expo Router, `com.llmagal.vita` both platforms, scheme `vita://`, API base URL from `VITA_API_BASE_URL` build env (`src/config.ts`), light-only, phone-only. `tsc --noEmit` clean, Jest 5/5 green. Build quirks documented in `Progress/APP-002-expo-scaffold-Progress.md` (jest 29 pin, test-renderer + @react-native/jest-preset peers, .npmrc legacy-peer-deps).
+- **APP-003 first slice**: `src/ui/` — full token set from the brief + Text/Card/Button/Chip with tests. Theming provider (accent options + vacation sea-tone swap) deliberately deferred.
+- **APP-004 done-pending-prod**: react-i18next, `en.json` sole locale, all scaffold strings through `t()`.
+- Asana: APP-001/002/003/004 all in "In progress" (nothing moved to Done — DoD is in production, tester builds blocked on store accounts).
 
 ## Next steps
 
-1. Write ADR-001 (React Native + Expo) in `Doc/ADRs/`.
-2. Start APP-001: review `docs/contracts/vita-api-v0.yaml` once backend publishes it — verify idempotency keys + `updatedAt` on every log entity (outbox depends on it), auth endpoints (magic link token exchange for `vita://auth`), parse endpoints.
-3. On Phase 2 approval: APP-002 (Expo scaffold) → APP-003/004/005 in parallel-ish order.
-4. Ticket the rest of wave 2 later: **photo capture (plate + whiteboard)** was deliberately left out of this batch — add it after APP-011/012 land.
+1. APP-005 (whatever wave-0 remains per backlog) then APP-006: API client + auth flow against `vita-api-v0.yaml` (magic link via `vita://auth`, token pair storage in expo-secure-store, serialized refresh).
+2. APP-011 capture pill (v2 only) — bring in Reanimated + Gesture Handler then; add motion tokens to `src/ui`.
+3. Extend `src/ui` as screens demand (Bar, Donut, EstimateTag, WaveIllustration, theming provider).
+4. When backend applies the two contract edits, regenerate/verify app-side types (codegen not set up yet — decide openapi-typescript when the API client starts).
+5. Min-OS pinning (iOS 16 / Android 10) via expo-build-properties at first prebuild.
 
 ## Blockers / open items
 
-- `docs/contracts/vita-api-v0.yaml` not yet published (backend, in progress) — blocks APP-001/006 onward.
-- **Open CEO question (keep alive): capture-bar chrome — v1 bar vs v2 pill.** Default recorded in APP-011: build v2 pill only, component kept cheap to swap. Also still open from kickoff §7: dark mode (assumed light-only), tablets (assumed phone-only), min OS versions (proposed iOS 16+/Android 10+), cycle chip in v1 (hidden pending answer, see APP-013), trends computation split (app-side vs backend aggregates).
-- Apple Developer + Play Console accounts needed before APP-007 (CEO creates; devops guide if missing).
+- Apple Developer + Play Console accounts (CEO, deferred Round 5) — blocks APP-007 tester builds, and thus any ticket reaching Done.
+- Backend ack of `Doc/contract-review-v0.md` + the two contract edits.
+- API Gateway URL (devops) needed before the API client can be exercised against production.
 
 ## Key references
 
-- `app/Doc/foundations.md` — fixed technical decisions.
-- `app/Doc/kickoff-proposal.md` — architecture, waves, QA strategy, dependency list.
-- `docs/ceo-decisions.md` — Rounds 3+4 are the newest constraints (placeholder DNS, budgets, `com.llmagal.vita`).
-- Asana board "Vita frontend" project GID `1216519867368576`, Backlog section GID `1216523313289549`.
+- `app/Doc/foundations.md` — fixed decisions (now includes Round 5).
+- `app/Doc/contract-review-v0.md` — contract verdicts.
+- `app/Doc/ADRs/ADR-0001-stack-react-native-expo.md`.
+- Asana "Vita frontend" GID `1216519867368576`; In progress section GID `1216521805290095`, Backlog `1216523313289549`.
