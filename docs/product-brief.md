@@ -12,6 +12,7 @@
 - **Estimates are labeled as estimates.** Every AI-derived number carries an "estimate" tag.
 - **Dual input everywhere.** Every tappable answer can be spoken or typed, and vice versa.
 - **Privacy first.** Vita reads only what the user approves. The log belongs to the user; exports are files the user chooses to share. Sign-in consent screen states: "Vita receives your name and email — nothing else."
+- **Data responsibility.** Store strictly what is necessary; sensitive data is encrypted. Every schema and endpoint is designed with this filter.
 - **Calm.** Earthy/cream palette, soft animations, quiet tone. Vacation mode makes the whole app calmer, not louder.
 
 ## Core interaction: capture

@@ -22,3 +22,12 @@
 - CEO answers to the 9 questions in `Doc/kickoff-proposal.md` §7 (EAS budget, dark mode, tablets, min OS, localization, cycle chip in v1, capture-bar chrome variant, voice privacy posture, trends computation split).
 - `docs/contracts/` is empty — no app implementation against APIs until contracts exist.
 - No app code exists yet (`services/` is empty by design for Phase 0).
+
+## CEO decisions affecting the app (2026-07-13, recorded by orchestrator)
+
+- Stack accepted: React Native + Expo. Tickets now live in Asana ("Vita frontend" board); Notion Mobile page must be kept updated (see DEVELOPMENT_PROCESS.md).
+- i18n-ready from day one; English-only launch.
+- Check-in/habit notifications: local on device (matches our plan; no push infra in v1).
+- Release builds: manual on the CEO's Mac — no EAS subscription/macOS CI. Provide a documented one-command build flow.
+- Single AWS environment (production only): app points at prod API; pre-prod testing is local/mocked.
+- See docs/ceo-decisions.md for the full log.

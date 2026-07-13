@@ -12,7 +12,7 @@ This project is built entirely by AI agents, organized as a company:
 
 | Role | Who | Responsibility |
 |---|---|---|
-| CEO / Product Owner | Lucas (human) | Decides product, priorities, approves proposals and specs |
+| CEO / Product Owner | Lucas (human) | Decides product, priorities, approves proposals and specs; performs human-only actions (accounts, Terraform applies, app store releases) |
 | Orchestrator | Claude (main session) | Coordinates teams, mediates dependencies, consolidates proposals, escalates questions to the CEO |
 | Team Lead Backend | agent `team-lead-backend` | Kotlin backend, external integrations, product AI, backend QA automation |
 | Team Lead App | agent `team-lead-app` | Mobile app, app QA automation |
@@ -22,11 +22,47 @@ AI sessions **have no memory between runs**. Therefore: **the repository is the 
 
 ## Founding decisions (by the CEO)
 
+See `docs/ceo-decisions.md` for the full dated decision log. Currently in force:
+
 - **Scope to production**: the complete product — all prototype screens, working end to end.
 - **Third-party integrations**: v1 ships with native health platforms only (Apple Health + Health Connect). Garmin, Strava and Flo come in v2.
-- **Backend stack**: Kotlin. **Infra**: AWS, 100% Terraform.
-- **App stack**: chosen by the app team's kickoff proposal. Selection criteria, in order: UI fluidity, animation fidelity to the prototype, future-proofing for new features. Implementation language is irrelevant (AI writes all code).
-- **Language**: all documentation and code in English.
+- **Backend stack**: Kotlin. **Infra**: AWS, 100% Terraform. **App stack**: React Native + Expo (app team recommendation).
+- **Data responsibility (core premise)**: store strictly what is necessary; sensitive data is encrypted. Every schema and endpoint is designed with this filter.
+- **Single environment: production only.** All pre-production testing is local. Cost is the priority — but never at the expense of security/encryption.
+- **Region**: Europe, with region-agnostic services/Terraform so a Brazil region can be spun up easily if needed.
+- **Notifications**: habit/check-in notifications are local on device (no server push in v1).
+- **Language**: launch in English; i18n-ready from day one (a new language = new translation files only). All docs and code in English.
+- **Mobile builds**: the CEO builds and submits the apps manually from his Mac — no paid build pipeline.
+- **Observability**: OpenTelemetry as the pipe; Prometheus hosted on AWS for metrics; Grafana runs locally on the CEO's machine pointing at Prometheus.
+- **Initial audience**: ~5 test users; size and cost everything accordingly.
+
+## Tools of record
+
+| Tool | Role | Where |
+|---|---|---|
+| **Git monorepo** | The memory: code, specs, ADRs, session state | this repo |
+| **Asana** | Tickets (our Jira) | boards below |
+| **Notion** | Living documentation (our Confluence) | [Vita space](https://app.notion.com/p/39c213f6aff4804ea42ceea4269556f7) |
+
+### Asana boards (tickets)
+
+| Team | Board | Project GID |
+|---|---|---|
+| Backend | [Vita backend](https://app.asana.com/1/1216482759560814/project/1216519867368580/board/1216517943001322) | `1216519867368580` |
+| App (mobile) | [Vita frontend](https://app.asana.com/1/1216482759560814/project/1216519867368576/board/1216514517218385) | `1216519867368576` |
+| DevOps | [Vita devops](https://app.asana.com/1/1216482759560814/project/1216519867368584/board/1216519868860048) | `1216519867368584` |
+
+- Flow: `Backlog` → `To do` → `In progress` → `Done`. **Definition of done: in production.**
+- Each team lead picks tasks from their own board's Backlog, works them, and moves them to Done.
+- Ticket minimum content (in the Asana task description): goal, acceptance criteria, dependencies on other teams.
+- Cross-team needs are tickets too: if backend/app needs infra (queue, topic, bucket, …), the requesting lead creates a ticket in the **devops** board's Backlog and tells the orchestrator, who dispatches a devops agent.
+- Work-in-progress journal stays in the repo: `<team>/Progress/<short-ticket-name>-Progress.md`, referencing the Asana task URL.
+
+### Notion (living documentation)
+
+Structure under the Vita page: `Product` (objective, philosophy, scope, business plan) · `Backend` / `Mobile` / `DevOps` (each: Decisions, Stack, Notes) · `How we work`.
+
+> **Every team lead and the orchestrator must update Notion at the end of every working session**: new decisions → a dated line on the team page; product changes → Product page. Keep it short and factual — Notion is a summary surface, the repo holds the detail.
 
 ## Monorepo structure
 
@@ -34,7 +70,7 @@ AI sessions **have no memory between runs**. Therefore: **the repository is the 
 vita/
 ├── DEVELOPMENT_PROCESS.md      # this file
 ├── .claude/agents/             # team lead agent definitions
-├── docs/                       # cross-team docs (product brief, prototype, contracts)
+├── docs/                       # cross-team docs (product brief, prototype, contracts, decisions)
 ├── backend/
 ├── app/
 └── devops/
@@ -44,10 +80,7 @@ Every team folder follows the same internal structure:
 
 ```
 <team>/
-├── Backlog/                    # tickets to do — one .md file per ticket
-│   ├── Wip/                    # tickets in progress
-│   └── Done/                   # completed tickets
-├── Progress/                   # [ticket-xx]-Progress.md — work journal per ticket
+├── Progress/                   # <ticket>-Progress.md — work journal per ticket (links the Asana task)
 ├── Next_session.md             # team state: what the next session needs to know
 ├── Doc/
 │   ├── ADRs/                   # architecture decision records (numbered, immutable)
@@ -55,43 +88,37 @@ Every team folder follows the same internal structure:
 └── services/                   # the team's service/app code
 ```
 
-### Ticket conventions
-
-- File name: `[BE|APP|OPS]-NNN-short-title.md` (e.g. `BE-001-auth-magic-link.md`).
-- Minimum content: goal, acceptance criteria, dependencies on other teams, definition of done.
-- Lifecycle: `Backlog/` → `Backlog/Wip/` (moved via `git mv`) → `Backlog/Done/`.
-- Every ticket in Wip has a matching `Progress/[ticket]-Progress.md`, updated on every work session.
-
 ## The cycle of a work session
 
-1. **Read context**: `DEVELOPMENT_PROCESS.md` → `<team>/Next_session.md` → the ticket at hand.
+1. **Read context**: `DEVELOPMENT_PROCESS.md` → `<team>/Next_session.md` → the Asana ticket at hand (move it to `In progress`).
 2. **Work**: implement, test, document. Architectural decisions become ADRs on the spot.
-3. **Close**: update the ticket's `Progress/` file, update `Next_session.md`, commit everything with messages `<team>: <summary>` (e.g. `backend: BE-001 magic link endpoint`).
+3. **Close**: update the ticket's `Progress/` file and `Next_session.md`; commit with `<team>: <summary>`; update the Notion team page (decisions/notes); move the Asana ticket (`Done` only when in production).
 
 Rules for agents:
 
 - **Never invent a product decision.** Product doubts become recorded questions, escalated via the orchestrator → CEO.
 - **Cross-team contracts are sacred**: APIs between backend and app are specified (OpenAPI) in `docs/contracts/` BEFORE either side implements. Contract changes require an ADR and notifying the other team.
 - **QA automation is part of each team**, not a separate phase: no ticket reaches Done without automated tests passing.
+- **Keep it simple** (ponytail): no speculative abstractions, no heavy layered architectures. Modules with clear boundaries, minimum code that works, boring over clever.
 - Small, frequent commits. The CEO reviews by diffs.
 
 ## Project phases
 
 | Phase | Goal | Output |
 |---|---|---|
-| **0 — Kickoff** (current) | Each team lead analyzes the product and proposes their plan from zero to production | `<team>/Doc/kickoff-proposal.md` per team, reviewed by the CEO |
-| **1 — Specification** | Approved proposals become detailed specs and Backlog tickets | Specs in `<team>/Doc/`, contracts in `docs/contracts/`, populated Backlogs |
-| **2 — Implementation** | Teams execute tickets in vertical slices that always integrate | Working, tested software in staging |
-| **3 — Production** | Go-live: full pipeline, observability, security review | Vita in production |
+| **0 — Kickoff** (done) | Each team lead proposes their plan from zero to production | `<team>/Doc/kickoff-proposal.md`, CEO reviewed |
+| **1 — Specification** | Approved proposals become detailed specs and Asana tickets | Specs in `<team>/Doc/`, contracts in `docs/contracts/`, populated Asana Backlogs |
+| **2 — Implementation** | Teams execute tickets in vertical slices that always integrate | Working, tested software |
+| **3 — Production** | Go-live: pipeline, observability, security review | Vita in production |
 
 Each phase only starts with explicit CEO approval of the previous one.
 
 ## Global definition of done (DoD)
 
-A ticket only moves to `Done/` when:
+A ticket only moves to `Done` when:
 
 1. Code implemented and reviewed (agent code review);
 2. Automated tests written and passing (unit + integration; E2E where applicable);
-3. Team documentation updated (ADRs, service docs);
-4. `Progress/` and `Next_session.md` updated;
-5. Everything committed.
+3. Team documentation updated (ADRs, service docs, Notion team page);
+4. `Progress/` and `Next_session.md` updated, everything committed;
+5. **Deployed and working in production.**
