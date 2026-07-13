@@ -4,6 +4,9 @@ Dated, append-only. Newest first. Teams read this to know what is decided vs ope
 
 ## 2026-07-13 — Round 8 (M1 test feedback)
 
+0. **Backend package layout = controller → service → repository.** Packages organized in these three layers (per feature). Applies going forward; **existing code (flat packages, ADR-0001) is NOT refactored now** — deferred to a later ticket (BE-016). Expo Go now runs on SDK 56 (see #4, updated from 54).
+
+
 1. **RDS backup retention = 45 days** (supersedes the 14 d devops / 35 d backend disagreement). Rationale: not in production yet, cheap to change later. Reconcile ADR-0006 + set the value when OPS-009 lands. Blocks nothing now.
 2. **OPS-003 confirmed**: CEO verified the `$40/mo` budget lists his email as subscriber → ticket closed.
 3. **Plan/program parse-import endpoint approved** for the contract (onboarding steps 3–4). Backend specs it now (contract-only, no impl); PDF import goes via S3 presigned URL, not the JSON body.
