@@ -1,0 +1,16 @@
+# Local dev environment — THE pre-prod environment (single prod env, CEO decision).
+# ponytail: Postgres only for now; WireMock stubs for Claude/SES join when BE-005/BE-008 need them.
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: vita
+      POSTGRES_USER: vita
+      POSTGRES_PASSWORD: vita
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

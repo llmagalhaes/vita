@@ -1,0 +1,22 @@
+# OpenAPI contract lint (ADR-0006: specs linted in CI).
+# Written before the GitHub remote exists: activates automatically on first push.
+name: contract-lint
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/contracts/**"
+      - ".github/workflows/contract-lint.yml"
+  pull_request:
+    paths:
+      - "docs/contracts/**"
+      - ".github/workflows/contract-lint.yml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Redocly lint
+        run: npx --yes @redocly/cli@2 lint docs/contracts/*.yaml

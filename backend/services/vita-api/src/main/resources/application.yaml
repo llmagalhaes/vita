@@ -1,0 +1,11 @@
+spring:
+  application:
+    name: vita-api
+  datasource:
+    # Local defaults match docker-compose.yml (BE-002). Prod overrides via env vars.
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/vita}
+    username: ${DB_USERNAME:vita}
+    password: ${DB_PASSWORD:vita}
+
+server:
+  port: 8080
