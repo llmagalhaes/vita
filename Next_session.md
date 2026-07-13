@@ -16,6 +16,7 @@
 
 ### App (local, tested — Done blocked on store accounts)
 - **M1 walkable mocked app**: `cd app/services/vita-app && npm install && npx expo start`. Onboarding → Home → capture pill → parse→confirm → timeline, all offline on SQLite+outbox. APP-005/006/009/010/011/013 In progress; tsc clean, Jest 23/23.
+- **Expo Go fix (APP-016, done)**: store Expo Go is frozen at SDK 54; project was on SDK 57. Pinned to SDK 54 (RN 0.81.5, Reanimated 4.1 so pill+SQLite survive). CEO can now walk it on a physical phone via store Expo Go. ADR app/Doc/ADRs/ADR-0002. **Constraint: do not bump past SDK 54** until Expo publishes a newer store build or we move to dev-client/TestFlight (needs Apple/Play accounts).
 
 ## New CEO rule (Round 7)
 - **Per-task model**: every Asana ticket carries a `Model:` line — Sonnet (simple) / Opus 4.8 (complex); Fable only for heavy orchestration. All 44 tickets tagged; team-lead agents pinned to `model: opus` in `.claude/agents/`.
@@ -25,10 +26,13 @@
 - Apple Developer + Google Play accounts (CEO, later) → blocks APP-007 (store builds) and BE-007. Nothing reaches app "Done" until then.
 - Domain purchase (deferred) → placeholder DNS (devops ADR-0009).
 
+## Resolved in session 2 (Round 8)
+- OPS-003 confirmed → **Done**. RDS backup retention → **45 days** (recorded on OPS-009). Plan/program import → contract **v0.3.0** shipped (BE-015, ADR-0011; app to review 0.3.0). Expo Go → SDK 54 (APP-016). All pushed through `897ec28`.
+
 ## Open questions for the CEO (carried)
-1. **OPS-003**: confirm `vita-monthly-total` shows your email as subscriber (Billing → Budgets).
-2. **RDS backup retention (OPS-009)**: devops says 14 d + cross-account copy; backend asked 35 d. Pick one before OPS-009.
-3. Carried: audit-log retention 400 d, exports 90 d, domain-purchase trigger.
+1. Backend's plan-import design: **two endpoints** (`/parse/eating-plan` + `/parse/training-program`) vs one `/parse/plan` with a `kind` discriminator. Orchestrator recommends keeping the two as-is; CEO can override.
+2. Carried: audit-log retention 400 d, exports 90 d, domain-purchase trigger.
+3. Apple Developer + Play Console accounts remain the gate for any app "Done" AND for any Expo SDK past 54.
 
 ## Next actions (in order)
 1. **DevOps — OPS-004** (GitHub OIDC plan-only CI + CEO-gated apply), then the OPS-008/009/010/011/013/014 chain that unblocks BE-004 (first prod deploy). Same rule: CEO approves every plan before apply.
