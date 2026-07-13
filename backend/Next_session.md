@@ -1,8 +1,10 @@
 # Backend — Next session
 
-## Current state (Phase 2 session 3, 2026-07-13)
+## Current state (Phase 2 session 4, 2026-07-13)
 
-- **Code complete: BE-001/002/003 (W0) + BE-005 (crypto) + BE-006 (magic link) + BE-008 (sessions) + BE-011 (POST /entries) + BE-009 (/me)** — all In progress on Asana (Done = production, blocked on BE-004/devops). Details in `Progress/BE-00{1,2,3,5,6,8,9}` + `BE-011`.
+- **Code complete: BE-001/002/003 (W0) + BE-005 (crypto) + BE-006 (magic link) + BE-008 (sessions) + BE-011 (POST /entries) + BE-009 (/me) + BE-012 (timeline + entry get/update/delete)** — all In progress on Asana (Done = production, blocked on BE-004/devops). Details in `Progress/BE-00{1,2,3,5,6,8,9}` + `BE-011` + `BE-012`.
+- **BE-012 (session 4)**: GET `/v1/entries` (date+tz day filter, opaque base64url keyset cursor `(occurred_at,id) < (?,?)` desc, limit 1–100 default 50, fetch limit+1 for nextCursor) + GET/PATCH/DELETE `/v1/entries/{id}`. PATCH replaces occurredAt and/or whole detail (type immutable, validated against stored type, updated_at bumped); DELETE hard idempotent 204; foreign/missing → 404 (no ownership leak). Same `entries/` package, reuses BE-011's normalize/denormalize/toLogEntry. No contract change, no migration (reuses the `log_entry_user_timeline` index). Suite **48/48**. detekt: `TooManyFunctions`/`SpreadOperator` suppressed with reasons; backtick test names can't contain `;`.
+- **BE-004 prep (session 4)**: `services/vita-api/Dockerfile` (+ `.dockerignore`) — multi-stage **linux/arm64** (Graviton): JDK-21 build (arch-neutral, `$BUILDPLATFORM`, gradle-cache mount, `bootJar -x test`) → slim `21-jre` runtime, non-root `vita`, `MaxRAMPercentage=75`, HEALTHCHECK on **`/health`** (no actuator — devops target-group should use `/health`, not `/actuator/health`). Verified: `docker build --platform linux/arm64` → arm64 image (~551 MB), smoke-run boots Spring Boot + Tomcat as `vita`, fails only on DB (expected). Deploy is devops (OPS-014).
 - **BE-011 (POST /v1/entries)**: single write path, first code in the new controller→service→repository layering (Round 8 #0). Package `entries/{controller,service,repository}`. Idempotency via `INSERT … ON CONFLICT (user_id, idempotency_key) DO NOTHING RETURNING` + a canonical `request_hash` (same key+body → 200 replay; same key+different body → 409). Server recomputes meal totals from items and fills the C2 denormalized columns; `detail_enc`/`source_phrase_enc` are C3 (per-user DEK). **No new migration** — `log_entry` was already in `V001__baseline.sql` (that is the expand-only migration).
 - **BE-009 (GET/PATCH /v1/me)**: package `users/{controller,service,repository}` (replaced the old flat `MeController` stub). Name (per-user DEK) + email (service DEK) decrypted; PATCH validates name 1–100 + units enum; `deletionEffectiveAt` = requested+7d, shown only during grace. No schema change (`users` already had the columns).
 - **Verified this session**: `./gradlew check` green — **35/35 tests** (was 23; +7 `EntryFlowTest`, +5 `MeFlowTest`); redocly exit 0 (contract unchanged — 0.3.0 already specced these); full local loop live (compose → bootRun → magic-link 202 → verify 200 → POST /entries 201 with totals 9999→300 → replay 200 same id → 409 → GET /me 200 decrypted → PATCH /me 200 → /me 401 without token).
@@ -21,14 +23,13 @@
 
 ## Next steps
 
-1. **BE-012 (timeline list + entry get/update/delete)** — unblocked by BE-011. GET `/v1/entries` (date+tz day filter, cursor pagination, ordered occurredAt desc), GET/PATCH/DELETE `/v1/entries/{id}` (type immutable, whole-detail replace, ownership → 404, idempotent 204 delete). Same `entries/` package; reuse `EntryService` normalize/denormalize/toLogEntry.
-2. **BE-013 (Claude client + POST /parse/text)** — unblocked by BE-011 (NewEntry schema live). Needs the zero-retention Anthropic key in Secrets Manager (devops); key is already in local `secrets.yaml`.
-3. **BE-016 (deferred refactor)** — migrate the flat auth/users(old)/crypto/shared packages into the controller→service→repository layout. `entries/` and `users/` already conform.
-4. **BE-007 (OIDC)** waits on CEO Google/Apple accounts; **BE-010 (deletion)** reuses `CryptoService.shred()` + needs the job table.
-5. **BE-004 (first prod deploy)** — waiting on devops prod environment.
+1. **BE-013 (Claude client + POST /parse/text)** — unblocked by BE-011 (NewEntry schema live). Needs the zero-retention Anthropic key in Secrets Manager (devops); key is already in local `secrets.yaml`.
+2. **BE-016 (deferred refactor)** — migrate the flat auth/users(old)/crypto/shared packages into the controller→service→repository layout. `entries/` and `users/` already conform.
+3. **BE-007 (OIDC)** waits on CEO Google/Apple accounts; **BE-010 (deletion)** reuses `CryptoService.shred()` + needs the job table.
+4. **BE-004 (first prod deploy)** — Dockerfile now present (arm64). Waiting on devops prod env + CI deploy chain (OPS-004 → OPS-014 pushes the image).
 
 ## Blockers / waiting on
 
-- Devops: prod env (BE-004), KMS CMK `vita-app-data` + Secrets Manager entries (real `KeyWrapper` + prod keys), SES sandbox identities (real `Mailer`).
+- Devops: prod env (BE-004), KMS CMK `vita-app-data` + Secrets Manager entries (real `KeyWrapper` + prod keys), SES sandbox identities (real `Mailer`). **arm64 Dockerfile now ready** (OPS-014 can push it); ECS/ALB health check should target `/health`.
 - BE-007: CEO Google/Apple developer accounts (deferred per Round 5).
 - Nothing from the app team — contract loop is closed (v0.3.0).

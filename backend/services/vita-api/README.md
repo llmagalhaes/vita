@@ -47,6 +47,36 @@ Rules (ADR-0002/0003):
 The committed defaults protect throwaway local data only; production overrides all of
 them from Secrets Manager / KMS (devops).
 
+## Docker image (BE-004 / OPS-014)
+
+Multi-stage `Dockerfile` producing a **linux/arm64** image for AWS Graviton
+(devops cost-revision §1.5): JDK 21 build stage → slim `eclipse-temurin:21-jre`
+runtime, non-root `vita` user, container-aware JVM (`-XX:MaxRAMPercentage=75.0`),
+and a `HEALTHCHECK` on the DB-backed `/health` endpoint.
+
+```bash
+cd backend/services/vita-api
+docker build --platform linux/arm64 -t vita-api .
+docker image inspect vita-api --format '{{.Os}}/{{.Architecture}}'   # linux/arm64
+
+# Run against local Postgres (compose network); needs the crypto/JWT env vars in prod.
+docker compose up -d
+docker run --rm -p 8080:8080 \
+  -e DB_URL=jdbc:postgresql://host.docker.internal:5432/vita \
+  vita-api
+curl localhost:8080/health    # {"status":"up"}
+```
+
+The build stage is arch-neutral (JVM bytecode is portable), so it compiles on the
+host arch with no QEMU emulation; only the runtime layer is pulled for arm64.
+Deploy (ECR push, ECS task def) is owned by devops — this only makes the image
+buildable so OPS-014 has something to push.
+
+> Health check note: the container `HEALTHCHECK` hits `/health` (the existing
+> DB-backed liveness endpoint), not `/actuator/health` — there is no actuator
+> dependency and adding one just for a health probe isn't warranted. The ECS/ALB
+> target-group health check should point at `/health` too.
+
 ## Auth in local dev
 
 There is no SES yet: the magic-link email is faked by `LogMailer`, which prints the

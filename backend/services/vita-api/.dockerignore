@@ -1,0 +1,9 @@
+# Build the jar inside the image from source only — never ship host artifacts or secrets.
+.gradle/
+.kotlin/
+build/
+secrets.yaml
+docker-compose.yml
+Dockerfile
+.dockerignore
+README.md

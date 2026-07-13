@@ -47,6 +47,18 @@ data class StoredEntry(
     val requestHash: ByteArray,
 )
 
+/** Half-open [start, endExclusive) instant range for a local calendar day. */
+data class DayRange(
+    val start: OffsetDateTime,
+    val endExclusive: OffsetDateTime,
+)
+
+/** Keyset cursor for the timeline (occurred_at DESC, id DESC tiebreaker). */
+data class EntryCursor(
+    val occurredAt: OffsetDateTime,
+    val id: UUID,
+)
+
 @Repository
 class EntryRepository(
     private val jdbc: JdbcTemplate,
@@ -93,18 +105,114 @@ class EntryRepository(
     ): StoredEntry? =
         jdbc
             .query(
-                "SELECT id, type, occurred_at, input_method, source, is_estimate, " +
-                    "source_phrase_enc, detail_enc, logged_at, updated_at, request_hash " +
-                    "FROM log_entry WHERE user_id = ? AND idempotency_key = ?",
+                "SELECT $SELECT_COLS FROM log_entry WHERE user_id = ? AND idempotency_key = ?",
                 ROW_MAPPER,
                 userId,
                 idempotencyKey,
             ).firstOrNull()
 
+    /** One entry scoped to its owner; other users' rows read as absent (→ 404). */
+    fun findByIdForUser(
+        userId: UUID,
+        id: UUID,
+    ): StoredEntry? =
+        jdbc
+            .query(
+                "SELECT $SELECT_COLS FROM log_entry WHERE user_id = ? AND id = ?",
+                ROW_MAPPER,
+                userId,
+                id,
+            ).firstOrNull()
+
+    /**
+     * Timeline page: newest first, optionally restricted to one day, walking
+     * older than [cursor]. Caller fetches limit+1 to detect a next page.
+     */
+    @Suppress("SpreadOperator") // dynamic WHERE clause → variable-length positional args
+    fun list(
+        userId: UUID,
+        range: DayRange?,
+        cursor: EntryCursor?,
+        limit: Int,
+    ): List<StoredEntry> {
+        val sql = StringBuilder("SELECT $SELECT_COLS FROM log_entry WHERE user_id = ?")
+        val params = mutableListOf<Any>(userId)
+        if (range != null) {
+            sql.append(" AND occurred_at >= ? AND occurred_at < ?")
+            params += range.start
+            params += range.endExclusive
+        }
+        if (cursor != null) {
+            sql.append(" AND (occurred_at, id) < (?, ?)")
+            params += cursor.occurredAt
+            params += cursor.id
+        }
+        sql.append(" ORDER BY occurred_at DESC, id DESC LIMIT ?")
+        params += limit
+        return jdbc.query(sql.toString(), ROW_MAPPER, *params.toTypedArray())
+    }
+
+    /** occurredAt-only edit; keeps the detail and its denormalized numbers. */
+    fun updateOccurredAt(
+        userId: UUID,
+        id: UUID,
+        occurredAt: OffsetDateTime,
+    ): StoredEntry? =
+        jdbc
+            .query(
+                "UPDATE log_entry SET occurred_at = ?, updated_at = now() " +
+                    "WHERE user_id = ? AND id = ? $RETURNING_COLS",
+                ROW_MAPPER,
+                occurredAt,
+                userId,
+                id,
+            ).firstOrNull()
+
+    /** Whole-detail replace (contract PATCH): new blob + re-extracted C2 numbers. */
+    fun updateDetail(
+        userId: UUID,
+        id: UUID,
+        occurredAt: OffsetDateTime,
+        detailEnc: ByteArray,
+        denorm: Denorm,
+    ): StoredEntry? =
+        jdbc
+            .query(
+                """
+                UPDATE log_entry
+                SET occurred_at = ?, detail_enc = ?,
+                    kcal = ?, protein_g = ?, carbs_g = ?, fat_g = ?, water_ml = ?, duration_min = ?,
+                    updated_at = now()
+                WHERE user_id = ? AND id = ?
+                $RETURNING_COLS
+                """.trimIndent(),
+                ROW_MAPPER,
+                occurredAt,
+                detailEnc,
+                denorm.kcal,
+                denorm.proteinG,
+                denorm.carbsG,
+                denorm.fatG,
+                denorm.waterMl,
+                denorm.durationMin,
+                userId,
+                id,
+            ).firstOrNull()
+
+    /** Hard delete scoped to the owner. Idempotent — no-op if the row is gone. */
+    fun deleteByIdForUser(
+        userId: UUID,
+        id: UUID,
+    ) {
+        jdbc.update("DELETE FROM log_entry WHERE user_id = ? AND id = ?", userId, id)
+    }
+
     private companion object {
-        const val RETURNING_COLS =
-            "RETURNING id, type, occurred_at, input_method, source, is_estimate, " +
+        const val SELECT_COLS =
+            "id, type, occurred_at, input_method, source, is_estimate, " +
                 "source_phrase_enc, detail_enc, logged_at, updated_at, request_hash"
+
+        const val RETURNING_COLS = "RETURNING $SELECT_COLS"
 
         val ROW_MAPPER =
             RowMapper { rs, _ ->

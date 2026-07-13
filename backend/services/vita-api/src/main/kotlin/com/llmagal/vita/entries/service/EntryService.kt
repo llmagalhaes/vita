@@ -1,10 +1,14 @@
 package com.llmagal.vita.entries.service
 
 import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.entries.controller.EntryPage
 import com.llmagal.vita.entries.controller.EntryType
 import com.llmagal.vita.entries.controller.LogEntry
 import com.llmagal.vita.entries.controller.NewEntry
+import com.llmagal.vita.entries.controller.UpdateEntry
+import com.llmagal.vita.entries.repository.DayRange
 import com.llmagal.vita.entries.repository.Denorm
+import com.llmagal.vita.entries.repository.EntryCursor
 import com.llmagal.vita.entries.repository.EntryRepository
 import com.llmagal.vita.entries.repository.InsertData
 import com.llmagal.vita.entries.repository.StoredEntry
@@ -15,6 +19,12 @@ import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import java.security.MessageDigest
+import java.time.DateTimeException
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZoneOffset
+import java.util.Base64
 import java.util.UUID
 
 /** Outcome of a create, mapped to 201 / 200 / 409 by the controller. */
@@ -41,6 +51,7 @@ sealed interface EntryResult {
  * uses), so typed round-trips of the detail behave identically to the wire.
  */
 @Service
+@Suppress("TooManyFunctions") // whole entries read+write path in one class, reusing private helpers
 class EntryService(
     private val repo: EntryRepository,
     private val crypto: CryptoService,
@@ -84,6 +95,96 @@ class EntryService(
             EntryResult.Conflict
         }
     }
+
+    /** GET one entry; another user's row (or a missing one) is 404. */
+    fun get(
+        userId: UUID,
+        id: UUID,
+    ): LogEntry = toLogEntry(userId, repo.findByIdForUser(userId, id) ?: notFound())
+
+    /** GET the timeline: newest first, optional single day, cursor-paginated. */
+    fun list(
+        userId: UUID,
+        date: LocalDate?,
+        tz: String?,
+        cursor: String?,
+        limit: Int,
+    ): EntryPage {
+        val range = dayRange(date, tz)
+        val keyset = cursor?.let(::decodeCursor)
+        val capped = limit.coerceIn(1, MAX_LIMIT)
+        val rows = repo.list(userId, range, keyset, capped + 1)
+        val hasMore = rows.size > capped
+        val page = if (hasMore) rows.take(capped) else rows
+        val next = if (hasMore) encodeCursor(page.last()) else null
+        return EntryPage(page.map { toLogEntry(userId, it) }, next)
+    }
+
+    /**
+     * PATCH: replace occurredAt and/or the whole detail. `type` is immutable, so
+     * a new detail is validated against the stored type. updated_at is bumped.
+     */
+    fun update(
+        userId: UUID,
+        id: UUID,
+        req: UpdateEntry,
+    ): LogEntry {
+        if (req.occurredAt == null && req.detail == null) badRequest("Provide occurredAt or detail.")
+        val existing = repo.findByIdForUser(userId, id) ?: notFound()
+        val occurredAt = req.occurredAt ?: existing.occurredAt
+        val updated =
+            if (req.detail == null) {
+                repo.updateOccurredAt(userId, id, occurredAt)
+            } else {
+                val type = EntryType.valueOf(existing.type)
+                val detail = normalize(type, req.detail)
+                val detailEnc = crypto.encryptForUser(userId, mapper.writeValueAsBytes(detail))
+                repo.updateDetail(userId, id, occurredAt, detailEnc, denormalize(type, detail))
+            }
+        return toLogEntry(userId, updated ?: notFound())
+    }
+
+    /** DELETE: hard delete, idempotent (deleting a missing/foreign entry is a no-op). */
+    fun delete(
+        userId: UUID,
+        id: UUID,
+    ) = repo.deleteByIdForUser(userId, id)
+
+    private fun dayRange(
+        date: LocalDate?,
+        tz: String?,
+    ): DayRange? {
+        if (date == null) return null
+        if (tz.isNullOrBlank()) badRequest("tz is required when date is set.")
+        val zone =
+            try {
+                ZoneId.of(tz)
+            } catch (_: DateTimeException) {
+                badRequest("Unknown timezone: $tz")
+            }
+        return DayRange(
+            start = date.atStartOfDay(zone).toOffsetDateTime(),
+            endExclusive = date.plusDays(1).atStartOfDay(zone).toOffsetDateTime(),
+        )
+    }
+
+    private fun encodeCursor(row: StoredEntry): String =
+        Base64
+            .getUrlEncoder()
+            .withoutPadding()
+            .encodeToString("${row.occurredAt.toInstant()}|${row.id}".toByteArray())
+
+    private fun decodeCursor(cursor: String): EntryCursor =
+        try {
+            val (instant, id) = String(Base64.getUrlDecoder().decode(cursor)).split("|", limit = 2)
+            EntryCursor(Instant.parse(instant).atOffset(ZoneOffset.UTC), UUID.fromString(id))
+        } catch (_: IllegalArgumentException) {
+            badRequest("Invalid cursor.")
+        } catch (_: DateTimeException) {
+            badRequest("Invalid cursor.")
+        }
+
+    private fun notFound(): Nothing = throw ResponseStatusException(HttpStatus.NOT_FOUND)
 
     /** Parse against the declared type, validate, and (meals) recompute totals. */
     private fun normalize(
@@ -187,5 +288,6 @@ class EntryService(
 
     private companion object {
         const val MAX_WATER_ML = 10_000
+        const val MAX_LIMIT = 100
     }
 }

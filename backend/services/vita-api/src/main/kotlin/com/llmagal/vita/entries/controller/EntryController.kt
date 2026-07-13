@@ -8,10 +8,17 @@ import org.springframework.http.ProblemDetail
 import org.springframework.http.ResponseEntity
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.security.oauth2.jwt.Jwt
+import org.springframework.web.bind.annotation.DeleteMapping
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PatchMapping
+import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestHeader
+import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import java.time.LocalDate
 import java.util.UUID
 
 /** Contract /entries write path (BE-011). Protected by the resource server (BE-008). */
@@ -32,6 +39,35 @@ class EntryController(
             EntryResult.Conflict -> conflict()
         }
     }
+
+    @GetMapping("/v1/entries")
+    fun list(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestParam(required = false) date: LocalDate?,
+        @RequestParam(required = false) tz: String?,
+        @RequestParam(required = false) cursor: String?,
+        @RequestParam(defaultValue = "50") limit: Int,
+    ): EntryPage = entries.list(UUID.fromString(jwt.subject), date, tz, cursor, limit)
+
+    @GetMapping("/v1/entries/{id}")
+    fun get(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable id: UUID,
+    ): LogEntry = entries.get(UUID.fromString(jwt.subject), id)
+
+    @PatchMapping("/v1/entries/{id}")
+    fun update(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable id: UUID,
+        @RequestBody body: UpdateEntry,
+    ): LogEntry = entries.update(UUID.fromString(jwt.subject), id, body)
+
+    @DeleteMapping("/v1/entries/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun delete(
+        @AuthenticationPrincipal jwt: Jwt,
+        @PathVariable id: UUID,
+    ) = entries.delete(UUID.fromString(jwt.subject), id)
 
     private fun conflict(): ResponseEntity<Any> {
         val problem = ProblemDetail.forStatus(HttpStatus.CONFLICT)

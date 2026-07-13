@@ -24,6 +24,23 @@ data class NewEntry(
     val detail: JsonNode,
 )
 
+/**
+ * PATCH /v1/entries/{id} body — at least one of occurredAt/detail (contract
+ * minProperties 1). `type` is immutable, so it is not accepted here; a `detail`
+ * replaces the whole detail and must match the entry's existing type.
+ */
+data class UpdateEntry(
+    val occurredAt: OffsetDateTime? = null,
+    val detail: JsonNode? = null,
+)
+
+/** Contract GET /v1/entries response — a page ordered occurredAt desc. */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class EntryPage(
+    val items: List<LogEntry>,
+    val nextCursor: String?,
+)
+
 /** Contract LogEntry = NewEntry + server-set fields. */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 @Suppress("LongParameterList") // API shape: allOf NewEntry + {id, source, loggedAt, updatedAt}
