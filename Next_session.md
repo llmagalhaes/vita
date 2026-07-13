@@ -2,9 +2,20 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Keep it current at every session close. Team-level state lives in `backend|app|devops/Next_session.md`.
 
-## Where we are (2026-07-13, session 2 closed)
+## Where we are (2026-07-13, session 3 closed — big build-out day)
 
-**Phase 2 — Implementation, M1 shipped; M2 infra chain started.** Four commits this session (`eb05300` devops, `0373e0e` backend, `24ec43c` app, `f1cfd91` docs) — **not yet pushed** (offer to the CEO next session or on request).
+**Phase 2 — most of contract v0.3.0 implemented locally; infra applied then parked; deploy deferred to a CEO milestone.** All pushed to GitHub (HEAD `e80d2c0`).
+
+### Snapshot
+- **Backend (local, 84 tests green)**: BE-005 crypto, BE-006 magic link, BE-008 sessions, BE-009 profile, BE-010 account deletion + Postgres job queue (crypto-shred), BE-011 entries, BE-012 timeline, BE-013 parse/text, BE-014 AI guardrails (quota+metrics+eval), BE-015 plan/program parse + presigned uploads (S3 seam). Controller→service→repository for all new packages. Only local KMS/S3 seams (real impls at deploy). **All In progress on Asana — Done gated on BE-004 (prod deploy).**
+- **App (local, 51 tests green, SDK 56 store-Expo-Go)**: FEATURE-COMPLETE except APP-007. Onboarding, Home, capture (text+voice), meal detail, auth+magic link, SQLite+outbox, API client, design system, i18n. Native OIDC + voice STT stubbed behind interfaces (need dev build).
+- **DevOps (AWS)**: bootstrap + prod-eu applied (VPC/KMS/CloudTrail/GuardDuty/ECR/RDS/SSM/S3/OIDC-CI). API Gateway live (503, no backend). **ECS parked at desired_count=0 = $0.** Idle ~$6/mo. OPS-013/014 applied-but-deferred; BE-004 first deploy held for a milestone.
+
+### ⚠️ Follow-up to verify
+- **Claude model ids**: backend config uses `claude-haiku-4-5` (text) and `claude-sonnet-4-6` (PDF). The Sonnet id looks wrong (current is `claude-sonnet-5`). Verify both against the claude-api reference before the first LIVE parse call (no live call happens in tests/local-first, so non-blocking). In `application.yaml` `vita.ai.*`.
+
+### Original session-2 note (kept for history)
+Four commits (`eb05300` devops, `0373e0e` backend, `24ec43c` app, `f1cfd91` docs).
 
 ### Live in AWS production (eu-west-1, CEO-approved applies)
 - **Bootstrap**: state bucket `vita-tfstate-201261380352` (S3 backend, native locking) + `$40/mo` budget.
@@ -34,11 +45,14 @@
 2. Carried: audit-log retention 400 d, exports 90 d, domain-purchase trigger.
 3. Apple Developer + Play Console accounts remain the gate for any app "Done" AND for any Expo SDK past 54.
 
-## Next actions (in order)
-1. **DevOps — OPS-004** (GitHub OIDC plan-only CI + CEO-gated apply), then the OPS-008/009/010/011/013/014 chain that unblocks BE-004 (first prod deploy). Same rule: CEO approves every plan before apply.
-2. **Backend — BE-009 (`/v1/me`) + BE-011 (entries)** against contract v0.2.0. Also: app flagged the contract has **no plan/program parse-import endpoint** (onboarding steps 3–4 mock it client-side) — spec it if the CEO wants those steps to round-trip.
-3. **App — APP-008** (auth screens/deep link) once backend magic-link URL format is handed over; APP-012 (voice), APP-014 (meal detail) as waves allow.
-4. Push the 4 local commits to GitHub when the CEO is ready.
+## Next actions — WAITING ON CEO DIRECTION (unblocked backlog exhausted at session 3 close)
+1. **Call a deploy milestone** → resume deploy: flip `module.ecs.desired_count` to 1, backend builds+pushes the arm64 image to ECR (BE-004), Flyway migrate, verify `/health` through the API GW. Needs the CEO's manual secrets first (RDS password + 7 SSM values + 3 GitHub Variables — all in `devops/Next_session.md`).
+2. **Create Apple Developer + Play Console accounts** → unblocks APP-007 (first real device build) and BE-007 (Google/Apple OIDC); turns stubbed native OIDC/voice real.
+3. **Start BE-016** (deferred controller→service→repository refactor of old flat packages auth/, crypto/, shared/).
+4. **Integration pass** (needs a running local backend): wire app onboarding/capture to the real endpoints instead of mocks.
+5. Verify the Claude model ids (`vita.ai.*`): `claude-sonnet-4-6` looks wrong → likely `claude-sonnet-5`.
+
+Note (superseded): SDK is now **56** not 54 (APP-016 re-pinned); the earlier "Open questions" line about the two-endpoint plan design was resolved (kept the two endpoints, BE-015 shipped).
 
 ## Operating rules quick-recall
 

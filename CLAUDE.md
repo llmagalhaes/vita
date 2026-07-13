@@ -29,4 +29,4 @@ You are opening the Vita project. Vita is a personal health assistant ("a quiet 
 
 ## Current state (update this line at each major step)
 
-Phase 2 — M1 shipped: app walkable on store Expo Go (SDK 56); onboarding→Home→capture→timeline offline. M2 infra live in AWS (bootstrap + prod-eu: VPC/KMS/CloudTrail/GuardDuty). Backend crypto+auth done locally (23/23), contract v0.3.0. All pushed to GitHub. Backend convention going forward: controller→service→repository packages (refactor deferred, BE-016). Next: OPS-004 CI → deploy chain to BE-004. Details in `Next_session.md` (root).
+Phase 2 — most of contract v0.3.0 built locally & tested. App feature-complete on store Expo Go (SDK 56) except APP-007. Backend BE-005–015 done (84 tests): crypto, auth, entries, timeline, account-deletion, AI parse + guardrails + plan/program import (local KMS/S3 seams). Infra all applied in AWS then parked (ECS desired_count=0 = $0). Deploy deferred to a CEO milestone (local-first policy). All pushed (HEAD e80d2c0). WAITING ON CEO: deploy milestone, or Apple/Play accounts (APP-007/BE-007), or start BE-016 refactor. Details in `Next_session.md` (root).
