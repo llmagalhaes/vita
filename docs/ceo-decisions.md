@@ -2,6 +2,19 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-13 — Round 3 (data & cost review)
+
+1. **Domain purchase deferred.** Run on placeholder DNS for now: API Gateway default URL for the API; SES sandbox with the ~5 testers' emails as verified identities; magic-link emails point at an https redirect that opens the app (custom scheme). Bundle ID / package name must NOT depend on the future domain.
+2. **Cycle data minimalism confirmed**: latest derived phase only, no history, excluded from exports by default.
+3. **Anthropic: zero-retention** arrangement for the Claude API key.
+4. **GitHub Free** — Terraform apply gate = CEO-triggered `workflow_dispatch` (no paid Environment approvals).
+5. **Budgets**: AWS budget alarm at **$40/mo**; Claude API **$10/mo** (CEO reviews daily). Infra must fit under the alarm.
+6. **Account deletion: 7-day grace period**, then crypto-shredding + hard delete.
+7. **Infra stays minimalist** even though the full product ships: few test users — use AWS free tier wherever possible.
+8. **Every architecture decision is recorded as an ADR** in the owning team's `Doc/ADRs/`.
+9. **DB**: PostgreSQL + jsonb confirmed as recommendation after the encrypted-DynamoDB trade-off review (encryption and easy deletion are DB-agnostic via crypto-shredding; Dynamo's real cost is the hand-written read side; DocumentDB eliminated on cost). Documented switch condition: full field-level encryption of numeric values would flip the choice to DynamoDB.
+10. Defaults adopted unless CEO objects: micronutrient reference = FDA Daily Values; export PDF = simple Vita-branded header.
+
 ## 2026-07-13 — Post-kickoff review
 
 1. **Tickets move to Asana** (our Jira): one board per team (see `DEVELOPMENT_PROCESS.md` for links/GIDs). Flow Backlog → To do → In progress → Done. **Definition of done: in production.** Repo `Backlog/` folders retired.
