@@ -88,6 +88,8 @@ resource "aws_db_parameter_group" "this" {
   parameter {
     name  = "rds.force_ssl"
     value = "1"
+    # Static param — takes effect on reboot; pinning stops perpetual immediate/pending churn.
+    apply_method = "pending-reboot"
   }
 }
 

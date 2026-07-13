@@ -51,3 +51,8 @@ output "app_bucket_arns" {
   description = "For the OPS-014 task-role RW scoping."
   value       = module.storage.bucket_arns
 }
+
+output "api_endpoint" {
+  description = "OPS-013 HTTP API URL — hand to the app team as the build-config base URL."
+  value       = module.apigw.api_endpoint
+}

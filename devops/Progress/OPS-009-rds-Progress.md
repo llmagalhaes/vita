@@ -1,7 +1,20 @@
 # OPS-009 — RDS PostgreSQL t4g.micro
 
 Asana: https://app.asana.com/0/1216519867368584/1216519895577916 (OPS-009)
-Model: Opus 4.8 · ADR-0006 (amended) · Status: In progress (planned, awaiting apply)
+Model: Opus 4.8 · ADR-0006 (amended) · Status: In progress (applied; verifying)
+
+## APPLIED + verified read-only 2026-07-13
+Endpoint `vita.c10cyc6g8s2h.eu-west-1.rds.amazonaws.com`. CLI-verified:
+`StorageEncrypted=true` (storage CMK), `PubliclyAccessible=false`,
+`DeletionProtection=true`, `BackupRetentionPeriod=14` (PITR), `MultiAZ=false`,
+`rds.force_ssl=1`, db SG ingress = 5432 from the app SG (sg-0642c4529d86f52cb) only
+(no CIDR). AWS Backup: rule `daily-45d` → vault `vita`, `DeleteAfter=45`.
+Parameter-group `apply_method=pending-reboot` pinned (killed a perpetual-diff churn).
+
+## Remaining for Done
+- First scheduled backup (cron 05:00) must land in the vault — verify tomorrow.
+- CEO sets the real RDS master password in console + matching `/vita/prod/db-credentials`.
+- Standing quarterly restore-rehearsal ticket **created: OPS-017**.
 
 ## Built (session 3, 2026-07-13)
 `modules/rds/main.tf`, wired as `module.rds` in prod-eu (db subnets + db SG + storage CMK).

@@ -8,6 +8,8 @@ module "network" {
 
 module "kms" {
   source = "../../modules/kms"
+  # OPS-014: the app-data CMK key policy grants usage to exactly the ECS task role.
+  app_data_key_user_role_arns = [module.ecs.task_role_arn]
 }
 
 # Once per account (multi-region trail + GuardDuty) — a second regional root
@@ -47,3 +49,22 @@ module "storage" {
 }
 
 data "aws_caller_identity" "current" {}
+
+# OPS-013 — API Gateway HTTP API + VPC Link + Cloud Map.
+module "apigw" {
+  source                = "../../modules/apigw"
+  vpc_id                = module.network.vpc_id
+  public_subnet_ids     = module.network.public_subnet_ids
+  app_security_group_id = module.network.app_security_group_id
+}
+
+# OPS-014 — ECS Fargate service (apply blocked on BE-004 image).
+module "ecs" {
+  source                        = "../../modules/ecs"
+  public_subnet_ids             = module.network.public_subnet_ids
+  app_security_group_id         = module.network.app_security_group_id
+  ecr_repository_url            = module.ecr.repository_url
+  storage_key_arn               = module.kms.storage_key_arn
+  bucket_arns                   = module.storage.bucket_arns
+  service_discovery_service_arn = module.apigw.service_discovery_service_arn
+}

@@ -1,7 +1,12 @@
 # OPS-011 — S3 buckets: uploads + exports
 
 Asana: https://app.asana.com/0/1216519867368584/1216521830742239 (OPS-011)
-Model: Sonnet · Status: In progress (planned, awaiting apply)
+Model: Sonnet · Status: DONE (applied + verified in prod 2026-07-13)
+
+## APPLIED + verified 2026-07-13
+Part of the CEO-approved 27-resource apply. CLI-verified `vita-prod-uploads-201261380352`:
+all 4 public-access blocks true, lifecycle `expire-30d` Enabled. Both buckets SSE-KMS
+(storage CMK), TLS-only policy. Task-role RW scoping is applied in OPS-014.
 
 ## Built (session 3, 2026-07-13)
 `modules/storage/main.tf`, wired as `module.storage` in prod-eu.

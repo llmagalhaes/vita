@@ -15,19 +15,25 @@ OPS-004 stays **In progress** until the CEO runs the PR/fork negative tests + no
 `AWS_APPLY_ROLE_ARN`=`.../vita-ci-apply`, `AWS_REGION`=`eu-west-1`; then positive +
 negative tests per `ci-oidc-verification.md`.
 
-**OPS-008/009/010/011 written + planned (NOT applied — awaiting CEO OK).** New modules
-`ecr`, `rds`, `ssm`, `storage` wired into prod-eu. `terraform -chdir=envs/prod-eu plan`
-= **27 to add, 0 change, 0 destroy** (ecr 2 · rds 8 · ssm 7 · storage 10); existing
-network/kms/audit untouched. Highlights:
-- OPS-008 ECR: immutable tags, scan-on-push, KMS, keep-last-10.
-- OPS-009 RDS pg16 t4g.micro single-AZ 20 GB, storage CMK, force_ssl, deletion
-  protection + prevent_destroy. **Backup retention 45 d via AWS Backup vault**
-  (RDS automated caps at 35 d) + 14 d PITR. Cross-account copy DEFERRED (single
-  account). Master password = placeholder + ignore_changes (see flag below).
-- OPS-010 SSM: 7 SecureString under `/vita/prod/` incl. `jwt-secret` (VITA_JWT_SECRET);
-  placeholders + ignore_changes; CEO pastes real values.
-- OPS-011 S3: `vita-prod-uploads-<acct>` + `vita-prod-exports-<acct>`, SSE-KMS,
-  public-access blocked, TLS-only, expire 30 d, prevent_destroy.
+**OPS-008/009/010/011 APPLIED + verified in prod (CEO-approved).** prod-eu apply =
+27 added / 0 / 0. CLI-verified: RDS encrypted+private+force_ssl, ingress 5432 from app
+SG only, AWS Backup `daily-45d`→vault `vita`; 7 SSM SecureStrings on storage CMK; S3
+public-blocked + 30 d lifecycle; ECR scan-on-push/immutable/KMS. **OPS-008, OPS-011 →
+Done.** OPS-009 In progress (first backup lands tomorrow; CEO sets RDS password +
+db-credentials; **OPS-017** restore-rehearsal ticket created). OPS-010 In progress (CEO
+pastes 7 real values; task-role read verified in OPS-014).
+
+**OPS-013/014 written + planned (NOT applied — awaiting CEO OK).** New modules `apigw`,
+`ecs`. `plan` = **19 to add, 1 to change, 0 to destroy** (apigw 10 · ecs 9; the 1 change
+= app-data CMK key policy granting the ECS task role).
+- OPS-013 API GW HTTP API + VPC Link + Cloud Map `vita.local`; adds the app SG's only
+  ingress (from VPC-Link SG, port 8080); `prevent_destroy` on the API. Apply-ready
+  independent of the image.
+- OPS-014 ECS Fargate ARM64 (app + ADOT sidecar), circuit-breaker rollback, health
+  check `curl /health:8080` (confirmed vs backend Dockerfile). Least-privilege task role
+  (2 buckets, `/vita/prod/*`, SES, aps:RemoteWrite; app-data CMK via key policy).
+  **APPLY BLOCKED on BE-004 pushing the arm64 image to ECR** — plan is image-agnostic.
+- Also fixed a benign RDS param-group perpetual-diff (`apply_method=pending-reboot`).
 
 ## Prior state (session 2 close — 2026-07-13)
 
@@ -42,27 +48,29 @@ network/kms/audit untouched. Highlights:
 
 ## Next steps
 
-1. **CEO approves the OPS-008/009/010/011 batch plan** (27 add / 0 / 0). Then apply —
-   via `apply.yml` once OPS-004 CI is CEO-verified, or locally against S3 state meanwhile.
+1. **CEO approves the OPS-013/014 plan** (19 add / 1 change / 0 destroy). Then apply
+   OPS-013 (API GW — image-independent); **OPS-014 apply waits on BE-004 pushing the
+   arm64 image to ECR**. After OPS-014: e2e health 200 over https, rollback + task-role
+   negative tests.
 2. Finish OPS-004: CEO sets the 3 repo Variables + runs PR/fork negative tests + no-op apply.
-3. Post-apply setup (CEO): paste real SSM values; set the RDS master password in console
-   AND matching `/vita/prod/db-credentials`; create the quarterly RDS restore-rehearsal ticket.
-4. Then OPS-013 (API Gateway HTTP API + VPC Link) → OPS-014 (ECS Fargate, task-role
-   least-privilege scoping to the SSM path / buckets / app-data CMK) → unblocks BE-004.
-5. Close OPS-003 — already CEO-confirmed in Round 8 (#2); move to Done if not already.
+3. Post-apply setup (CEO): paste 7 real SSM values; set the RDS master password in console
+   AND matching `/vita/prod/db-credentials`. Verify tomorrow that the first AWS Backup ran.
+4. Record the API GW URL in bootstrap-ids.md + hand to the app team once OPS-013 applies.
+5. Remaining infra: OPS-012 (SES sandbox + tester identities) → observability ticket
+   (AMP workspace + ADOT config + CloudWatch alarms; scope `aps:RemoteWrite` to it then)
+   → OPS-016 (magic-link redirect, backend-owned route).
 
 ## Open questions for the CEO
 
-- **OPS-009 backups**: 45 d is delivered by AWS Backup (RDS caps at 35 d), same-account
-  only (cross-account copy deferred, ADR-0010). OK? PITR window set to 14 d — OK?
-- **OPS-009/010 DB password sync**: app reads DB creds from SSM (`db-credentials`), so
-  after apply you set the RDS password in console AND paste the same value into that SSM
-  param. OK, or should we use RDS-managed password (needs backend to read Secrets Manager)?
-- OPS-004: OK with apply role = PowerUserAccess + scoped IAM (no user/key creation), or want it tighter? (see Progress file)
-- RDS backup retention: **DECIDED 45 d (Round 8)** — implemented via AWS Backup. (Stale 14/35 split retired.)
+- **container_port/secret env contract** (OPS-014): port 8080 + `/health` confirmed vs
+  Dockerfile. Secret env names (VITA_JWT_SECRET, ANTHROPIC_API_KEY, DB_CREDENTIALS) are
+  defaults — backend confirms/extends before OPS-014 apply.
+- OPS-004: OK with apply role = PowerUserAccess + scoped IAM (no user/key creation), or want it tighter?
 - Carried: audit/log retention 400 d default; exports 90 d; domain-purchase trigger.
+- Resolved this session: 45 d via AWS Backup + 14 d PITR (approved); cross-account copy
+  deferred (approved); RDS password = placeholder + CEO console/SSM sync (approved).
 
 ## Blockers
 
-- OPS-008/009/010/011 apply is gated on CEO plan approval (by design) — no engineering blockers.
+- **OPS-014 apply** blocked on BE-004 (arm64 image in ECR). Everything else planned/applied.
 - OPS-004 Done gated on CEO PR/fork negative tests + no-op apply (roles already applied).
