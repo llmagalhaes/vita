@@ -2,28 +2,39 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Keep it current at every session close. Team-level state lives in `backend|app|devops/Next_session.md`.
 
-## Where we are (2026-07-13)
+## Where we are (2026-07-13, session 2 closed)
 
-**Phase 2 — Implementation, Milestone M1** (see `docs/roadmap.md`). Foundations are done and pushed to GitHub (`git@github.com:llmagalhaes/vita.git`). Nothing applied to AWS yet — but **applies are now unblocked**.
+**Phase 2 — Implementation, M1 shipped; M2 infra chain started.** Four commits this session (`eb05300` devops, `0373e0e` backend, `24ec43c` app, `f1cfd91` docs) — **not yet pushed** (offer to the CEO next session or on request).
 
-## Unblocked this round (CEO confirmations)
+### Live in AWS production (eu-west-1, CEO-approved applies)
+- **Bootstrap**: state bucket `vita-tfstate-201261380352` (S3 backend, native locking) + `$40/mo` budget.
+- **prod-eu (30 resources)**: VPC (no NAT, DB subnets no IGW route), 2 KMS CMKs (`vita-storage`, `vita-app-data`, rotation on), CloudTrail `vita-trail` logging, GuardDuty active. IDs in `devops/Doc/bootstrap-ids.md`.
+- Asana devops: **OPS-002/005/006/007 → Done**. OPS-003 In progress (CEO to eyeball the budget subscriber).
 
-- ✅ Repo pushed to GitHub (CI workflows in `.github/workflows/` should be live — verify on first PR/push).
-- ✅ AWS CLI = IAM user `vita-admin` (root key removed). Account `201261380352`, region pinned `eu-west-1` in Terraform (CLI default is eu-north-1, harmless).
-- ✅ Cost posture: run on free-tier credits, no further budget action; CEO will cap later if needed ($40/mo AWS budget alarm already in the Terraform).
+### Backend (local, tested — Done blocked on prod deploy)
+- Contract **v0.2.0** (app edits applied, ADR-0010, APP-001 ack closed). BE-005 crypto (AES-256-GCM per-user DEK, blind index, crypto-shred; KMS faked behind `KeyWrapper`), BE-006 magic link, BE-008 sessions (JWT + refresh rotation). **23/23 tests green.** Asana BE-005/006/008 In progress.
+
+### App (local, tested — Done blocked on store accounts)
+- **M1 walkable mocked app**: `cd app/services/vita-app && npm install && npx expo start`. Onboarding → Home → capture pill → parse→confirm → timeline, all offline on SQLite+outbox. APP-005/006/009/010/011/013 In progress; tsc clean, Jest 23/23.
+
+## New CEO rule (Round 7)
+- **Per-task model**: every Asana ticket carries a `Model:` line — Sonnet (simple) / Opus 4.8 (complex); Fable only for heavy orchestration. All 44 tickets tagged; team-lead agents pinned to `model: opus` in `.claude/agents/`.
+- **Anthropic key delivered** → moved to `backend/services/vita-api/secrets.yaml` (gitignored, Spring `config.import`); never committed, no rotation needed. Unblocks BE-013 when it starts.
 
 ## Still blocked / deferred
+- Apple Developer + Google Play accounts (CEO, later) → blocks APP-007 (store builds) and BE-007. Nothing reaches app "Done" until then.
+- Domain purchase (deferred) → placeholder DNS (devops ADR-0009).
 
-- Apple Developer + Google Play accounts (CEO, later) → blocks APP-007 (store builds) and BE-007 (Google/Apple sign-in). Nothing reaches Asana "Done" (DoD = production) for app tickets until then — that's expected.
-- Domain purchase (deferred) → placeholder DNS strategy in devops ADR-0009.
-- Anthropic API key (zero-retention, $10/mo limit) not yet created → blocks BE-013 (parse). In `docs/ceo-setup-guide.md`.
+## Open questions for the CEO (carried)
+1. **OPS-003**: confirm `vita-monthly-total` shows your email as subscriber (Billing → Budgets).
+2. **RDS backup retention (OPS-009)**: devops says 14 d + cross-account copy; backend asked 35 d. Pick one before OPS-009.
+3. Carried: audit-log retention 400 d, exports 90 d, domain-purchase trigger.
 
 ## Next actions (in order)
-
-1. **DevOps — first applies** (M2 chain start): dispatch `team-lead-devops` to run `devops/Doc/apply-runbook.md`: bootstrap (state bucket + budgets) → migrate state → `envs/prod-eu` (VPC, KMS, CloudTrail/GuardDuty). Rule: **show the CEO each `terraform plan`, get his OK, then apply** (runbook step 0 already satisfied — IAM confirmed).
-2. **App — finish M1** (the CEO wants to test): dispatch `team-lead-app` for APP-005 (SQLite+outbox), APP-006 (API client + MSW mocks), APP-009/010 (onboarding), APP-011 (capture v2 pill, mocked parse), APP-013 (Home). Outcome: CEO runs `expo start` and walks the app with mock data.
-3. **Backend — keep W1 moving**: dispatch `team-lead-backend` for BE-005 (crypto/DEK), BE-006 (magic link), BE-008 (sessions). Also: apply the app team's 2 contract edits from `app/Doc/contract-review-v0.md` (muscles enum 11 values, drafts maxItems 5) to `docs/contracts/vita-api-v0.yaml`.
-4. BE-004 (first prod deploy) once OPS-008/009/013/014 exist.
+1. **DevOps — OPS-004** (GitHub OIDC plan-only CI + CEO-gated apply), then the OPS-008/009/010/011/013/014 chain that unblocks BE-004 (first prod deploy). Same rule: CEO approves every plan before apply.
+2. **Backend — BE-009 (`/v1/me`) + BE-011 (entries)** against contract v0.2.0. Also: app flagged the contract has **no plan/program parse-import endpoint** (onboarding steps 3–4 mock it client-side) — spec it if the CEO wants those steps to round-trip.
+3. **App — APP-008** (auth screens/deep link) once backend magic-link URL format is handed over; APP-012 (voice), APP-014 (meal detail) as waves allow.
+4. Push the 4 local commits to GitHub when the CEO is ready.
 
 ## Operating rules quick-recall
 

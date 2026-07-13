@@ -29,4 +29,4 @@ You are opening the Vita project. Vita is a personal health assistant ("a quiet 
 
 ## Current state (update this line at each major step)
 
-Phase 2 — Implementation, Milestone M1. Repo pushed to GitHub; AWS applies unblocked (IAM `vita-admin` confirmed). Next: M1 mocked walkable app + first Terraform applies. Details in `Next_session.md` (root).
+Phase 2 — M1 shipped (walkable mocked app), M2 infra chain started: bootstrap + prod-eu live in AWS (VPC/KMS/CloudTrail/GuardDuty). Backend crypto+auth done locally (23/23 tests). 4 commits unpushed. Next: OPS-004 CI + the deploy chain to BE-004. Details in `Next_session.md` (root).
