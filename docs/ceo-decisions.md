@@ -2,6 +2,12 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-13 — Round 6 (unblocked)
+
+1. Repo pushed to GitHub by the CEO (`llmagalhaes/vita`).
+2. Root access key remediated: CLI now uses IAM user `vita-admin` (verified). Terraform applies unblocked — each apply still requires CEO plan approval.
+3. Cost: proceed on free-tier credits as-is; CEO will add caps later if needed. ($40/mo budget alarm ships with the first apply.)
+
 ## 2026-07-13 — Round 5 (implementation go)
 
 1. **AWS**: CEO created a **brand-new dedicated AWS account** (free tier applies — year-1 ~$16/mo estimate restored) and configured the AWS CLI locally with an access key. Implementation of infra is authorized to start.

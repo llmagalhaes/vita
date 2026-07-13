@@ -4,11 +4,12 @@ You are opening the Vita project. Vita is a personal health assistant ("a quiet 
 
 ## Read order for a fresh session
 
-1. **`DEVELOPMENT_PROCESS.md`** — how the company works (roles, tools of record, the session cycle, DoD). Source of truth for process.
-2. **`docs/ceo-decisions.md`** — the dated decision log. Newest first. What's decided vs open.
-3. **`docs/roadmap.md`** — the milestone plan and current priorities (what makes the app testable next).
-4. **`docs/product-brief.md`** — what Vita is (screens, data model, philosophy).
-5. The team you're acting for: **`<team>/Next_session.md`** — exactly where that team stopped and what's next.
+1. **`Next_session.md`** (repo root) — the orchestrator's state: what just happened, what to do next. Start here to continue work.
+2. **`DEVELOPMENT_PROCESS.md`** — how the company works (roles, tools of record, the session cycle, DoD). Source of truth for process.
+3. **`docs/ceo-decisions.md`** — the dated decision log. Newest first. What's decided vs open.
+4. **`docs/roadmap.md`** — the milestone plan and current priorities (what makes the app testable next).
+5. **`docs/product-brief.md`** — what Vita is (screens, data model, philosophy).
+6. The team you're acting for: **`<team>/Next_session.md`** — exactly where that team stopped and what's next.
 
 ## The three teams
 
@@ -28,4 +29,4 @@ You are opening the Vita project. Vita is a personal health assistant ("a quiet 
 
 ## Current state (update this line at each major step)
 
-Phase 2 — Implementation. Foundations done (scaffolds, OpenAPI contract v0, Terraform written, 18 ADRs). Nothing applied to AWS yet (awaiting IAM creds handoff). Next: Milestone 1 — a mocked, walkable app the CEO can run locally. See `docs/roadmap.md`.
+Phase 2 — Implementation, Milestone M1. Repo pushed to GitHub; AWS applies unblocked (IAM `vita-admin` confirmed). Next: M1 mocked walkable app + first Terraform applies. Details in `Next_session.md` (root).
