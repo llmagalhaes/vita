@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, type NewEntry } from "../api";
-import { addLocalEntry } from "../db/entries";
+import { addLocalEntry, enqueueInterpretation } from "../db/entries";
 import { logChanged } from "../db/notify";
 import { drainOutbox } from "../db/outbox";
 
@@ -67,25 +67,55 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
     toastTimer.current = setTimeout(() => setToast(null), 2200);
   }, []);
 
-  const submit = useCallback((text: string) => {
-    const phrase = text.trim();
-    if (!phrase) return;
-    setState({ ...idle, status: "parsing", phrase });
-    api
-      .parseText({ text: phrase, capturedAt: new Date().toISOString() })
-      .then((r) => setState({ ...idle, status: "review", phrase, drafts: r.drafts }))
-      .catch(() => setState({ ...idle, status: "error", phrase, errorKey: "capture.parseError", canRetry: true }));
-  }, []);
+  // Offline (no network to reach /parse): park the raw capture; the reconnect drain
+  // interprets it later so nothing is lost. A reached-but-failing server (ApiError)
+  // still surfaces the error for the user to retry / type instead.
+  const queueOffline = useCallback(
+    (input: Parameters<typeof enqueueInterpretation>[0]) => {
+      enqueueInterpretation(input);
+      showToast(t("capture.offlineQueued"));
+      setState(idle);
+    },
+    [showToast, t],
+  );
 
-  const submitPhoto = useCallback((image: { uri: string }, caption?: string) => {
-    setState({ ...idle, status: "parsing", phrase: caption ?? "" });
-    api
-      .parsePhoto({ image, caption, capturedAt: new Date().toISOString() })
-      .then((r) => setState({ ...idle, status: "review", phrase: caption ?? "", drafts: r.drafts }))
-      .catch((err) =>
-        setState({ ...idle, status: "error", phrase: caption ?? "", errorKey: photoErrorKey(err), canRetry: false }),
-      );
-  }, []);
+  const submit = useCallback(
+    (text: string) => {
+      const phrase = text.trim();
+      if (!phrase) return;
+      const capturedAt = new Date().toISOString();
+      setState({ ...idle, status: "parsing", phrase });
+      api
+        .parseText({ text: phrase, capturedAt })
+        .then((r) => setState({ ...idle, status: "review", phrase, drafts: r.drafts }))
+        .catch((err) => {
+          if (err instanceof ApiError) {
+            setState({ ...idle, status: "error", phrase, errorKey: "capture.parseError", canRetry: true });
+          } else {
+            queueOffline({ kind: "text", text: phrase, capturedAt });
+          }
+        });
+    },
+    [queueOffline],
+  );
+
+  const submitPhoto = useCallback(
+    (image: { uri: string }, caption?: string) => {
+      const capturedAt = new Date().toISOString();
+      setState({ ...idle, status: "parsing", phrase: caption ?? "" });
+      api
+        .parsePhoto({ image, caption, capturedAt })
+        .then((r) => setState({ ...idle, status: "review", phrase: caption ?? "", drafts: r.drafts }))
+        .catch((err) => {
+          if (err instanceof ApiError) {
+            setState({ ...idle, status: "error", phrase: caption ?? "", errorKey: photoErrorKey(err), canRetry: false });
+          } else {
+            queueOffline({ kind: "photo", text: caption, imageUri: image.uri, capturedAt });
+          }
+        });
+    },
+    [queueOffline],
+  );
 
   const advance = useCallback(
     (s: CaptureState, confirmed: boolean) => {

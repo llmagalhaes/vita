@@ -1,7 +1,7 @@
 import { ApiError, type Api, type LogEntry, type NewEntry } from "../../api/client";
 import { createMockApi } from "../../api/mock";
 import { resetDbForTests } from "../db";
-import { addLocalEntry, entriesForDay, getEntry } from "../entries";
+import { addLocalEntry, enqueueInterpretation, entriesForDay, getEntry, getPending } from "../entries";
 import { backoffMs, drainOutbox, pendingCount } from "../outbox";
 
 const water = (): NewEntry => ({
@@ -97,6 +97,65 @@ test("a poison-pill (400) is dropped and does not block a following valid item",
   expect(synced).toBe(1); // the good item got through
   expect(pendingCount()).toBe(0); // bad dropped from the queue, good synced
   expect(getEntry(good.id)!.syncState).toBe("synced");
+});
+
+// APP-033: an offline capture that couldn't reach /parse is parked as an `interpret`
+// op and turned into entries on reconnect — nothing is lost offline.
+test("offline interpretation: parked raw text is parsed into entries on drain", async () => {
+  enqueueInterpretation({ kind: "text", text: "a banana", capturedAt: new Date().toISOString() });
+  expect(pendingCount()).toBe(1); // the interpret op is queued
+  expect(entriesForDay(new Date())).toHaveLength(0); // nothing logged yet
+
+  const { synced } = await drainOutbox(createMockApi());
+  expect(synced).toBeGreaterThan(0); // the produced entry(ies) reached the server
+  expect(pendingCount()).toBe(0); // interpret op + follow-up creates all drained
+  const today = entriesForDay(new Date());
+  expect(today.length).toBeGreaterThan(0);
+  expect(today.every((e) => e.syncState === "synced")).toBe(true);
+});
+
+test("offline interpretation that can't be parsed (422) is dropped; a following entry still syncs", async () => {
+  const badId = enqueueInterpretation({ kind: "text", text: "???", capturedAt: new Date().toISOString() });
+  const good = addLocalEntry(water()); // queued after the poison interpret op
+  const mock = createMockApi();
+  const api: Api = {
+    ...mock,
+    parseText: () => Promise.reject(new ApiError(422, { title: "unrecognized", status: 422, type: "about:blank" })),
+  };
+
+  const { synced } = await drainOutbox(api);
+  expect(synced).toBe(1); // the poison interpret is dropped, the good entry gets through
+  expect(pendingCount()).toBe(0);
+  expect(getPending(badId)).toBeNull(); // parked input cleaned up too
+  expect(getEntry(good.id)!.syncState).toBe("synced");
+});
+
+test("offline interpretation backs off on network failure, loses nothing, resolves on reconnect", async () => {
+  enqueueInterpretation({ kind: "text", text: "eggs", capturedAt: new Date().toISOString() });
+  const offline: Api = { ...createMockApi(), parseText: () => Promise.reject(new Error("offline")) };
+
+  await drainOutbox(offline);
+  expect(pendingCount()).toBe(1); // still parked, nothing lost
+  expect(entriesForDay(new Date())).toHaveLength(0);
+
+  await drainOutbox(createMockApi(), () => Date.now() + 10_000); // backoff elapsed
+  expect(pendingCount()).toBe(0);
+  expect(entriesForDay(new Date()).length).toBeGreaterThan(0);
+});
+
+test("interpret op drains before entries queued after it (order preserved)", async () => {
+  // interpret first, then a plain water entry → both land, interpret's drafts included.
+  enqueueInterpretation({ kind: "text", text: "a banana", capturedAt: new Date().toISOString() });
+  const w = addLocalEntry(water());
+
+  const { synced } = await drainOutbox(createMockApi());
+  expect(pendingCount()).toBe(0);
+  expect(getEntry(w.id)!.syncState).toBe("synced");
+  // banana meal + water both present
+  const types = entriesForDay(new Date()).map((e) => e.type).sort();
+  expect(types).toContain("water");
+  expect(types).toContain("meal");
+  expect(synced).toBeGreaterThanOrEqual(2);
 });
 
 test("items not yet due are skipped", async () => {

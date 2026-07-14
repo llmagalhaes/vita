@@ -1,16 +1,31 @@
+import { useEffect } from "react";
 import { View } from "react-native";
+import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
 import { entryPalette } from "./tokens";
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const DASH = 420; // path length of the crest line — the draw-on stroke
 
 /** Organic wave footer for timeline/detail cards — paths from the prototype. */
 export function WaveIllustration({
   kind,
   height = 72,
+  delay = 0,
 }: {
   kind: keyof typeof entryPalette;
   height?: number;
+  /** Stagger the crest draw-on to match the prototype's per-card delay. */
+  delay?: number;
 }) {
   const p = entryPalette[kind];
+  // Prototype vtDraw: the crest strokes on from 0 over ~1.1s (stroke-dashoffset 420→0).
+  const offset = useSharedValue(DASH);
+  useEffect(() => {
+    offset.value = withDelay(delay, withTiming(0, { duration: 1100, easing: Easing.out(Easing.ease) }));
+  }, [delay, offset]);
+  const lineProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
+
   return (
     <View pointerEvents="none" style={{ width: "100%", height }}>
       <Svg width="100%" height="100%" viewBox="0 0 348 72" preserveAspectRatio="none">
@@ -26,12 +41,14 @@ export function WaveIllustration({
         />
         <Circle cx={24} cy={63} r={5} fill={p.c2} opacity={0.8} />
         <Circle cx={329} cy={65} r={6} fill={p.c1} />
-        <Path
+        <AnimatedPath
           d="M8 44 C60 16 104 58 162 42 C222 26 268 18 340 24"
           fill="none"
           stroke={p.line}
           strokeWidth={4.5}
           strokeLinecap="round"
+          strokeDasharray={DASH}
+          animatedProps={lineProps}
         />
       </Svg>
     </View>

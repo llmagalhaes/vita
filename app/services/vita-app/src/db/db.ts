@@ -24,10 +24,20 @@ CREATE INDEX IF NOT EXISTS idx_entries_occurredAt ON entries(occurredAt);
 
 CREATE TABLE IF NOT EXISTS outbox (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
-  entryId TEXT NOT NULL,
-  op TEXT NOT NULL DEFAULT 'create',
+  entryId TEXT NOT NULL,             -- entries.id (create/update) OR pending_parse.id (interpret)
+  op TEXT NOT NULL DEFAULT 'create', -- create | update | interpret
   attempts INTEGER NOT NULL DEFAULT 0,
   nextAttemptAt INTEGER NOT NULL DEFAULT 0   -- epoch ms; 0 = due now
+);
+
+-- Raw capture that couldn't reach /parse offline. Drained via an 'interpret' outbox
+-- op: on reconnect it's parsed and its drafts become entries, so nothing is lost.
+CREATE TABLE IF NOT EXISTS pending_parse (
+  id TEXT PRIMARY KEY,             -- uuid, referenced by outbox.entryId for op='interpret'
+  kind TEXT NOT NULL,              -- 'text' | 'photo'
+  text TEXT,                       -- raw words (text) or caption (photo)
+  imageUri TEXT,                   -- local file uri (photo)
+  capturedAt TEXT NOT NULL         -- when the user captured it (RFC 3339)
 );
 
 CREATE TABLE IF NOT EXISTS kv (

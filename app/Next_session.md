@@ -1,5 +1,14 @@
 # App Team — Next Session
 
+## Current state (Phase 2 — session 14 done 2026-07-14: slice 8 tech debt & polish ✅ APP-033/034/035)
+
+- **Slice 8 complete** (`docs/backlog-local-100.md` slice-8 debt table). Progress: `Progress/APP-033/034/035-Progress.md`.
+- **APP-033 Offline interpretation + reconnect drain**: new `pending_parse` table + a **third outbox op `interpret`** (audit 3.2 op column now has a second real use). `src/db/entries.ts` `enqueueInterpretation`/`getPending`/`deletePending`. `CaptureContext` splits failure: reached-but-failing server (`ApiError`) keeps the retry UI; **network failure parks the raw capture** (text phrase, or photo uri+caption) and shows `capture.offlineQueued` — nothing lost offline. `src/db/outbox.ts` rewritten as a **snapshot-loop** so an `interpret` op parses raw input into entries and sends those follow-up creates in the SAME pass; **poison-pill preserved** (4xx dropped incl. its pending row; network/5xx back off + stop). `src/db/reconnect.ts` `startReconnectDrain()` subscribes to NetInfo (lazy-required, off the jest path) and drains on disconnected→connected; mounted once in `(main)/_layout` via hook-safe `useEffect`. **New dep `@react-native-community/netinfo@12.0.1`** (Expo Go SDK 56 OK). +4 outbox tests (enqueue, 422-drop, network-backoff, ordering).
+- **APP-034 Maestro E2E**: two flows in `app/services/vita-app/.maestro/` — `onboarding-capture.yaml` (sign-in→6-step onboarding→capture→confirm→timeline) and `auth-deeplink.yaml` (magic-link deep link). Text/label-driven, no testIDs. Runner doc `app/Doc/e2e-maestro.md`. **Not bundled** (plain YAML, `grep dist/` empty), Maestro **not** an npm dep — gates don't need it.
+- **APP-035 Fidelity**: `WaveIllustration` crest now **draws on** (`strokeDashoffset 420→0`, 1.1s, matches prototype `vtDraw`) via AnimatedPath — reused everywhere; new `delay` prop staggers timeline crests (`100 + index*90`). Vacation + check-ins banners gain `entering={FadeInDown}` / `exiting={FadeOut}` (prototype `vtIn`). **No new deps** (reanimated + svg already in). **Home two-column `flex:1` layout untouched** (verified).
+- Gates: `tsc` exit 0 · **Jest 144/144 (31 suites)**, +4 · `api:check` exit 0, no drift · `expo export` iOS OK · `expo install --check` up to date, SDK 56, +1 dep (netinfo).
+- ponytail: interpret auto-logs parsed drafts on reconnect (no deferred re-confirm queue); queue only on true network failure (5xx keeps retry UI); NetInfo listener untested (drain fully tested); one-time entrance/draw motion only (skipped `vtBreath`/`vtBlob` idles).
+
 ## Current state (Phase 2 — session 13 done 2026-07-14: slice 7 F9/F10/F11/F12 ✅ APP-029/030/031/032)
 
 - **Slice 7 complete** (`docs/backlog-local-100.md` F9–F12, decisions D1/D2/D8). All four walkable in Expo Go, mock mode. Progress: `Progress/APP-029/030/031/032-Progress.md`.

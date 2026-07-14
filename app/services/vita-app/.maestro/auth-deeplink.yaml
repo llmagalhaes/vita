@@ -1,0 +1,25 @@
+# Passwordless sign-in via the magic-link deep link (APP-008).
+# The "Open the link · demo" button fires the real vita://auth?token=… deep link,
+# which useMagicLink handles (cold + warm) and exchanges for a session.
+# See app/Doc/e2e-maestro.md.
+#
+# appId is Expo Go's. iOS: host.exp.Exponent · Android: host.exp.exponent (lowercase).
+appId: host.exp.Exponent
+---
+- launchApp:
+    clearState: true
+
+- assertVisible: "A quiet log of meals, water & movement."
+- tapOn: "you@email.com"
+- inputText: "demo@vita.app"
+- tapOn: "Send link"
+- assertVisible: "Check your inbox"
+
+# Fire the deep link. In Expo Go the demo button is the reliable trigger (Expo Go
+# rewrites vita:// → exp://). On a dev-client / standalone build you can instead drive
+# the raw deep link directly:
+#   - openLink: "vita://auth?token=demo-ok"
+- tapOn: "Open the link · demo"
+
+# Signed in → first run lands on onboarding.
+- assertVisible: "Welcome to Vita"

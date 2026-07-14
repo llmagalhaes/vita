@@ -62,6 +62,55 @@ export function addLocalEntry(entry: NewEntry): LocalEntry {
   return { ...entry, id, occurredAt, syncState: "pending" };
 }
 
+/** Raw capture parked offline, awaiting interpretation on reconnect. */
+export type PendingParse = {
+  id: string;
+  kind: "text" | "photo";
+  text?: string;
+  imageUri?: string;
+  capturedAt: string;
+};
+
+/**
+ * Park a capture that couldn't reach /parse offline and enqueue an `interpret`
+ * outbox op. On reconnect the drain parses it and its drafts become entries —
+ * nothing is lost offline. Returns the pending id.
+ */
+export function enqueueInterpretation(input: Omit<PendingParse, "id">): string {
+  const db = getDb();
+  const id = uuid();
+  db.withTransactionSync(() => {
+    db.runSync(
+      `INSERT INTO pending_parse (id, kind, text, imageUri, capturedAt) VALUES (?, ?, ?, ?, ?)`,
+      [id, input.kind, input.text ?? null, input.imageUri ?? null, input.capturedAt],
+    );
+    db.runSync(`INSERT INTO outbox (entryId, op) VALUES (?, 'interpret')`, [id]);
+  });
+  return id;
+}
+
+export function getPending(id: string): PendingParse | null {
+  const r = getDb().getFirstSync<{
+    id: string;
+    kind: string;
+    text: string | null;
+    imageUri: string | null;
+    capturedAt: string;
+  }>(`SELECT * FROM pending_parse WHERE id = ?`, [id]);
+  if (!r) return null;
+  return {
+    id: r.id,
+    kind: r.kind as PendingParse["kind"],
+    text: r.text ?? undefined,
+    imageUri: r.imageUri ?? undefined,
+    capturedAt: r.capturedAt,
+  };
+}
+
+export function deletePending(id: string): void {
+  getDb().runSync(`DELETE FROM pending_parse WHERE id = ?`, [id]);
+}
+
 /**
  * Write (or re-answer) a habit check-in. The entry id is deterministic —
  * `${habitId}:${dateKey}` — so it doubles as the Idempotency-Key (BE-024: one

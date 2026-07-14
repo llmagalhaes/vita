@@ -270,6 +270,7 @@
     "estimatedBy": "Estimated by Vita from your description",
     "draftCount": "{{current}} of {{total}}",
     "addedToast": "Added to your log",
+    "offlineQueued": "Saved. Vita will make sense of it when you're back online.",
     "parseError": "Vita couldn't be reached. Your words are kept — try again.",
     "log": "Log",
     "photo": {

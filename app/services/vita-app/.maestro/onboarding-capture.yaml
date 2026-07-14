@@ -1,0 +1,44 @@
+# Core happy path: sign in → 6-step onboarding → capture → confirm → timeline.
+# Runs against the app loaded in Expo Go (mock mode, no backend). See app/Doc/e2e-maestro.md.
+#
+# appId is Expo Go's. iOS: host.exp.Exponent · Android: host.exp.exponent (lowercase).
+# For a dev-client / standalone build swap in com.llmagal.vita.
+appId: host.exp.Exponent
+---
+- launchApp:
+    clearState: true
+
+# --- Sign in (passwordless magic link, mock mode) ---
+- assertVisible: "A quiet log of meals, water & movement."
+- tapOn: "you@email.com"
+- inputText: "demo@vita.app"
+- tapOn: "Send link"
+- assertVisible: "Check your inbox"
+# The demo button fires the real vita://auth?token=… deep link through the handler.
+- tapOn: "Open the link · demo"
+
+# --- Onboarding: 6 steps (name is required on step 1) ---
+- assertVisible: "What should we call you?"
+- tapOn: "Your name"
+- inputText: "Sam"
+- tapOn: "Next"   # keep-track
+- tapOn: "Next"   # eating plan
+- tapOn: "Next"   # training program
+- tapOn: "Next"   # integrations
+- tapOn: "Next"   # all set
+- tapOn: "Start"  # → Home / Today
+
+# --- Capture: type a phrase into the pill ---
+- assertVisible: "Today"
+- tapOn: "Log"                          # mic bubble unfolds the text field
+- tapOn: "Tell Vita what you had…"
+- inputText: "Had a banana around 4"
+- pressKey: Enter                       # onSubmitEditing → parse
+
+# --- Confirm the draft ---
+- assertVisible: "Confirm"
+- tapOn: "Confirm"
+- assertVisible: "Added to your log"
+
+# --- Timeline reflects it ---
+- assertVisible: "Banana"

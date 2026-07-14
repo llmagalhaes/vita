@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeOut } from "react-native-reanimated";
 import { api, type MealDetail, type Units, type WaterDetail, type WorkoutDetail } from "../../src/api";
 import { addLocalEntry, entriesForDay, type LocalEntry } from "../../src/db/entries";
 import { logChanged, useLogVersion } from "../../src/db/notify";
@@ -142,7 +142,7 @@ function TimelineCard({ entry, index, units }: { entry: LocalEntry & { type: Tim
             </Text>
           </View>
         </View>
-        <WaveIllustration kind={kind} />
+        <WaveIllustration kind={kind} delay={100 + index * 90} />
       </Card>
       </Pressable>
     </Animated.View>
@@ -291,8 +291,9 @@ export default function Home() {
         </Pressable>
       </View>
 
-      {/* vacation banner (sea tone) — active trip only */}
+      {/* vacation banner (sea tone) — active trip only; eases in/out on start/end */}
       {onVacation && (
+        <Animated.View entering={FadeInDown.duration(350)} exiting={FadeOut.duration(220)}>
         <Card
           style={{
             flexDirection: "row",
@@ -325,10 +326,12 @@ export default function Home() {
             </Text>
           </Pressable>
         </Card>
+        </Animated.View>
       )}
 
       {/* check-ins waiting banner (opens the stack sheet) */}
       {pendingCheckinCount > 0 && (
+        <Animated.View entering={FadeInDown.duration(350)} exiting={FadeOut.duration(220)}>
         <Pressable accessibilityRole="button" onPress={openCheckins}>
           <Card
             style={{
@@ -360,6 +363,7 @@ export default function Home() {
             </Text>
           </Card>
         </Pressable>
+        </Animated.View>
       )}
 
       {/* logged today hero */}

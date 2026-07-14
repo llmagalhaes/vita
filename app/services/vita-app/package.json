@@ -4,6 +4,7 @@
   "main": "expo-router/entry",
   "dependencies": {
     "@expo-google-fonts/nunito": "^0.4.2",
+    "@react-native-community/netinfo": "12.0.1",
     "expo": "~56.0.15",
     "expo-constants": "~56.0.20",
     "expo-crypto": "~56.0.4",
