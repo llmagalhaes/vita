@@ -1,6 +1,11 @@
 # App Team — Next Session
 
-## Current state (Phase 2 — session 6 done 2026-07-14: APP-INTEGRATION local E2E vs REAL backend ✅)
+## Current state (Phase 2 — session 7 done 2026-07-14: APP-017 Water complete, slice 1 ✅)
+
+- **APP-017 built** (slice 1 of `docs/backlog-local-100.md`). Water is now a complete, navigable feature. New `src/lib/units.ts` `formatVolume(ml, units, t)` (metric ml/L, imperial oz via 29.5735; i18n-ready unit words `common.ml/l/oz`). Home Water card: units-aware figure, expanded rows show **amount · method · time** and are tappable → `/water/<id>`. Timeline water cards **now navigate** (per-kind href; workout still inert for APP-018/019) — clears the "water card doesn't navigate" debt. New read-only detail screen `app/(main)/water/[id].tsx` mirroring meal-detail (hero + "That day's water" log with current entry highlighted + day total + wave). Quick-add untouched (outbox). i18n `waterDetail.*`. No new deps, no contract/backend change, SDK 56 preserved. Gates: `tsc` clean · **Jest 54/54 (11 suites)**, +3 · `api:check` clean · `expo export` iOS OK. See `Progress/APP-017-Progress.md`.
+- "method" in the ticket = the entry's existing `inputMethod` — `WaterDetail` stays `{ amountMl }`, no contract need.
+
+## Prior state (Phase 2 — session 6 done 2026-07-14: APP-INTEGRATION local E2E vs REAL backend ✅)
 
 - **App ↔ real Kotlin backend proven end-to-end locally** (real Postgres, real auth/entries/timeline/me). No prod, no deploy. The mock stays the default for tests/CI; real mode is a dev toggle via `VITA_API_BASE_URL`.
 - **Recipe** (full detail in `Progress/APP-INTEGRATION-local-e2e-Progress.md`): backend = `cd backend/services/vita-api && docker compose up -d && ./gradlew bootRun` (health 200 on :8080; magic-link token printed to console by `LogMailer`). App = `VITA_API_BASE_URL=http://localhost:8080/v1 npx expo start`. **Base URL must include `/v1`** (client paths are relative; `/health` is unversioned). iOS sim `localhost`, Android emu `10.0.2.2`, physical Expo Go `<Mac-LAN-IP>`.

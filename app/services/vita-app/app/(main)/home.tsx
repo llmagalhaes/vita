@@ -3,11 +3,12 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { api, type MealDetail, type WaterDetail, type WorkoutDetail } from "../../src/api";
+import { api, type MealDetail, type Units, type WaterDetail, type WorkoutDetail } from "../../src/api";
 import { addLocalEntry, entriesForDay, type LocalEntry } from "../../src/db/entries";
 import { logChanged, useLogVersion } from "../../src/db/notify";
 import { drainOutbox } from "../../src/db/outbox";
 import { getSettings } from "../../src/db/settings";
+import { formatVolume } from "../../src/lib/units";
 import {
   Bar,
   Card,
@@ -46,7 +47,7 @@ function inputMethodLabel(e: LocalEntry, t: (k: string) => string): string {
   }
 }
 
-function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
+function TimelineCard({ entry, index, units }: { entry: LocalEntry; index: number; units: Units }) {
   const { t } = useTranslation();
   const router = useRouter();
   const kind = entry.type;
@@ -54,7 +55,7 @@ function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
   const { title, meta } = (() => {
     if (kind === "water") {
       const d = entry.detail as WaterDetail;
-      return { title: t("home.waterEntry"), meta: `${d.amountMl} ${t("common.ml")}` };
+      return { title: t("home.waterEntry"), meta: formatVolume(d.amountMl, units, t) };
     }
     if (kind === "workout") {
       const d = entry.detail as WorkoutDetail;
@@ -70,15 +71,15 @@ function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
     };
   })();
 
-  // Meal cards open the detail screen; other kinds have their own tickets.
-  const openable = kind === "meal";
+  // Meal and water cards open their detail screens; workout has its own ticket.
+  const href = kind === "meal" ? `/meal/${entry.id}` : kind === "water" ? `/water/${entry.id}` : null;
 
   return (
     <Animated.View entering={FadeIn.duration(500).delay(index * 70)}>
       <Pressable
-        accessibilityRole={openable ? "button" : undefined}
-        disabled={!openable}
-        onPress={openable ? () => router.push(`/meal/${entry.id}`) : undefined}
+        accessibilityRole={href ? "button" : undefined}
+        disabled={!href}
+        onPress={href ? () => router.push(href) : undefined}
       >
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <View
@@ -118,11 +119,13 @@ function TimelineCard({ entry, index }: { entry: LocalEntry; index: number }) {
 
 export default function Home() {
   const { t } = useTranslation();
+  const router = useRouter();
   const version = useLogVersion();
   const [waterOpen, setWaterOpen] = useState(false);
   const [energyOpen, setEnergyOpen] = useState(false);
 
   const settings = useMemo(() => getSettings(), []);
+  const units = settings?.units ?? "metric";
   const entries = useMemo(() => entriesForDay(new Date()), [version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meals = entries.filter((e) => e.type === "meal");
@@ -207,7 +210,7 @@ export default function Home() {
           <Card style={{ gap: spacing.md, height: "100%" }}>
             <SectionLabel>{t("home.water")}</SectionLabel>
             <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }}>
-              {waterMl >= 1000 ? `${(waterMl / 1000).toFixed(2)} L` : `${waterMl} ${t("common.ml")}`}
+              {formatVolume(waterMl, units, t)}
             </Text>
             <Pressable
               accessibilityRole="button"
@@ -235,15 +238,20 @@ export default function Home() {
                 }}
               >
                 {waters.map((w) => (
-                  <View key={w.id} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
+                  <Pressable
+                    key={w.id}
+                    accessibilityRole="button"
+                    onPress={() => router.push(`/water/${w.id}`)}
+                    style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
+                  >
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.macro.protein }} />
                     <Text variant="caption" style={{ fontFamily: fonts.semiBold, flex: 1 }} color="#6E6355">
-                      {(w.detail as WaterDetail).amountMl} {t("common.ml")}
+                      {formatVolume((w.detail as WaterDetail).amountMl, units, t)}
                     </Text>
                     <Text variant="caption" color={colors.labelMuted}>
-                      {timeOf(w.occurredAt)}
+                      {inputMethodLabel(w, t)} · {timeOf(w.occurredAt)}
                     </Text>
-                  </View>
+                  </Pressable>
                 ))}
               </View>
             )}
@@ -381,7 +389,7 @@ export default function Home() {
         </Text>
       )}
       {entries.map((e, i) => (
-        <TimelineCard key={e.id} entry={e} index={i} />
+        <TimelineCard key={e.id} entry={e} index={i} units={units} />
       ))}
     </ScrollView>
   );

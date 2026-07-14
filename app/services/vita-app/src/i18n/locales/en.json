@@ -9,6 +9,8 @@
     "discard": "Discard",
     "kcal": "kcal",
     "ml": "ml",
+    "l": "L",
+    "oz": "oz",
     "min": "min",
     "tryAgain": "Try again",
     "cancel": "Cancel"
@@ -162,6 +164,18 @@
     "micronutrients": "Micronutrients",
     "percentDaily": "% of daily reference",
     "footer": "Estimated by Vita from your description.",
+    "byVoice": "logged by voice",
+    "byText": "logged by text",
+    "byPhoto": "logged by photo",
+    "byTap": "quick add",
+    "notFound": "This entry isn't available."
+  },
+  "waterDetail": {
+    "eyebrow": "Water",
+    "back": "Back",
+    "today": "Today",
+    "dayLog": "That day's water",
+    "footer": "A quiet log of what you drank.",
     "byVoice": "logged by voice",
     "byText": "logged by text",
     "byPhoto": "logged by photo",
