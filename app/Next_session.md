@@ -1,5 +1,26 @@
 # App Team — Next Session
 
+## Current state (Phase 2 — CEO live-bugfix pass done 2026-07-14: Home layout + sheet dismiss ✅)
+
+- **Two CEO-reported bugs fixed and verified on a real running app** (Android emulator,
+  Expo Go 56, mock data — before→after screenshots). Details + evidence paths in
+  `Progress/APP-CEO-BUGFIX-Progress.md`.
+- **Bug 1 (HIGH) — Home layout blowout.** `app/(main)/home.tsx` water card had
+  `height: "100%"` inside a heightless `Pressable` in a `ScrollView` → percentage height
+  resolved against the viewport and stretched the water column full-screen, floating macros
+  and pushing energy/plan/timeline below the fold. Fix: dropped `height:"100%"`, used
+  `flex: 1`; default stretch alignment gives equal-height WATER | MACROS columns.
+- **Bug 2 (MED) — confirm sheet drag-to-dismiss.** Added a gesture-handler `Gesture.Pan()`
+  to `src/capture/CaptureSheet.tsx` (no new deps): sheet follows the finger down,
+  `activeOffsetY(10)` keeps taps working, release past threshold (`>120px`/`>800px/s`) calls
+  `capture.close()` else springs back. Threshold is the pure/tested `src/capture/sheet.ts`
+  `shouldDismiss`. **Gotcha fixed:** the decision must run on the JS thread via `runOnJS` —
+  calling the plain JS helper inside the `.onEnd` worklet crashed the app to the launcher.
+- **Blue floating gear:** not ours. No gear/cog/fab in source; the grey gear renders at a
+  fixed screen position across onboarding/auth/home → device/OS overlay, not Vita UI.
+- Gates: `tsc` 0 · **Jest 91/91 (21 suites, +4)** · `expo export` iOS OK. No new app deps;
+  `package.json` unchanged (see Progress note re: `package-lock.json` if it shows touched).
+
 ## Current state (Phase 2 — session 10 done 2026-07-14: slice 3 F4/F5 Plan + program ✅ APP-021/022/023)
 
 - **Slice 3 complete** (`docs/backlog-local-100.md` F4/F5, **D5**). Plan/program are persisted,

@@ -1,10 +1,20 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
+import Animated, {
+  Easing,
+  FadeIn,
+  SlideInDown,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
 import { Button, Card, Chip, EstimateTag, Text, colors, fonts, motion, spacing } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { mealTotals, stepItem } from "./quantity";
+import { shouldDismiss } from "./sheet";
 
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -206,6 +216,32 @@ function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIndex: nu
 export function CaptureSheet() {
   const { t } = useTranslation();
   const capture = useCapture();
+
+  // Drag-down-to-dismiss: pan translates the sheet with the finger (down only);
+  // past the threshold (distance or flick) it closes, otherwise it springs back.
+  // Hooks stay above the idle early-return (Rules of Hooks).
+  const dragY = useSharedValue(0);
+  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
+  // Decision runs on the JS thread: shouldDismiss is a plain (tested) function, so it
+  // can't be called from inside the UI-thread gesture worklet. Spring/reset of the
+  // shared value from JS is supported by Reanimated.
+  const onDragEnd = (translationY: number, velocityY: number) => {
+    if (shouldDismiss(translationY, velocityY)) {
+      dragY.value = 0; // reset — the sheet is persistently mounted, so it reopens at rest
+      capture.close();
+    } else {
+      dragY.value = withSpring(0, { damping: 18, stiffness: 220 });
+    }
+  };
+  const dragGesture = Gesture.Pan()
+    .activeOffsetY(10) // only claim a clear downward drag — button taps still work
+    .onUpdate((e) => {
+      dragY.value = Math.max(0, e.translationY);
+    })
+    .onEnd((e) => {
+      runOnJS(onDragEnd)(e.translationY, e.velocityY);
+    });
+
   if (capture.status === "idle") return null;
 
   const multiple = capture.drafts.length > 1;
@@ -232,19 +268,23 @@ export function CaptureSheet() {
           style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.32)" }}
         />
       </Animated.View>
+      <GestureDetector gesture={dragGesture}>
       <Animated.View
         entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
-        style={{
-          backgroundColor: colors.sheet,
-          borderTopLeftRadius: 30,
-          borderTopRightRadius: 30,
-          margin: 6,
-          borderRadius: 30,
-          padding: spacing.xl - 4,
-          paddingBottom: spacing.xl,
-          gap: spacing.md + 2,
-          minHeight: 270,
-        }}
+        style={[
+          {
+            backgroundColor: colors.sheet,
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            margin: 6,
+            borderRadius: 30,
+            padding: spacing.xl - 4,
+            paddingBottom: spacing.xl,
+            gap: spacing.md + 2,
+            minHeight: 270,
+          },
+          sheetStyle,
+        ]}
       >
         <View
           style={{
@@ -333,6 +373,7 @@ export function CaptureSheet() {
           </View>
         )}
       </Animated.View>
+      </GestureDetector>
     </View>
   );
 }

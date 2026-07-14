@@ -263,7 +263,10 @@ export default function Home() {
       {/* water + macros */}
       <View style={{ flexDirection: "row", gap: 12 }}>
         <Pressable accessibilityRole="button" onPress={() => setWaterOpen((o) => !o)} style={{ flex: 1.05 }}>
-          <Card style={{ gap: spacing.md, height: "100%" }}>
+          {/* No height:"100%": inside a ScrollView a percentage height resolves against
+              the viewport and blows the row to full-screen. Default stretch alignment
+              already matches the taller (macros) column. */}
+          <Card style={{ gap: spacing.md, flex: 1 }}>
             <SectionLabel>{t("home.water")}</SectionLabel>
             <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }}>
               {formatVolume(waterMl, units, t)}
