@@ -1,6 +1,7 @@
-package com.llmagal.vita.auth
+package com.llmagal.vita.auth.service
 
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.auth.AuthProps
+import com.llmagal.vita.crypto.service.CryptoService
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service

@@ -1,7 +1,7 @@
 package com.llmagal.vita.users.service
 
 import com.fasterxml.jackson.annotation.JsonInclude
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.crypto.service.CryptoService
 import com.llmagal.vita.users.repository.UserRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service

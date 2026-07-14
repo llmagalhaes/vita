@@ -1,5 +1,12 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 7, 2026-07-14)
+
+- **BE-016 (layered-packages refactor) done locally** — In progress on Asana. `Progress/BE-016-layered-packages-refactor-Progress.md`, `Doc/ADRs/ADR-0012` (supersedes ADR-0001's package section).
+  - Flat `auth/`, `crypto/`, `shared/` brought into the controller/service/repository layout: `auth/controller/AuthController`, `auth/service/{MagicLinkService,TokenService,Mailer,RateLimiter}`, `crypto/service/CryptoService`, `shared/controller/HealthController`.
+  - **Kept at package root (judgment, per `ai/AiConfig.kt` precedent):** `auth/SecurityConfig` + `auth/AuthProps` (config), `crypto/AesGcm` (util object), `crypto/KeyWrapper` (KMS SPI seam). Nothing left flat for risk — every move succeeded.
+  - Mechanical only: package decls + imports, zero behaviour/endpoint/contract change. Suite **84/84**, detekt+ktlint clean, redocly exit 0. All feature packages now share one layout.
+
 ## Current state (Phase 2 session 6, 2026-07-13)
 
 - **BE-015 (plan/program parse-import) done locally** — In progress on Asana (Done = production, blocked on BE-004 + devops OPS-011). Details in `Progress/BE-015-impl-plan-program-parse-Progress.md`.
@@ -44,7 +51,7 @@
 ## Next steps
 
 1. **Plan-create / program-create endpoints (later W4 ticket)** — the confirmed `EatingPlanDraft`/`TrainingProgramDraft` is shaped to be POSTed as-is; the persist endpoints are out of scope for BE-015 (ADR-0011). File a ticket when W4 lands.
-2. **BE-016 (deferred refactor)** — migrate the flat auth/users(old)/crypto/shared packages into the controller→service→repository layout. `entries/`, `users/`, `uploads/` already conform.
+2. **BE-016 (layered-packages refactor) — DONE locally** (session 7). All feature packages now controller/service/repository; ADR-0012 is the standing convention.
 3. **BE-007 (OIDC)** waits on CEO Google/Apple accounts. **BE-010 (deletion) done locally** — job queue now exists (`jobs/` + `V003`), reuse it for future async work (magic-link cleanup, PDF import, exports).
 4. **BE-004 (first prod deploy)** — Dockerfile now present (arm64). Waiting on devops prod env + CI deploy chain (OPS-004 → OPS-014 pushes the image).
 

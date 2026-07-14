@@ -1,4 +1,4 @@
-package com.llmagal.vita.shared
+package com.llmagal.vita.shared.controller
 
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.web.bind.annotation.GetMapping

@@ -1,5 +1,8 @@
-package com.llmagal.vita.auth
+package com.llmagal.vita.auth.controller
 
+import com.llmagal.vita.auth.service.MagicLinkService
+import com.llmagal.vita.auth.service.TokenPair
+import com.llmagal.vita.auth.service.TokenService
 import jakarta.servlet.http.HttpServletRequest
 import org.springframework.http.HttpHeaders
 import org.springframework.http.HttpStatus

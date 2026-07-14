@@ -1,6 +1,6 @@
 package com.llmagal.vita.entries.service
 
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.crypto.service.CryptoService
 import com.llmagal.vita.entries.controller.EntryPage
 import com.llmagal.vita.entries.controller.EntryType
 import com.llmagal.vita.entries.controller.LogEntry

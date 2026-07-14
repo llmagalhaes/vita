@@ -1,4 +1,4 @@
-package com.llmagal.vita.auth
+package com.llmagal.vita.auth.service
 
 import java.time.Duration
 import java.time.Instant

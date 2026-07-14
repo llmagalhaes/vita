@@ -1,7 +1,7 @@
 package com.llmagal.vita
 
-import com.llmagal.vita.auth.TokenService
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.auth.service.TokenService
+import com.llmagal.vita.crypto.service.CryptoService
 import org.springframework.jdbc.core.JdbcTemplate
 import java.util.UUID
 

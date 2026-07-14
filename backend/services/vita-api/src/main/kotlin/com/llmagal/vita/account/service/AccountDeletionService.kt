@@ -1,7 +1,7 @@
 package com.llmagal.vita.account.service
 
 import com.llmagal.vita.account.repository.AccountRepository
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.crypto.service.CryptoService
 import com.llmagal.vita.jobs.repository.JobRepository
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service

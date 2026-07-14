@@ -1,5 +1,6 @@
-package com.llmagal.vita.auth
+package com.llmagal.vita.auth.service
 
+import com.llmagal.vita.auth.AuthProps
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm

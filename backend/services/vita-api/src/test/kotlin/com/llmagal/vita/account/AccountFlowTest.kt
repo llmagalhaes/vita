@@ -3,9 +3,9 @@ package com.llmagal.vita.account
 import com.llmagal.vita.TestcontainersConfig
 import com.llmagal.vita.account.repository.AccountRepository
 import com.llmagal.vita.account.service.AccountDeletionService
-import com.llmagal.vita.auth.MagicLinkService
-import com.llmagal.vita.auth.TokenService
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.auth.service.MagicLinkService
+import com.llmagal.vita.auth.service.TokenService
+import com.llmagal.vita.crypto.service.CryptoService
 import com.llmagal.vita.jobs.service.JobWorker
 import com.llmagal.vita.signInTestUser
 import org.assertj.core.api.Assertions.assertThat

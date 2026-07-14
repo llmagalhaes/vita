@@ -1,5 +1,7 @@
-package com.llmagal.vita.crypto
+package com.llmagal.vita.crypto.service
 
+import com.llmagal.vita.crypto.AesGcm
+import com.llmagal.vita.crypto.KeyWrapper
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.stereotype.Service

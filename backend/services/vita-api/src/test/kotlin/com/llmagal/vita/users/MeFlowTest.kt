@@ -1,8 +1,8 @@
 package com.llmagal.vita.users
 
 import com.llmagal.vita.TestcontainersConfig
-import com.llmagal.vita.auth.TokenService
-import com.llmagal.vita.crypto.CryptoService
+import com.llmagal.vita.auth.service.TokenService
+import com.llmagal.vita.crypto.service.CryptoService
 import com.llmagal.vita.signInTestUser
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach

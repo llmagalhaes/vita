@@ -1,6 +1,7 @@
 package com.llmagal.vita.crypto
 
 import com.llmagal.vita.TestcontainersConfig
+import com.llmagal.vita.crypto.service.CryptoService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

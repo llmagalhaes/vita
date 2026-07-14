@@ -1,4 +1,4 @@
-package com.llmagal.vita.auth
+package com.llmagal.vita.auth.service
 
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Component
