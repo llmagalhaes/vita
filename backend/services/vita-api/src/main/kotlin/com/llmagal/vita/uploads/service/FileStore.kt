@@ -1,6 +1,7 @@
 package com.llmagal.vita.uploads.service
 
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
@@ -37,10 +38,10 @@ interface FileStore {
 /**
  * Local stand-in for the real S3 presigner. presignPut returns a stub URL nobody
  * uploads to; read resolves the fileRef to a file under a local directory (a test
- * writes a fixture there). ponytail: only impl until devops wires the S3 presigner
- * (OPS-011) — the real impl replaces this bean via config, nothing else changes.
+ * writes a fixture there). Default bean; the `aws` profile swaps in [S3FileStore].
  */
 @Component
+@Profile("!aws")
 class LocalFileStore(
     @param:Value("\${vita.uploads.local-dir:\${java.io.tmpdir}/vita-uploads}") dir: String,
     @param:Value("\${vita.uploads.url-ttl-seconds:900}") private val ttlSeconds: Long,

@@ -1,14 +1,15 @@
 package com.llmagal.vita.crypto
 
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.context.annotation.Profile
 import org.springframework.stereotype.Component
 import java.security.SecureRandom
 import java.util.Base64
 
 /**
  * Wraps/unwraps per-user DEKs. The one seam between our crypto and AWS KMS:
- * production gets a KMS implementation (CMK `vita-app-data`, devops ticket);
- * local dev and CI use [LocalKeyWrapper] so tests never touch AWS.
+ * the `aws` profile uses [KmsKeyWrapper] (CMK `alias/vita-app-data`); local dev
+ * and CI use [LocalKeyWrapper] so tests never touch AWS.
  */
 interface KeyWrapper {
     /** Returns a fresh 256-bit DEK in both forms. */
@@ -24,10 +25,10 @@ data class Dek(
 
 /**
  * Stand-in for KMS: wraps DEKs with AES-256-GCM under a static master key
- * from config. ponytail: only impl until devops provisions the CMK — the
- * KMS impl replaces this bean via config, nothing else changes.
+ * from config. Default bean; the `aws` profile swaps in [KmsKeyWrapper].
  */
 @Component
+@Profile("!aws")
 class LocalKeyWrapper(
     @param:Value("\${vita.crypto.master-key}") masterKeyB64: String,
 ) : KeyWrapper {

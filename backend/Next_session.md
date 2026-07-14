@@ -1,5 +1,35 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 12, 2026-07-14) — BE-026 + BE-027 done locally (real S3/KMS adapters)
+
+Real AWS SDK v2 adapters behind the existing seams, tested against LocalStack (OPS-020). No
+contract change (impl-only). `Progress/BE-026-Progress.md`, `Progress/BE-027-Progress.md`.
+
+- **Opt-in via the `aws` Spring profile.** Local beans (`LocalFileStore`, `LocalKeyWrapper`) are now
+  `@Profile("!aws")` = default; real beans (`S3FileStore`, `KmsKeyWrapper`) are `@Profile("aws")`.
+  `./gradlew check` runs the default context → **AWS-free, no docker, no LocalStack**. The AWS SDK
+  jars sit unused on the classpath until the profile is on.
+- **`aws/AwsClientsConfig.kt`** (new, shared) — the single place wiring `S3Client`/`S3Presigner`/
+  `KmsClient`. One switch, `vita.aws.endpoint-override`: set → LocalStack (`test`/`test` creds,
+  path-style S3); blank → real AWS + `DefaultCredentialsProvider` (instance role). **Prod flip =
+  activate `aws` profile + set bucket/CMK env; endpoint-override stays blank.** Bean swap only.
+- **BE-026 (S3 `FileStore`)** — real presigned PUT + object read for the PDF import path. fileRef
+  stays an opaque UUID (S3 key `plan-documents/<uuid>`); missing object → `UnknownFileRefException`.
+- **BE-027 (KMS `KeyWrapper`)** — envelope via `GenerateDataKey(AES_256)` + `Decrypt`, CMK by alias
+  `alias/vita-app-data`. Composes with `CryptoService` unchanged (plaintext DEK → `AesGcm`).
+- **Config keys chosen:** `vita.aws.region` (eu-west-1), `vita.aws.endpoint-override` (blank),
+  `vita.uploads.bucket` (vita-uploads-local), `vita.crypto.kms-key-alias` (alias/vita-app-data).
+- **Test gating:** LocalStack adapter tests are `@Tag("localstack")`, excluded from the default
+  `test` task. New `./gradlew localstackTest` runs them (needs `docker compose --profile localstack
+  up -d`). Fixed a latent bug: the tag-exclude was on `tasks.withType<Test>` (hit `liveEval` and the
+  new task too) → scoped it to `tasks.named<Test>("test")`. `liveEval` now also filters correctly.
+- **Verified 2026-07-14:** default `./gradlew check` green — **122 tests, 0 failures, AWS-free**
+  (LocalStack suites absent from results). With LocalStack up, `./gradlew localstackTest` = **6/6
+  green, 0 skipped** (S3 presign→upload→read round-trip; KMS wrap/unwrap round-trip + wrapped≠plain
+  + AES-GCM composition). LocalStack torn down (`down -v`), no containers left running.
+- **Remaining backend:** BE-028 hygiene sweep (parked, pre-release). All local-100 backend tickets
+  now done locally. Release pipeline (F-LAST) unscheduled.
+
 ## Current state (Phase 2 session 11, 2026-07-14) — BE-024 + BE-025 + BE-022 done locally
 
 Batch: checkin entry type → vacation ranges → token cleanup. ADR-0013 created

@@ -29,6 +29,9 @@ vita:
     master-key: ${VITA_MASTER_KEY:tW72mlhgUsBNwaVxvuKf9hg8GiwbJl3ltv0eQZG8gBg=} # LocalKeyWrapper stand-in for the KMS CMK
     service-dek: ${VITA_SERVICE_DEK:miPHUrqMdXlXeU9W6VcKk527rLA4O/JHXTGgs36mGuw=}
     hmac-key: ${VITA_HMAC_KEY:htaXJkT4dsD7vcrZKZwzvujzoO0Ejgn5CpcHL+Y8kP4=}
+    # BE-027: KMS CMK for the real KeyWrapper (aws profile only). Resolved by alias — the
+    # underlying key id rotates per LocalStack boot; prod points it at the real CMK.
+    kms-key-alias: ${VITA_KMS_KEY_ALIAS:alias/vita-app-data}
   auth:
     jwt-secret: ${VITA_JWT_SECRET:iQ++oV3e0wPik59c+COiHteevtkkC4AF/urU8W8t6j4=}
     access-ttl-seconds: 900
@@ -60,9 +63,17 @@ vita:
     plan-timeout-seconds: 25 # a plan/PDF call is larger than capture parse; still inside API Gateway's 29 s ceiling
   uploads:
     # BE-015: presigned-upload seam (OPS-011). Local dev has no S3 — LocalFileStore vends a stub
-    # URL and reads fixtures from this dir. Prod injects a real S3 presigner (devops).
+    # URL and reads fixtures from this dir. The `aws` profile swaps in S3FileStore (BE-026).
     local-dir: ${VITA_UPLOADS_LOCAL_DIR:${java.io.tmpdir}/vita-uploads}
     url-ttl-seconds: 900
+    # BE-026: S3 bucket for the real presigner (aws profile only). LocalStack default below;
+    # prod overrides via env.
+    bucket: ${VITA_UPLOADS_BUCKET:vita-uploads-local}
+  aws:
+    # BE-026/BE-027: only consulted under the `aws` profile. endpoint-override is the sole
+    # local-vs-prod switch — set to http://localhost:4566 for LocalStack, blank for real AWS.
+    region: ${VITA_AWS_REGION:eu-west-1}
+    endpoint-override: ${VITA_AWS_ENDPOINT_OVERRIDE:}
   plans:
     # BE-019/BE-020 (ADR-0011 ext): how many past versions of the eating plan /
     # training program to keep. POST beyond this drops the oldest (D5).

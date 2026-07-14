@@ -33,6 +33,14 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
     runtimeOnly("org.postgresql:postgresql")
 
+    // BE-026/BE-027: real S3 presigner + KMS envelope, active only under the `aws` profile
+    // (LocalStack in local tests, real AWS in prod). Beans are @Profile("aws") so the default
+    // context — and ./gradlew check — never touch AWS; these jars just sit on the classpath.
+    implementation(platform("software.amazon.awssdk:bom:2.30.0"))
+    implementation("software.amazon.awssdk:s3") // includes the S3 presigner
+    implementation("software.amazon.awssdk:kms")
+    implementation("software.amazon.awssdk:url-connection-client") // one sync HTTP impl (SDK auto-discovers it)
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.security:spring-security-test")
@@ -57,9 +65,13 @@ configurations.matching { it.name == "detekt" }.all {
     }
 }
 
-tasks.withType<Test> {
-    // Live-API eval (BE-014) never runs in the normal build — it hits api.anthropic.com and spends budget.
-    useJUnitPlatform { excludeTags("live") }
+// Scope the exclusion to the default `test` task only — the opt-in tasks below set their own
+// include filter, and a global excludeTags here would also exclude the very tag they include.
+tasks.named<Test>("test") {
+    // Excluded from the default build:
+    //  - live: hits api.anthropic.com and spends budget (BE-014).
+    //  - localstack: needs LocalStack up (BE-026/BE-027) — keeps `check` AWS-free & docker-free (D9).
+    useJUnitPlatform { excludeTags("live", "localstack") }
 }
 
 // On-demand live Claude eval: ./gradlew liveEval (needs ANTHROPIC_API_KEY in the env).
@@ -69,4 +81,15 @@ tasks.register<Test>("liveEval") {
     testClassesDirs = sourceSets["test"].output.classesDirs
     classpath = sourceSets["test"].runtimeClasspath
     useJUnitPlatform { includeTags("live") }
+}
+
+// On-demand LocalStack adapter tests (BE-026/BE-027): the real S3/KMS adapters against :4566.
+// Start LocalStack first: cd backend/services/vita-api && docker compose --profile localstack up -d
+// Then: ./gradlew localstackTest
+tasks.register<Test>("localstackTest") {
+    description = "Runs the S3/KMS adapter tests against LocalStack (@Tag(\"localstack\"))."
+    group = "verification"
+    testClassesDirs = sourceSets["test"].output.classesDirs
+    classpath = sourceSets["test"].runtimeClasspath
+    useJUnitPlatform { includeTags("localstack") }
 }
