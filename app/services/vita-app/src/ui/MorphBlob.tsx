@@ -1,6 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
+import type { StyleProp, ViewStyle } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { colors } from "./tokens";
+
+/** Shared 0↔1 loop for the blob morphs. */
+function useMorph(durationMs: number) {
+  const t = useSharedValue(0);
+  useEffect(() => {
+    t.value = withRepeat(withTiming(1, { duration: durationMs, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, [t, durationMs]);
+  return t;
+}
 
 /**
  * Organic morphing blob that also breathes — the prototype's `vtBlob` + `vtBreath`
@@ -10,10 +20,7 @@ import { colors } from "./tokens";
  * plus a gentle scale breath.
  */
 export function MorphBlob({ size = 56, color = colors.accent }: { size?: number; color?: string }) {
-  const t = useSharedValue(0);
-  useEffect(() => {
-    t.value = withRepeat(withTiming(1, { duration: 3200, easing: Easing.inOut(Easing.ease) }), -1, true);
-  }, [t]);
+  const t = useMorph(3200);
   const style = useAnimatedStyle(() => {
     const pct = (n: number) => (n / 100) * size;
     return {
@@ -25,4 +32,28 @@ export function MorphBlob({ size = 56, color = colors.accent }: { size?: number;
     };
   });
   return <Animated.View style={[{ width: size, height: size, backgroundColor: color, opacity: 0.85 }, style]} />;
+}
+
+/**
+ * Slow organic corner-radius morph AROUND children — the prototype's hero blocks
+ * (`vtBlob 9s` on the auth/onboarding illustration containers). Children keep
+ * rendering (SVG scene); only the container silhouette breathes.
+ */
+export function MorphContainer({
+  children,
+  style,
+  durationMs = 9000,
+}: {
+  children: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  durationMs?: number;
+}) {
+  const t = useMorph(durationMs);
+  const morph = useAnimatedStyle(() => ({
+    borderTopLeftRadius: 34 + 22 * t.value,
+    borderTopRightRadius: 52 - 24 * t.value,
+    borderBottomRightRadius: 40 + 18 * t.value,
+    borderBottomLeftRadius: 50 - 20 * t.value,
+  }));
+  return <Animated.View style={[style, { overflow: "hidden" }, morph]}>{children}</Animated.View>;
 }

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { Button, Card, KeyboardAvoider, Text, colors, fonts, spacing } from "../ui";
+import { Button, Card, Chevron, KeyboardAvoider, Text, Toggle, colors, fonts, spacing } from "../ui";
 import {
   createHabit,
   deleteHabit,
@@ -274,23 +274,14 @@ function HabitRow({ habit }: { habit: Habit }) {
             {habit.time}
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="switch"
-          accessibilityState={{ checked: habit.enabled }}
-          onPress={toggle}
-          style={{ width: 42, height: 25, borderRadius: 13, backgroundColor: habit.enabled ? colors.accent : colors.track, justifyContent: "center" }}
-        >
-          <View style={{ width: 19, height: 19, borderRadius: 10, backgroundColor: colors.card, marginLeft: habit.enabled ? 20 : 3, ...cardShadow }} />
-        </Pressable>
+        <Toggle on={habit.enabled} onToggle={toggle} accessibilityLabel={habit.name} />
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={habit.name}
           onPress={() => setExpanded((e) => !e)}
           style={{ width: 30, height: 30, borderRadius: 15, borderWidth: 1, borderColor: "rgba(120,100,75,0.14)", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}
         >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={colors.muted}>
-            {expanded ? "▴" : "▾"}
-          </Text>
+          <Chevron open={expanded} flip size={13} color={colors.muted} />
         </Pressable>
       </View>
 
@@ -319,7 +310,7 @@ function HabitRow({ habit }: { habit: Habit }) {
       </View>
 
       {expanded && (
-        <View style={{ borderTopWidth: 1, borderTopColor: "rgba(120,100,75,0.14)", borderStyle: "dashed", paddingTop: 12, gap: 11 }}>
+        <Animated.View entering={FadeIn.duration(250)} style={{ borderTopWidth: 1, borderTopColor: "rgba(120,100,75,0.14)", borderStyle: "dashed", paddingTop: 12, gap: 11 }}>
           <DayChips days={habit.days} onToggle={setDay} />
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <TextInput
@@ -349,19 +340,11 @@ function HabitRow({ habit }: { habit: Habit }) {
               </Text>
             </Pressable>
           </View>
-        </View>
+        </Animated.View>
       )}
     </Card>
   );
 }
-
-const cardShadow = {
-  shadowColor: "#3C2D1E",
-  shadowOpacity: 0.25,
-  shadowRadius: 6,
-  shadowOffset: { width: 0, height: 2 },
-  elevation: 2,
-} as const;
 
 export default function Habits() {
   const { t } = useTranslation();

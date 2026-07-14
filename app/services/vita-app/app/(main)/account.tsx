@@ -7,7 +7,8 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Card, KeyboardAvoider, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
+import Animated, { FadeIn } from "react-native-reanimated";
+import { Card, Chevron, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -25,9 +26,10 @@ const Label = ({ children }: { children: string }) => (
   </Text>
 );
 
-function SetupRow({ glyph, bg, ink, title, sub, onPress }: { glyph: string; bg: string; ink: string; title: string; sub: string; onPress: () => void }) {
+function SetupRow({ glyph, bg, ink, title, sub, onPress, delay = 0 }: { glyph: string; bg: string; ink: string; title: string; sub: string; onPress: () => void; delay?: number }) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress}>
+    <Animated.View entering={FadeIn.duration(400).delay(delay)}>
+    <PressScale accessibilityRole="button" onPress={onPress} scale={0.98}>
       <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 }}>
         <View style={{ width: 36, height: 36, borderRadius: 13, backgroundColor: bg, alignItems: "center", justifyContent: "center" }}>
           <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={ink}>{glyph}</Text>
@@ -38,7 +40,8 @@ function SetupRow({ glyph, bg, ink, title, sub, onPress }: { glyph: string; bg: 
         </View>
         <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>›</Text>
       </Card>
-    </Pressable>
+    </PressScale>
+    </Animated.View>
   );
 }
 
@@ -90,10 +93,10 @@ export default function Account() {
                 {units === "metric" ? t("onboarding.welcome.metric") : t("onboarding.welcome.imperial")}
               </Text>
             </View>
-            <Text color={colors.labelMuted}>{profileOpen ? "▾" : "▸"}</Text>
+            <Chevron open={profileOpen} size={12} />
           </View>
           {profileOpen && (
-            <View style={{ borderTopWidth: 1, borderTopColor: colors.border, borderStyle: "dashed", paddingTop: 13, gap: 12 }}>
+            <Animated.View entering={FadeIn.duration(250)} style={{ borderTopWidth: 1, borderTopColor: colors.border, borderStyle: "dashed", paddingTop: 13, gap: 12 }}>
               <View style={{ gap: 7 }}>
                 <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.muted}>{t("onboarding.welcome.nameLabel")}</Text>
                 <TextInput
@@ -127,17 +130,17 @@ export default function Account() {
                 </View>
               </View>
               <Text variant="caption" color={colors.labelMuted}>{t("account.applyEverywhere")}</Text>
-            </View>
+            </Animated.View>
           )}
         </Card>
       </Pressable>
 
       {/* your setup — deep links */}
       <Label>{t("account.yourSetup")}</Label>
-      <SetupRow glyph="❧" bg="#E7EDE1" ink="#5F7A61" title={t("home.eatingPlan")} sub={plan ? (plan.summary ?? t("account.setupPlanSet")) : t("account.setupNone")} onPress={() => router.push("/plan")} />
-      <SetupRow glyph="⟐" bg={colors.estimateBg} ink={colors.accent} title={t("home.trainingProgram")} sub={program ? (program.splitDescription ?? t("account.setupProgramSet")) : t("account.setupNone")} onPress={() => router.push("/program")} />
-      <SetupRow glyph="≋" bg="#F0EDE2" ink="#6E6355" title={t("account.integrations")} sub={t("account.integrationsSub")} onPress={() => router.push("/integrations")} />
-      <SetupRow glyph="✓" bg={colors.estimateBg} ink={colors.accent} title={t("habits.title")} sub={t("account.habitsSub", { count: habitCount })} onPress={() => router.push("/habits")} />
+      <SetupRow glyph="❧" bg="#E7EDE1" ink="#5F7A61" title={t("home.eatingPlan")} sub={plan ? (plan.summary ?? t("account.setupPlanSet")) : t("account.setupNone")} onPress={() => router.push("/plan")} delay={50} />
+      <SetupRow glyph="⟐" bg={colors.estimateBg} ink={colors.accent} title={t("home.trainingProgram")} sub={program ? (program.splitDescription ?? t("account.setupProgramSet")) : t("account.setupNone")} onPress={() => router.push("/program")} delay={100} />
+      <SetupRow glyph="≋" bg="#F0EDE2" ink="#6E6355" title={t("account.integrations")} sub={t("account.integrationsSub")} onPress={() => router.push("/integrations")} delay={150} />
+      <SetupRow glyph="✓" bg={colors.estimateBg} ink={colors.accent} title={t("habits.title")} sub={t("account.habitsSub", { count: habitCount })} onPress={() => router.push("/habits")} delay={200} />
 
       {/* notifications */}
       <Label>{t("account.notifications")}</Label>

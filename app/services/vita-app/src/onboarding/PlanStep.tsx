@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
 import { Button, Card, EstimateTag, Text, colors, fonts, radii, spacing } from "../ui";
+
+/** Prototype vtPop for the parsed summary card / answered chip. */
+const popIn = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.92 }] },
+  100: { opacity: 1, transform: [{ scale: 1 }] },
+}).duration(350);
 
 /**
  * Answer state for the eating-plan and training-program steps (same shape,
@@ -110,6 +117,7 @@ export function PlanStep<D extends { summary: string }>({
 
       {value.kind === "unanswered" && (
         <View style={{ gap: spacing.sm + 2 }}>
+          <Animated.View entering={FadeIn.duration(400)}>
           <OptionCard
             mono="Aa"
             monoBg="#F7E7D4"
@@ -118,6 +126,8 @@ export function PlanStep<D extends { summary: string }>({
             sub={t(`${ns}.describeSub`)}
             onPress={() => onChange({ kind: "describing", via: "describe", text: "" })}
           />
+          </Animated.View>
+          <Animated.View entering={FadeIn.duration(400).delay(70)}>
           <OptionCard
             mono="↓"
             monoBg="#E7EDE1"
@@ -126,6 +136,8 @@ export function PlanStep<D extends { summary: string }>({
             sub={t(`${ns}.importSub`)}
             onPress={() => onChange({ kind: "describing", via: "import", text: "" })}
           />
+          </Animated.View>
+          <Animated.View entering={FadeIn.duration(400).delay(140)}>
           <OptionCard
             mono="—"
             monoBg="#F0EDE2"
@@ -134,6 +146,7 @@ export function PlanStep<D extends { summary: string }>({
             sub={t(`${ns}.noneSub`)}
             onPress={() => onChange({ kind: "none" })}
           />
+          </Animated.View>
         </View>
       )}
 
@@ -223,6 +236,7 @@ export function PlanStep<D extends { summary: string }>({
               “{value.phrase}”
             </Text>
           </View>
+          <Animated.View entering={popIn}>
           <Card style={{ gap: spacing.md }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <Text
@@ -276,6 +290,7 @@ export function PlanStep<D extends { summary: string }>({
               </View>
             )}
           </Card>
+          </Animated.View>
           <Pressable accessibilityRole="button" onPress={() => onChange({ kind: "unanswered" })}>
             <Text variant="caption" color={colors.labelMuted} style={{ textDecorationLine: "underline", alignSelf: "center" }}>
               {t("onboarding.planShared.clear")}
@@ -286,7 +301,8 @@ export function PlanStep<D extends { summary: string }>({
 
       {value.kind === "none" && (
         <View style={{ gap: spacing.md, alignItems: "flex-start" }}>
-          <View
+          <Animated.View
+            entering={popIn}
             style={{
               flexDirection: "row",
               alignItems: "center",
@@ -306,7 +322,7 @@ export function PlanStep<D extends { summary: string }>({
             >
               {t("onboarding.planShared.answeredByTap")}
             </Text>
-          </View>
+          </Animated.View>
           <Pressable accessibilityRole="button" onPress={() => onChange({ kind: "unanswered" })}>
             <Text variant="caption" color={colors.labelMuted} style={{ textDecorationLine: "underline" }}>
               {t("onboarding.planShared.changeAnswer")}

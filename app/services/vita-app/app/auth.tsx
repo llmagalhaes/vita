@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { Redirect } from "expo-router";
 import * as Linking from "expo-linking";
 import { useTranslation } from "react-i18next";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import { isMockApi } from "../src/api";
 import { OidcUnavailable } from "../src/auth/oidc";
@@ -12,7 +12,7 @@ import { useAuth } from "../src/auth/useAuth";
 import { tokenFromPaste, useMagicLink } from "../src/auth/useMagicLink";
 import { api } from "../src/api";
 import { isOnboarded } from "../src/db/settings";
-import { Button, Card, KeyboardAvoider, Text, colors, fonts, radii, spacing } from "../src/ui";
+import { Button, Card, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
 
 type Provider = "google" | "apple";
 type Mode = "idle" | { consent: Provider } | { sent: string };
@@ -39,9 +39,16 @@ function Wordmark() {
   );
 }
 
+/** Prototype vtPop — consent / sent cards scale in from .92. */
+const popIn = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.92 }] },
+  100: { opacity: 1, transform: [{ scale: 1 }] },
+}).duration(350);
+
 function Blob() {
+  // Hero silhouette morphs like the prototype (vtBlob 9s).
   return (
-    <View style={{ height: 150, borderRadius: radii.lg, overflow: "hidden", backgroundColor: "#F5D3AC" }}>
+    <MorphContainer style={{ height: 150, backgroundColor: "#F5D3AC" }}>
       <Svg width="100%" height="100%" viewBox="0 0 342 150" preserveAspectRatio="xMidYMid slice">
         <Circle cx={238} cy={60} r={42} fill={colors.sun} opacity={0.3} />
         <Circle cx={238} cy={60} r={28} fill={colors.sun} />
@@ -49,7 +56,7 @@ function Blob() {
         <Ellipse cx={300} cy={166} rx={175} ry={70} fill="#8CA58A" />
         <Ellipse cx={175} cy={190} rx={205} ry={64} fill="#7A9377" />
       </Svg>
-    </View>
+    </MorphContainer>
   );
 }
 
@@ -393,7 +400,7 @@ function ConsentCard({
   onAccept: () => void;
 }) {
   return (
-    <Animated.View entering={FadeIn.duration(300)}>
+    <Animated.View entering={popIn}>
       <Card style={{ gap: 13 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View
@@ -446,7 +453,7 @@ function SentCard({
   onBack: () => void;
 }) {
   return (
-    <Animated.View entering={FadeIn.duration(300)}>
+    <Animated.View entering={popIn}>
       <Card style={{ alignItems: "center", gap: 12 }}>
         <Text variant="title" style={{ textAlign: "center" }}>
           {t("auth.sentTitle")}

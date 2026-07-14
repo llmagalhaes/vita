@@ -2,19 +2,20 @@ import { useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api";
 import { savePlan, saveProgram } from "../src/db/plan";
 import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
 import { PlanStep, unanswered, type PlanAnswer } from "../src/onboarding/PlanStep";
-import { Button, Card, Chip, EstimateTag, KeyboardAvoider, Text, colors, fonts, radii, spacing } from "../src/ui";
+import { Button, Card, Chip, EstimateTag, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
 
 const TOTAL_STEPS = 6;
 
 function BlobIllustration({ height = 150 }: { height?: number }) {
+  // Container silhouette morphs organically like the prototype hero (vtBlob 9s).
   return (
-    <View style={{ height, borderRadius: radii.lg, overflow: "hidden", backgroundColor: "#F5D3AC" }}>
+    <MorphContainer style={{ height, backgroundColor: "#F5D3AC" }}>
       <Svg width="100%" height="100%" viewBox="0 0 342 150" preserveAspectRatio="xMidYMid slice">
         <Circle cx={238} cy={60} r={42} fill={colors.sun} opacity={0.3} />
         <Circle cx={238} cy={60} r={28} fill={colors.sun} />
@@ -24,7 +25,7 @@ function BlobIllustration({ height = 150 }: { height?: number }) {
         <Circle cx={86} cy={110} r={7} fill="#5F7A61" />
         <Circle cx={106} cy={117} r={5} fill="#5F7A61" />
       </Svg>
-    </View>
+    </MorphContainer>
   );
 }
 
@@ -167,7 +168,8 @@ export default function Onboarding() {
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: 160 }}
         keyboardShouldPersistTaps="handled"
       >
-        <Animated.View key={step} entering={FadeIn.duration(350)}>
+        {/* vtIn — each step rises 16px while fading in */}
+        <Animated.View key={step} entering={FadeInUp.duration(350)}>
           {step === 0 && (
             <View style={{ gap: spacing.lg }}>
               <Text variant="label" color={colors.accent}>
@@ -228,13 +230,14 @@ export default function Onboarding() {
                 {t("onboarding.keepTrack.subtitle")}
               </Text>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm + 2 }}>
-                {KEEP_TRACK_KEYS.map((k) => (
-                  <Chip
-                    key={k}
-                    label={t(`onboarding.keepTrack.${k}`)}
-                    selected={keepTrack[k]}
-                    onPress={() => setKeepTrack((v) => ({ ...v, [k]: !v[k] }))}
-                  />
+                {KEEP_TRACK_KEYS.map((k, i) => (
+                  <Animated.View key={k} entering={FadeIn.duration(450).delay(i * 70)}>
+                    <Chip
+                      label={t(`onboarding.keepTrack.${k}`)}
+                      selected={keepTrack[k]}
+                      onPress={() => setKeepTrack((v) => ({ ...v, [k]: !v[k] }))}
+                    />
+                  </Animated.View>
                 ))}
               </View>
             </View>
