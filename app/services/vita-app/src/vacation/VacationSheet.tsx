@@ -18,7 +18,10 @@ const SEA = colors.vacationAccent;
 /** YYYY-MM-DD that is a real calendar date. */
 export function isValidDate(s: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const d = new Date(s + "T00:00:00");
+  // Parse as UTC so the toISOString round-trip is timezone-independent — parsing as local
+  // (no "Z") shifts midnight into the previous UTC day in +offset zones (e.g. Amsterdam),
+  // which made every valid date fail the round-trip and left "Start vacation" disabled.
+  const d = new Date(s + "T00:00:00Z");
   return !Number.isNaN(d.getTime()) && s === d.toISOString().slice(0, 10);
 }
 
