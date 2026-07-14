@@ -12,3 +12,10 @@ export function kvSet(key: string, value: unknown): void {
     [key, JSON.stringify(value)],
   );
 }
+
+// Dirty flag for offline-first docs (plan/program/vacation): set on a local write,
+// cleared once the server push succeeds. A dirty doc must never be overwritten by
+// a hydrate — the unpushed local edit wins and is re-pushed instead (audit 1.4).
+export const isDirty = (key: string): boolean => kvGet<boolean>(`${key}.dirty`) === true;
+export const setDirty = (key: string): void => kvSet(`${key}.dirty`, true);
+export const clearDirty = (key: string): void => kvSet(`${key}.dirty`, false);

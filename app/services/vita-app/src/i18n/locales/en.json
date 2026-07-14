@@ -191,6 +191,7 @@
     "today": "Today",
     "emptyTimeline": "Nothing logged yet today. Tell Vita below.",
     "waitingToSync": "waiting to sync",
+    "notSaved": "couldn't be saved",
     "meal": "Meal",
     "waterEntry": "Water",
     "workout": "Workout",

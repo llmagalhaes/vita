@@ -48,6 +48,24 @@ export async function downscale(photo: PickedPhoto): Promise<PickedPhoto> {
   return { uri: out.uri, width: out.width, height: out.height };
 }
 
+/**
+ * Copy a picked JPEG into the app's document directory so a capture parked offline
+ * survives the OS purging the image-manipulator cache before the reconnect drain
+ * runs (audit 1.2). Best-effort: returns the persistent uri, or the original if the
+ * copy fails (the drain's pre-flight then drops it honestly rather than stalling).
+ */
+export async function persistForQueue(uri: string): Promise<string> {
+  try {
+    const FS = require("expo-file-system/legacy") as typeof import("expo-file-system/legacy");
+    if (!FS.documentDirectory) return uri;
+    const dest = `${FS.documentDirectory}vita-capture-${Date.now()}.jpg`;
+    await FS.copyAsync({ from: uri, to: dest });
+    return dest;
+  } catch {
+    return uri;
+  }
+}
+
 /** Full pick → downscale, mapping every branch to a calm outcome. */
 export async function pickPhoto(): Promise<PickOutcome> {
   try {

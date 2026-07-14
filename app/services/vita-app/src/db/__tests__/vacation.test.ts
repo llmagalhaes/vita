@@ -56,3 +56,19 @@ test("syncVacation hydrates ranges from the backend on mount", async () => {
   expect(getVacation().ranges).toEqual([{ start: dayOffset(0), end: dayOffset(3) }]);
   expect(isVacationActive()).toBe(true);
 });
+
+// Audit 1.4: an offline start/end of a trip wrote kv then fire-and-forget PUT; the next
+// online mount overwrote kv with the server ranges → the offline edit was reverted. The
+// dirty flag must keep (and re-push) the local ranges instead of hydrating over them.
+test("an offline vacation edit is not reverted by the next hydrate (dirty flag)", async () => {
+  const local = [{ start: dayOffset(-1), end: dayOffset(2) }];
+  jest.spyOn(api, "putVacations").mockRejectedValue(new Error("offline"));
+  saveVacation({ ranges: local, keepCheckins: false, tripHabitIds: [] }); // push fails → dirty
+
+  const getSpy = jest
+    .spyOn(api, "getVacations")
+    .mockResolvedValue([{ start: dayOffset(-30), end: dayOffset(-28) }]); // stale server set
+  await syncVacation();
+  expect(getSpy).not.toHaveBeenCalled(); // dirty → never fetched → never clobbered
+  expect(getVacation().ranges).toEqual(local); // the offline edit is kept
+});

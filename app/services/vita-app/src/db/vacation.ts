@@ -16,7 +16,7 @@ import { api } from "../api";
 import type { VacationRange } from "../api/client";
 import { dayKey } from "../trends/aggregate";
 import { setVacationAccent } from "../ui/accent";
-import { kvGet, kvSet } from "./kv";
+import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "./kv";
 import { logChanged } from "./notify";
 
 export type VacationConfig = {
@@ -43,12 +43,23 @@ export const vacationKeepsCheckins = (): boolean => getVacation().keepCheckins;
 
 function persist(cfg: VacationConfig): void {
   kvSet(KEY, cfg);
+  setDirty(KEY);
   setVacationAccent(isVacationActive());
   logChanged();
   // Reschedule through the single notifier gate (lazy require breaks the cycle).
   void require("../habits/notifier").refreshNotifications();
-  // Ranges are the only server-persisted part (D1) — replace-on-write, fire-and-forget.
-  void api.putVacations(cfg.ranges).catch(() => {});
+  // Ranges are the only server-persisted part (D1) — replace-on-write.
+  void pushVacations();
+}
+
+/** Push the current ranges; clears dirty on success (failure keeps it dirty). */
+async function pushVacations(): Promise<void> {
+  try {
+    await api.putVacations(getVacation().ranges);
+    clearDirty(KEY);
+  } catch {
+    /* offline — stays dirty, re-pushed on next sync */
+  }
 }
 
 /** Save the whole config (dates + local prefs). */
@@ -61,10 +72,15 @@ export function endVacation(): void {
   persist({ ...getVacation(), ranges: [] });
 }
 
-/** Hydrate ranges from the server; keep local prefs and the cache on 404/offline. */
+/**
+ * Hydrate ranges from the server; keep local prefs and the cache on 404/offline.
+ * A dirty local edit is re-pushed and kept, never overwritten by the server copy
+ * (audit 1.4) — an offline start/end of a trip must survive the next online open.
+ */
 export async function syncVacation(): Promise<void> {
   // Reflect the local cache immediately (offline cold start with an active trip).
   setVacationAccent(isVacationActive());
+  if (isDirty(KEY)) return void pushVacations();
   try {
     const ranges = await api.getVacations();
     const cur = getVacation();

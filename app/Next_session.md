@@ -1,5 +1,30 @@
 # App Team — Next Session
 
+## Review-fix batch #2 (2026-07-14) — Fable audit #2 app-side correctness ✅
+
+Fixed 8 findings from `docs/reviews/2026-07-14-fable-audit-2.md` at the shared roots
+(outbox poison taxonomy + kv hydrate). Full detail: `Progress/APP-AUDIT2-FIXES-Progress.md`.
+- **1.1 HIGH** last-7 chart no longer paints today's spent on all 7 days / overflows: per-day
+  spent via new `last7EnergySeries`/`energyChartMax` (`src/energy/manual.ts`); Home rewired.
+- **1.2 HIGH** parked-offline **photo** with a purged cache uri no longer stalls the drain forever:
+  `interpretPending` pre-flights `FileSystem.getInfoAsync` → missing file throws `PoisonError`
+  (dropped, drain continues); `persistForQueue` copies the JPEG to `documentDirectory` on park.
+  New dep **`expo-file-system ~56.0.8`** (SDK 56, lazy-required, no plugin).
+- **1.3 MED** check-in 409 re-answer now reconciles via PATCH (`reconcileCheckin409`) instead of
+  dropping → the new answer lands; no silent desync.
+- **1.4 MED** offline plan/program/vacation edits survive the next hydrate via a **`dirty` flag**
+  in kv (`isDirty/setDirty/clearDirty`); dirty → re-push + keep local, never hydrate over it.
+- **1.5 LOW/MED** `isPoison(err, op)` drops 403/404 for `update` ops (no infinite backoff stall).
+- **1.6 LOW** update-op + reconcile PATCH now send `{detail, occurredAt}`.
+- **1.8 LOW** poison-dropped ops go to a terminal `failed` state; Home shows "couldn't be saved"
+  (`home.notSaved`) instead of an eternal "waiting to sync". (NOT the full offline-review UX — that
+  stays a pending CEO product decision.)
+- **2.2/2.4 docs** `habits.ts` header comment corrected (check-in results DO ship habitId/name/kind, encrypted).
+- **NOT changed**: offline auto-log-vs-confirm behavior (pending CEO call); 1.7 backend AAD (BE-028).
+- Gates: `tsc` 0 · **Jest 154/154 (32 suites), +10** · `api:check` 0 no drift · `expo install --check`
+  up to date · `expo export` iOS OK. Home two-column `flex:1` layout intact. Each HIGH/MED test
+  verified to fail before its fix.
+
 ## Current state (Phase 2 — session 14 done 2026-07-14: slice 8 tech debt & polish ✅ APP-033/034/035)
 
 - **Slice 8 complete** (`docs/backlog-local-100.md` slice-8 debt table). Progress: `Progress/APP-033/034/035-Progress.md`.

@@ -1,8 +1,9 @@
 /**
- * Habit definitions — device-local (standing decision D1). Habit shapes never
- * leave the phone; only check-in RESULTS persist server-side (as `checkin`
- * entries, see src/habits/checkins.ts). No streaks, no scores — a habit is just
- * a name, a schedule and an on/off switch.
+ * Habit definitions — device-local (standing decision D1). The habit's SCHEDULE
+ * (days/time/enabled) never leaves the phone; a check-in RESULT does persist
+ * server-side as a `checkin` entry, and that entry ships the habit's id, name and
+ * kind inside its (encrypted) detail — see src/habits/checkins.ts + CheckinDetail.
+ * No streaks, no scores — a habit is just a name, a schedule and an on/off switch.
  */
 import { uuid } from "../lib/uuid";
 import { getDb } from "./db";

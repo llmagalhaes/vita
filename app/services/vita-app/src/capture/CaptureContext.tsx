@@ -4,6 +4,7 @@ import { ApiError, api, type NewEntry } from "../api";
 import { addLocalEntry, enqueueInterpretation } from "../db/entries";
 import { logChanged } from "../db/notify";
 import { drainOutbox } from "../db/outbox";
+import { persistForQueue } from "./photo";
 
 export type CaptureStatus = "idle" | "parsing" | "review" | "error";
 
@@ -110,7 +111,11 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
           if (err instanceof ApiError) {
             setState({ ...idle, status: "error", phrase: caption ?? "", errorKey: photoErrorKey(err), canRetry: false });
           } else {
-            queueOffline({ kind: "photo", text: caption, imageUri: image.uri, capturedAt });
+            // Persist the JPEG off the volatile manipulator cache before parking, so the
+            // reconnect drain can still read it hours later (audit 1.2).
+            void persistForQueue(image.uri).then((uri) =>
+              queueOffline({ kind: "photo", text: caption, imageUri: uri, capturedAt }),
+            );
           }
         });
     },

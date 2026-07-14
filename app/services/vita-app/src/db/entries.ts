@@ -6,7 +6,9 @@ import { getDb } from "./db";
 export type LocalEntry = NewEntry & {
   id: string;
   serverId?: string;
-  syncState: "pending" | "synced";
+  // `failed` = the sync was dropped as poison (a non-retryable server rejection or a
+  // dead parked capture). Terminal — Home stops promising "waiting to sync" (audit 1.8).
+  syncState: "pending" | "synced" | "failed";
 };
 
 type Row = {
@@ -180,4 +182,9 @@ export function markSynced(localId: string, server: LogEntry): void {
     `UPDATE entries SET serverId = ?, updatedAt = ?, syncState = 'synced' WHERE id = ?`,
     [server.id, server.updatedAt, localId],
   );
+}
+
+/** Terminal failure: the outbox dropped this entry's op as poison (audit 1.8). */
+export function markFailed(localId: string): void {
+  getDb().runSync(`UPDATE entries SET syncState = 'failed' WHERE id = ?`, [localId]);
 }

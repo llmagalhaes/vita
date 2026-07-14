@@ -12,7 +12,7 @@ import { getCachedPlan, getCachedProgram, syncPlan, syncProgram } from "../../sr
 import { endVacation, isVacationActive, getVacation, syncVacation } from "../../src/db/vacation";
 import { listHabits } from "../../src/db/habits";
 import { openCheckins, pendingCheckins } from "../../src/habits/checkins";
-import { logManualEnergy } from "../../src/energy/manual";
+import { energyChartMax, last7EnergySeries, logManualEnergy } from "../../src/energy/manual";
 import { planDailyTotals } from "../../src/plan/compute";
 import { formatVolume } from "../../src/lib/units";
 import {
@@ -131,7 +131,11 @@ function TimelineCard({ entry, index, units }: { entry: LocalEntry & { type: Tim
             </Text>
             <Text variant="caption" style={{ fontSize: 12.5, marginTop: 2 }} color={colors.muted}>
               {inputMethodLabel(entry, t)} · {timeOf(entry.occurredAt)}
-              {entry.syncState === "pending" ? ` · ${t("home.waitingToSync")}` : ""}
+              {entry.syncState === "pending"
+                ? ` · ${t("home.waitingToSync")}`
+                : entry.syncState === "failed"
+                  ? ` · ${t("home.notSaved")}`
+                  : ""}
             </Text>
           </View>
           <View
@@ -209,21 +213,10 @@ export default function Home() {
   // (philosophy: no goals/scores). 1 floor avoids /0 on an empty day.
   const energyMax = Math.max(kcalToday, spentKcal, 1);
 
-  // Real consumed kcal for the last 7 days (today last) — no invented history.
-  const last7 = useMemo(
-    () =>
-      Array.from({ length: 7 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (6 - i));
-        return Math.round(
-          entriesForDay(d)
-            .filter((e) => e.type === "meal")
-            .reduce((s, e) => s + ((e.detail as MealDetail).totals?.kcal ?? 0), 0),
-        );
-      }),
-    [version], // eslint-disable-line react-hooks/exhaustive-deps
-  );
-  const max7 = Math.max(...last7, 1);
+  // Real consumed AND spent kcal per day for the last 7 days (today last) — both read
+  // from the log, no invented history (audit 1.1/2.2). max7 includes spent so no bar overflows.
+  const last7 = useMemo(() => last7EnergySeries(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const max7 = energyChartMax(last7);
 
   const hour = new Date().getHours();
   const greeting =
@@ -551,12 +544,12 @@ export default function Home() {
                 </Text>
               </View>
               <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-end", height: 52 }}>
-                {last7.map((kcal, i) => (
+                {last7.map((day, i) => (
                   <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", gap: 4, height: "100%" }}>
                     <View style={{ flexDirection: "row", gap: 2, alignItems: "flex-end", flex: 1 }}>
-                      {/* consumed = real per-day kcal; spent stays 0 until health sync (honest absence) */}
-                      <View style={{ width: 7, height: `${(kcal / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.fat, alignSelf: "flex-end" }} />
-                      <View style={{ width: 7, height: `${(spentKcal / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.protein, alignSelf: "flex-end" }} />
+                      {/* both bars are that day's real logged kcal (consumed | spent) */}
+                      <View style={{ width: 7, height: `${(day.consumed / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.fat, alignSelf: "flex-end" }} />
+                      <View style={{ width: 7, height: `${(day.spent / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.protein, alignSelf: "flex-end" }} />
                     </View>
                     <Text style={{ fontFamily: fonts.semiBold, fontSize: 9 }} color={colors.muted}>
                       {new Date(Date.now() - (6 - i) * 86400000).toLocaleDateString(undefined, { weekday: "narrow" })}
