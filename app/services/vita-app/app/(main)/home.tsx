@@ -71,16 +71,12 @@ function TimelineCard({ entry, index, units }: { entry: LocalEntry; index: numbe
     };
   })();
 
-  // Meal and water cards open their detail screens; workout has its own ticket.
-  const href = kind === "meal" ? `/meal/${entry.id}` : kind === "water" ? `/water/${entry.id}` : null;
+  // Every kind opens its detail screen (per-kind route).
+  const href = `/${kind}/${entry.id}`;
 
   return (
     <Animated.View entering={FadeIn.duration(500).delay(index * 70)}>
-      <Pressable
-        accessibilityRole={href ? "button" : undefined}
-        disabled={!href}
-        onPress={href ? () => router.push(href) : undefined}
-      >
+      <Pressable accessibilityRole="button" onPress={() => router.push(href)}>
       <Card style={{ padding: 0, overflow: "hidden" }}>
         <View
           style={{

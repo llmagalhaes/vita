@@ -1,5 +1,16 @@
 # App Team — Next Session
 
+## Current state (Phase 2 — session 8 done 2026-07-14: slice 2 F2 Workout ✅ APP-018 + APP-019)
+
+- **Contract types regenerated to v0.4.0** (BE-017 app-side follow-up): `src/api/types.gen.ts` now matches the committed contract, `api:check` clean. NOTE: the contract also gained **`/plan`, `/plan/history`, `/program`, `/program/history` + `PlanVersion`/`ProgramVersion`** (backend F4 work, still labelled version 0.4.0) — regenerating pulled those additive types in; they're unused by app code today, harmless, and will serve F4/APP tickets later. `Muscle` = `NonNullable<WorkoutDetail["muscles"]>[number]` (11-enum) is authoritative and now mirrored at runtime by `ALL_MUSCLES` in BodyMap.
+- **APP-018 built**: workout confirm card now renders i18n muscle chips + an exercises list (title/duration/kcal-estimate were already there); the confirm→entry path is the existing generic outbox flow. **Timeline workout cards navigate** (`/${kind}/${id}` for every kind) — last inert-card debt cleared. See `Progress/APP-018-Progress.md`.
+- **APP-019 built**: new `app/(main)/workout/[id].tsx` (source badge, muscle map, exercises w/ kg→lb, 30-day history strip → RN-Modal preview sheet). **New reusable `BodyMap` SVG primitive** (`src/ui/BodyMap.tsx`) — front/back toggle, `highlighted: Partial<Record<Muscle,number>>` intensity map, pure `resolveHighlights`/`bodyRegions` exported for tests + APP-028 reuse. Seed gained 2 past workouts; `entriesInRange` added to `src/db/entries.ts`. See `Progress/APP-019-Progress.md`.
+- **APP-028 (F8 Trends) can plan on BodyMap**: pass a normalized per-muscle intensity map + `showToggle`/`side` to drive the muscle heatmap; prop surface documented in `Progress/APP-019-Progress.md`.
+- Gates: `tsc` clean · **Jest 64/64 (14 suites)**, +10 (BodyMap 5, workout 3, plus existing) · `api:check` clean · `expo export` iOS OK. No new deps, SDK 56 preserved.
+
+---
+# App Team — Next Session (prior sessions)
+
 ## Review-fix batch (2026-07-14) — Fable audit app-side findings ✅
 Fixed 5 findings from `docs/reviews/2026-07-14-fable-audit.md` (see `Progress/APP-REVIEW-FIXES-Progress.md`):
 - **1.1 HIGH** `src/db/entries.ts` — `addLocalEntry` now normalizes `occurredAt` to UTC `…Z` on write, so `entriesForDay`'s string range-query stops dropping offset-bearing (`+01:00`) timestamps near day boundaries. New regression test `src/db/__tests__/entries.test.ts`.

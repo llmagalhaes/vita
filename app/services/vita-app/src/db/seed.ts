@@ -15,6 +15,12 @@ export function seedDemoDataOnce(): void {
     d.setHours(h, m, 0, 0);
     return d.toISOString();
   };
+  const daysAgo = (n: number, h: number, m: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - n);
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  };
   const rows: Array<{
     type: string;
     occurredAt: string;
@@ -23,6 +29,37 @@ export function seedDemoDataOnce(): void {
     isEstimate: boolean;
     detail: EntryDetail;
   }> = [
+    {
+      type: "workout",
+      occurredAt: daysAgo(6, 18, 0),
+      inputMethod: "voice",
+      sourcePhrase: "Push day — chest and shoulders",
+      isEstimate: true,
+      detail: {
+        title: "Push day",
+        durationMin: 50,
+        kcal: 340,
+        muscles: ["chest", "shoulders", "triceps"],
+        exercises: [
+          { name: "Bench press", sets: 4, reps: 8, loadKg: 60 },
+          { name: "Overhead press", sets: 3, reps: 10, loadKg: 35 },
+        ],
+      },
+    },
+    {
+      type: "workout",
+      occurredAt: daysAgo(3, 7, 15),
+      inputMethod: "text",
+      sourcePhrase: "Morning run, half an hour",
+      isEstimate: true,
+      detail: {
+        title: "Run",
+        durationMin: 30,
+        kcal: 280,
+        muscles: ["quads", "hamstrings", "calves"],
+        exercises: [],
+      },
+    },
     {
       type: "workout",
       occurredAt: at(7, 30),

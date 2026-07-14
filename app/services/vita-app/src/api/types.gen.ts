@@ -408,14 +408,30 @@ export interface paths {
          *     client-side (app review pt 2). No `?updatedSince=` delta sync in v0 —
          *     the app refreshes by day and infers deletes from omissions (app
          *     review pt 3; revisit with tombstones only if multi-device happens).
+         *
+         *     0.4.0 (BE-017) adds two additive filters, both composable with `cursor`
+         *     and `limit`:
+         *       - `from`/`to` — an explicit half-open `[from, to)` occurredAt window
+         *         (either bound optional) for trends/history bulk reads. Mutually
+         *         exclusive with `date` (sending both is a 400).
+         *       - `type` — a CSV allow-list of entry types. Home sends
+         *         `type=meal,water,workout` (excludes check-ins); Habits sends
+         *         `type=checkin`. `checkin` is accepted now and returns nothing until
+         *         that entry type ships (BE-024).
          */
         get: {
             parameters: {
                 query?: {
-                    /** @description Local calendar day to fetch, interpreted with `tz`. */
+                    /** @description Local calendar day to fetch, interpreted with `tz`. Not combinable with from/to. */
                     date?: string;
                     /** @description IANA timezone used to resolve `date` to a time range (e.g. Europe/Lisbon). Required when `date` is present. */
                     tz?: string;
+                    /** @description Inclusive lower bound (occurredAt >=). Not combinable with `date`. */
+                    from?: string;
+                    /** @description Exclusive upper bound (occurredAt <). Not combinable with `date`. */
+                    to?: string;
+                    /** @description CSV allow-list of entry types to include. `checkin` is accepted forward-compatibly (BE-024) and matches nothing until then. */
+                    type?: ("meal" | "water" | "workout" | "checkin")[];
                     /** @description Opaque cursor from a previous response. */
                     cursor?: string;
                     limit?: number;
@@ -954,6 +970,300 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the current eating plan
+         * @description The newest stored version, for the Home plan row and the Eating Plan screen.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The current eating plan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EatingPlanDraft"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        /**
+         * Edit the current eating plan
+         * @description Full-doc replace of the current version — any field is editable. The
+         *     whole document is re-encrypted server-side; there is no per-field merge.
+         *     Does not create a new version (past versions are frozen).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EatingPlanDraft"];
+                };
+            };
+            responses: {
+                /** @description The edited eating plan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EatingPlanDraft"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        /**
+         * Import (store) an eating plan as a new version
+         * @description Persists a confirmed plan draft as a new version. History is capped at a
+         *     server limit (default 5); importing beyond it drops the oldest version.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EatingPlanDraft"];
+                };
+            };
+            responses: {
+                /** @description Stored eating plan (the new current version). */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EatingPlanDraft"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plan/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List stored eating-plan versions
+         * @description The past versions (newest first), capped at the server limit. Frozen — display only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Stored eating-plan versions. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PlanVersion"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/program": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the current training program
+         * @description The newest stored version, for the Home program row and the program screen.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The current training program. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrainingProgramDraft"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        /**
+         * Edit the current training program
+         * @description Full-doc replace of the current version — any field is editable. The
+         *     whole document is re-encrypted server-side; there is no per-field merge.
+         *     Does not create a new version (past versions are frozen).
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TrainingProgramDraft"];
+                };
+            };
+            responses: {
+                /** @description The edited training program. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrainingProgramDraft"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                401: components["responses"]["Unauthorized"];
+                404: components["responses"]["NotFound"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        /**
+         * Import (store) a training program as a new version
+         * @description Persists a confirmed program draft as a new version. History is capped at
+         *     a server limit (default 5); importing beyond it drops the oldest version.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TrainingProgramDraft"];
+                };
+            };
+            responses: {
+                /** @description Stored training program (the new current version). */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TrainingProgramDraft"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/program/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List stored training-program versions
+         * @description The past versions (newest first), capped at the server limit. Frozen — display only.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Stored training-program versions. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ProgramVersion"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1141,6 +1451,22 @@ export interface components {
             /** @description Day label, e.g. "Day 1 - Push", "Upper A". */
             name: string;
             exercises: components["schemas"]["Exercise"][];
+        };
+        /** @description One stored eating-plan version (history). Frozen — display only. */
+        PlanVersion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            doc: components["schemas"]["EatingPlanDraft"];
+        };
+        /** @description One stored training-program version (history). Frozen — display only. */
+        ProgramVersion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            doc: components["schemas"]["TrainingProgramDraft"];
         };
     };
     responses: {

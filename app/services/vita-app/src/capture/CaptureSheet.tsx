@@ -98,17 +98,35 @@ function DraftCard({ draft }: { draft: NewEntry }) {
       )}
 
       {workout && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-          {workout.durationMin != null && (
-            <View style={{ backgroundColor: "#F0EDE2", borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
-              <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 11.5 }} color="#6E6355">
-                {workout.durationMin} {t("common.min")}
-              </Text>
+        <View style={{ gap: spacing.sm }}>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+            {workout.durationMin != null && (
+              <View style={{ backgroundColor: "#F0EDE2", borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
+                <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 11.5 }} color="#6E6355">
+                  {workout.durationMin} {t("common.min")}
+                </Text>
+              </View>
+            )}
+            {(workout.muscles ?? []).map((m) => (
+              <Chip key={m} label={t(`muscles.${m}`)} />
+            ))}
+          </View>
+          {(workout.exercises ?? []).length > 0 && (
+            <View style={{ gap: 4 }}>
+              {workout.exercises!.map((ex, i) => (
+                <View key={`${ex.name}-${i}`} style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
+                  <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 12.5, flex: 1 }} color="#6E6355">
+                    {ex.name}
+                  </Text>
+                  {ex.sets != null && ex.reps != null && (
+                    <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
+                      {ex.sets} × {ex.reps}
+                    </Text>
+                  )}
+                </View>
+              ))}
             </View>
           )}
-          {(workout.muscles ?? []).map((m) => (
-            <Chip key={m} label={m} />
-          ))}
         </View>
       )}
     </Card>

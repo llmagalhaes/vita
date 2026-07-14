@@ -75,6 +75,15 @@ export function entriesForDay(day: Date): LocalEntry[] {
   return rows.map(rowToEntry);
 }
 
+/** Entries of one kind within [start, end), ascending — used by detail history strips. */
+export function entriesInRange(type: LocalEntry["type"], start: Date, end: Date): LocalEntry[] {
+  const rows = getDb().getAllSync<Row>(
+    `SELECT * FROM entries WHERE type = ? AND occurredAt >= ? AND occurredAt < ? ORDER BY occurredAt ASC`,
+    [type, start.toISOString(), end.toISOString()],
+  );
+  return rows.map(rowToEntry);
+}
+
 export function getEntry(id: string): LocalEntry | null {
   const row = getDb().getFirstSync<Row>(`SELECT * FROM entries WHERE id = ?`, [id]);
   return row ? rowToEntry(row) : null;
