@@ -1,6 +1,23 @@
 # DevOps — Next session
 
-## Current state (Phase 2 implementation, session 3 close — 2026-07-13)
+## Current state (local-100 slice 8 — 2026-07-14)
+
+**OPS-020 DONE (local).** LocalStack (S3 + KMS) wired into the backend compose behind a
+`localstack` profile so BE-026 (real S3 `FileStore`) and BE-027 (real KMS `KeyWrapper`) can
+test against `http://localhost:4566`. No AWS, no Terraform, no git.
+- Files: `backend/services/vita-api/docker-compose.yml` (+`localstack` service, `SERVICES=s3,kms`,
+  port 4566, `AWS_DEFAULT_REGION=eu-west-1`); `backend/services/vita-api/localstack-init.sh` (new
+  ready.d hook, `awslocal` creates bucket + KMS key/alias, idempotent).
+- Start: `cd backend/services/vita-api && docker compose --profile localstack up`. Plain `up`
+  (no profile) stays Postgres-only — verified via `docker compose config --services`.
+- **Handshake for BE-026/027** (see `Progress/OPS-020-Progress.md`): endpoint `http://localhost:4566`,
+  region `eu-west-1`, creds `test`/`test`, bucket `vita-uploads-local`, KMS alias `alias/vita-app-data`
+  (resolve by alias — key id changes per boot). S3 needs path-style. Endpoint-override is the only
+  local-vs-prod diff (unset in prod → real AWS).
+- Verified: bucket + key created on boot, `awslocal s3 ls` / `kms list-aliases` show them in
+  eu-west-1, host `:4566/_localstack/health` → 200. Torn down clean afterwards.
+
+## Prior state (Phase 2 implementation, session 3 close — 2026-07-13)
 
 **OPS-004 APPLIED + CLI-verified.** GitHub OIDC (no stored AWS keys) is live in AWS:
 OIDC provider + `vita-ci-plan` (ReadOnlyAccess, PR-scoped) + `vita-ci-apply`

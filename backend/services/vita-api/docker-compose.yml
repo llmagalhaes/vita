@@ -12,5 +12,24 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # OPS-020: AWS-shaped S3 + KMS for testing the real FileStore (BE-026) and
+  # KeyWrapper (BE-027) adapters locally. Behind the `localstack` profile, so
+  # plain `docker compose up` stays Postgres-only and `./gradlew check` stays
+  # AWS-free. Start it with: docker compose --profile localstack up
+  # Endpoint http://localhost:4566; init hook creates bucket + KMS key/alias.
+  localstack:
+    image: localstack/localstack:3
+    profiles: ["localstack"]
+    environment:
+      SERVICES: s3,kms
+      # Match prod region (ADR-0002) so the backend AWS SDK config is identical
+      # local vs prod — only endpoint override + dummy creds differ. KMS is
+      # region-scoped in LocalStack, so the alias must live where the client looks.
+      AWS_DEFAULT_REGION: eu-west-1
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./localstack-init.sh:/etc/localstack/init/ready.d/localstack-init.sh:ro
+
 volumes:
   pgdata:
