@@ -10,9 +10,19 @@
  * Note: src/db/notify.ts is a log-change signal despite its name — it does NOT
  * overlap with this file, so nothing there is folded in.
  */
+import Constants, { ExecutionEnvironment } from "expo-constants";
 import { listHabits, type Habit } from "../db/habits";
 import { notificationsEnabled } from "../db/settings";
 import { isVacationActive, vacationKeepsCheckins } from "../db/vacation";
+
+/**
+ * Expo Go (SDK 53+) removed expo-notifications' scheduling/permission APIs — calling
+ * them THROWS ("use a development build"). In Expo Go we fall back to the no-op stub so
+ * nothing crashes; real local notifications arrive with the dev build (APP-007).
+ */
+function isExpoGo(): boolean {
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+}
 
 export type PermissionStatus = "granted" | "denied" | "undetermined";
 
@@ -105,7 +115,7 @@ function createExpoNotifier(): Notifier {
 let current: Notifier | null = null;
 
 export function getNotifier(): Notifier {
-  if (!current) current = createExpoNotifier();
+  if (!current) current = isExpoGo() ? stubNotifier() : createExpoNotifier();
   return current;
 }
 
@@ -119,9 +129,14 @@ export function setNotifier(n: Notifier): void {
  * resulting status so the caller can stay quiet on "denied" (never nag).
  */
 export async function ensureNotificationPermission(): Promise<PermissionStatus> {
-  const n = getNotifier();
-  const cur = await n.getPermission();
-  return cur === "undetermined" ? n.requestPermission() : cur;
+  try {
+    const n = getNotifier();
+    const cur = await n.getPermission();
+    return cur === "undetermined" ? n.requestPermission() : cur;
+  } catch {
+    // Native notifications unavailable (e.g. Expo Go removed them) — never crash the caller.
+    return "denied";
+  }
 }
 
 /**

@@ -77,3 +77,16 @@ test("ensureNotificationPermission only prompts when undetermined", async () => 
   expect(await ensureNotificationPermission()).toBe("denied");
   expect(requested).toBe(0); // never re-prompts
 });
+
+test("ensureNotificationPermission never throws when the native module throws (Expo Go crash)", async () => {
+  // Repro of the CEO crash: expo-notifications' getPermissionsAsync throws in Expo Go SDK 53+.
+  const throwing: Notifier = {
+    getPermission: async () => {
+      throw new Error("expo-notifications: removed from Expo Go — use a development build");
+    },
+    requestPermission: async () => "granted",
+    sync: async () => {},
+  };
+  setNotifier(throwing);
+  await expect(ensureNotificationPermission()).resolves.toBe("denied");
+});
