@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Text, colors, fonts } from "../ui";
 import { ActivityTab } from "../trends/ActivityTab";
 import { FoodTab } from "../trends/FoodTab";
+import { MuscleSheet, type MuscleSelection } from "../trends/MuscleSheet";
 import { WorkoutPreviewSheet } from "../workout/PreviewSheet";
 import { vacationRanges } from "../db/vacation";
 import type { LocalEntry } from "../db/entries";
@@ -50,8 +51,9 @@ export default function Trends() {
   const { t } = useTranslation();
   const [window, setWindow] = useState<TrendWindow>("W");
   const [tab, setTab] = useState<"food" | "activity">("food");
-  // Preview lives here so its sheet can absolute-fill the screen (not the scroll content).
+  // Sheets live here so they absolute-fill the screen (not the scroll content).
   const [preview, setPreview] = useState<LocalEntry | null>(null);
+  const [muscleSel, setMuscleSel] = useState<MuscleSelection | null>(null);
 
   // Real persisted vacation ranges (APP-030) drive the exclusion; the aggregation
   // already honors the predicate. Empty until the user sets a trip.
@@ -88,9 +90,10 @@ export default function Trends() {
       {tab === "food" ? (
         <FoodTab window={window} isExcluded={isExcluded} />
       ) : (
-        <ActivityTab window={window} isExcluded={isExcluded} onPreview={setPreview} />
+        <ActivityTab window={window} isExcluded={isExcluded} onPreview={setPreview} onMuscle={(muscle, sessions) => setMuscleSel({ muscle, sessions })} />
       )}
     </ScrollView>
+    <MuscleSheet selection={muscleSel} onClose={() => setMuscleSel(null)} onPreview={setPreview} />
     <WorkoutPreviewSheet entry={preview} onClose={() => setPreview(null)} />
     </View>
   );

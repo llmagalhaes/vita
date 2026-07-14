@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import type { Muscle, Units, WorkoutDetail } from "../../../src/api";
 import { entriesInRange, getEntry, type LocalEntry } from "../../../src/db/entries";
@@ -89,6 +89,12 @@ function SourceBadge({ label }: { label: string }) {
 }
 
 const dayMonth = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+
+/** Prototype vtPop for the selected-muscle info chip (Fable B8). */
+const popIn = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.92 }] },
+  100: { opacity: 1, transform: [{ scale: 1 }] },
+}).duration(300);
 
 export default function WorkoutDetailScreen() {
   const { t } = useTranslation();
@@ -207,11 +213,37 @@ export default function WorkoutDetailScreen() {
             highlighted={highlighted}
             frontLabel={t("workoutDetail.front")}
             backLabel={t("workoutDetail.back2")}
-            onMusclePress={setSelectedMuscle}
+            onMusclePress={(m) => setSelectedMuscle((cur) => (cur === m ? null : m))}
           />
+          {selectedMuscle && (
+            <Animated.View
+              key={selectedMuscle}
+              entering={popIn}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 9,
+                backgroundColor: colors.estimateBg,
+                borderWidth: 1,
+                borderColor: "rgba(196,112,78,0.3)",
+                borderRadius: 16,
+                paddingVertical: 10,
+                paddingHorizontal: 14,
+                alignSelf: "stretch",
+              }}
+            >
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+              <Text variant="label" style={{ fontSize: 13, flex: 1 }} color={colors.estimateInk}>
+                {t(`muscles.${selectedMuscle}`)}
+              </Text>
+              <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={() => setSelectedMuscle(null)} hitSlop={8}>
+                <Text color={colors.estimateInk} style={{ fontSize: 14 }}>✕</Text>
+              </Pressable>
+            </Animated.View>
+          )}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
             {muscles.map((m) => (
-              <Chip key={m} label={t(`muscles.${m}`)} />
+              <Chip key={m} label={t(`muscles.${m}`)} selected={m === selectedMuscle} onPress={() => setSelectedMuscle((cur) => (cur === m ? null : m))} />
             ))}
           </View>
         </Card>

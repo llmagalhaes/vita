@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { WorkoutDetail } from "../api/client";
+import type { Muscle, WorkoutDetail } from "../api/client";
 import { entriesInRange, type LocalEntry } from "../db/entries";
 import { useLogVersion } from "../db/notify";
 import { BodyMap, Chip, Text, colors, entryPalette, fonts } from "../ui";
@@ -46,11 +46,14 @@ export function ActivityTab({
   window,
   isExcluded,
   onPreview,
+  onMuscle,
 }: {
   window: TrendWindow;
   isExcluded?: ExcludeDay;
   /** Open the workout preview sheet — rendered by the parent, outside the ScrollView. */
   onPreview: (entry: LocalEntry) => void;
+  /** Tap a muscle on the heatmap → sheet with that muscle's sessions (Fable B4). */
+  onMuscle: (muscle: Muscle, sessions: LocalEntry[]) => void;
 }) {
   const { t } = useTranslation();
   const version = useLogVersion();
@@ -65,6 +68,10 @@ export function ActivityTab({
     };
   }, [window, version, isExcluded]);
 
+
+  // Sessions in the window touching a muscle (heatmap tap → sheet).
+  const sessionsOf = (m: Muscle) =>
+    workouts.filter((w) => (((w.detail as WorkoutDetail).muscles ?? []) as Muscle[]).includes(m));
   const shown = visibleDays(days);
   const totalMin = shown.reduce((s, d) => s + d.workoutMin, 0);
   const maxMin = Math.max(1, ...shown.map((d) => d.workoutMin));
@@ -81,8 +88,8 @@ export function ActivityTab({
           </Text>
         </View>
         <View style={{ flexDirection: "row", gap: 24, justifyContent: "center" }}>
-          <BodyMap highlighted={muscles.intensity} side="front" showToggle={false} size={90} />
-          <BodyMap highlighted={muscles.intensity} side="back" showToggle={false} size={90} />
+          <BodyMap highlighted={muscles.intensity} side="front" showToggle={false} size={90} onMusclePress={(m) => onMuscle(m, sessionsOf(m))} />
+          <BodyMap highlighted={muscles.intensity} side="back" showToggle={false} size={90} onMusclePress={(m) => onMuscle(m, sessionsOf(m))} />
         </View>
         <View style={{ flexDirection: "row", justifyContent: "center", gap: 22 }}>
           <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" }} color={colors.labelMuted}>
@@ -95,7 +102,7 @@ export function ActivityTab({
         {muscles.ranked.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
             {muscles.ranked.map(({ muscle, count }) => (
-              <Chip key={muscle} label={`${t(`muscles.${muscle}`)} ${count}`} />
+              <Chip key={muscle} label={`${t(`muscles.${muscle}`)} ${count}`} onPress={() => onMuscle(muscle, sessionsOf(muscle))} />
             ))}
           </View>
         ) : (
