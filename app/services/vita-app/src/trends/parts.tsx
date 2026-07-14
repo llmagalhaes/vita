@@ -1,6 +1,6 @@
 import { type ReactNode, useEffect, useState } from "react";
 import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { Chevron, Text, colors, fonts } from "../ui";
 import { ScrubOverlay } from "./scrub";
 
@@ -107,7 +107,7 @@ export function TrendCard({
       </Pressable>
 
       {read && (
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7, marginTop: -2 }}>
+        <Animated.View entering={FadeIn.duration(200)} style={{ flexDirection: "row", alignItems: "baseline", gap: 7, marginTop: -2 }}>
           <Text style={{ fontFamily: fonts.light, fontSize: 22, letterSpacing: -0.5 }}>{read.value}</Text>
           <Text variant="caption" style={{ fontSize: 11.5 }} color={colors.muted}>
             {read.detail}
@@ -117,7 +117,7 @@ export function TrendCard({
               {dragHint}
             </Text>
           )}
-        </View>
+        </Animated.View>
       )}
 
       <View style={{ position: "relative" }}>

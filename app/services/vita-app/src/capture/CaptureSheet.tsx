@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, Keyframe, SlideInDown } from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
 import { Button, Card, Chip, EstimateTag, MorphBlob, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
 import { useCapture } from "./CaptureContext";
@@ -9,6 +9,12 @@ import { mealTotals, stepItem } from "./quantity";
 
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+/** Prototype vtPop — the parsed result card pops in when parsing resolves. */
+const resultPop = new Keyframe({
+  0: { opacity: 0, transform: [{ scale: 0.92 }] },
+  100: { opacity: 1, transform: [{ scale: 1 }] },
+}).duration(350);
 
 function MacroBox({ label, grams }: { label: string; grams?: number | null }) {
   return (
@@ -298,7 +304,9 @@ export function CaptureSheet() {
                 {t("capture.draftCount", { current: capture.index + 1, total: capture.drafts.length })}
               </Text>
             )}
-            <DraftCard draft={capture.drafts[capture.index]!} onStep={stepHandler} />
+            <Animated.View key={`${capture.index}-${capture.drafts.length}`} entering={resultPop}>
+              <DraftCard draft={capture.drafts[capture.index]!} onStep={stepHandler} />
+            </Animated.View>
             <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
               <View style={{ flex: 1 }}>
                 <Button label={t("common.adjust")} variant="ghost" onPress={capture.adjust} />

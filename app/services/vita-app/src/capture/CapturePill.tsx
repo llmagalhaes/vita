@@ -3,7 +3,7 @@ import { Pressable, TextInput, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Button, KeyboardLift, Text, colors, fonts, motion, spacing, useAccent } from "../ui";
 import { useCapture } from "./CaptureContext";
@@ -212,7 +212,9 @@ export function CapturePill() {
       >
       {/* Lift the whole pill above the keyboard while its own field is open. */}
       <KeyboardLift enabled={expanded}>
-      <View
+      {/* vtPop — the pill pops in on mount like the prototype */}
+      <Animated.View
+        entering={ZoomIn.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
         style={{
           flexDirection: "row",
           alignItems: "center",
@@ -299,7 +301,7 @@ export function CapturePill() {
           <NavButton label={t("pill.trends")} icon="trends" active={pathname === "/trends"} onPress={() => router.replace("/trends")} />
           <NavButton label={t("pill.habits")} icon="habits" active={pathname === "/habits"} onPress={() => router.replace("/habits")} />
         </Animated.View>
-      </View>
+      </Animated.View>
       </KeyboardLift>
       </View>
     </>
