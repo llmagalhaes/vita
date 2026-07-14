@@ -2,20 +2,25 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
-## Where we are (2026-07-14, session 3 closed — full build-out day)
+## Where we are (2026-07-14, session 4 closed — "Vita 100% local" backlog COMPLETE)
 
-**Phase 2 — Implementation.** Almost all of contract **v0.3.0** is built and tested LOCALLY. The app↔backend core loop is **proven end-to-end against the real backend** (real Postgres). AWS infra is fully applied but **parked at $0** (ECS off). **No production deploy yet** — CEO policy: local-first, deploy only at a called milestone. Everything pushed to GitHub, HEAD `fe6f4c9`. Working tree clean.
+**Phase 2 — Implementation. The entire "Vita 100% local" backlog is built and green LOCALLY.** Contract at **v0.4.0** (additive over v0.3.0). All feature slices 1–8 shipped in one parallel-agent execution day (commits `0ae4310..1cf0a27`). AWS infra still applied but **parked at $0** (ECS off). **No production deploy** — CEO policy: local-first. Working tree clean, pushed to GitHub.
 
-### ACTIVE BACKLOG: "Vita 100% local" — `docs/backlog-local-100.md` (rev 3) — EXECUTION READY
-Feature-by-feature backlog to get the app 100% local (3 team-lead planning rounds + CEO Rounds 10–11 in `docs/ceo-decisions.md`). **All 32 tickets created in Asana 2026-07-14** — BE-017–028, APP-017–035 + APP-037, OPS-020; **BE-017, BE-023 and APP-017 sit in "To do"**, rest in Backlog. Notion (all 5 pages) + README updated same day.
+### DONE this session (all local, DoD = `check`/`tsc`/`jest`/`expo export` green)
+- **Backend — `./gradlew check` 122 green + 6 LocalStack adapter tests.** BE-017 entries `from`/`to`/CSV `type`; BE-023 pinned model ids (+`photo-model`; `plan-pdf-model=claude-sonnet-4-6` verified valid, sonnet-5 deferred — needs `thinking:disabled`); BE-018 `/parse/photo` vision (multipart, image discarded, 413/415/422); BE-019/020 plan+program versioned (history≤5), editable (full-doc PUT + re-encrypt), per-user-DEK encrypted, cascade-shred; BE-024 `checkin` entry type (idempotency `habitId:date`, PATCH change-answer); BE-025 `/me/vacations` encrypted opaque ranges; BE-022 `@Scheduled` token cleanup (closes audit 2.3); BE-026/027 real S3/KMS adapters behind `@Profile("aws")`, LocalStack-tested (default check stays AWS-free). ADR-0011 ext, ADR-0013.
+- **DevOps** — OPS-020 LocalStack (S3+KMS) profile-gated in backend compose; plain `docker compose up` stays Postgres-only.
+- **App — Jest 144 green, 31 suites, Expo Go SDK 56.** Slices: water (APP-017) · workout + reusable BodyMap (APP-018/019) · plan/program persist + edit-mode screens (APP-021/022/023) · photo capture (APP-020) · habits + check-ins-via-outbox + local notifications (APP-024/025/026) · Trends Food/Activity client-side agg (APP-027/028) · Account/Integrations/Vacation/Export-PDF-on-device/Energy (APP-029/030/031/032) · offline interpretation + NetInfo reconnect + Maestro E2E + fidelity pass (APP-033/034/035).
+- **Two Fable audits** (`docs/reviews/2026-07-14-fable-audit.md` = pre-session; a second full-session review ran at close). Audit fixes landed: app day-filter UTC normalization, outbox poison-pill, Home philosophy slips (no hardcoded 2500-kcal target, no fabricated 7-day chart), backend muscle mapping + numeric validation.
+- **CEO live-testing bugfix** (`1c6fe2c`): Home layout blowout (`height:"100%"`→`flex:1`) + confirm-sheet drag-to-dismiss (pan gesture, `runOnJS`). Verified live on Android emulator. (The blue floating gear the CEO saw is a device/OS overlay, NOT app UI.)
 
-**Next session (on Opus): start execution.**
-1. Dispatch slice 1: app agent → APP-017 (water). In parallel backend agent → BE-017 (entries filters, gates slice 2) and BE-023 (pin AI model ids — cheap, gates photo/PDF). Disjoint folders → safe in parallel; orchestrator commits per team.
-2. Then follow the slice order in `docs/backlog-local-100.md` (slice 2 workout → 3 plan/program → 4 habits/notifications → 5 photo → 6 trends → 7 settings cluster → 8 debt + OPS-020 LocalStack + BE-026/027).
-3. Contract v0.4.0 lands with BE-017/019/020/024/025 (one bump, ADR-0011 ext + ADR-0013); regenerate app types after.
-4. Move each Asana ticket Backlog→To do→In progress as it starts; Progress/ file per ticket; Notion team pages at session close.
+### What's PARKED (CEO-gated — do NOT start autonomously)
+1. **Hygiene sweep** — BE-028 + APP-037 (pre-release code cleanup). CEO calls this stage.
+2. **F-LAST production deploy** — AWS deploy → Android vs AWS → iOS on iPhone vs AWS → Play Store → App Store. Needs CEO secrets (RDS pw, 7 SSM values, GitHub repo Variables) + Apple/Play accounts. Runbook in `docs/backlog-local-100.md` §F-LAST.
 
-**Rules unchanged**: no GitHub CI/CD (OPS-018 cancelled — local pre-merge checklists are the guardrail), no AWS applies (LocalStack for adapters), Terraform kept ready. **Release pipeline (CEO R11, only after local-100 done)**: hygiene sweep (BE-028/APP-037, parked) → AWS deploy (F-LAST) → Android build vs AWS → iOS on real iPhone vs AWS → Play Store → App Store. Stores: CEO is working on accounts, not urgent. The section below ("Next actions — waiting on CEO") remains true only for that pipeline.
+### Open CEO question (non-blocking, from APP-033)
+Offline capture that can't reach `/parse` is parked and **auto-logged on reconnect** (parse+log, no re-confirmation card). If the CEO wants parsed drafts to wait for a confirmation card instead, that's a small follow-up ticket.
+
+**Rules unchanged**: no GitHub CI/CD (local pre-merge checklists are the guardrail), no AWS applies (LocalStack for adapters), Terraform kept ready.
 
 ## Snapshot by team
 
