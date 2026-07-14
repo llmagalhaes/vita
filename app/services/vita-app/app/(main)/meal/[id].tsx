@@ -208,8 +208,9 @@ export default function MealDetailScreen() {
             </Text>
           </View>
           {items.map((it, i) => (
-            <View
+            <Animated.View
               key={`${it.name}-${i}`}
+              entering={FadeIn.duration(400).delay(i * 55)}
               style={{
                 flexDirection: "row",
                 alignItems: "center",
@@ -234,7 +235,7 @@ export default function MealDetailScreen() {
               <Text variant="caption" style={{ fontSize: 13 }} color={colors.muted}>
                 {Math.round(it.kcal)} {t("common.kcal")}
               </Text>
-            </View>
+            </Animated.View>
           ))}
         </Card>
       )}
@@ -274,8 +275,8 @@ export default function MealDetailScreen() {
               {t("mealDetail.percentDaily")}
             </Text>
           </View>
-          {micros.map((m) => (
-            <View key={m.name} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          {micros.map((m, i) => (
+            <Animated.View key={m.name} entering={FadeIn.duration(400).delay(i * 60)} style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
               <View style={{ flex: 1 }}>
                 <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                   <Text variant="label" style={{ fontSize: 13 }} color="#6E6355">
@@ -286,13 +287,14 @@ export default function MealDetailScreen() {
                   </Text>
                 </View>
                 <View style={{ marginTop: 5 }}>
-                  <Bar pct={Math.min(m.percentDaily ?? 0, 100)} color={colors.macro.protein} height={5} />
+                  {/* vtGrowX — bars grow from the left, row-staggered */}
+                  <Bar pct={Math.min(m.percentDaily ?? 0, 100)} color={colors.macro.protein} height={5} delay={150 + i * 60} />
                 </View>
               </View>
               <Text style={{ width: 36, textAlign: "right", fontFamily: fonts.bold, fontSize: 12 }} color={colors.muted}>
                 {m.percentDaily != null ? `${Math.round(m.percentDaily)}%` : "—"}
               </Text>
-            </View>
+            </Animated.View>
           ))}
         </Card>
       )}

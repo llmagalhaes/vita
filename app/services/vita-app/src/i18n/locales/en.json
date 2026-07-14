@@ -17,6 +17,7 @@
   },
   "plan": {
     "eyebrow": "Eating plan",
+    "dailyTotals": "Daily totals",
     "edit": "Edit",
     "save": "Save",
     "empty": "No eating plan yet. Add one during setup or from Home.",

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
+import Animated, { Keyframe } from "react-native-reanimated";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import type { EatingPlanDraft, PlanItem } from "../../src/api";
@@ -20,6 +21,15 @@ import {
 } from "../../src/ui";
 
 const clone = (p: EatingPlanDraft): EatingPlanDraft => JSON.parse(JSON.stringify(p));
+
+/** Prototype `vtPop` — pop-up cards scale in from .92 (Fable B6). */
+const popIn = (delayMs = 0) =>
+  new Keyframe({
+    0: { opacity: 0, transform: [{ scale: 0.92 }] },
+    100: { opacity: 1, transform: [{ scale: 1 }] },
+  })
+    .duration(350)
+    .delay(delayMs);
 const round = (n: number) => Math.round(n);
 const qtyLabel = (it: PlanItem) => `${it.quantity ?? 1}${it.unit ? ` ${it.unit}` : ""}`;
 
@@ -295,8 +305,26 @@ export default function EatingPlanScreen() {
 
       {/* portion adjust sheet */}
       <Modal visible={sel != null} transparent animationType="fade" onRequestClose={() => setSel(null)}>
-        <Pressable style={{ flex: 1, backgroundColor: "rgba(247,242,233,0.55)", justifyContent: "center", paddingHorizontal: 26 }} onPress={() => setSel(null)}>
+        <Pressable style={{ flex: 1, backgroundColor: "rgba(247,242,233,0.55)", justifyContent: "center", paddingHorizontal: 26, gap: 12 }} onPress={() => setSel(null)}>
           {selItem && sel && (
+            <>
+            {/* live plan totals floating above the slider card — updates as you drag (prototype) */}
+            <Animated.View entering={popIn(0)}>
+              <Pressable onPress={(e) => e.stopPropagation()}>
+                <Card style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 13 }}>
+                  <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.muted}>
+                    {t("plan.dailyTotals")}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.light, fontSize: 19 }}>
+                    {round(totals.kcal)}{" "}
+                    <Text variant="caption" color={colors.muted}>
+                      {t("common.kcal")}
+                    </Text>
+                  </Text>
+                </Card>
+              </Pressable>
+            </Animated.View>
+            <Animated.View entering={popIn(50)}>
             <Pressable
               onPress={(e) => e.stopPropagation()}
               style={{ backgroundColor: colors.card, borderRadius: 26, padding: 20, gap: 13, borderWidth: 1.5, borderColor: "rgba(196,112,78,0.25)" }}
@@ -361,6 +389,8 @@ export default function EatingPlanScreen() {
 
               <Button label={t("common.confirm")} onPress={() => setSel(null)} />
             </Pressable>
+            </Animated.View>
+            </>
           )}
         </Pressable>
       </Modal>
