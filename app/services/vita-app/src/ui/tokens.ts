@@ -26,6 +26,16 @@ export const colors = {
   estimateInk: "#A66A3F",
   border: "rgba(120,100,75,0.10)",
   sheet: "#FBF6EC",
+  scrubGuide: "rgba(69,62,53,0.4)", // vertical guide line under the scrub finger
+} as const;
+
+/** Soft card shadow lifted from the prototype (`0 10px 26px rgba(105,84,60,.08)`). */
+export const shadow = {
+  shadowColor: "#69543C",
+  shadowOpacity: 0.09,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 10 },
+  elevation: 3, // Android
 } as const;
 
 /**

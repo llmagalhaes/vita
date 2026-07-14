@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { BackHandler, View, useWindowDimensions } from "react-native";
 import { usePathname, useRouter } from "expo-router";
-import { Gesture, GestureDetector, type GestureType } from "react-native-gesture-handler";
+import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { colors } from "../ui";
+import { tabsPagerRef } from "./pagerRef";
 import Home from "../tabs/Home";
 import Trends from "../tabs/Trends";
 import Habits from "../tabs/Habits";
@@ -18,9 +19,10 @@ import Habits from "../tabs/Habits";
  * with expo-router.
  *
  * GESTURE ARBITRATION — inner horizontal pans (trends scrub, etc.) win like so:
- *   import { tabsPagerRef } from "../nav/TabsPager";
+ *   import { tabsPagerRef } from "../nav/pagerRef";
  *   Gesture.Pan().blocksExternalGesture(tabsPagerRef)...
- * The pager waits for that gesture to fail before activating, so the inner drag
+ * The pager's own gesture is published via `.withRef(tabsPagerRef)` below; the
+ * pager waits for the inner gesture to fail before activating, so the inner drag
  * wins. The pager also only claims clearly-horizontal drags (activeOffsetX ±14)
  * and fails on vertical intent (failOffsetY ±18), so vertical ScrollViews and
  * the mic hold-drag are never stolen.
@@ -32,10 +34,6 @@ export const TAB_ROUTES = ["/home", "/trends", "/habits"] as const;
 export function tabIndex(pathname: string): number {
   return TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
 }
-
-// One pager instance app-wide → a module-level ref is safe. Inner gestures
-// import this and pass it to .blocksExternalGesture().
-export const tabsPagerRef: { current: GestureType | undefined } = { current: undefined };
 
 const SPRING = { damping: 22, stiffness: 210, mass: 0.9 } as const;
 
@@ -79,6 +77,7 @@ export function TabsPager() {
   }, [active]);
 
   const pan = Gesture.Pan()
+    .withRef(tabsPagerRef)
     .activeOffsetX([-14, 14])
     .failOffsetY([-18, 18])
     .onBegin(() => {

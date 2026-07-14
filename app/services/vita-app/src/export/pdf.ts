@@ -144,10 +144,17 @@ export async function exportPdf(opts: ExportOpts): Promise<void> {
   // Lazy require so tests and the pure builder never load the native modules.
   const Print = require("expo-print");
   const Sharing = require("expo-sharing");
+  const { File, Paths } = require("expo-file-system");
   const { uri } = await Print.printToFileAsync({ html });
   if (!(await Sharing.isAvailableAsync())) {
     // Don't silently succeed — the caller surfaces this so it's not a mystery no-op.
     throw new Error("Sharing is not available on this device.");
   }
-  await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+  // expo-print writes into the print cache, a path the Android share FileProvider
+  // can't read ("not allowed to read file under given url"). Copy into the document
+  // dir — which the provider maps — and share from there (CEO bug #4).
+  const dest = new File(Paths.document, "vita-log.pdf");
+  if (dest.exists) dest.delete();
+  await new File(uri).copy(dest);
+  await Sharing.shareAsync(dest.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
 }

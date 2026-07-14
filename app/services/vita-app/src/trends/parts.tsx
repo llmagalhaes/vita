@@ -112,7 +112,7 @@ export function TrendCard({
       <View style={{ position: "relative" }}>
         {children(active)}
         {open && count != null && count > 0 && (
-          <ScrubOverlay count={count} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
+          <ScrubOverlay count={count} active={active} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
         )}
       </View>
 
