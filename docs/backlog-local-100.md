@@ -1,129 +1,119 @@
-# Backlog — "Vita 100% local"
+# Backlog — "Vita 100% local" (rev 2, post-CEO Round 10)
 
-> CEO directive (2026-07-14): the previous autonomous backlog is exhausted. New goal: **the app working 100% locally, feature by feature** — for each feature, the steps each team needs. **Production deploy is the LAST milestone (F-LAST).**
+> CEO directive (2026-07-14): **the app working 100% locally, feature by feature** — for each feature, the steps each team needs. **No GitHub CI/CD, no AWS deploy — where AWS is needed, LocalStack. Terraform stays ready (no applies). Production (F-LAST) is unscheduled until a future CEO call.**
 >
-> Method: orchestrator draft → the three team leads reviewed it in parallel (round 1) → cross-team asks reconciled between the leads (round 2) → this consolidated plan. Local DoD everywhere: backend `./gradlew check` green + contract-first (redocly); app `tsc` clean + Jest green + walkable in **store Expo Go SDK 56** (no dev-build dependency); nothing touches AWS before F-LAST.
+> Method: orchestrator draft → three team-lead rounds (detail → cross-team reconciliation → CEO Round-10 answers incorporated). Local DoD everywhere: backend `./gradlew check` green + contract-first (redocly); app `tsc` clean + Jest green + walkable in **store Expo Go SDK 56**; the app team's pre-merge checklist (`tsc` · `jest` · `api:check` · `expo export`) is the guardrail — documented in `app/Doc/` when implementation starts (no CI ticket, CEO Round 10.5).
 >
 > Asana sync: tickets below get created on the team boards (with their `Model:` lines) as each slice starts. This file is the plan of record until then.
 
-## Decisions the teams closed in reconciliation (CEO can veto any)
+## Standing decisions (CEO Round 10 + team reconciliation)
 
-| # | Decision | Who converged |
-|---|---|---|
-| D1 | **Habits, check-ins, notification prefs, vacation state = local-first on device (SQLite/kv), no backend this milestone.** Server sync/multi-device is an explicit future ticket. | app + backend |
-| D2 | **Export PDF = on-device** (`expo-print` + `expo-sharing`). The log never leaves the phone until the user shares the file. No backend job, no exports infra. | app + backend + devops |
-| D3 | **Photo transport = multipart direct to `POST /parse/photo`** (already in contract v0.3.0: `image` binary + optional `caption`/`capturedAt`; app downscales to 1568px JPEG q0.8). No `/uploads` involvement, no base64. `/uploads` stays PDF-only. | app + backend |
-| D4 | **Trends aggregation = client-side over SQLite** for the selected W/F/M window (fetched via BE-017 range in real mode). Backend aggregate endpoint (was BE-021) **dropped**; noted as upgrade path only. Activity/muscle data is encrypted server-side, so it was never a server-aggregation candidate. | app + backend |
-| D5 | **Plan/program = singular per-user resources**, `GET/PUT /me/eating-plan` + `GET/PUT /me/training-program`, replace-on-write, storing the confirmed BE-015 draft shape as one encrypted blob (per-user DEK). Portion-slider "save" = whole-plan PUT. | app + backend |
-| D6 | **Contract v0.4.0** = one bump bundling BE-017's additive `GET /entries` params + the new plan/program paths. One redocly pass, one ADR (extends ADR-0011). `/parse/photo` needs nothing (shipped in v0.3.0). | backend |
-| D7 | **CI**: `backend-ci.yml` + `contract-lint.yml` already exist and pass (draft was wrong). The only gap is **app CI** → OPS-018 (`npx tsc --noEmit` · `npx jest --ci` · `npm run api:check`; `expo export` stays a local pre-merge check, not CI). Lands **before F1**. | app + devops |
+| # | Decision |
+|---|---|
+| D1 | **Habit definitions, notification prefs and vacation config stay device-local; check-in RESULTS and vacation RANGES persist server-side** (CEO R10.1). Check-ins ride the existing entries path as a new `checkin` entry type (BE-024); vacation ranges are `GET/PUT /me/vacations` (BE-025). Notifications remain local on device. |
+| D2 | **Export PDF = on-device** (`expo-print` + `expo-sharing`). The log never leaves the phone until the user shares the file. No backend, no infra. |
+| D3 | **Photo transport = multipart direct to `POST /parse/photo`** (already in contract v0.3.0; app downscales to 1568px JPEG q0.8). No `/uploads` involvement. `/uploads` stays PDF-only. |
+| D4 | **Trends aggregation = client-side over SQLite** for the W/F/M window (via BE-017 range in real mode). No server aggregate endpoint; activity/muscle data is encrypted server-side and never server-aggregated. |
+| D5 | **Plan/program: history of past versions, max 5 (configurable `vita.plans.history-max`), fully editable — any field** (CEO R10.2/3). Versions = rows; `POST` = import → new version (cap drops oldest); `GET` = current; `PUT` = edit current, **full-doc replace + whole-blob re-encrypt in the service** (the encryption-safe reading of the jsonb suggestion — no plaintext server-side merge-patch); `GET …/history` = the ≤5 docs. Past versions frozen, no restore v1. Encryption non-negotiable stands (per-user DEK). |
+| D6 | **Contract v0.4.0 = one bump**: `GET /entries` `from`/`to` + CSV `type` (incl. new `checkin` enum + `CheckinDetail`), plan/program history+edit paths, `/me/vacations`. ADRs: extend ADR-0011 (plan history/edit/re-encrypt); new ADR-0013 (checkin-as-entry-type + vacation ranges). |
+| D7 | **No GitHub CI/CD work** (CEO R10.5): OPS-018 cancelled; existing workflows (backend-ci, contract-lint, terraform) stay untouched. Local pre-merge checklists are the guardrail. |
+| D8 | **Energy "spent" = sum of logged workout kcal (labeled estimate) + manual add** (CEO R10.4). Manual add = a `POST /entries type=workout` with kcal and no exercises — no new endpoint or shape. Health-source energy stays honestly "connect a health source" (blocked appendix). |
+| D9 | **LocalStack for AWS-shaped local testing** (CEO R10.5): OPS-020 wires LocalStack (compose profile) with **S3 + KMS** so backend builds/tests the REAL `FileStore` presigner (BE-026) and REAL KMS `KeyWrapper` (BE-027) locally. SES stays deferred (`LogMailer` covers local). Plain `docker compose up` stays Postgres-only; `./gradlew check` stays AWS-free. |
 
 ## Slice order (each slice CEO-testable in Expo Go)
 
-| Slice | Feature | App tickets | Backend gate | Devops |
+| Slice | Feature | App | Backend gate | Devops |
 |---|---|---|---|---|
-| 0 | Guardrail | — | — | **OPS-018** app CI |
 | 1 | **F1 Water, complete** | APP-017 | none | — |
-| 2 | **F2 Workout, complete (text path)** | APP-018 → APP-019 | **BE-017** (30-day history) | — |
-| 3 | **F4/F5 Eating plan + training program, persisted** | APP-021 → APP-022 → APP-023 | **BE-019 + BE-020** (+BE-023 early) | — |
-| 4 | **F6 Habits & check-ins + F7 Local notifications** | APP-024 → APP-025 → APP-026 | none (uses F4 plan for plan check-ins) | — |
+| 2 | **F2 Workout, complete (text path)** | APP-018 → APP-019 | **BE-017** | — |
+| 3 | **F4/F5 Plan + program: persisted, history, editable** | APP-021 → APP-022 → APP-023 | **BE-019 + BE-020** (+BE-023 early) | — |
+| 4 | **F6 Habits & check-ins + F7 Local notifications** | APP-024 → APP-025 → APP-026 | **BE-024** (soft gate — outbox decouples; app builds on mock) | — |
 | 5 | **F3 Photo capture** | APP-020 (can start on mock drafts) | **BE-018** | — |
-| 6 | **F8 Trends** | APP-027 → APP-028 (needs APP-019 BodyMap) | BE-017 (already done) | — |
-| 7 | **F9 Account / F10 Vacation / F11 Export** | APP-029 → APP-030 → APP-031 (+APP-032) | none | — |
-| 8 | Tech debt sweep | APP-033/034/035 · BE-022 (anytime) | — | — |
-| 9 | **F-LAST Production deploy** | — | BE-004 | runbook below |
+| 6 | **F8 Trends** | APP-027 → APP-028 (needs APP-019 BodyMap) | BE-017 (done by then) | — |
+| 7 | **F9 Account / F10 Vacation / F11 Export / F12 Energy** | APP-029 → APP-030 → APP-031 → APP-032 | **BE-025** (vacation ranges) | — |
+| 8 | Debt & real adapters | APP-033/034/035 | BE-022 · BE-026 · BE-027 | **OPS-020** LocalStack |
+| 9 | **F-LAST Production deploy — UNSCHEDULED** (future CEO call) | — | BE-004 | runbook below |
 
-Backend order within that: **BE-017** (first, gates slice 2) → **BE-023** (cheap, gates F3/F4 correctness) → **BE-019 + BE-020** (gate slice 3) → **BE-018** (gates slice 5) → **BE-022** (debt, anytime).
+Backend order: **BE-017** → **BE-023** → **BE-019 + BE-020** → **BE-024** → **BE-018** → **BE-025** → BE-022/BE-026/BE-027 (debt/adapters, anytime after OPS-020).
 
 ---
 
 ## Features & tickets
 
 ### F1 — Water, complete *(slice 1)*
-- **APP-017** (Sonnet, M) — Home Water card expands to the day's log list (amount/time/method, units-aware); timeline water cards navigate to a new `water/[id]` detail screen; quick-add unchanged via outbox. Clears the "water card doesn't navigate" debt. *Backend: none — water is already a first-class entry type (`/entries`, `/entries/{id}`).*
+- **APP-017** (Sonnet, M) — Home Water card expands to the day's log list (amount/time/method, units-aware); timeline water cards navigate to a new `water/[id]` detail screen; quick-add unchanged via outbox. Clears the "water card doesn't navigate" debt. *Backend: none.*
 
 ### F2 — Workout, complete (text path) *(slice 2)*
-- **APP-018** (Sonnet, S/M) — workout-shaped confirm card (title, duration, kcal *estimate*, muscle chips, exercises) → entry via outbox; timeline workout cards navigate. Clears the "workout card doesn't navigate" debt.
+- **APP-018** (Sonnet, S/M) — workout-shaped confirm card (title, duration, kcal *estimate*, muscle chips, exercises) → entry via outbox; timeline workout cards navigate.
 - **APP-019** (Opus 4.8, L) — workout detail: source badge, **interactive front/back `BodyMap` SVG primitive** (built once, reused by F8), exercises, 30-day history strip → preview sheet.
-- **BE-017** (Sonnet, S, contract v0.4.0 additive) — `GET /entries` gains optional `from`/`to`/`type`. Keyset cursor and single-`date` behaviour unchanged; 400 on `from>to`/bad type. Shared prerequisite for slices 2/6 and F12 (device is a cache in real mode — it won't hold 30 days).
+- **BE-017** (Sonnet, S, v0.4.0 additive) — `GET /entries` gains optional `from`/`to` + **CSV `type`** (`type=meal,water,workout` for Home excludes check-ins; `type=checkin` for Habits). Keyset cursor and single-`date` behaviour unchanged.
 
 ### F3 — Photo capture *(slice 5; app half can start earlier on canned mock drafts)*
-- **APP-020** (Opus 4.8, M/L) — pill camera → `expo-image-picker` (**works in Expo Go, verified**) → multipart to `/parse/photo` → items with quantity steppers (remove/discard) → existing confirm path adds a meal (plate) or workout (whiteboard). Calm permission states, "type instead" fallback.
-- **BE-018** (Opus 4.8, M, no contract change) — implement `/parse/photo` (Claude vision via `ClaudeClient.callTool` with an image block); image sent to the model and **discarded, never persisted** (ADR-0005); reuses `ParseQuota` 429 + `ParseMetrics`; 413 >5 MB, 422 unrecognizable. Multipart under Boot 4/Jackson 3 is untried surface — verify. Gated on **BE-023** (vision model id).
+- **APP-020** (Opus 4.8, M/L) — pill camera → `expo-image-picker` (**works in Expo Go, verified**) → multipart to `/parse/photo` → items with quantity steppers → existing confirm path adds a meal (plate) or workout (whiteboard). Calm permission states, "type instead" fallback.
+- **BE-018** (Opus 4.8, M, no contract change) — implement `/parse/photo` (Claude vision via `ClaudeClient.callTool` image block); image sent to the model and **discarded, never persisted** (ADR-0005); reuses quota 429 + metrics; 413 >5 MB, 422 unrecognizable. Gated on **BE-023** (vision model id). Multipart under Boot 4/Jackson 3 — verify.
 
-### F4 — Eating plan, persisted + screen *(slice 3)*
-- **BE-019** (Opus 4.8, M, contract v0.4.0 + ADR) — `GET/PUT /me/eating-plan`: PUT stores the confirmed `EatingPlanDraft` as one encrypted blob (per-user DEK, C3), replace-on-write; GET decrypts; empty → 204. Expand-only migration (also carries F5's table), wired into the account-deletion cascade. Repository test proves stored bytes ≠ plaintext.
-- **APP-021** (Sonnet, M) — wire onboarding steps 3–4 to the REAL `/parse/eating-plan` + `/parse/training-program`, PUT the confirmed draft; Home plan row + Account "Your setup" read the persisted plan. **Kills the client-side mock read-back debt.**
-- **APP-022** (Opus 4.8, L) — Eating plan screen (prototype §10): meal cards, per-item portion sliders with live local recompute, estimates labeled; save = whole-plan PUT.
+### F4/F5 — Eating plan + training program: persisted, history (≤5), fully editable *(slice 3)*
+- **BE-019** (Opus 4.8, M, v0.4.0 + ADR-0011 ext) — eating plan as versioned rows `(id, user_id, doc_enc, created_at)`, per-user DEK: `POST` import → new version (cap `vita.plans.history-max:5`, drop oldest), `GET` current, `PUT` edit current (full-doc replace, re-encrypt), `GET …/history`. Deletion-cascade wired; repository test proves stored bytes ≠ plaintext.
+- **BE-020** (Sonnet, M) — training program, mechanical mirror (same migration file, same ADR).
+- **APP-021** (Sonnet, M) — wire onboarding steps 3–4 to REAL parse endpoints, POST the confirmed draft; Home plan row + Account "Your setup" read the persisted plan. **Kills the client-side mock read-back debt.**
+- **APP-022** (Opus 4.8, L) — Eating plan screen with **Edit mode: any field editable** (inline text for item names, numeric fields + portion slider for quantities/proportions), live local recompute, estimates labeled, dual input; Save = whole-plan PUT. History has **no UI this ticket** (backend-only; a "previous plans" picker is a small follow-up).
+- **APP-023** (Sonnet, **M** — grew from S) — program summary screen with the same Edit mode.
 
-### F5 — Training program, persisted *(slice 3, merged with F4 — the draft over-cut it)*
-- **BE-020** (Sonnet, S–M, contract v0.4.0) — `GET/PUT /me/training-program`, mechanical mirror of BE-019 (same migration file, same ADR).
-- **APP-023** (Sonnet, S) — minimal program summary screen (split/days/exercises) off Account "Your setup". Onboarding wiring is already APP-021 (shared `PlanStep`).
-
-### F6 — Habits & check-ins *(slice 4 — local-first, D1)*
-- **APP-024** (Sonnet, M) — Manage tab: SQLite habits domain (name, days, time, enabled, optional plan-meal link, 14-day dots), CRUD, dual-input new-habit form. "A single yes or no per check-in — no streaks, no scores."
-- **APP-025** (Opus 4.8, M/L) — Today tab + check-in stack sheet + Home "N waiting" banner; plan check-in "Yes" auto-logs the plan's meal via the existing confirm path (`POST /entries` — the only server touch, exists); "Not quite" opens capture. *Backend: none. Depends on F4 for plan-linked check-ins.*
+### F6 — Habits & check-ins *(slice 4)*
+- **APP-024** (Sonnet, M) — Manage tab: SQLite habits domain (name, days, time, enabled, optional plan-meal link, 14-day dots), CRUD, dual-input form. "A single yes or no per check-in — no streaks, no scores."
+- **APP-025** (Opus 4.8, M/L) — Today tab + check-in stack sheet + Home "N waiting" banner; plan check-in "Yes" auto-logs the plan's meal; "Not quite" opens capture. **Check-in answers persist via the existing outbox** as `checkin` entries (BE-024) — soft gate, slice builds on mock. Local SQLite stays the display source for dots; the server write is durability.
+- **BE-024** (Sonnet, S–M, v0.4.0) — **`checkin` as a new entry type** (no new domain/table): `CheckinDetail={habitId, habitName, kind, answer, note?}` encrypted in the detail like every entry; idempotency `habitId:date`; change-answer = PATCH.
 
 ### F7 — Local notifications *(slice 4)*
-- **APP-026** (Opus 4.8, M) — `Notifier` interface + `expo-notifications` impl; scheduling wired to habits; calm/optional permission ask. **Verified partial in Expo Go SDK 56:** local scheduling works (iOS clean; Android with a harmless warning); interactive lock-screen Yes/No actions are the one untrusted slice — if they don't fire in Expo Go, that slice stubs behind the interface for APP-007 (same pattern as STT/OIDC), with the in-app check-in stack as the working path. Fold/supersede the existing `src/db/notify.ts` — no second notify module. *Backend: none (CEO decision: local, no server push v1).*
+- **APP-026** (Opus 4.8, M) — `Notifier` interface + `expo-notifications` impl; scheduling wired to habits; calm/optional permission ask. Local scheduling **works in Expo Go SDK 56** (iOS clean; Android harmless warning); interactive lock-screen Yes/No is the one untrusted slice — if it fails in Expo Go it stubs behind the interface for APP-007 (STT/OIDC pattern), in-app stack as the working path. Fold/supersede `src/db/notify.ts`. *Backend: none (notifications stay local — CEO).*
 
-### F8 — Trends *(slice 6 — client-side, D4)*
-- **APP-027** (Opus 4.8, L) — Food tab: W/F/M, calories bars↔curve, consumed vs spent, macro balance, water, meal-time dot plot; all scrub-by-drag; aggregated on device; estimates labeled; vacation-day filter hook for F10.
-- **APP-028** (Opus 4.8, M/L) — Activity tab: muscles-worked heatmap reusing `BodyMap` (APP-019), ranked chips, aerobic minutes, workout squares → session list → preview sheet. Encrypted workout detail means the server never aggregates this — client-side by design. *Backend: none beyond BE-017.*
+### F8 — Trends *(slice 6)*
+- **APP-027** (Opus 4.8, L) — Food tab: W/F/M, calories bars↔curve, consumed vs spent, macro balance, water, meal-time dot plot; scrub-by-drag; aggregated on device; estimates labeled; vacation-day filter hook.
+- **APP-028** (Opus 4.8, M/L) — Activity tab: muscles heatmap reusing `BodyMap`, ranked chips, aerobic minutes, workout squares → session list → preview sheet. *Backend: none beyond BE-017.*
 
 ### F9 — Account & settings *(slice 7)*
-- **APP-029** (Sonnet, M) — Account screen (expandable profile; units apply everywhere immediately via PATCH /me; Your setup rows deep-link plan/program/habits/integrations; notification toggles drive APP-026; sign out) + Integrations screen as **honest UI-only toggles** ("not connected" — real Apple Health/Health Connect sync is in the blocked appendix). *Backend: none — prefs stay local (D1).*
+- **APP-029** (Sonnet, M) — Account screen (profile expand; units apply everywhere via PATCH /me; Your setup deep-links; notification toggles drive APP-026; sign out) + Integrations screen as **honest UI-only toggles** (real health sync in the blocked appendix). *Backend: none — prefs stay local.*
 
 ### F10 — Vacation mode *(slice 7)*
-- **APP-030** (Opus 4.8, M/L) — date-range sheet, sea-tone accent swap via a single state-driven token source (no per-screen edits), Home banner, notification pausing within range, trends hide-days filter, trip habit by voice reusing the habits form. *Backend: none.*
+- **APP-030** (Opus 4.8, M/L) — date-range sheet, sea-tone accent via one state-driven token source, Home banner, notification pausing, trends hide-days, trip habit by voice. **Resulting ranges sync to backend via outbox** (D1).
+- **BE-025** (Sonnet, S, v0.4.0) — `GET/PUT /me/vacations`: encrypted JSON array of `{start,end}`, replace-on-write; server never reads it.
 
 ### F11 — Export PDF *(slice 7 — on-device, D2)*
-- **APP-031** (Sonnet, M) — export sheet with per-audience content chips → HTML from local SQLite → `expo-print.printToFileAsync` → `expo-sharing`. Estimates labeled in the PDF; nothing leaves the device until the user shares. New deps `expo-print`, `expo-sharing` (Expo Go-compatible, SDK 56). *Backend/devops: none.*
+- **APP-031** (Sonnet, M) — export sheet with per-audience content chips → HTML from local SQLite → `expo-print` → `expo-sharing`. Estimates labeled in the PDF; nothing leaves the device until shared. New deps `expo-print`, `expo-sharing` (Expo Go-OK).
 
-### F12 — Energy card *(folded into slice 7 — not a real feature)*
-- **APP-032** (Sonnet, XS, foldable into APP-029) — honest copy: "spent" = sum of logged workout kcal (labeled estimate); the health-source part shows "Connect a health source", never a fabricated number. *Backend: none (consumed/spent both come from existing entry data via BE-017).*
+### F12 — Energy *(slice 7)*
+- **APP-032** (Sonnet, S) — "spent" = sum of logged workout kcal (labeled estimate) **+ manual add with dual input** (type a number / voice "burned 300"), written as a manual workout entry via the existing confirm/outbox path (D8); health-source part shows "Connect a health source", never fabricated. *Backend: none.*
 
 ---
 
-## Tech debt & best practices (scheduled, not optional)
+## Tech debt & real adapters (slice 8, some anytime)
 
 | Ticket | Owner | What | Model / Size |
 |---|---|---|---|
-| OPS-018 | devops | App CI on PRs (`tsc --noEmit` · `jest --ci` · `api:check`), mirrors backend-ci; free tier, no AWS. **Before F1.** | Sonnet / S |
-| BE-023 | backend | Verify & pin AI model ids — `vita.ai.plan-pdf-model = claude-sonnet-4-6` is unverified/wrong; F3 needs a confirmed vision-capable id. **Gates F3/F4.** | Sonnet / S |
-| BE-022 | backend | Magic-link token cleanup job (reuse `jobs/` queue + V003). Anytime. | Sonnet / S |
-| APP-021 | app | Onboarding mock read-back → real endpoints (counted in F4). | — |
-| APP-017/018 | app | Water/workout card navigation (counted in F1/F2). | — |
+| BE-023 | backend | Verify & pin AI model ids (`plan-pdf-model` unverified/wrong; F3 needs a vision-capable id). **Do early — gates F3/F4.** | Sonnet / S |
+| BE-022 | backend | Magic-link token cleanup job (reuse `jobs/` queue). Anytime. | Sonnet / S |
+| OPS-020 | devops | **LocalStack** service in backend compose behind a `localstack` profile; `SERVICES=s3,kms`; init via `awslocal` one-liner (not Terraform); plain `up` stays Postgres-only; adapters test against `:4566`. | Sonnet / S |
+| BE-026 | backend | Real S3 `FileStore` presigner tested against LocalStack (PDF import path). Needs OPS-020. | Sonnet / M |
+| BE-027 | backend | Real KMS `KeyWrapper` (DEK envelope) tested against LocalStack — security-critical, real test value. Needs OPS-020. | Opus 4.8 / M |
 | APP-033 | app | Offline pending-interpretation outbox op + NetInfo reconnect drain (new dep `@react-native-community/netinfo`, Expo Go-OK). | Opus 4.8 / M |
 | APP-034 | app | Maestro E2E smoke (onboarding→capture→confirm→timeline + auth deep link) once slices stabilize. | Sonnet / M |
 | APP-035 | app | Fidelity pass vs prototype (wave draw-on, entrance animations, check-ins banner motion, vacation transitions). | Sonnet / S–M |
 
-Dropped as not-work: OPS-019 one-command local bootstrap (compose+bootRun already works — add only if someone files the friction); BE-021 trends aggregate (D4); APP-036 (folded into OPS-018).
+Cancelled/dropped: **OPS-018** app CI (CEO: no GitHub CI/CD — local pre-merge checklist instead, to be documented in `app/Doc/`); OPS-019 local bootstrap (compose+bootRun already works); BE-021 trends aggregate (D4); SES real Mailer (deferred to F-LAST, `LogMailer` covers local).
 
 ## Blocked appendix — waiting on CEO accounts (NOT in this backlog)
 
-Apple Developer + Play Console unblock: **APP-007** (dev build) → real voice STT, native Google/Apple OIDC (**BE-007**), interactive lock-screen notification actions (if Expo Go can't), real Apple Health / Health Connect (energy "spent", integrations). Nothing above depends on these — where a capability is native-only it ships stubbed behind an interface, honestly labeled.
+Apple Developer + Play Console unblock: **APP-007** (dev build) → real voice STT, native Google/Apple OIDC (**BE-007**), interactive lock-screen notification actions (if Expo Go can't), real Apple Health / Health Connect (energy from device, integrations). Nothing above depends on these — native-only capabilities ship stubbed behind interfaces, honestly labeled.
 
-## F-LAST — Production deploy milestone (devops runbook, parked until the CEO calls it)
+## F-LAST — Production deploy (UNSCHEDULED — parked reference runbook)
 
-Pre-flight (anytime): finish OPS-004 — CEO sets repo Variables (`AWS_PLAN_ROLE_ARN`, `AWS_APPLY_ROLE_ARN`, `AWS_REGION=eu-west-1`) + PR/fork negative tests + no-op apply.
+CEO Round 10: no AWS deploy for now; **Terraform stays ready** (code maintained, no applies). LocalStack (OPS-020 + BE-026/027) means the real S3/KMS adapters arrive at F-LAST already exercised — the prod flip becomes a bean swap + config.
 
-1. **BE-004** — build & push the arm64 image to ECR (Dockerfile ready).
-2. **[CEO]** RDS master password + 7 real SSM SecureStrings under `/vita/prod/*` + `db-credentials`; backend confirms container port 8080, `/health`, secret env names for the ECS task def.
-3. Flip `module.ecs.desired_count` → 1 (**[CEO]-approved plan**).
-4. Flyway one-off task — all F1–F11 tables ride the same migration chain.
-5. Health 200 via `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/`; rollback + task-role negative tests; hand the URL to the app.
-6. OPS-016 magic-link redirect → prod URL. 7. OPS-012 SES out of sandbox. 8. OPS-011 prod S3 `FileStore` bean (PDF uploads only — photos are multipart, never touch S3, D3). 9. OPS-015 observability (AMP + ADOT + minimal alarms; Grafana local on the CEO's Mac) — includes the $10/mo Claude budget alarm (photo vision + PDF Sonnet both spend). 10. OPS-013/014 end-to-end verify. 11. OPS-017 RDS restore rehearsal.
+Pre-flight (anytime): finish OPS-004 — CEO sets repo Variables + PR/fork negative tests + no-op apply.
+1. **BE-004** build & push arm64 image to ECR. 2. **[CEO]** RDS password + 7 SSM values + `db-credentials`; backend confirms port 8080, `/health`, secret env names. 3. `desired_count` → 1 (**[CEO]-approved plan**). 4. Flyway one-off task. 5. Health 200 via the API GW URL; rollback + task-role negative tests. 6. OPS-016 magic-link redirect. 7. OPS-012 SES out of sandbox (+ real `Mailer`). 8. OPS-011 prod S3 FileStore bean (PDF only — photos are multipart, never touch S3). 9. OPS-015 observability (AMP + ADOT + minimal alarms incl. $10/mo Claude budget; Grafana local). 10. OPS-013/014 end-to-end verify. 11. OPS-017 RDS restore rehearsal.
 
-New infra demanded by the local features at deploy time: **none** (photos = multipart, exports = on-device; F4/F5/F6 tables ride existing RDS+Backup). Fargate task memory should be checked for the vision round-trip. Cost live ≈ $25–40/mo at 5 users, under the $40 alarm.
+New infra demanded by the local features at deploy time: **none**. Cost live ≈ $25–40/mo at 5 users, under the $40 alarm.
 
-## Open questions for the CEO (the only ones that survived reconciliation)
+## Open questions for the CEO
 
-1. **Habits/notification-prefs/vacation: local-only on device (teams' default, D1) or server-synced** so they survive reinstall / multi-device? Local ships now; sync is a future backend domain.
-2. **Plan/program cardinality:** one-per-user, replaced on re-import (default, D5) — or keep a history of past plans?
-3. **Eating-plan portion edits persist** (whole-plan PUT, D5) — confirm that's the product intent vs display-only "what-if".
-4. **Training program screen depth:** is the minimal read-back summary (APP-023) enough for v1?
-5. **Energy "spent":** sum of logged workout kcal (labeled estimate) + "connect a health source" for the rest — OK, or offer interim manual entry?
-6. **F-LAST trigger:** what flips prod on — F1–F11 all local-green, a date, or your explicit call? (Devops needs the signal; nothing applies before it.)
-
-Vetoable team defaults already applied: export on-device (D2), photo multipart (D3), trends client-side (D4).
+**None.** Round 10 closed them all. The only future CEO signals needed: (a) calling the F-LAST deploy milestone, (b) Apple/Play accounts for the blocked appendix.

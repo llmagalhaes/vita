@@ -2,6 +2,16 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-14 — Round 10 (local-100 backlog answers)
+
+Answers to the open questions in `docs/backlog-local-100.md`:
+
+1. **Check-in results and vacation results are persisted server-side.** Notifications stay local on device (unchanged), and habit definitions/vacation config may stay device-local — but the *outcomes* (check-in yes/no answers; vacation date ranges/days) must persist on the backend. (Amends team decision D1.)
+2. **Plan/program history: keep past plans, max 5 (configurable).** Supersedes the singular replace-on-write default (D5 cardinality).
+3. **Eating plan and training program must be fully editable — any field** (text and proportions/quantities, not only portions). CEO suggestion: store as jsonb and update per key. Storage design is the backend's call, but the encryption non-negotiable stands — edit semantics must work over encrypted-at-rest data.
+4. **Energy "spent"**: sum of logged workout kcal (labeled estimate) approved, **plus manual entry** of spent energy.
+5. **Focus = 100% local development.** No GitHub CI/CD work (OPS-018 cancelled), no AWS deploy. Where AWS services are needed, use **LocalStack** — zero cost, real-adapter testing. **Terraform stays ready** (code maintained; no applies). F-LAST is unscheduled until a future CEO call.
+
 ## 2026-07-14 — Round 9 (local-first build-out)
 
 1. **Local-first policy**: development runs locally (docker-compose + bootRun + Expo); production deploy happens only at a **called milestone**, not per-ticket. Rationale: per-ticket deploy is too slow for dev. Infra stays applied but ECS parked at $0.

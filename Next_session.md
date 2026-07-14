@@ -6,8 +6,8 @@
 
 **Phase 2 — Implementation.** Almost all of contract **v0.3.0** is built and tested LOCALLY. The app↔backend core loop is **proven end-to-end against the real backend** (real Postgres). AWS infra is fully applied but **parked at $0** (ECS off). **No production deploy yet** — CEO policy: local-first, deploy only at a called milestone. Everything pushed to GitHub, HEAD `fe6f4c9`. Working tree clean.
 
-### NEW BACKLOG (2026-07-14): "Vita 100% local" — see `docs/backlog-local-100.md`
-The CEO commissioned a feature-by-feature backlog to get the app 100% local, deploy LAST. The three team leads planned it in two reconciliation rounds; the plan of record is **`docs/backlog-local-100.md`** (slices 0–9, tickets BE-017–023 / APP-017–035 / OPS-018, team decisions D1–D7, 6 open CEO questions). Start at slice 0 (OPS-018 app CI) → slice 1 (F1 Water / APP-017). Tickets get created in Asana as each slice starts. The section below ("Next actions — waiting on CEO") remains true only for the DEPLOY milestone and store accounts.
+### NEW BACKLOG (2026-07-14): "Vita 100% local" — see `docs/backlog-local-100.md` (rev 2)
+The CEO commissioned a feature-by-feature backlog to get the app 100% local. Three team-lead planning rounds + CEO Round 10 answers (see `docs/ceo-decisions.md`). Plan of record: **`docs/backlog-local-100.md`** — slices 1–8 local (water → workout → plan/program history+edit → habits/notifications → photo → trends → settings/vacation/export → debt+LocalStack adapters), tickets BE-017–027 / APP-017–035 / OPS-020, decisions D1–D9. **No GitHub CI/CD (OPS-018 cancelled), no AWS — LocalStack for adapter testing, Terraform kept ready, F-LAST unscheduled.** Zero open CEO questions. Start: slice 1 (F1 Water / APP-017); BE-017 + BE-023 early. Tickets get created in Asana as each slice starts. The section below ("Next actions — waiting on CEO") remains true only for the DEPLOY milestone and store accounts.
 
 ## Snapshot by team
 
