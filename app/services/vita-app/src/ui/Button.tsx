@@ -1,5 +1,6 @@
-import { Pressable, type PressableProps } from "react-native";
+import { type PressableProps } from "react-native";
 import { colors, radii, spacing } from "./tokens";
+import { PressScale } from "./PressScale";
 import { Text } from "./Text";
 
 export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
@@ -10,10 +11,10 @@ export type ButtonProps = Omit<PressableProps, "children" | "style"> & {
 export function Button({ label, variant = "primary", disabled, ...rest }: ButtonProps) {
   const primary = variant === "primary";
   return (
-    <Pressable
+    <PressScale
       accessibilityRole="button"
       disabled={disabled}
-      style={({ pressed }) => ({
+      style={{
         backgroundColor: primary ? colors.accent : "transparent",
         borderWidth: primary ? 0 : 1.5,
         borderColor: primary ? undefined : "rgba(120,100,75,0.16)",
@@ -21,13 +22,13 @@ export function Button({ label, variant = "primary", disabled, ...rest }: Button
         paddingVertical: spacing.md,
         paddingHorizontal: spacing.xl,
         alignItems: "center",
-        opacity: disabled ? 0.45 : pressed ? 0.8 : 1,
-      })}
+        opacity: disabled ? 0.45 : 1,
+      }}
       {...rest}
     >
       <Text variant="label" color={primary ? colors.card : colors.accent}>
         {label}
       </Text>
-    </Pressable>
+    </PressScale>
   );
 }

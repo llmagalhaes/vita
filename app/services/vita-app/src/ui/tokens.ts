@@ -57,6 +57,7 @@ export const motion = {
   pop: { durationMs: 350, bezier: [0.2, 0.8, 0.3, 1] as const }, // vtPop / sheet entrance
   unfold: { durationMs: 450, bezier: [0.22, 0.9, 0.32, 1] as const }, // pill field expand
   fade: { durationMs: 250 },
+  enter: { durationMs: 350, offsetY: 16 }, // vtIn — screen/step first paint (FadeInUp)
 } as const;
 
 /** Nunito (200–800) loaded in the root layout via @expo-google-fonts/nunito. */

@@ -14,3 +14,5 @@ export * from "./BodyMap";
 export * from "./WaveIllustration";
 export * from "./keyboard";
 export * from "./useSheetDrag";
+export * from "./PressScale";
+export * from "./Chevron";

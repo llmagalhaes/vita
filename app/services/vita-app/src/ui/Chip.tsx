@@ -1,15 +1,16 @@
-import { Pressable, type PressableProps } from "react-native";
+import { type PressableProps } from "react-native";
 import { colors, radii, spacing } from "./tokens";
+import { PressScale } from "./PressScale";
 import { Text } from "./Text";
 
-export type ChipProps = Omit<PressableProps, "children"> & {
+export type ChipProps = Omit<PressableProps, "children" | "style"> & {
   label: string;
   selected?: boolean;
 };
 
 export function Chip({ label, selected = false, ...rest }: ChipProps) {
   return (
-    <Pressable
+    <PressScale
       accessibilityRole="button"
       accessibilityState={{ selected }}
       style={{
@@ -24,6 +25,6 @@ export function Chip({ label, selected = false, ...rest }: ChipProps) {
       <Text variant="label" color={selected ? colors.card : colors.ink}>
         {label}
       </Text>
-    </Pressable>
+    </PressScale>
   );
 }

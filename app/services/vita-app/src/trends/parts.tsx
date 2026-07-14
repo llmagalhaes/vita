@@ -1,7 +1,7 @@
 import { type ReactNode, useState } from "react";
 import { Pressable, View } from "react-native";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { Text, colors, fonts } from "../ui";
+import { Chevron, Text, colors, fonts } from "../ui";
 import { ScrubOverlay } from "./scrub";
 
 export const SectionLabel = ({ children }: { children: string }) => (
@@ -82,11 +82,7 @@ export function TrendCard({
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
           <SectionLabel>{title}</SectionLabel>
-          {scrubbable && (
-            <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>
-              {open ? "▾" : "▸"}
-            </Text>
-          )}
+          {scrubbable && <Chevron open={open} />}
         </View>
         {extra ?? (unitNote ? (
           <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
