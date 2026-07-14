@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, Keyframe, SlideInDown } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
 import { Button, Card, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
 import type { Habit } from "../db/habits";
@@ -129,6 +129,18 @@ export function CheckinSheet() {
   void version; // re-render on log changes so a stale queue item isn't shown
 
   const current = queue[index];
+  const remaining = queue.length - index - 1; // cards still behind the top one
+
+  // Prototype deck motion: the next card slides in from the right with a slight
+  // tilt (`vtNextA`); "All caught up" pops (`vtPop`). Fable B5.
+  const nextCardIn = new Keyframe({
+    0: { opacity: 0, transform: [{ translateX: 52 }, { rotate: "2deg" }] },
+    100: { opacity: 1, transform: [{ translateX: 0 }, { rotate: "0deg" }] },
+  }).duration(320);
+  const popIn = new Keyframe({
+    0: { opacity: 0, transform: [{ scale: 0.92 }] },
+    100: { opacity: 1, transform: [{ scale: 1 }] },
+  }).duration(motion.pop.durationMs);
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal: 30 }}>
@@ -143,20 +155,32 @@ export function CheckinSheet() {
           <View style={{ width: 40, height: 4.5, borderRadius: 3, backgroundColor: "rgba(120,100,75,0.35)", alignSelf: "center", marginBottom: 4 }} />
           {current ? (
             <>
-              <CheckinQuestion
-                habit={current}
-                idxLabel={t("habits.idxLabel", { current: index + 1, total: queue.length })}
-                onAnswer={(a) => {
-                  answer(current, a);
-                  if (index + 1 >= queue.length) closeCheckins();
-                  else setIndex((i) => i + 1);
-                }}
-              />
+              <View>
+                {/* peeking deck — tinted strips for up to 2 queued cards behind the top one */}
+                {remaining > 1 && (
+                  <View style={{ position: "absolute", top: -14, left: 24, right: 24, height: 20, borderRadius: 14, backgroundColor: "rgba(255,253,247,0.45)" }} />
+                )}
+                {remaining > 0 && (
+                  <View style={{ position: "absolute", top: -8, left: 12, right: 12, height: 24, borderRadius: 16, backgroundColor: "rgba(255,253,247,0.7)" }} />
+                )}
+                <Animated.View key={current.id} entering={index === 0 ? undefined : nextCardIn}>
+                  <CheckinQuestion
+                    habit={current}
+                    idxLabel={t("habits.idxLabel", { current: index + 1, total: queue.length })}
+                    onAnswer={(a) => {
+                      answer(current, a);
+                      if (index + 1 >= queue.length) closeCheckins();
+                      else setIndex((i) => i + 1);
+                    }}
+                  />
+                </Animated.View>
+              </View>
               <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>
                 {t("habits.swipeDown")}
               </Text>
             </>
           ) : (
+            <Animated.View entering={popIn}>
             <Card style={{ alignItems: "center", gap: spacing.sm, paddingVertical: spacing.xl }}>
               <View style={{ width: 52, height: 52, borderRadius: 26, backgroundColor: "#E7EDE1", alignItems: "center", justifyContent: "center" }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 22 }} color="#5F7A61">
@@ -173,6 +197,7 @@ export function CheckinSheet() {
                 <Button label={t("mealDetail.back")} variant="ghost" onPress={closeCheckins} />
               </View>
             </Card>
+            </Animated.View>
           )}
         </Animated.View>
       </GestureDetector>

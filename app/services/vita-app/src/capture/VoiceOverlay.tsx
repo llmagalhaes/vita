@@ -13,6 +13,34 @@ import Svg, { Path } from "react-native-svg";
 import { Button, Text, colors, fonts, motion, spacing } from "../ui";
 import type { VoiceStatus } from "./useVoiceCapture";
 
+/** One equalizer bar looping scaleY .3→1 (`vtWave`), staggered by index (Fable B7). */
+function WaveBar({ i, cancel }: { i: number; cancel: boolean }) {
+  const s = useSharedValue(0.3);
+  useEffect(() => {
+    const run = () => {
+      s.value = withRepeat(withTiming(1, { duration: 525, easing: Easing.inOut(Easing.ease) }), -1, true);
+    };
+    const id = setTimeout(run, i * 90);
+    return () => clearTimeout(id);
+  }, [i, s]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scaleY: s.value }] }));
+  return (
+    <Animated.View
+      style={[{ width: 4, height: 26, borderRadius: 2, backgroundColor: cancel ? "#F0C6B4" : "rgba(247,242,233,0.9)" }, style]}
+    />
+  );
+}
+
+function Equalizer({ cancel }: { cancel: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 5, alignItems: "center", height: 26 }}>
+      {Array.from({ length: 7 }, (_, i) => (
+        <WaveBar key={i} i={i} cancel={cancel} />
+      ))}
+    </View>
+  );
+}
+
 function MicPulse({ cancel }: { cancel: boolean }) {
   const s = useSharedValue(1);
   useEffect(() => {
@@ -87,6 +115,7 @@ export function VoiceOverlay({
       {holding && (
         <View style={{ alignItems: "center", gap: spacing.lg }}>
           <MicPulse cancel={willCancel} />
+          {status === "listening" && <Equalizer cancel={willCancel} />}
           <Text
             variant="title"
             style={{ fontSize: 19, textAlign: "center", maxWidth: 320 }}
