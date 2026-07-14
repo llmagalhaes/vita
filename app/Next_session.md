@@ -1,5 +1,12 @@
 # App Team — Next Session
 
+## CEO live-test bug batch (2026-07-14, session 5) — see `Progress/APP-CEO-BUGS-Progress.md`
+8 of 11 CEO-reported bugs fixed + pushed (`163e8c4..8f04847`); the swipe-nav worklet crash (top
+priority) is device-verified. **Remaining, need on-device verification (CEO tests on phone — do
+NOT boot the emulator):** #6 Trends scrub (pager gesture ref via Context — risks nav regression),
+#3 sheet drag-to-dismiss fluidity, #4 export PDF (silent `catch{}` hides the failure). Root
+causes + ready-made recipes for all three are in the ledger.
+
 ## Dev paste-token sign-in (2026-07-14) — Expo Go real-backend unblock ✅
 
 Lets the CEO finish magic-link sign-in in Expo Go against the real backend by pasting the token

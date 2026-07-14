@@ -2,6 +2,16 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-14, session 5 — CEO live-test bug-fix pass)
+
+**The CEO test-drove the app on a physical Android phone (Expo Go SDK 56, real backend) and filed 11 bugs.** 8 are fixed + committed + pushed (commits `163e8c4..8f04847`); the **navigation swipe crash (the CEO's #1 priority)** was **device-verified on the emulator**. Full per-bug ledger with root causes + the remaining recipes: **`app/Progress/APP-CEO-BUGS-Progress.md`** (READ THIS FIRST for the bug work).
+
+- **Fixed:** #1/#11 swipe-nav worklet crash + pill/route desync (real cause: `idxRef` read inside the gesture worklet in `TabsPager`) · #9 keyboard-covers-input (app-wide `src/ui/keyboard.tsx`) · #5 habit-add crash (guard `expo-notifications` behind Expo Go detection — no-op stub; real notifs need dev build APP-007) · #2 vacation button (TZ-safe `isValidDate`) · #7 home-breaks-on-water (row `alignItems:flex-start`, water Card sizes to content) · #1-muscles tappable (BodyMap `onMusclePress`) · #8 macros-card tap expands kcal breakdown · #2b vacation square shadow (`overflow:hidden`) · #10 totals — confirmed already OK on device.
+- **Remaining (need on-device verification — CEO tests on their phone; do NOT boot the emulator):** **#6** Trends scrub (needs pager gesture ref via React Context — risks regressing the just-fixed nav, verify carefully) · **#3** sheet drag-to-dismiss fluidity (worklet-ize `shouldDismiss`, decide inline; recipe in ledger) · **#4** export PDF (silent `catch{}` in `ExportSheet` hides the real failure — surface it on a device run first). Recipes + risk for each are in the ledger.
+- **Local dev launcher:** `vita up | up mock | down | login | status | logs` (in `/opt/homebrew/bin`, source `scripts/vita`). Real-backend sign-in in Expo Go: `vita login` reprints the magic-link token as an `exp://` URL (the `vita://` scheme only works in a dev build). A `__DEV__`-only "paste token" field on the auth screen also works.
+
+**The "Vita 100% local" feature backlog itself remains COMPLETE** (below). This session was live-QA fixes on top of it.
+
 ## Where we are (2026-07-14, session 4 closed — "Vita 100% local" backlog COMPLETE)
 
 **Phase 2 — Implementation. The entire "Vita 100% local" backlog is built and green LOCALLY.** Contract at **v0.4.0** (additive over v0.3.0). All feature slices 1–8 shipped in one parallel-agent execution day (commits `0ae4310..5a35dfa`). AWS infra still applied but **parked at $0** (ECS off). **No production deploy** — CEO policy: local-first. Working tree clean, pushed to GitHub.
