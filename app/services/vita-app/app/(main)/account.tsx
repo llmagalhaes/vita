@@ -192,9 +192,10 @@ export default function Account() {
         <Text variant="caption" style={{ fontFamily: fonts.semiBold, textDecorationLine: "underline" }} color={colors.labelMuted}>{t("account.signOut")}</Text>
       </Pressable>
 
-      <VacationSheet visible={vacOpen} onClose={() => setVacOpen(false)} />
-      <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
     </ScrollView>
+    {/* sheets absolute-fill the screen — outside the ScrollView so they don't scroll with content */}
+    <VacationSheet visible={vacOpen} onClose={() => setVacOpen(false)} />
+    <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
     </KeyboardAvoider>
   );
 }

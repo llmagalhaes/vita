@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next";
 import { Text, colors, fonts } from "../ui";
 import { ActivityTab } from "../trends/ActivityTab";
 import { FoodTab } from "../trends/FoodTab";
+import { WorkoutPreviewSheet } from "../workout/PreviewSheet";
 import { vacationRanges } from "../db/vacation";
+import type { LocalEntry } from "../db/entries";
 import { type TrendWindow, WINDOW_DAYS, vacationExcluder, windowRange } from "../trends/aggregate";
 
 const WINDOWS: TrendWindow[] = ["W", "F", "M"];
@@ -48,6 +50,8 @@ export default function Trends() {
   const { t } = useTranslation();
   const [window, setWindow] = useState<TrendWindow>("W");
   const [tab, setTab] = useState<"food" | "activity">("food");
+  // Preview lives here so its sheet can absolute-fill the screen (not the scroll content).
+  const [preview, setPreview] = useState<LocalEntry | null>(null);
 
   // Real persisted vacation ranges (APP-030) drive the exclusion; the aggregation
   // already honors the predicate. Empty until the user sets a trip.
@@ -57,6 +61,7 @@ export default function Trends() {
   const rangeLabel = `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${new Date(end.getTime() - 86400000).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 150, gap: 13 }}>
       {/* header: label + W/F/M window switch */}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -83,8 +88,10 @@ export default function Trends() {
       {tab === "food" ? (
         <FoodTab window={window} isExcluded={isExcluded} />
       ) : (
-        <ActivityTab window={window} isExcluded={isExcluded} />
+        <ActivityTab window={window} isExcluded={isExcluded} onPreview={setPreview} />
       )}
     </ScrollView>
+    <WorkoutPreviewSheet entry={preview} onClose={() => setPreview(null)} />
+    </View>
   );
 }

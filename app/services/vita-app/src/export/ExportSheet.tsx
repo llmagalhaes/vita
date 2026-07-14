@@ -4,9 +4,9 @@
  * sheet — nothing leaves the phone until the user chooses a share target.
  */
 import { useState } from "react";
-import { Alert, Modal, Pressable, View } from "react-native";
+import { Alert, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text, colors, fonts } from "../ui";
+import { Chevron, SheetOverlay, Text, colors, fonts } from "../ui";
 import { getSettings } from "../db/settings";
 import { AUDIENCES, exportPdf, type Section } from "./pdf";
 
@@ -50,10 +50,8 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.35)" }} />
-      <View style={{ backgroundColor: colors.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 22, paddingBottom: 30, gap: 12 }}>
-        <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: "rgba(120,100,75,0.22)", alignSelf: "center" }} />
+    <SheetOverlay visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
+      <View style={{ gap: 12 }}>
         <View style={{ marginBottom: 2 }}>
           <Text variant="title" style={{ fontSize: 19 }}>{t("export.title")}</Text>
           <Text variant="caption" color={colors.muted}>{t("export.subtitle")}</Text>
@@ -68,7 +66,7 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
                   <Text variant="label" style={{ fontSize: 14.5 }}>{t(`export.audience.${a.id}`)}</Text>
                   <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t(`export.audienceSub.${a.id}`)}</Text>
                 </View>
-                <Text color={colors.labelMuted} style={{ fontFamily: fonts.bold }}>{open ? "▾" : "▸"}</Text>
+                <Chevron open={open} size={13} />
               </Pressable>
               {open && (
                 <View style={{ paddingHorizontal: 13, paddingBottom: 13, gap: 10 }}>
@@ -101,6 +99,6 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
         })}
         <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>{t("export.footer")}</Text>
       </View>
-    </Modal>
+    </SheetOverlay>
   );
 }

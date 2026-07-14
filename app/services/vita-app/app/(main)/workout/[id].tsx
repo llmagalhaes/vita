@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import type { Muscle, Units, WorkoutDetail } from "../../../src/api";
 import { entriesInRange, getEntry, type LocalEntry } from "../../../src/db/entries";
+import { WorkoutPreviewSheet } from "../../../src/workout/PreviewSheet";
 import { getSettings } from "../../../src/db/settings";
 import {
   BodyMap,
@@ -134,6 +135,7 @@ export default function WorkoutDetailScreen() {
   const subtitle = `${dayLabel} · ${timeOf(entry.occurredAt)}${detail.durationMin != null ? ` · ${detail.durationMin} ${t("common.min")}` : ""}`;
 
   return (
+    <View style={{ flex: 1 }}>
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 15 }}
@@ -291,82 +293,9 @@ export default function WorkoutDetailScreen() {
         {t("workoutDetail.footer")}
       </Text>
 
-      {/* preview sheet */}
-      <Modal visible={preview != null} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common.cancel")}
-          onPress={() => setPreview(null)}
-          style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.32)", justifyContent: "flex-end" }}
-        >
-          <Pressable
-            style={{
-              backgroundColor: colors.sheet,
-              borderTopLeftRadius: 28,
-              borderTopRightRadius: 28,
-              margin: 6,
-              borderRadius: 28,
-              padding: spacing.xl - 4,
-              gap: spacing.md,
-            }}
-          >
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(120,100,75,0.18)", alignSelf: "center" }} />
-            {preview &&
-              (() => {
-                const pd = preview.detail as WorkoutDetail;
-                const pms = (pd.muscles ?? []) as Muscle[];
-                return (
-                  <>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                      <View style={{ flexShrink: 1 }}>
-                        <Text variant="title" style={{ fontSize: 19 }}>
-                          {pd.title}
-                        </Text>
-                        <Text variant="caption" style={{ fontSize: 12.5, marginTop: 2 }} color={colors.muted}>
-                          {dayMonth(new Date(preview.occurredAt))} · {timeOf(preview.occurredAt)}
-                          {pd.durationMin != null ? ` · ${pd.durationMin} ${t("common.min")}` : ""}
-                        </Text>
-                      </View>
-                      {pd.kcal != null && (
-                        <View style={{ alignItems: "flex-end", gap: 3 }}>
-                          <Text style={{ fontFamily: fonts.light, fontSize: 22 }}>
-                            {Math.round(pd.kcal)}{" "}
-                            <Text variant="caption" color={colors.muted}>
-                              {t("common.kcal")}
-                            </Text>
-                          </Text>
-                          <EstimateTag label={t("common.estimate")} />
-                        </View>
-                      )}
-                    </View>
-                    {pms.length > 0 && (
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                        {pms.map((m) => (
-                          <Chip key={m} label={t(`muscles.${m}`)} />
-                        ))}
-                      </View>
-                    )}
-                    {preview.id !== entry.id && (
-                      <Pressable
-                        accessibilityRole="button"
-                        onPress={() => {
-                          const goId = preview.id;
-                          setPreview(null);
-                          router.push(`/workout/${goId}`);
-                        }}
-                        style={{ alignSelf: "center", paddingVertical: 8 }}
-                      >
-                        <Text variant="label" style={{ textDecorationLine: "underline" }} color={colors.muted}>
-                          {t("workoutDetail.openThis")}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </>
-                );
-              })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </ScrollView>
+    {/* preview sheet — shared, rises + drag-dismisses (Fable A4) */}
+    <WorkoutPreviewSheet entry={preview} onClose={() => setPreview(null)} hideOpenFor={entry.id} />
+    </View>
   );
 }

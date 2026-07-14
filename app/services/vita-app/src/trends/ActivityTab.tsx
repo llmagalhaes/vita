@@ -1,12 +1,10 @@
-import { useMemo, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { useMemo } from "react";
+import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "expo-router";
-import type { Muscle, Units, WorkoutDetail } from "../api/client";
+import type { WorkoutDetail } from "../api/client";
 import { entriesInRange, type LocalEntry } from "../db/entries";
-import { getSettings } from "../db/settings";
 import { useLogVersion } from "../db/notify";
-import { BodyMap, Chip, EstimateTag, Text, colors, entryPalette, fonts, spacing } from "../ui";
+import { BodyMap, Chip, Text, colors, entryPalette, fonts } from "../ui";
 import {
   type DayBucket,
   type ExcludeDay,
@@ -19,18 +17,12 @@ import {
 } from "./aggregate";
 import { GrowBar, SectionLabel, TrendCard } from "./parts";
 
-const KG_PER_LB = 0.453592;
 const dayMonth = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function chunk<T>(arr: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
   return out;
-}
-
-function formatLoad(kg: number, units: Units, t: (k: string) => string): string {
-  return units === "imperial" ? `${Math.round(kg / KG_PER_LB)} ${t("workoutDetail.lb")}` : `${kg} ${t("workoutDetail.kg")}`;
 }
 
 /** Workout heatmap square — darker = longer session that day (vacation days faint). */
@@ -50,12 +42,18 @@ function DaySquare({ b, max }: { b: DayBucket; max: number }) {
   );
 }
 
-export function ActivityTab({ window, isExcluded }: { window: TrendWindow; isExcluded?: ExcludeDay }) {
+export function ActivityTab({
+  window,
+  isExcluded,
+  onPreview,
+}: {
+  window: TrendWindow;
+  isExcluded?: ExcludeDay;
+  /** Open the workout preview sheet — rendered by the parent, outside the ScrollView. */
+  onPreview: (entry: LocalEntry) => void;
+}) {
   const { t } = useTranslation();
   const version = useLogVersion();
-  const units = getSettings()?.units ?? "metric";
-  const [preview, setPreview] = useState<LocalEntry | null>(null);
-  const router = useRouter();
 
   const { days, workouts, muscles } = useMemo(() => {
     const { start, end } = windowRange(window);
@@ -171,7 +169,7 @@ export function ActivityTab({ window, isExcluded }: { window: TrendWindow; isExc
                 <Pressable
                   key={w.id}
                   accessibilityRole="button"
-                  onPress={() => setPreview(w)}
+                  onPress={() => onPreview(w)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: "rgba(120,100,75,0.07)" }}
                 >
                   <View style={{ backgroundColor: entryPalette.workout.badgeBg, borderRadius: 9, paddingVertical: 4, paddingHorizontal: 8 }}>
@@ -195,86 +193,6 @@ export function ActivityTab({ window, isExcluded }: { window: TrendWindow; isExc
         )}
       </View>
 
-      {/* Preview sheet (mirrors workout detail's preview Modal) */}
-      <Modal visible={preview != null} transparent animationType="fade" onRequestClose={() => setPreview(null)}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common.cancel")}
-          onPress={() => setPreview(null)}
-          style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.32)", justifyContent: "flex-end" }}
-        >
-          <Pressable style={{ backgroundColor: colors.sheet, margin: 6, borderRadius: 28, padding: spacing.xl - 4, gap: spacing.md }}>
-            <View style={{ width: 40, height: 4, borderRadius: 2, backgroundColor: "rgba(120,100,75,0.18)", alignSelf: "center" }} />
-            {preview &&
-              (() => {
-                const pd = preview.detail as WorkoutDetail;
-                const pms = (pd.muscles ?? []) as Muscle[];
-                const exercises = pd.exercises ?? [];
-                return (
-                  <>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                      <View style={{ flexShrink: 1 }}>
-                        <Text variant="title" style={{ fontSize: 19 }}>
-                          {pd.title}
-                        </Text>
-                        <Text variant="caption" style={{ fontSize: 12.5, marginTop: 2 }} color={colors.muted}>
-                          {dayMonth(new Date(preview.occurredAt))} · {timeOf(preview.occurredAt)}
-                          {pd.durationMin != null ? ` · ${pd.durationMin} ${t("common.min")}` : ""}
-                        </Text>
-                      </View>
-                      {pd.kcal != null && (
-                        <View style={{ alignItems: "flex-end", gap: 3 }}>
-                          <Text style={{ fontFamily: fonts.light, fontSize: 22 }}>
-                            {Math.round(pd.kcal)}{" "}
-                            <Text variant="caption" color={colors.muted}>
-                              {t("common.kcal")}
-                            </Text>
-                          </Text>
-                          <EstimateTag label={t("common.estimate")} />
-                        </View>
-                      )}
-                    </View>
-                    {pms.length > 0 && (
-                      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                        {pms.map((m) => (
-                          <Chip key={m} label={t(`muscles.${m}`)} />
-                        ))}
-                      </View>
-                    )}
-                    {exercises.length > 0 && (
-                      <View style={{ backgroundColor: colors.card, borderRadius: 18, paddingHorizontal: 14 }}>
-                        {exercises.map((ex, i) => (
-                          <View key={`${ex.name}-${i}`} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 9, borderBottomWidth: i === exercises.length - 1 ? 0 : 1, borderBottomColor: "rgba(120,100,75,0.07)" }}>
-                            <Text variant="label" style={{ flex: 1, fontSize: 13.5 }} color={colors.ink}>
-                              {ex.name}
-                            </Text>
-                            <Text variant="caption" style={{ fontSize: 12 }} color={colors.muted}>
-                              {ex.sets != null && ex.reps != null ? `${ex.sets} × ${ex.reps}` : ""}
-                              {ex.loadKg != null ? `  ·  ${formatLoad(ex.loadKg, units, t)}` : ""}
-                            </Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
-                    <Pressable
-                      accessibilityRole="button"
-                      onPress={() => {
-                        const goId = preview.id;
-                        setPreview(null);
-                        router.push(`/workout/${goId}`);
-                      }}
-                      style={{ alignSelf: "center", paddingVertical: 6 }}
-                    >
-                      <Text variant="label" style={{ textDecorationLine: "underline" }} color={colors.muted}>
-                        {t("workoutDetail.openThis")}
-                      </Text>
-                    </Pressable>
-                  </>
-                );
-              })()}
-          </Pressable>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
