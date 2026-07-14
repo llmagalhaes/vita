@@ -5,6 +5,8 @@ export * from "./Button";
 export * from "./Chip";
 export * from "./EstimateTag";
 export * from "./Bar";
+export * from "./Slider";
+export * from "./EditableText";
 export * from "./Donut";
 export * from "./BodyMap";
 export * from "./WaveIllustration";

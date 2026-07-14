@@ -1,6 +1,34 @@
 # App Team — Next Session
 
-## Current state (Phase 2 — session 9 done 2026-07-14: slice 5 F3 Photo capture ✅ APP-020)
+## Current state (Phase 2 — session 10 done 2026-07-14: slice 3 F4/F5 Plan + program ✅ APP-021/022/023)
+
+- **Slice 3 complete** (`docs/backlog-local-100.md` F4/F5, **D5**). Plan/program are persisted,
+  editable, and read from the backend surface. Details in `Progress/APP-021/022/023-Progress.md`.
+- **APP-021**: onboarding steps 3–4 hit the **REAL parse endpoints** and POST the confirmed draft
+  (`savePlan`/`saveProgram`). Home reads the **persisted** plan/program (new `SetupRow`s → `/plan`, `/program`),
+  hydrating the kv cache from `GET /plan|/program` on mount (404/offline keeps cache). Client-side mock
+  read-back gone (`summarize()`, `settings.plan/program` removed). New: `src/db/plan.ts` (offline-first
+  cache + save/update/sync), `src/plan/compute.ts` (pure recompute).
+- **APP-022**: `app/(main)/plan.tsx` — eating plan with **Edit mode, any field editable** (inline text +
+  portion slider **+ numeric**, dual input), **live local recompute**, Save = whole-plan **PUT /v1/plan**
+  (full-doc replace, no patch). New primitives: `src/ui/Slider.tsx` (gesture-handler, **no native dep**),
+  `src/ui/EditableText.tsx`, `src/plan/editor.tsx` (`EditHeader`/`BackButton`).
+- **APP-023**: `app/(main)/program.tsx` — same Edit mode, **reuses** the APP-022 components; numeric
+  sets/reps/load; Save = **PUT /v1/program**.
+- **Step 0 regen**: `types.gen.ts` regenerated from the committed contract — additive `checkin` entry type +
+  `CheckinDetail` and `/me/vacations` + `VacationRange` (BE-024/BE-025) came in. Forced one fix: Home
+  **excludes `checkin`** from its timeline (D1; checkins belong to Habits, slice 4). Unused by app code otherwise.
+- Gates: `tsc` clean · **Jest 87/87 (20 suites)**, +7 (compute 4, plan-screen 2, program-screen 1; onboarding
+  updated) · `api:check` **exit 0 clean after regen** · `expo export` iOS OK · `expo install --check` up to date,
+  SDK 56, no new deps.
+- ponytail: plan/program POST/PUT are fire-and-forget (mirror `patchMe`); no outbox for plans yet.
+  minItems:1 on meals/items (and days/exercises) can 400 a real PUT if a user adds-then-saves an empty
+  meal/day — happy path fine, guard later. Micro chips display-only.
+
+---
+# App Team — Next Session (prior sessions)
+
+## Prior state (Phase 2 — session 9 done 2026-07-14: slice 5 F3 Photo capture ✅ APP-020)
 
 - **APP-020 built** (mock mode; BE-018 not live yet). Pill camera → `expo-image-picker` (library) → **downscale to 1568px / JPEG q0.8** (D3) → **multipart `POST /parse/photo`** → draft with **quantity steppers** → existing confirm/outbox path adds a meal (plate) or workout (whiteboard). Calm **decline/error** states + **"type instead"** fallback everywhere (permission denied, pick error, parse 422/413). Reuses the CaptureContext state machine — no parallel stack. See `Progress/APP-020-Progress.md`.
 - New files: `src/capture/photo.ts` (pick+downscale, pure `downscaleSize`/`downscale`, calm outcomes), `src/capture/quantity.ts` (pure `stepItem`/`mealTotals`, exactly-reversible scaling). Mock: `mockPhotoParse` (canned plate; gym-caption → whiteboard). Client: `Api.parsePhoto` + FormData support in `request()` (no JSON content-type on multipart).

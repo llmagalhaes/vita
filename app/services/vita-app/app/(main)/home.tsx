@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -8,6 +8,8 @@ import { addLocalEntry, entriesForDay, type LocalEntry } from "../../src/db/entr
 import { logChanged, useLogVersion } from "../../src/db/notify";
 import { drainOutbox } from "../../src/db/outbox";
 import { getSettings } from "../../src/db/settings";
+import { getCachedPlan, getCachedProgram, syncPlan, syncProgram } from "../../src/db/plan";
+import { planDailyTotals } from "../../src/plan/compute";
 import { formatVolume } from "../../src/lib/units";
 import {
   Bar,
@@ -34,6 +36,31 @@ const SectionLabel = ({ children }: { children: string }) => (
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
+function SetupRow({ glyph, title, sub, onPress }: { glyph: string; title: string; sub: string; onPress: () => void }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress}>
+      <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 }}>
+        <View style={{ width: 36, height: 36, borderRadius: 13, backgroundColor: "#E7EDE1", alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ fontFamily: fonts.extraBold, fontSize: 14 }} color="#5F7A61">
+            {glyph}
+          </Text>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="label" style={{ fontSize: 14.5 }}>
+            {title}
+          </Text>
+          <Text variant="caption" numberOfLines={1} style={{ fontSize: 12, marginTop: 1 }} color={colors.muted}>
+            {sub}
+          </Text>
+        </View>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>
+          ›
+        </Text>
+      </Card>
+    </Pressable>
+  );
+}
+
 function inputMethodLabel(e: LocalEntry, t: (k: string) => string): string {
   switch (e.inputMethod) {
     case "voice":
@@ -47,7 +74,12 @@ function inputMethodLabel(e: LocalEntry, t: (k: string) => string): string {
   }
 }
 
-function TimelineCard({ entry, index, units }: { entry: LocalEntry; index: number; units: Units }) {
+// Home shows the three loggable kinds; check-ins (BE-024) belong to Habits (D1).
+type TimelineKind = "meal" | "water" | "workout";
+const isTimelineEntry = (e: LocalEntry): e is LocalEntry & { type: TimelineKind } =>
+  e.type !== "checkin";
+
+function TimelineCard({ entry, index, units }: { entry: LocalEntry & { type: TimelineKind }; index: number; units: Units }) {
   const { t } = useTranslation();
   const router = useRouter();
   const kind = entry.type;
@@ -122,7 +154,16 @@ export default function Home() {
 
   const settings = useMemo(() => getSettings(), []);
   const units = settings?.units ?? "metric";
-  const entries = useMemo(() => entriesForDay(new Date()), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const entries = useMemo(() => entriesForDay(new Date()).filter(isTimelineEntry), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Persisted plan/program: cache is the display source, hydrated from the server
+  // once on mount (kv write bumps the log version so these re-read).
+  const plan = useMemo(() => getCachedPlan(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const program = useMemo(() => getCachedProgram(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    void syncPlan().then(logChanged);
+    void syncProgram().then(logChanged);
+  }, []);
 
   const meals = entries.filter((e) => e.type === "meal");
   const waters = entries.filter((e) => e.type === "water");
@@ -374,25 +415,22 @@ export default function Home() {
         </Card>
       </Pressable>
 
-      {/* eating plan row */}
-      {settings?.plan && (
-        <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 }}>
-          <View
-            style={{ width: 36, height: 36, borderRadius: 13, backgroundColor: "#E7EDE1", alignItems: "center", justifyContent: "center" }}
-          >
-            <Text style={{ fontFamily: fonts.extraBold, fontSize: 14 }} color="#5F7A61">
-              ❧
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text variant="label" style={{ fontSize: 14.5 }}>
-              {t("home.eatingPlan")}
-            </Text>
-            <Text variant="caption" numberOfLines={1} style={{ fontSize: 12, marginTop: 1 }} color={colors.muted}>
-              {settings.plan}
-            </Text>
-          </View>
-        </Card>
+      {/* eating plan + training program rows (persisted; tap to open the screen) */}
+      {plan && (
+        <SetupRow
+          glyph="❧"
+          title={t("home.eatingPlan")}
+          sub={`${Math.round(planDailyTotals(plan).kcal)} ${t("home.kcalPerDay")}`}
+          onPress={() => router.push("/plan")}
+        />
+      )}
+      {program && (
+        <SetupRow
+          glyph="⟐"
+          title={t("home.trainingProgram")}
+          sub={program.splitDescription ?? `${program.days.length} ${t("home.days")}`}
+          onPress={() => router.push("/program")}
+        />
       )}
 
       {/* timeline */}

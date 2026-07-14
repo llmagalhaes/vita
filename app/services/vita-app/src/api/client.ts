@@ -15,6 +15,12 @@ export type Micro = Schemas["Micro"];
 export type WaterDetail = Schemas["WaterDetail"];
 export type WorkoutDetail = Schemas["WorkoutDetail"];
 export type MacroTotals = Schemas["MacroTotals"];
+export type EatingPlanDraft = Schemas["EatingPlanDraft"];
+export type PlanMeal = Schemas["PlanMeal"];
+export type PlanItem = Schemas["PlanItem"];
+export type TrainingProgramDraft = Schemas["TrainingProgramDraft"];
+export type ProgramDay = Schemas["ProgramDay"];
+export type Exercise = Schemas["Exercise"];
 export type ParseResult = Schemas["ParseResult"];
 export type Problem = Schemas["Problem"];
 export type User = Schemas["User"];
@@ -46,6 +52,17 @@ export interface Api {
     caption?: string;
     capturedAt?: string;
   }): Promise<ParseResult>;
+  /** Onboarding step 3: text (or PDF fileRef) → draft eating plan for confirmation. */
+  parseEatingPlan(body: { text?: string; fileRef?: string }): Promise<EatingPlanDraft>;
+  /** Onboarding step 4: text (or PDF fileRef) → draft training program for confirmation. */
+  parseTrainingProgram(body: { text?: string; fileRef?: string }): Promise<TrainingProgramDraft>;
+  // Persisted eating plan (versioned server-side; PUT is full-doc replace, no patch).
+  getPlan(): Promise<EatingPlanDraft>; // 404 if never set
+  createPlan(doc: EatingPlanDraft): Promise<EatingPlanDraft>; // POST — new version
+  updatePlan(doc: EatingPlanDraft): Promise<EatingPlanDraft>; // PUT — replace current
+  getProgram(): Promise<TrainingProgramDraft>; // 404 if never set
+  createProgram(doc: TrainingProgramDraft): Promise<TrainingProgramDraft>;
+  updateProgram(doc: TrainingProgramDraft): Promise<TrainingProgramDraft>;
   createEntry(idempotencyKey: string, entry: NewEntry): Promise<LogEntry>;
   listEntries(params: {
     date?: string;
@@ -129,6 +146,14 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
       if (capturedAt) form.append("capturedAt", capturedAt);
       return request("POST", "/parse/photo", { body: form });
     },
+    parseEatingPlan: (body) => request("POST", "/parse/eating-plan", { body }),
+    parseTrainingProgram: (body) => request("POST", "/parse/training-program", { body }),
+    getPlan: () => request("GET", "/plan"),
+    createPlan: (doc) => request("POST", "/plan", { body: doc }),
+    updatePlan: (doc) => request("PUT", "/plan", { body: doc }),
+    getProgram: () => request("GET", "/program"),
+    createProgram: (doc) => request("POST", "/program", { body: doc }),
+    updateProgram: (doc) => request("PUT", "/program", { body: doc }),
     createEntry: (idempotencyKey, entry) =>
       request("POST", "/entries", {
         body: entry,

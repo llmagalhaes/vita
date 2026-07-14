@@ -6,8 +6,7 @@ export type Settings = {
   name: string;
   units: Units;
   keepTrack: { meals: boolean; water: boolean; workouts: boolean; habits: boolean; cycle: boolean };
-  plan: string | null; // the user's own words, confirmed
-  program: string | null;
+  // Plan/program now live in src/db/plan.ts (persisted server-side, cached in kv).
   connected: { appleHealth: boolean; healthConnect: boolean };
 };
 

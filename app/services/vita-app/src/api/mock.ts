@@ -8,7 +8,17 @@
  * Every numeric value is an estimate and flagged isEstimate: true.
  */
 import { uuid } from "../lib/uuid";
-import { ApiError, type Api, type LogEntry, type NewEntry, type ParseResult, type TokenPair, type User } from "./client";
+import {
+  ApiError,
+  type Api,
+  type EatingPlanDraft,
+  type LogEntry,
+  type NewEntry,
+  type ParseResult,
+  type TokenPair,
+  type TrainingProgramDraft,
+  type User,
+} from "./client";
 
 const LATENCY_MS = 700; // long enough to see "Making sense of it…"
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -233,6 +243,85 @@ const mockPhotoTotals = (items: { kcal: number; proteinG: number; carbsG: number
     { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 },
   );
 
+/**
+ * Canned plan/program parse (BE-019/020 not live yet). Real backend returns the
+ * same draft shape. Items carry `nutritionPerUnit` so the Eating Plan screen's
+ * portion slider recomputes totals as quantity × per-unit locally.
+ */
+export function mockParsePlan(text?: string): EatingPlanDraft {
+  return {
+    summary:
+      (text?.trim().slice(0, 200) || "Low-carb weekdays, flexible weekends") +
+      " — read back as a simple daily plan.",
+    micros: [
+      { name: "Fiber", amount: 28, unit: "g", percentDaily: 100 },
+      { name: "Potassium", amount: 3200, unit: "mg", percentDaily: 68 },
+      { name: "Iron", amount: 14, unit: "mg", percentDaily: 78 },
+    ],
+    meals: [
+      {
+        name: "Breakfast",
+        time: "08:00",
+        items: [
+          { name: "Greek yogurt", quantity: 200, unit: "g", nutritionPerUnit: { kcal: 0.59, proteinG: 0.1, carbsG: 0.036, fatG: 0.005 } },
+          { name: "Berries", quantity: 80, unit: "g", nutritionPerUnit: { kcal: 0.5, proteinG: 0.007, carbsG: 0.12, fatG: 0.003 } },
+        ],
+      },
+      {
+        name: "Lunch",
+        time: "13:00",
+        items: [
+          { name: "Chicken breast", quantity: 150, unit: "g", nutritionPerUnit: { kcal: 1.65, proteinG: 0.31, carbsG: 0, fatG: 0.036 } },
+          { name: "Mixed salad", quantity: 1, unit: "bowl", nutritionPerUnit: { kcal: 110, proteinG: 3, carbsG: 9, fatG: 6 } },
+        ],
+      },
+      {
+        name: "Dinner",
+        time: "19:30",
+        items: [
+          { name: "Salmon", quantity: 140, unit: "g", nutritionPerUnit: { kcal: 2.08, proteinG: 0.2, carbsG: 0, fatG: 0.13 } },
+          { name: "Broccoli", quantity: 150, unit: "g", nutritionPerUnit: { kcal: 0.34, proteinG: 0.028, carbsG: 0.07, fatG: 0.004 } },
+        ],
+      },
+    ],
+  };
+}
+
+export function mockParseProgram(text?: string): TrainingProgramDraft {
+  return {
+    summary:
+      (text?.trim().slice(0, 200) || "3 strength days, Mon / Wed / Fri") +
+      " — read back as a weekly split.",
+    splitDescription: "Push / Pull / Legs, 3 days",
+    days: [
+      {
+        name: "Day 1 — Push",
+        exercises: [
+          { name: "Bench press", sets: 4, reps: 8, loadKg: 60 },
+          { name: "Overhead press", sets: 3, reps: 10, loadKg: 35 },
+          { name: "Triceps pushdown", sets: 3, reps: 12 },
+        ],
+      },
+      {
+        name: "Day 2 — Pull",
+        exercises: [
+          { name: "Deadlift", sets: 4, reps: 5, loadKg: 100 },
+          { name: "Pull-ups", sets: 3, reps: 8 },
+          { name: "Barbell row", sets: 3, reps: 10, loadKg: 50 },
+        ],
+      },
+      {
+        name: "Day 3 — Legs",
+        exercises: [
+          { name: "Back squat", sets: 4, reps: 6, loadKg: 80 },
+          { name: "Romanian deadlift", sets: 3, reps: 10, loadKg: 60 },
+          { name: "Calf raise", sets: 4, reps: 15 },
+        ],
+      },
+    ],
+  };
+}
+
 export function createMockApi(): Api {
   let me: User = {
     id: uuid(),
@@ -242,6 +331,11 @@ export function createMockApi(): Api {
     createdAt: new Date().toISOString(),
   };
   const byIdempotencyKey = new Map<string, LogEntry>();
+  // Persisted plan/program (in-memory for the session; POST/PUT store, GET reads).
+  let storedPlan: EatingPlanDraft | null = null;
+  let storedProgram: TrainingProgramDraft | null = null;
+  const notFound = () =>
+    new ApiError(404, { type: "about:blank", title: "Not found", status: 404 });
 
   // Deterministic fake session. Tokens "expired"/"invalid" model the 401 paths so
   // the sign-in error copy and refresh-family-revoked branch are demoable offline.
@@ -281,6 +375,46 @@ export function createMockApi(): Api {
     async parsePhoto({ caption, capturedAt }) {
       await delay(LATENCY_MS);
       return mockPhotoParse(caption, capturedAt);
+    },
+    async parseEatingPlan({ text }) {
+      await delay(LATENCY_MS);
+      return mockParsePlan(text);
+    },
+    async parseTrainingProgram({ text }) {
+      await delay(LATENCY_MS);
+      return mockParseProgram(text);
+    },
+    async getPlan() {
+      await delay(120);
+      if (!storedPlan) throw notFound();
+      return storedPlan;
+    },
+    async createPlan(doc) {
+      await delay(150);
+      storedPlan = doc;
+      return doc;
+    },
+    async updatePlan(doc) {
+      await delay(150);
+      if (!storedPlan) throw notFound();
+      storedPlan = doc;
+      return doc;
+    },
+    async getProgram() {
+      await delay(120);
+      if (!storedProgram) throw notFound();
+      return storedProgram;
+    },
+    async createProgram(doc) {
+      await delay(150);
+      storedProgram = doc;
+      return doc;
+    },
+    async updateProgram(doc) {
+      await delay(150);
+      if (!storedProgram) throw notFound();
+      storedProgram = doc;
+      return doc;
     },
     async createEntry(idempotencyKey, entry) {
       await delay(150);

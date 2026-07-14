@@ -3,6 +3,7 @@ import "../i18n";
 import Onboarding from "../../app/onboarding";
 import { resetDbForTests } from "../db/db";
 import { getSettings, isOnboarded } from "../db/settings";
+import { getCachedPlan, getCachedProgram } from "../db/plan";
 
 const mockReplace = jest.fn();
 jest.mock("expo-router", () => ({
@@ -37,7 +38,8 @@ test("full onboarding: name → keep-track → plan → program → connect → 
   await fireEvent.press(screen.getByText("Describe it"));
   await fireEvent.changeText(screen.getByLabelText("Do you follow an eating plan?"), "Low carb on weekdays. Flexible weekends");
   await fireEvent.press(screen.getByText("Read back"));
-  expect(screen.getByText("Plan summary")).toBeOnTheScreen();
+  // Read back now hits the REAL parse endpoint (mocked) → wait for the draft.
+  expect(await screen.findByText("Plan summary")).toBeOnTheScreen();
   expect(screen.getByText("estimate")).toBeOnTheScreen();
   expect(screen.getByText("“Low carb on weekdays. Flexible weekends”")).toBeOnTheScreen();
   await fireEvent.press(screen.getByText("Looks right"));
@@ -68,9 +70,11 @@ test("full onboarding: name → keep-track → plan → program → connect → 
   expect(s.name).toBe("Ana");
   expect(s.units).toBe("imperial");
   expect(s.keepTrack).toMatchObject({ meals: true, water: true, workouts: true, habits: false, cycle: false });
-  expect(s.plan).toBe("Low carb on weekdays. Flexible weekends");
-  expect(s.program).toBeNull();
   expect(s.connected.appleHealth).toBe(true);
+  // Confirmed plan is POSTed and cached (kv is the offline display source);
+  // program was declined → nothing persisted.
+  expect(getCachedPlan()!.meals.length).toBeGreaterThan(0);
+  expect(getCachedProgram()).toBeNull();
   expect(mockReplace).toHaveBeenCalledWith("/home");
 });
 
@@ -84,6 +88,7 @@ test("skippable paths: plan and program left unanswered land cleanly on Home", a
   await next(); // → all set
   await fireEvent.press(screen.getByText("Start"));
   expect(isOnboarded()).toBe(true);
-  expect(getSettings()!.plan).toBeNull();
+  expect(getCachedPlan()).toBeNull();
+  expect(getCachedProgram()).toBeNull();
   expect(mockReplace).toHaveBeenCalledWith("/home");
 });

@@ -1,26 +1,22 @@
 import { useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
+import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button, Card, EstimateTag, Text, colors, fonts, radii, spacing } from "../ui";
 
-/** Answer state for the eating-plan and training-program steps (same shape). */
-export type PlanAnswer =
+/**
+ * Answer state for the eating-plan and training-program steps (same shape,
+ * generic over the draft the parse endpoint returns). No more mock read-back:
+ * `answered` carries the real parsed draft, POSTed on onboarding finish.
+ */
+export type PlanAnswer<D = unknown> =
   | { kind: "unanswered" }
   | { kind: "describing"; via: "describe" | "import"; text: string }
-  | { kind: "answered"; phrase: string; confirmed: boolean }
+  | { kind: "parsing" }
+  | { kind: "error" }
+  | { kind: "answered"; phrase: string; draft: D; confirmed: boolean }
   | { kind: "none" };
 
-export const unanswered: PlanAnswer = { kind: "unanswered" };
-
-/** Mock read-back summary: title + up to 3 bullets from the user's own words. */
-function summarize(phrase: string): { title: string; bullets: string[] } {
-  const parts = phrase
-    .split(/[.;·\n]+/)
-    .map((p) => p.trim())
-    .filter(Boolean);
-  const title = (parts[0] ?? phrase).slice(0, 40);
-  return { title: title.charAt(0).toUpperCase() + title.slice(1), bullets: parts.slice(0, 3) };
-}
+export const unanswered = { kind: "unanswered" } as const;
 
 function OptionCard({
   mono,
@@ -75,18 +71,35 @@ function OptionCard({
   );
 }
 
-export function PlanStep({
+export function PlanStep<D extends { summary: string }>({
   ns,
   value,
   onChange,
+  parse,
+  bullets,
 }: {
   /** i18n namespace: "onboarding.plan" or "onboarding.program" */
   ns: string;
-  value: PlanAnswer;
-  onChange: (next: PlanAnswer) => void;
+  value: PlanAnswer<D>;
+  onChange: (next: PlanAnswer<D>) => void;
+  /** REAL parse endpoint (api.parseEatingPlan / api.parseTrainingProgram). */
+  parse: (text: string) => Promise<D>;
+  /** Read-back bullets from the parsed draft (meal names / day names). */
+  bullets: (draft: D) => string[];
 }) {
   const { t } = useTranslation();
   const [draft, setDraft] = useState("");
+
+  async function readBack(phrase: string) {
+    onChange({ kind: "parsing" });
+    setDraft("");
+    try {
+      const parsed = await parse(phrase);
+      onChange({ kind: "answered", phrase, draft: parsed, confirmed: false });
+    } catch {
+      onChange({ kind: "error" });
+    }
+  }
 
   return (
     <View style={{ gap: spacing.lg }}>
@@ -154,11 +167,43 @@ export function PlanStep({
           <Button
             label={t("onboarding.planShared.readBack")}
             disabled={draft.trim() === ""}
-            onPress={() => {
-              onChange({ kind: "answered", phrase: draft.trim(), confirmed: false });
-              setDraft("");
-            }}
+            onPress={() => readBack(draft.trim())}
           />
+        </View>
+      )}
+
+      {value.kind === "parsing" && (
+        <Card style={{ flexDirection: "row", alignItems: "center", gap: spacing.md }}>
+          <ActivityIndicator color={colors.accent} />
+          <Text variant="label" color={colors.muted}>
+            {t("onboarding.planShared.reading")}
+          </Text>
+        </Card>
+      )}
+
+      {value.kind === "error" && (
+        <View style={{ gap: spacing.md }}>
+          <Card style={{ gap: spacing.sm }}>
+            <Text variant="label">{t("onboarding.planShared.readError")}</Text>
+            <Text variant="caption" color={colors.muted}>
+              {t("onboarding.planShared.readErrorSub")}
+            </Text>
+          </Card>
+          <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={t("common.tryAgain")}
+                variant="ghost"
+                onPress={() => onChange({ kind: "describing", via: "describe", text: "" })}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={t(`${ns}.none`)}
+                onPress={() => onChange({ kind: "none" })}
+              />
+            </View>
+          </View>
         </View>
       )}
 
@@ -189,9 +234,9 @@ export function PlanStep({
               </Text>
               <EstimateTag label={t("common.estimate")} />
             </View>
-            <Text variant="title">{summarize(value.phrase).title}</Text>
+            <Text variant="title">{value.draft.summary}</Text>
             <View style={{ gap: spacing.sm }}>
-              {summarize(value.phrase).bullets.map((b) => (
+              {bullets(value.draft).map((b) => (
                 <View key={b} style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.macro.protein }} />
                   <Text variant="label" color="#6E6355" style={{ flex: 1 }}>
@@ -219,10 +264,7 @@ export function PlanStep({
                   <Button
                     label={t("common.adjust")}
                     variant="ghost"
-                    onPress={() => {
-                      setDraft(value.phrase);
-                      onChange({ kind: "describing", via: "describe", text: value.phrase });
-                    }}
+                    onPress={() => onChange({ kind: "describing", via: "describe", text: value.phrase })}
                   />
                 </View>
                 <View style={{ flex: 1.2 }}>

@@ -4,7 +4,8 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import Svg, { Circle, Ellipse } from "react-native-svg";
-import { api } from "../src/api";
+import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api";
+import { savePlan, saveProgram } from "../src/db/plan";
 import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
 import { PlanStep, unanswered, type PlanAnswer } from "../src/onboarding/PlanStep";
 import { Button, Card, Chip, EstimateTag, Text, colors, fonts, radii, spacing } from "../src/ui";
@@ -63,27 +64,26 @@ export default function Onboarding() {
     habits: false,
     cycle: false,
   });
-  const [plan, setPlan] = useState<PlanAnswer>(unanswered);
-  const [program, setProgram] = useState<PlanAnswer>(unanswered);
+  const [plan, setPlan] = useState<PlanAnswer<EatingPlanDraft>>(unanswered);
+  const [program, setProgram] = useState<PlanAnswer<TrainingProgramDraft>>(unanswered);
   const [connected, setConnected] = useState<Settings["connected"]>({
     appleHealth: false,
     healthConnect: false,
   });
 
-  const phraseOf = (a: PlanAnswer) => (a.kind === "answered" && a.confirmed ? a.phrase : null);
+  const confirmedDraft = <D,>(a: PlanAnswer<D>): D | null =>
+    a.kind === "answered" && a.confirmed ? a.draft : null;
 
   function finish() {
-    saveSettings({
-      name: name.trim(),
-      units,
-      keepTrack,
-      plan: phraseOf(plan),
-      program: phraseOf(program),
-      connected,
-    });
+    saveSettings({ name: name.trim(), units, keepTrack, connected });
     setOnboarded();
     // Offline-tolerant: profile sync is fire-and-forget; kv is the local truth.
     void api.patchMe({ name: name.trim(), units }).catch(() => {});
+    // Persist the confirmed plan/program (POST → new version; cache is local truth).
+    const planDoc = confirmedDraft(plan);
+    if (planDoc) void savePlan(planDoc);
+    const programDoc = confirmedDraft(program);
+    if (programDoc) void saveProgram(programDoc);
     router.replace("/home");
   }
 
@@ -102,8 +102,8 @@ export default function Onboarding() {
         .map((k) => t(`onboarding.keepTrack.${k}`))
         .join(" · "),
     ],
-    [t("onboarding.allSet.recapPlan"), phraseOf(plan) ? t("onboarding.allSet.planYes") : t("onboarding.allSet.planNo")],
-    [t("onboarding.allSet.recapProgram"), phraseOf(program) ? t("onboarding.allSet.planYes") : t("onboarding.allSet.planNo")],
+    [t("onboarding.allSet.recapPlan"), confirmedDraft(plan) ? t("onboarding.allSet.planYes") : t("onboarding.allSet.planNo")],
+    [t("onboarding.allSet.recapProgram"), confirmedDraft(program) ? t("onboarding.allSet.planYes") : t("onboarding.allSet.planNo")],
     [t("onboarding.allSet.recapConnected"), connectedList.length > 0 ? connectedList.join(" · ") : t("onboarding.allSet.connectedNone")],
   ];
 
@@ -239,8 +239,24 @@ export default function Onboarding() {
             </View>
           )}
 
-          {step === 2 && <PlanStep ns="onboarding.plan" value={plan} onChange={setPlan} />}
-          {step === 3 && <PlanStep ns="onboarding.program" value={program} onChange={setProgram} />}
+          {step === 2 && (
+            <PlanStep
+              ns="onboarding.plan"
+              value={plan}
+              onChange={setPlan}
+              parse={(text) => api.parseEatingPlan({ text })}
+              bullets={(d) => d.meals.map((m) => (m.time ? `${m.name} · ${m.time}` : m.name))}
+            />
+          )}
+          {step === 3 && (
+            <PlanStep
+              ns="onboarding.program"
+              value={program}
+              onChange={setProgram}
+              parse={(text) => api.parseTrainingProgram({ text })}
+              bullets={(d) => d.days.map((day) => day.name)}
+            />
+          )}
 
           {step === 4 && (
             <View style={{ gap: spacing.lg }}>

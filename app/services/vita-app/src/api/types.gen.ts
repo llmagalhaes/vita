@@ -346,6 +346,77 @@ export interface paths {
         };
         trace?: never;
     };
+    "/me/vacations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the stored vacation ranges
+         * @description The ranges as last written; an empty array if the user has never set any.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Vacation ranges. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VacationRange"][];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        /**
+         * Replace the stored vacation ranges
+         * @description Replace-on-write: the whole array is re-encrypted and replaces the previous value. No merge, no server-side interpretation. Echoes what was stored.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["VacationRange"][];
+                };
+            };
+            responses: {
+                /** @description The stored vacation ranges. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["VacationRange"][];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/account": {
         parameters: {
             query?: never;
@@ -471,7 +542,7 @@ export interface paths {
             parameters: {
                 query?: never;
                 header: {
-                    /** @description Client-generated UUID, unique per logical create. Reused on retries. */
+                    /** @description Client-generated key, unique per logical create, reused on retries. Usually a UUID; for naturally-idempotent domains it is deterministic — check-ins use `habitId:date` so a habit can be checked in once per day (BE-024). */
                     "Idempotency-Key": components["parameters"]["IdempotencyKey"];
                 };
                 path?: never;
@@ -1305,6 +1376,13 @@ export interface components {
              */
             deletionEffectiveAt?: string;
         };
+        /** @description One vacation date range (BE-025). The array of these is stored server-side as a single encrypted opaque blob (per-user DEK); the server never reads or interprets it — the device drives all vacation behaviour (D1). */
+        VacationRange: {
+            /** Format: date */
+            start: string;
+            /** Format: date */
+            end: string;
+        };
         /**
          * @description checkin and import appear from W5/W6 onward; the app only sends the first four in v0.
          * @enum {string}
@@ -1317,8 +1395,11 @@ export interface components {
         EntrySource: "user" | "apple_health" | "health_connect";
         /** @description Create payload for /entries — also exactly the draft shape returned by the parse endpoints, so a confirmed draft is POSTed as-is. */
         NewEntry: {
-            /** @enum {string} */
-            type: "meal" | "water" | "workout";
+            /**
+             * @description `checkin` (BE-024) rides this same write path as a habit check-in result; Home reads exclude it, Habits reads select it (see GET /entries `type`).
+             * @enum {string}
+             */
+            type: "meal" | "water" | "workout" | "checkin";
             /**
              * Format: date-time
              * @description When it happened (user-adjustable), with offset.
@@ -1350,7 +1431,7 @@ export interface components {
             updatedAt: string;
         };
         /** @description Typed payload; discriminated by the sibling `type` field on the entry. */
-        EntryDetail: components["schemas"]["MealDetail"] | components["schemas"]["WaterDetail"] | components["schemas"]["WorkoutDetail"];
+        EntryDetail: components["schemas"]["MealDetail"] | components["schemas"]["WaterDetail"] | components["schemas"]["WorkoutDetail"] | components["schemas"]["CheckinDetail"];
         MealDetail: {
             /** @description Short display title, e.g. "Banana & peanuts". */
             title?: string;
@@ -1403,6 +1484,17 @@ export interface components {
             reps?: number;
             /** @description Always kg on the wire; the app converts for imperial display. */
             loadKg?: number;
+        };
+        /** @description A single habit check-in result (BE-024). Rides the /entries write path as a `checkin` entry and is encrypted at rest like every other detail; the server stores it verbatim and never interprets it. The Idempotency-Key is deterministic — `habitId:date` — so there is one check-in per habit per day; change the answer by PATCHing the entry (same key + a different answer is a 409). No scores, no streaks. */
+        CheckinDetail: {
+            /** @description Device-local habit id — habit definitions live on the device (D1). */
+            habitId: string;
+            habitName: string;
+            /** @description App-defined habit kind (e.g. plan-meal vs plain yes/no). Server-opaque. */
+            kind: string;
+            /** @description The user's single answer, e.g. "yes" / "not_quite". App-defined. */
+            answer: string;
+            note?: string;
         };
         /** @description Never persisted server-side — response only (ADR-0005). */
         ParseResult: {
@@ -1510,7 +1602,7 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Client-generated UUID, unique per logical create. Reused on retries. */
+        /** @description Client-generated key, unique per logical create, reused on retries. Usually a UUID; for naturally-idempotent domains it is deterministic — check-ins use `habitId:date` so a habit can be checked in once per day (BE-024). */
         IdempotencyKey: string;
     };
     requestBodies: never;
