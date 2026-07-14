@@ -79,12 +79,14 @@ export function TabsPager() {
   }, [active]);
 
   const pan = Gesture.Pan()
-    .withRef(tabsPagerRef)
     .activeOffsetX([-14, 14])
     .failOffsetY([-18, 18])
     .onBegin(() => {
       start.value = index.value;
-      runOnJS(ensureNeighbors)(idxRef.current);
+      // Read the settled page from the shared value, NOT idxRef.current: reading a
+      // plain ref inside this worklet freezes it, and the later settle() write
+      // (idxRef.current = to) would then throw "Tried to modify key 'current'".
+      runOnJS(ensureNeighbors)(Math.round(index.value));
     })
     .onUpdate((e) => {
       const raw = start.value - e.translationX / Math.max(width, 1);
