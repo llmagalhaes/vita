@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import "../i18n";
 import Auth from "../../app/auth";
 import { _resetForTests } from "../auth/session";
+import { api } from "../api";
 import * as SecureStore from "expo-secure-store";
 
 // Redirect renders its target so we can assert where the auth gate sends the user.
@@ -74,6 +75,23 @@ test("magic-link deep link exchanges the token and leaves the sign-in screen", a
   mockLink.initialUrl = "vita://auth?token=ok";
   await render(<Auth />);
   await waitFor(() => expect(screen.getByText("redirect:/onboarding")).toBeOnTheScreen());
+});
+
+// Dev paste-token sign-in (APP-DEV-PASTE-TOKEN): every accepted paste shape must
+// reduce to the bare token X and go through the same verify path as the deep link.
+test.each([
+  ["a raw token", "abc123"],
+  ["a full vita:// link", "vita://auth?token=abc123"],
+  ["a token= log line", "token=abc123"],
+])("dev paste sign-in extracts the token from %s and verifies it", async (_label, pasted) => {
+  const spy = jest.spyOn(api, "verifyMagicLink");
+  await render(<Auth />);
+  await act(async () => {
+    fireEvent.changeText(screen.getByPlaceholderText("Paste magic-link token (dev)"), pasted);
+  });
+  fireEvent.press(screen.getByRole("button", { name: "Paste magic-link token (dev)" }));
+  await waitFor(() => expect(spy).toHaveBeenCalledWith("abc123"));
+  spy.mockRestore();
 });
 
 test("an expired deep-link token shows calm error copy, staying on sign-in", async () => {

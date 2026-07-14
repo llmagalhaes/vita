@@ -1,5 +1,20 @@
 # App Team — Next Session
 
+## Dev paste-token sign-in (2026-07-14) — Expo Go real-backend unblock ✅
+
+Lets the CEO finish magic-link sign-in in Expo Go against the real backend by pasting the token
+(the `vita://` scheme only routes in a dev build, not Expo Go). Detail:
+`Progress/APP-DEV-PASTE-TOKEN-Progress.md`.
+- **`__DEV__`-guarded** paste block at the bottom of `IdleCard` in `app/auth.tsx` — compiled out of
+  release builds (verified: absent from `expo export` prod bundle).
+- New helper `tokenFromPaste()` (`src/auth/useMagicLink.ts`): everything after the last `token=`
+  (else the trimmed string) → handles full `vita://…?token=X` link, `exp://…?token=X`, and a raw
+  `token=X` log line, all → `X`. Runs the **same** `signInWithMagicLink → verifyMagicLink → session`
+  path as the deep link; failure reuses the `auth.invalidLink` calm notice.
+- One i18n key `auth.pasteTokenDev`. Test: `test.each` over the 3 paste shapes asserts
+  `verifyMagicLink("abc123")`.
+- Gates: `tsc` 0 · **Jest 161/161 (32 suites), +3** · `api:check` 0 drift · `expo export` OK.
+
 ## Offline-capture review banner (2026-07-14) — CEO Round 12 #2 ✅
 
 Resolves audit-2 §5 + finding 1.8 (and Q2). Offline captures still auto-add on reconnect

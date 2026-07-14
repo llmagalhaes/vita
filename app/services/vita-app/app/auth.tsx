@@ -7,9 +7,9 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import { isMockApi } from "../src/api";
 import { OidcUnavailable } from "../src/auth/oidc";
-import { signInWithOidc } from "../src/auth/session";
+import { signInWithMagicLink, signInWithOidc } from "../src/auth/session";
 import { useAuth } from "../src/auth/useAuth";
-import { useMagicLink } from "../src/auth/useMagicLink";
+import { tokenFromPaste, useMagicLink } from "../src/auth/useMagicLink";
 import { api } from "../src/api";
 import { isOnboarded } from "../src/db/settings";
 import { Button, Card, Text, colors, fonts, radii, spacing } from "../src/ui";
@@ -60,6 +60,7 @@ export default function Auth() {
   const linkStatus = useMagicLink(); // handles vita://auth?token=… (cold + warm)
   const [mode, setMode] = useState<Mode>("idle");
   const [email, setEmail] = useState("");
+  const [pasteToken, setPasteToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -91,6 +92,22 @@ export default function Auth() {
       setMode({ sent: address });
     } catch {
       setNotice(t("auth.sendError"));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // Dev-only (APP-DEV-PASTE-TOKEN): paste a magic-link token to sign in when the
+  // vita:// deep link can't route (Expo Go). Same verify→session path as the link.
+  async function pasteSignIn() {
+    const token = tokenFromPaste(pasteToken);
+    if (!token) return;
+    setBusy(true);
+    setNotice(null);
+    try {
+      await signInWithMagicLink(token); // authed → redirect above
+    } catch {
+      setNotice(t("auth.invalidLink"));
     } finally {
       setBusy(false);
     }
@@ -129,6 +146,9 @@ export default function Auth() {
             notice={linkStatus === "error" ? t("auth.invalidLink") : notice}
             onProvider={(p) => setMode({ consent: p })}
             onSend={sendLink}
+            pasteToken={pasteToken}
+            setPasteToken={setPasteToken}
+            onPasteSignIn={pasteSignIn}
           />
         ) : "consent" in mode ? (
           <ConsentCard
@@ -228,6 +248,9 @@ function IdleCard({
   notice,
   onProvider,
   onSend,
+  pasteToken,
+  setPasteToken,
+  onPasteSignIn,
 }: {
   t: TFn;
   email: string;
@@ -235,6 +258,9 @@ function IdleCard({
   notice: string | null;
   onProvider: (p: Provider) => void;
   onSend: () => void;
+  pasteToken: string;
+  setPasteToken: (v: string) => void;
+  onPasteSignIn: () => void;
 }) {
   return (
     <Animated.View entering={FadeIn.duration(400)} style={{ gap: 10 }}>
@@ -299,6 +325,54 @@ function IdleCard({
       <Text variant="caption" color={colors.labelMuted} style={{ textAlign: "center", fontSize: 11.5 }}>
         {t("auth.noPasswords")}
       </Text>
+
+      {__DEV__ ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            marginTop: 6,
+            backgroundColor: colors.card,
+            borderWidth: 1,
+            borderColor: "rgba(120,100,75,0.12)",
+            borderRadius: radii.pill,
+            padding: 5,
+            paddingLeft: 18,
+          }}
+        >
+          <TextInput
+            value={pasteToken}
+            onChangeText={setPasteToken}
+            onSubmitEditing={onPasteSignIn}
+            placeholder={t("auth.pasteTokenDev")}
+            placeholderTextColor={colors.labelMuted}
+            autoCapitalize="none"
+            autoCorrect={false}
+            returnKeyType="go"
+            accessibilityLabel={t("auth.pasteTokenDev")}
+            style={{ flex: 1, fontFamily: fonts.regular, fontSize: 14.5, color: colors.ink, minWidth: 0 }}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("auth.pasteTokenDev")}
+            onPress={onPasteSignIn}
+            style={({ pressed }) => ({
+              height: 42,
+              paddingHorizontal: 18,
+              borderRadius: radii.pill,
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: pressed ? 0.9 : 1,
+            })}
+          >
+            <Text variant="label" color="#FFF9F1" style={{ fontSize: 13.5 }}>
+              →
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
     </Animated.View>
   );
 }

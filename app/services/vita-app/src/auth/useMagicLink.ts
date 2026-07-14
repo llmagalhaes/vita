@@ -4,6 +4,18 @@ import { signInWithMagicLink } from "./session";
 
 export type MagicLinkStatus = "idle" | "exchanging" | "error";
 
+/**
+ * Extract a token from a pasted value (dev paste-token sign-in). Handles the
+ * whole `vita://auth?token=X` link, an `exp://…?token=X` URL, or a raw `token=X`
+ * log line by taking everything after the last `token=`; otherwise the value is
+ * assumed to be the bare token. Trimmed either way.
+ */
+export function tokenFromPaste(input: string): string {
+  const trimmed = input.trim();
+  const i = trimmed.lastIndexOf("token=");
+  return i === -1 ? trimmed : trimmed.slice(i + "token=".length).trim();
+}
+
 /** Pull the `?token=` out of a `vita://auth?token=…` deep link. */
 export function tokenFromUrl(url: string): string | null {
   const { hostname, path, queryParams } = Linking.parse(url);

@@ -73,7 +73,8 @@
     "sendError": "Vita couldn't send the link just now. Try again in a moment.",
     "oidcUnavailable": "Google and Apple sign-in need the full app. Use an email link for now.",
     "google_provider": "Google",
-    "apple_provider": "Apple"
+    "apple_provider": "Apple",
+    "pasteTokenDev": "Paste magic-link token (dev)"
   },
   "onboarding": {
     "stepLabel": "Step {{current}} of {{total}}",
