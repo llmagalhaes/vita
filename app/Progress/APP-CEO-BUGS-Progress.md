@@ -30,7 +30,18 @@ CEO retested on device: #3 better in some sheets but not vacation/capture; #4 ga
 - **#6 (real fix):** the pager's gesture was never published — added `.withRef(tabsPagerRef)` (ref moved to leaf `src/nav/pagerRef.ts` to avoid an import cycle); the open-card `ScrubOverlay` now `.blocksExternalGesture(pager)` + `activeOffsetX/failOffsetY` so a horizontal drag scrubs (pager waits) and vertical still scrolls. Added the 2px active-day guide line.
 - **Motion system (Fable A1/A2/A5/A6/A7/A8, A3, B3):** `PressScale` (Button/Chip), `Card` shadow, animated `Bar`/`Toggle`/`Chevron`, `MorphBlob` (capture parsing), Trends bar grow-in + calorie-curve draw-on. Addresses the CEO's "flat/not fluid" theme.
 
-**Full fidelity backlog + rankings:** `docs/reviews/2026-07-14-fable-fidelity-audit.md`. **Landed:** A1,A2,A3,A5,A6,A7,A8,B3 + the two device bugs. **Remaining (need CEO device pass first — motion is subjective, and A4 is a Modal→overlay refactor of working sheets):** A4 (unify Vacation/Export/preview sheets on `useSheetDrag` — this is what's left for #3 vacation), B1 water/hero, B2 water vessel, B4 muscle-exercises sheet (new feature, L), B5 check-in deck, B6–B12 polish.
+**Full fidelity backlog + rankings:** `docs/reviews/2026-07-14-fable-fidelity-audit.md`. **Landed:** A1,A2,A3,A5,A6,A7,A8,B3 + the two device bugs.
+
+## Session 6, pass 3 (2026-07-14) — CEO: "vai fazendo tudo" → full Fable backlog implemented
+CEO device retest #2: #3 still stiff on vacation/capture, #4 real error = share FileProvider can't read the print-cache path, #6 still broken, and green light to implement everything. Commits `327ff94..16b9e9a` (pass-2 fixes for #4/#6 were `7c8cf67`):
+- **A4 (closes CEO #3 everywhere):** new shared `SheetOverlay` (backdrop fade + vtSheetUp rise + worklet drag-dismiss + optional keyboard lift). Converted VacationSheet, ExportSheet and both workout-preview Modals (de-duplicated into `src/workout/PreviewSheet.tsx`); sheets hoisted OUT of ScrollViews (Account, Trends, workout/[id]) so overlays don't scroll with content.
+- **B1/B2 Home:** 82px centered hero (no card), filling water vessel (600ms tween, philosophy-safe scaling), chevrons + expander fades, last-7 bars grow in.
+- **B5:** check-in deck — peeking card strips, next card slides in with 2° tilt (vtNextA), "All caught up" pops. **B11:** donut segments sweep (vtArc). **B7:** 7-bar voice equalizer (vtWave). **B6:** portion pop-up pops (vtPop ×2 staggered) + floating live daily-totals mini-card.
+- **B9/B10:** onboarding steps rise (vtIn) + chip/option staggers + summary pop + morphing heroes (`MorphContainer`); auth hero morphs + consent/sent pops; account rows stagger + press-scale + rotating profile chevron; habits get the animated Toggle/Chevron + editor fade.
+- **B4:** muscle tap on Trends heatmap/chips → sessions sheet → preview (exercises are per-session in our model, not per-exercise — honest equivalent of the prototype's exercise list). **B8:** workout-detail muscle tap pops a dismissible info chip; chips reflect selection.
+- **Polish:** pill mount pop, parse-result card pop, scrub readout fade, meal-detail row/bar staggers.
+
+**Not done (deliberate):** B12 blurred backdrops (needs `expo-blur` — new dep, CEO call); per-exercise muscle row-tinting in B8 (needs `exercises[].muscles` from the backend parse — contract change, backend ticket if wanted). All 34 suites / 168 tests green, tsc clean at every commit. **Everything needs the CEO's on-device pass.**
 
 ## Notes
 - The grey/blue floating **gear is a device/OS overlay** (Expo Go dev-menu bubble), NOT app UI — it sits over the Home account button and intercepts taps; drag it aside.
