@@ -2,6 +2,13 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-14 — Round 9 (local-first build-out)
+
+1. **Local-first policy**: development runs locally (docker-compose + bootRun + Expo); production deploy happens only at a **called milestone**, not per-ticket. Rationale: per-ticket deploy is too slow for dev. Infra stays applied but ECS parked at $0.
+2. **App↔backend integration PROVEN locally** (CEO-chosen): real app client → real Kotlin backend + real Postgres, full capture loop verified, zero contract drift. Not a deploy.
+3. **BE-016 un-deferred and done**: old flat packages (auth/crypto/shared) refactored into controller→service→repository (ADR-0012, supersedes ADR-0001's package section). 84 tests still green.
+4. Autonomous backlog now exhausted — remaining work gated on CEO: deploy milestone, or Apple/Play accounts (APP-007/BE-007). Handoff in `Next_session.md`.
+
 ## 2026-07-13 — Round 8 (M1 test feedback)
 
 0. **Backend package layout = controller → service → repository.** Packages organized in these three layers (per feature). Applies going forward; **existing code (flat packages, ADR-0001) is NOT refactored now** — deferred to a later ticket (BE-016). Expo Go now runs on SDK 56 (see #4, updated from 54).

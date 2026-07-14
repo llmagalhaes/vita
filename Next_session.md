@@ -1,73 +1,67 @@
 # Orchestrator — Next Session
 
-> Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Keep it current at every session close. Team-level state lives in `backend|app|devops/Next_session.md`.
+> Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
-## Where we are (2026-07-13, session 3 closed — big build-out day)
+## Where we are (2026-07-14, session 3 closed — full build-out day)
 
-**Phase 2 — most of contract v0.3.0 implemented locally; infra applied then parked; deploy deferred to a CEO milestone.** All pushed to GitHub (HEAD `e80d2c0`).
+**Phase 2 — Implementation.** Almost all of contract **v0.3.0** is built and tested LOCALLY. The app↔backend core loop is **proven end-to-end against the real backend** (real Postgres). AWS infra is fully applied but **parked at $0** (ECS off). **No production deploy yet** — CEO policy: local-first, deploy only at a called milestone. Everything pushed to GitHub, HEAD `fe6f4c9`. Working tree clean.
 
-### Snapshot
-- **Backend (local, 84 tests green)**: BE-005 crypto, BE-006 magic link, BE-008 sessions, BE-009 profile, BE-010 account deletion + Postgres job queue (crypto-shred), BE-011 entries, BE-012 timeline, BE-013 parse/text, BE-014 AI guardrails (quota+metrics+eval), BE-015 plan/program parse + presigned uploads (S3 seam). Controller→service→repository for all new packages. Only local KMS/S3 seams (real impls at deploy). **All In progress on Asana — Done gated on BE-004 (prod deploy).**
-- **App (local, 51 tests green, SDK 56 store-Expo-Go)**: FEATURE-COMPLETE except APP-007. Onboarding, Home, capture (text+voice), meal detail, auth+magic link, SQLite+outbox, API client, design system, i18n. Native OIDC + voice STT stubbed behind interfaces (need dev build).
-- **DevOps (AWS)**: bootstrap + prod-eu applied (VPC/KMS/CloudTrail/GuardDuty/ECR/RDS/SSM/S3/OIDC-CI). API Gateway live (503, no backend). **ECS parked at desired_count=0 = $0.** Idle ~$6/mo. OPS-013/014 applied-but-deferred; BE-004 first deploy held for a milestone.
+### The autonomous backlog is EXHAUSTED. Everything remaining is gated on a CEO decision (see "Next actions").
 
-### ⚠️ Follow-up to verify
-- **Claude model ids**: backend config uses `claude-haiku-4-5` (text) and `claude-sonnet-4-6` (PDF). The Sonnet id looks wrong (current is `claude-sonnet-5`). Verify both against the claude-api reference before the first LIVE parse call (no live call happens in tests/local-first, so non-blocking). In `application.yaml` `vita.ai.*`.
+## Snapshot by team
 
-### Original session-2 note (kept for history)
-Four commits (`eb05300` devops, `0373e0e` backend, `24ec43c` app, `f1cfd91` docs).
+### Backend — local, `./gradlew check` = 84 tests green
+All In progress on Asana (Done = production, gated on BE-004 deploy). Packages all follow **controller→service→repository** (BE-016 refactor done, ADR-0012 supersedes ADR-0001).
+- BE-005 crypto (AES-256-GCM per-user DEK, blind index, crypto-shred; KMS behind `KeyWrapper` seam)
+- BE-006 magic link · BE-008 sessions (JWT + refresh rotation, family revoke)
+- BE-009 profile `/me` · BE-010 account deletion (7d grace + Postgres job queue + crypto-shred job)
+- BE-011 entries (idempotent write) · BE-012 timeline (keyset pagination, tz day filter)
+- BE-013 parse/text (Claude, tool-forced, nothing persisted) · BE-014 AI guardrails (per-user quota 429, token/cost Micrometer metrics, eval fixtures)
+- BE-015 plan/program parse + `POST /uploads` presigned (S3 behind `FileStore` seam)
+- Local seams (LocalKeyWrapper, LocalFileStore, LogMailer) swap for real AWS at deploy.
+- **Done (deploy) gated on BE-004**; real Claude for text confirmed working (`claude-haiku-4-5`).
 
-### Live in AWS production (eu-west-1, CEO-approved applies)
-- **Bootstrap**: state bucket `vita-tfstate-201261380352` (S3 backend, native locking) + `$40/mo` budget.
-- **prod-eu (30 resources)**: VPC (no NAT, DB subnets no IGW route), 2 KMS CMKs (`vita-storage`, `vita-app-data`, rotation on), CloudTrail `vita-trail` logging, GuardDuty active. IDs in `devops/Doc/bootstrap-ids.md`.
-- Asana devops: **OPS-002/005/006/007 → Done**. OPS-003 In progress (CEO to eyeball the budget subscriber).
+### App — local, Jest 51 green, Expo SDK 56 (store-Expo-Go compatible)
+FEATURE-COMPLETE except APP-007. All tickets done: onboarding (APP-009/010), Home (APP-013), capture text+voice (APP-011/012), meal detail (APP-014), auth+magic link (APP-008), SQLite+outbox (APP-005), generated API client (APP-006), design system (APP-003), i18n (APP-004), SDK pin (APP-016).
+- Native OIDC (Google/Apple) and voice STT are **stubbed behind interfaces** — need a dev build (APP-007) to become real.
+- **Run walkable (mocks):** `cd app/services/vita-app && npm install && npx expo start`.
+- **Run against local backend (real E2E):** start backend (below), then `VITA_API_BASE_URL=http://<Mac-LAN-IP>:8080/v1 npx expo start` (base URL MUST include `/v1`; iOS sim = localhost, Android emu = 10.0.2.2). Unset the var → mock mode (test default).
 
-### Backend (local, tested — Done blocked on prod deploy)
-- Contract **v0.2.0** (app edits applied, ADR-0010, APP-001 ack closed). BE-005 crypto (AES-256-GCM per-user DEK, blind index, crypto-shred; KMS faked behind `KeyWrapper`), BE-006 magic link, BE-008 sessions (JWT + refresh rotation). **23/23 tests green.** Asana BE-005/006/008 In progress.
+### DevOps — AWS eu-west-1, all applied, parked at ~$6/mo idle
+- Applied & running: VPC/subnets/SGs, 2 KMS CMKs, CloudTrail, GuardDuty, audit bucket, ECR `vita-api`, RDS `vita` (encrypted/private/force_ssl, 45d backups via AWS Backup vault), 7 SSM SecureStrings (placeholders), S3 uploads/exports, OIDC CI roles + PR/main/apply workflows.
+- **API Gateway live**: `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/` (503, no backend).
+- **ECS parked at `module.ecs.desired_count = 0` = Fargate $0.** RDS free-tier $0, left running.
+- Done: OPS-002/003/005/006/007/008/011. In progress (applied, deferred verify): OPS-013/014. Backlog: OPS-012 (SES), OPS-015 (observability/AMP), OPS-016 (magic-link redirect), OPS-017 (quarterly RDS restore rehearsal).
 
-### App (local, tested — Done blocked on store accounts)
-- **M1 walkable mocked app**: `cd app/services/vita-app && npm install && npx expo start`. Onboarding → Home → capture pill → parse→confirm → timeline, all offline on SQLite+outbox. APP-005/006/009/010/011/013 In progress; tsc clean, Jest 23/23.
-- **Expo Go fix (APP-016, done)**: store Expo Go is frozen at SDK 54; project was on SDK 57. Pinned to SDK 54 (RN 0.81.5, Reanimated 4.1 so pill+SQLite survive). CEO can now walk it on a physical phone via store Expo Go. ADR app/Doc/ADRs/ADR-0002. **Constraint: do not bump past SDK 54** until Expo publishes a newer store build or we move to dev-client/TestFlight (needs Apple/Play accounts).
+## Proven this session (integration milestone)
+The real app client drove the real local backend: magic-link sign-in → parse/text (1 real Haiku call) → confirm → `POST /entries` (idempotency 201/200-replay) → `GET /entries` timeline with server-computed totals, persisted in real Postgres → `GET/PATCH /me`. **Zero contract drift** — generated types (v0.3.0) matched real responses exactly. Recipe in `app/Progress/APP-INTEGRATION-local-e2e-Progress.md`; dev harness `npm run integration:smoke`.
 
-## New CEO rule (Round 7)
-- **Per-task model**: every Asana ticket carries a `Model:` line — Sonnet (simple) / Opus 4.8 (complex); Fable only for heavy orchestration. All 44 tickets tagged; team-lead agents pinned to `model: opus` in `.claude/agents/`.
-- **Anthropic key delivered** → moved to `backend/services/vita-api/secrets.yaml` (gitignored, Spring `config.import`); never committed, no rotation needed. Unblocks BE-013 when it starts.
+## ⚠️ Follow-up to verify (non-blocking)
+- **Claude PDF model id**: `application.yaml` `vita.ai.plan-pdf-model = claude-sonnet-4-6` looks wrong (current Sonnet is `claude-sonnet-5`). Verify via the claude-api reference before the first live PDF parse. The text model `claude-haiku-4-5` is confirmed working.
 
-## Still blocked / deferred
-- Apple Developer + Google Play accounts (CEO, later) → blocks APP-007 (store builds) and BE-007. Nothing reaches app "Done" until then.
-- Domain purchase (deferred) → placeholder DNS (devops ADR-0009).
-
-## Resolved in session 2 (Round 8)
-- OPS-003 confirmed → **Done**. RDS backup retention → **45 days** (recorded on OPS-009). Plan/program import → contract **v0.3.0** shipped (BE-015, ADR-0011; app to review 0.3.0). Expo Go → SDK 54 (APP-016). All pushed through `897ec28`.
-
-## Open questions for the CEO (carried)
-1. Backend's plan-import design: **two endpoints** (`/parse/eating-plan` + `/parse/training-program`) vs one `/parse/plan` with a `kind` discriminator. Orchestrator recommends keeping the two as-is; CEO can override.
-2. Carried: audit-log retention 400 d, exports 90 d, domain-purchase trigger.
-3. Apple Developer + Play Console accounts remain the gate for any app "Done" AND for any Expo SDK past 54.
-
-## Next actions — WAITING ON CEO DIRECTION (unblocked backlog exhausted at session 3 close)
-1. **Call a deploy milestone** → resume deploy: flip `module.ecs.desired_count` to 1, backend builds+pushes the arm64 image to ECR (BE-004), Flyway migrate, verify `/health` through the API GW. Needs the CEO's manual secrets first (RDS password + 7 SSM values + 3 GitHub Variables — all in `devops/Next_session.md`).
+## Next actions — WAITING ON CEO DIRECTION (nothing autonomous left)
+1. **Call a deploy milestone** → resume the chain: flip `module.ecs.desired_count`→1, backend builds+pushes the arm64 image (Dockerfile ready) to ECR (BE-004), Flyway migrate, verify `/health` through the API GW. **Requires the CEO's manual secrets first** — all listed in `devops/Next_session.md`:
+   - RDS master password (console) + paste into `/vita/prod/db-credentials`
+   - 7 SSM SecureString values (currently `REPLACE_ME_IN_CONSOLE`)
+   - 3 GitHub repo Variables: `AWS_PLAN_ROLE_ARN=arn:aws:iam::201261380352:role/vita-ci-plan`, `AWS_APPLY_ROLE_ARN=arn:aws:iam::201261380352:role/vita-ci-apply`, `AWS_REGION=eu-west-1`
 2. **Create Apple Developer + Play Console accounts** → unblocks APP-007 (first real device build) and BE-007 (Google/Apple OIDC); turns stubbed native OIDC/voice real.
-3. **Start BE-016** (deferred controller→service→repository refactor of old flat packages auth/, crypto/, shared/).
-4. **Integration pass** (needs a running local backend): wire app onboarding/capture to the real endpoints instead of mocks.
-5. Verify the Claude model ids (`vita.ai.*`): `claude-sonnet-4-6` looks wrong → likely `claude-sonnet-5`.
-
-Note (superseded): SDK is now **56** not 54 (APP-016 re-pinned); the earlier "Open questions" line about the two-endpoint plan design was resolved (kept the two endpoints, BE-015 shipped).
+3. **BE-007** (OIDC sign-in) — blocked on #2. Only major backend ticket not yet built.
+4. Verify the PDF model id (above) whenever the plan-import goes live.
 
 ## Operating rules quick-recall
-
-- Orchestrator commits; **subagents never run git** (index races). Commit per team: `backend|app|devops|docs: <summary>`.
-- Leads move their Asana tickets (board GIDs in `CLAUDE.md`); "To do" column = M1/M2 next-up only. Leads + orchestrator update Notion at session close (page IDs in each agent's `.claude/agents/*.md`).
+- Orchestrator commits; **subagents never run git** (index races). Commit per team: `backend|app|devops|docs: <summary>`. Push uses `gh` HTTPS token (SSH key not in this env): `git push https://github.com/llmagalhaes/vita.git HEAD:main`.
+- **Per-task model (Round 7)**: every Asana ticket carries `Model:` (Sonnet simple / Opus 4.8 complex / Fable heavy-orchestration). Team-lead agents pinned `model: opus` in `.claude/agents/`.
+- Same-team parallel agents → use `isolation: worktree` (disjoint packages), then merge with a real `./gradlew check` before commit. Cross-team agents → disjoint folders, commit separately.
 - Every architecture decision → ADR. Product doubts → CEO, never invented. Chat with CEO in PT-BR; repo in English.
-- Before dispatching parallel agents: they work in disjoint folders; I consolidate, commit, push.
+- Anthropic key lives in `backend/services/vita-api/secrets.yaml` (gitignored). Never commit real secrets.
 
 ## Key artifacts
-
 | What | Where |
 |---|---|
 | Decision log (newest first) | `docs/ceo-decisions.md` |
-| Roadmap M0–M8 | `docs/roadmap.md` (mirror: Notion "Milestones & Roadmap") |
-| API contract v0 | `docs/contracts/vita-api-v0.yaml` (+ app review verdicts in `app/Doc/contract-review-v0.md`) |
-| Apply runbook | `devops/Doc/apply-runbook.md` |
-| CEO setup guide (accounts) | `docs/ceo-setup-guide.md` |
-| ADRs (9 + 10) | `backend/Doc/ADRs/`, `devops/Doc/ADRs/` |
+| Roadmap M0–M8 | `docs/roadmap.md` |
+| API contract v0.3.0 | `docs/contracts/vita-api-v0.yaml` |
+| Apply runbook / infra ids | `devops/Doc/apply-runbook.md`, `devops/Doc/bootstrap-ids.md` |
+| CEO setup guide (accounts/secrets) | `docs/ceo-setup-guide.md` |
+| ADRs | `backend/Doc/ADRs/` (0001–0012), `devops/Doc/ADRs/`, `app/Doc/ADRs/` (0001–0003) |
+| Local-backend leftover | bootRun + docker-compose Postgres were left up during integration; stop with `docker compose down` in `backend/services/vita-api` + kill the bootRun. (Orchestrator tears these down at session close.) |
