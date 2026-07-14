@@ -1,6 +1,18 @@
 # App Team — Next Session
 
-## Current state (Phase 2 — session 8 done 2026-07-14: slice 2 F2 Workout ✅ APP-018 + APP-019)
+## Current state (Phase 2 — session 9 done 2026-07-14: slice 5 F3 Photo capture ✅ APP-020)
+
+- **APP-020 built** (mock mode; BE-018 not live yet). Pill camera → `expo-image-picker` (library) → **downscale to 1568px / JPEG q0.8** (D3) → **multipart `POST /parse/photo`** → draft with **quantity steppers** → existing confirm/outbox path adds a meal (plate) or workout (whiteboard). Calm **decline/error** states + **"type instead"** fallback everywhere (permission denied, pick error, parse 422/413). Reuses the CaptureContext state machine — no parallel stack. See `Progress/APP-020-Progress.md`.
+- New files: `src/capture/photo.ts` (pick+downscale, pure `downscaleSize`/`downscale`, calm outcomes), `src/capture/quantity.ts` (pure `stepItem`/`mealTotals`, exactly-reversible scaling). Mock: `mockPhotoParse` (canned plate; gym-caption → whiteboard). Client: `Api.parsePhoto` + FormData support in `request()` (no JSON content-type on multipart).
+- **BE-018 handshake**: app posts `image` (file part, `photo.jpg`, `image/jpeg`), optional `caption`, optional `capturedAt` — no JSON, fetch sets the boundary. BE-018 reads field **`image`**. Details in the Progress file.
+- New deps (Expo Go SDK 56 OK): `expo-image-picker@56.0.20`, `expo-image-manipulator@56.0.21`. `app.config.ts` gained `NSPhotoLibraryUsageDescription` + `expo-image-picker` plugin (inert in Expo Go).
+- Gates: `tsc` clean · **Jest 80/80 (17 suites)**, +16 · `api:check` **clean, no drift** · `expo export` iOS OK · `expo install --check` up to date, SDK 56 preserved.
+- ponytail: library pick (not live camera) — one-line swap to `launchCameraAsync` later; steppers meal-only.
+
+---
+# App Team — Next Session (prior sessions)
+
+## Prior state (Phase 2 — session 8 done 2026-07-14: slice 2 F2 Workout ✅ APP-018 + APP-019)
 
 - **Contract types regenerated to v0.4.0** (BE-017 app-side follow-up): `src/api/types.gen.ts` now matches the committed contract, `api:check` clean. NOTE: the contract also gained **`/plan`, `/plan/history`, `/program`, `/program/history` + `PlanVersion`/`ProgramVersion`** (backend F4 work, still labelled version 0.4.0) — regenerating pulled those additive types in; they're unused by app code today, harmless, and will serve F4/APP tickets later. `Muscle` = `NonNullable<WorkoutDetail["muscles"]>[number]` (11-enum) is authoritative and now mirrored at runtime by `ALL_MUSCLES` in BodyMap.
 - **APP-018 built**: workout confirm card now renders i18n muscle chips + an exercises list (title/duration/kcal-estimate were already there); the confirm→entry path is the existing generic outbox flow. **Timeline workout cards navigate** (`/${kind}/${id}` for every kind) — last inert-card debt cleared. See `Progress/APP-018-Progress.md`.

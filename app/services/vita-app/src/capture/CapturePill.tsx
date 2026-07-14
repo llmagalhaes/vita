@@ -3,10 +3,11 @@ import { Pressable, TextInput, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Text, colors, fonts, motion } from "../ui";
+import { Button, Text, colors, fonts, motion, spacing } from "../ui";
 import { useCapture } from "./CaptureContext";
+import { pickPhoto } from "./photo";
 import { useVoiceCapture } from "./useVoiceCapture";
 import { VoiceOverlay } from "./VoiceOverlay";
 
@@ -112,6 +113,23 @@ export function CapturePill() {
     setExpanded(false);
   };
 
+  // Photo capture: pick → downscale → parse. Calm states for decline/error.
+  const [photoNotice, setPhotoNotice] = useState<null | "denied" | "error">(null);
+  const onCameraPress = async () => {
+    const r = await pickPhoto();
+    if (r.status === "picked") capture.submitPhoto(r.photo);
+    else if (r.status === "denied") setPhotoNotice("denied");
+    else if (r.status === "error") setPhotoNotice("error");
+    // cancelled → no notice, stay calm
+  };
+  // "Type instead" from anywhere (photo decline, or the sheet's parse-fail) opens the field.
+  useEffect(() => {
+    if (capture.textEntryNonce > 0) {
+      setPhotoNotice(null);
+      setExpanded(true);
+    }
+  }, [capture.textEntryNonce]);
+
   // Hold-to-talk: press-and-hold the mic → voice; a quick tap toggles the field.
   const voice = useVoiceCapture((transcript) => capture.submit(transcript));
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -150,6 +168,42 @@ export function CapturePill() {
         }}
         onDismiss={voice.dismiss}
       />
+      {photoNotice && (
+        <View
+          pointerEvents="box-none"
+          style={{ position: "absolute", left: 0, right: 0, bottom: 96, alignItems: "center", paddingHorizontal: 24 }}
+        >
+          <Animated.View
+            entering={FadeIn.duration(motion.fade.durationMs)}
+            style={{
+              backgroundColor: colors.sheet,
+              borderRadius: 22,
+              padding: spacing.lg,
+              gap: spacing.md,
+              maxWidth: 340,
+              shadowColor: "#69543C",
+              shadowOpacity: 0.18,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: 12 },
+              elevation: 6,
+            }}
+          >
+            <Text variant="body" style={{ textAlign: "center", lineHeight: 21 }} color={colors.muted}>
+              {t(photoNotice === "denied" ? "capture.photo.denied" : "capture.photo.error")}
+            </Text>
+            <View style={{ flexDirection: "row", gap: spacing.sm + 2, justifyContent: "center" }}>
+              <Button label={t("common.cancel")} variant="ghost" onPress={() => setPhotoNotice(null)} />
+              <Button
+                label={t("capture.photo.typeInstead")}
+                onPress={() => {
+                  setPhotoNotice(null);
+                  setExpanded(true);
+                }}
+              />
+            </View>
+          </Animated.View>
+        </View>
+      )}
       <View
         pointerEvents="box-none"
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", paddingBottom: 22 }}
@@ -216,7 +270,8 @@ export function CapturePill() {
           />
           <Pressable
             accessibilityRole="button"
-            onPress={() => capture.showToast(t("capture.photoNotYet"))}
+            accessibilityLabel={t("capture.photo.a11yLabel")}
+            onPress={onCameraPress}
             style={{
               width: 42,
               height: 42,

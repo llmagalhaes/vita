@@ -222,9 +222,18 @@
     "estimatedBy": "Estimated by Vita from your description",
     "draftCount": "{{current}} of {{total}}",
     "addedToast": "Added to your log",
-    "photoNotYet": "Photo capture isn't in this build yet.",
     "parseError": "Vita couldn't be reached. Your words are kept — try again.",
     "log": "Log",
+    "photo": {
+      "a11yLabel": "Add a photo of your meal or workout",
+      "increase": "Add one",
+      "decrease": "Remove one",
+      "typeInstead": "Type instead",
+      "denied": "Vita needs access to your photos to read a plate or whiteboard. Turn it on in Settings, or type instead. Photos are read once and never stored.",
+      "error": "Vita couldn't open your photos. You can type instead.",
+      "unrecognized": "Vita couldn't find a meal or workout in that photo. Try another, or type it instead.",
+      "tooLarge": "That image is a little large. Try another, or type it instead."
+    },
     "voice": {
       "a11yHint": "Tap to type. Press and hold to speak.",
       "listening": "Listening…",

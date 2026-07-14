@@ -23,6 +23,9 @@ const config: ExpoConfig = {
         "Vita uses the microphone so you can speak what you had instead of typing. Audio never leaves your device.",
       NSSpeechRecognitionUsageDescription:
         "Vita turns your speech into text on your device to log meals, water and workouts. Only the text is used.",
+      // Photo capture (APP-020). Works in Expo Go; copy ready for dev builds.
+      NSPhotoLibraryUsageDescription:
+        "Vita reads a photo of your plate or gym whiteboard to draft an entry. The image is read once and never stored.",
     },
   },
   android: {
@@ -41,7 +44,7 @@ const config: ExpoConfig = {
     //   VITA_API_BASE_URL=https://<api-gateway-id>.execute-api.<region>.amazonaws.com/v1
     apiBaseUrl: process.env.VITA_API_BASE_URL ?? "",
   },
-  plugins: ["expo-router", "expo-font", "expo-sqlite", "expo-secure-store"],
+  plugins: ["expo-router", "expo-font", "expo-sqlite", "expo-secure-store", "expo-image-picker"],
 };
 
 export default config;

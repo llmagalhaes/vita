@@ -40,6 +40,12 @@ export interface Api {
   signOut(refreshToken: string): Promise<void>;
   // Authenticated
   parseText(body: { text: string; capturedAt?: string }): Promise<ParseResult>;
+  /** Multipart POST /parse/photo (D3): field `image` is the downscaled JPEG. */
+  parsePhoto(body: {
+    image: { uri: string };
+    caption?: string;
+    capturedAt?: string;
+  }): Promise<ParseResult>;
   createEntry(idempotencyKey: string, entry: NewEntry): Promise<LogEntry>;
   listEntries(params: {
     date?: string;
@@ -76,14 +82,21 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     canRetry = true,
   ): Promise<T> {
     const token = path.startsWith("/auth") ? null : auth?.getAccessToken();
+    // FormData bodies set their own multipart boundary — never JSON-encode them.
+    const isForm = typeof FormData !== "undefined" && opts.body instanceof FormData;
     const res = await fetch(baseUrl + path, {
       method,
       headers: {
-        "Content-Type": "application/json",
+        ...(isForm ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...opts.headers,
       },
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body:
+        opts.body === undefined
+          ? undefined
+          : isForm
+            ? (opts.body as FormData)
+            : JSON.stringify(opts.body),
     });
     // Silent refresh: one authed call gets a 401 → rotate the token once and retry.
     if (res.status === 401 && canRetry && auth && !path.startsWith("/auth")) {
@@ -108,6 +121,14 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     refresh: (refreshToken) => request("POST", "/auth/refresh", { body: { refreshToken } }),
     signOut: (refreshToken) => request("POST", "/auth/sign-out", { body: { refreshToken } }),
     parseText: (body) => request("POST", "/parse/text", { body }),
+    parsePhoto: ({ image, caption, capturedAt }) => {
+      const form = new FormData();
+      // React Native FormData file part — { uri, name, type }.
+      form.append("image", { uri: image.uri, name: "photo.jpg", type: "image/jpeg" } as never);
+      if (caption) form.append("caption", caption);
+      if (capturedAt) form.append("capturedAt", capturedAt);
+      return request("POST", "/parse/photo", { body: form });
+    },
     createEntry: (idempotencyKey, entry) =>
       request("POST", "/entries", {
         body: entry,

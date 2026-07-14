@@ -4,6 +4,7 @@ import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
 import { Button, Card, Chip, EstimateTag, Text, colors, fonts, motion, spacing } from "../ui";
 import { useCapture } from "./CaptureContext";
+import { mealTotals, stepItem } from "./quantity";
 
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -32,7 +33,55 @@ function MacroBox({ label, grams }: { label: string; grams?: number | null }) {
   );
 }
 
-function DraftCard({ draft }: { draft: NewEntry }) {
+/** +/- quantity control for a photo-parsed meal item. */
+function Stepper({
+  quantity,
+  unit,
+  kcal,
+  onStep,
+}: {
+  quantity: number;
+  unit?: string;
+  kcal: number;
+  onStep: (delta: number) => void;
+}) {
+  const { t } = useTranslation();
+  const btn = (delta: number, label: string) => (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={() => onStep(delta)}
+      hitSlop={8}
+      style={{
+        width: 30,
+        height: 30,
+        borderRadius: 15,
+        backgroundColor: "#F0EDE2",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <Text style={{ fontFamily: fonts.bold, fontSize: 17, lineHeight: 20 }} color="#6E6355">
+        {delta > 0 ? "+" : "–"}
+      </Text>
+    </Pressable>
+  );
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      <Text variant="caption" style={{ fontSize: 12.5, minWidth: 44, textAlign: "right" }} color={colors.muted}>
+        {Math.round(kcal)} {t("common.kcal")}
+      </Text>
+      {btn(-1, t("capture.photo.decrease"))}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 14, minWidth: 46, textAlign: "center" }}>
+        {quantity}
+        {unit ? ` ${unit}` : ""}
+      </Text>
+      {btn(1, t("capture.photo.increase"))}
+    </View>
+  );
+}
+
+function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIndex: number, delta: number) => void }) {
   const { t } = useTranslation();
 
   const headline = (() => {
@@ -79,6 +128,27 @@ function DraftCard({ draft }: { draft: NewEntry }) {
           <MacroBox label={t("home.protein")} grams={meal.totals.proteinG} />
           <MacroBox label={t("home.carbs")} grams={meal.totals.carbsG} />
           <MacroBox label={t("home.fat")} grams={meal.totals.fatG} />
+        </View>
+      )}
+
+      {meal && onStep && (
+        <View style={{ gap: spacing.sm }}>
+          {meal.items.map((item, i) => (
+            <View
+              key={`${item.name}-${i}`}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+            >
+              <Text variant="label" style={{ fontSize: 14, flexShrink: 1 }} numberOfLines={1}>
+                {item.name}
+              </Text>
+              <Stepper
+                quantity={item.quantity ?? 1}
+                unit={item.unit}
+                kcal={item.kcal}
+                onStep={(delta) => onStep(i, delta)}
+              />
+            </View>
+          ))}
         </View>
       )}
 
@@ -139,6 +209,18 @@ export function CaptureSheet() {
   if (capture.status === "idle") return null;
 
   const multiple = capture.drafts.length > 1;
+
+  // Photo-parsed meals get quantity steppers; each step re-scales item + totals.
+  const current = capture.drafts[capture.index];
+  const stepHandler =
+    current?.type === "meal" && current.inputMethod === "photo"
+      ? (itemIndex: number, delta: number) => {
+          const d = capture.drafts[capture.index]!;
+          const detail = d.detail as MealDetail;
+          const items = detail.items.map((it, i) => (i === itemIndex ? stepItem(it, delta) : it));
+          capture.updateDraft({ ...d, detail: { ...detail, items, totals: mealTotals(items) } });
+        }
+      : undefined;
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end" }}>
@@ -202,19 +284,21 @@ export function CaptureSheet() {
 
         {capture.status === "review" && capture.drafts[capture.index] && (
           <View style={{ gap: spacing.md }}>
-            <Text
-              variant="caption"
-              style={{ fontStyle: "italic", textAlign: "center", paddingHorizontal: spacing.xl }}
-              color={colors.labelMuted}
-            >
-              “{capture.phrase}”
-            </Text>
+            {capture.phrase.length > 0 && (
+              <Text
+                variant="caption"
+                style={{ fontStyle: "italic", textAlign: "center", paddingHorizontal: spacing.xl }}
+                color={colors.labelMuted}
+              >
+                “{capture.phrase}”
+              </Text>
+            )}
             {multiple && (
               <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>
                 {t("capture.draftCount", { current: capture.index + 1, total: capture.drafts.length })}
               </Text>
             )}
-            <DraftCard draft={capture.drafts[capture.index]!} />
+            <DraftCard draft={capture.drafts[capture.index]!} onStep={stepHandler} />
             <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
               <View style={{ flex: 1 }}>
                 <Button label={t("common.adjust")} variant="ghost" onPress={capture.adjust} />
@@ -236,11 +320,15 @@ export function CaptureSheet() {
         {capture.status === "error" && (
           <View style={{ alignItems: "center", gap: spacing.lg, paddingVertical: spacing.xl }}>
             <Text variant="body" style={{ textAlign: "center", maxWidth: 280 }} color={colors.muted}>
-              {t("capture.parseError")}
+              {t(capture.errorKey)}
             </Text>
             <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
               <Button label={t("common.cancel")} variant="ghost" onPress={capture.close} />
-              <Button label={t("common.tryAgain")} onPress={() => capture.submit(capture.phrase)} />
+              {capture.canRetry ? (
+                <Button label={t("common.tryAgain")} onPress={() => capture.submit(capture.phrase)} />
+              ) : (
+                <Button label={t("capture.photo.typeInstead")} onPress={capture.requestTextEntry} />
+              )}
             </View>
           </View>
         )}

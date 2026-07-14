@@ -171,6 +171,68 @@ export function mockParse(text: string, capturedAt?: string): ParseResult {
   return { drafts: drafts.slice(0, 5) }; // contract: maxItems 5
 }
 
+/**
+ * Canned photo parse (BE-018 not live yet). A plate photo → meal draft with a
+ * few items so the quantity steppers are demoable; a caption hinting at the gym
+ * → workout (whiteboard) draft. Real backend returns the same ParseResult shape.
+ */
+export function mockPhotoParse(caption?: string, capturedAt?: string): ParseResult {
+  const occurredAt = capturedAt ?? new Date().toISOString();
+  const isWorkout = !!caption && /\b(gym|workout|whiteboard|wod|lift|training)\b/i.test(caption);
+  if (isWorkout) {
+    return {
+      drafts: [
+        {
+          type: "workout",
+          occurredAt,
+          inputMethod: "photo",
+          sourcePhrase: caption,
+          isEstimate: true,
+          detail: {
+            title: "Whiteboard session",
+            durationMin: 45,
+            kcal: 320,
+            muscles: ["chest", "shoulders", "triceps", "core"],
+            exercises: [
+              { name: "Back squat", sets: 5, reps: 5 },
+              { name: "Bench press", sets: 5, reps: 5 },
+              { name: "Pull-ups", sets: 3, reps: 10 },
+            ],
+          },
+        },
+      ],
+    };
+  }
+  const items = [
+    { name: "Chicken", quantity: 1, unit: "portion", kcal: 300, proteinG: 56, carbsG: 0, fatG: 6.5 },
+    { name: "Rice", quantity: 1, unit: "cup", kcal: 210, proteinG: 7, carbsG: 42, fatG: 1.2 },
+    { name: "Salad", quantity: 1, unit: "bowl", kcal: 110, proteinG: 1.2, carbsG: 5, fatG: 9 },
+  ];
+  return {
+    drafts: [
+      {
+        type: "meal",
+        occurredAt,
+        inputMethod: "photo",
+        sourcePhrase: caption,
+        isEstimate: true,
+        detail: { title: "Chicken, rice & salad", items, totals: mockPhotoTotals(items) },
+      },
+    ],
+  };
+}
+
+const mockPhotoTotals = (items: { kcal: number; proteinG: number; carbsG: number; fatG: number }[]) =>
+  items.reduce(
+    (t, i) => ({
+      kcal: t.kcal + i.kcal,
+      proteinG: t.proteinG + i.proteinG,
+      carbsG: t.carbsG + i.carbsG,
+      fatG: t.fatG + i.fatG,
+    }),
+    { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+  );
+
 export function createMockApi(): Api {
   let me: User = {
     id: uuid(),
@@ -215,6 +277,10 @@ export function createMockApi(): Api {
     async parseText({ text, capturedAt }) {
       await delay(LATENCY_MS);
       return mockParse(text, capturedAt);
+    },
+    async parsePhoto({ caption, capturedAt }) {
+      await delay(LATENCY_MS);
+      return mockPhotoParse(caption, capturedAt);
     },
     async createEntry(idempotencyKey, entry) {
       await delay(150);
