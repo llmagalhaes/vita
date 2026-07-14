@@ -35,7 +35,7 @@ class ParseFlowTest {
     fun setUp() {
         wm.resetAll()
         val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048)
-        service = ParseService(client, ParseMetrics(SimpleMeterRegistry()))
+        service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6")
     }
 
     @Test

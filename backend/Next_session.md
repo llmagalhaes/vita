@@ -1,5 +1,42 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 10, 2026-07-14) — BE-018 done locally (slice 5, photo)
+
+- **BE-018 (POST /parse/photo — Claude vision) done locally** — `Progress/BE-018-Progress.md`.
+  Contract v0.4.0 **unchanged** (already specified); implemented to spec.
+  - **App coordination point (APP-020):** multipart field **`image`** (required), that
+    part's `Content-Type` must be `image/jpeg` / `image/png` / `image/webp` (else **415**);
+    optional form fields `caption` (≤500, → draft `sourcePhrase`) and `capturedAt` (RFC
+    3339, missing/bad → `now`). Response = the **same `ParseResult`** as `/parse/text`,
+    `inputMethod="photo"`, `isEstimate=true`.
+  - `ClaudeClient.parsePhoto(...)` = vision sibling of `parseText`: reuses the
+    `record_log_entries` tool + `NUTRITION_PREAMBLE`, adds a photo system prompt, sends a
+    native base64 `image` block on the Sonnet-class `photo-model` over the existing
+    `planRest` (2048 tok / 25 s). `ParseService` text+photo now share one `respond()` tail.
+  - **Image never persisted** (ADR-0005): no S3/disk/DB in the parse path; bytes live only
+    in-request + the outbound Claude call.
+  - **413** via `spring.servlet.multipart.max-file-size=5MB` backstop →
+    `MaxUploadSizeExceededException` → new `MultipartUploadAdvice` (problem+json). **422**
+    on empty/unusable output. Reuses BE-014 quota (429) + `ParseMetrics`.
+  - **Multipart under Boot 4 / Jackson 3 verified E2E** (`PhotoParseFlowTest`,
+    `@SpringBootTest` RANDOM_PORT + WireMock via `@DynamicPropertySource`): posts a real
+    image part, asserts the vision block reached the model + 413/415/422/401. Two gotchas
+    logged below.
+- **Verified:** `./gradlew check` green — **111 tests** (was 106; +5 PhotoParseFlowTest),
+  detekt+ktlint clean. Contract untouched (redocly N/A).
+- **Next backend:** BE-024 (checkin entry type, v0.4.0 + ADR-0013) and BE-025 (vacations)
+  remain from slices 6–7; debt/adapters BE-022/026/027 anytime after OPS-020.
+
+### Boot 4 gotchas (NEW — save yourself time)
+- `MultipartBodyBuilder` (test helper) pulls in `org.reactivestreams.Publisher`, which is
+  **not on the test classpath** → `NoClassDefFoundError`. Build multipart request bodies
+  with a plain `LinkedMultiValueMap<String,Any>` + `HttpEntity(resource, headers)` instead
+  — no extra dependency.
+- **Spring 7 renamed status enums** (same numeric codes): 413 `PAYLOAD_TOO_LARGE` →
+  `CONTENT_TOO_LARGE`, 422 `UNPROCESSABLE_ENTITY` → `UNPROCESSABLE_CONTENT`. `RestTestClient`
+  `.expectStatus().isEqualTo(HttpStatus.X)` compares by enum identity, so assert with the
+  **canonical new names**. `.value()` and the wire/contract are unaffected.
+
 ## Current state (Phase 2 session 9, 2026-07-14) — BE-019 + BE-020 done locally (slice 3)
 
 - **BE-019 (eating plan) + BE-020 (training program) done locally** — persisted,

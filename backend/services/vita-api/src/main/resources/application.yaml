@@ -12,6 +12,12 @@ spring:
   mvc:
     problemdetails:
       enabled: true # RFC 7807 for framework-raised errors (ADR-0006)
+  servlet:
+    multipart:
+      # BE-018 /parse/photo backstop (contract 5 MB; app downscales to 1568px JPEG q0.8).
+      # Over max-file-size → MaxUploadSizeExceededException → 413 (MultipartUploadAdvice).
+      max-file-size: 5MB
+      max-request-size: 6MB
 
 server:
   port: 8080
