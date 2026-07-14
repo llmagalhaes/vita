@@ -176,6 +176,7 @@ export default function Home() {
   const router = useRouter();
   const version = useLogVersion();
   const [waterOpen, setWaterOpen] = useState(false);
+  const [macrosOpen, setMacrosOpen] = useState(false);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [spentInput, setSpentInput] = useState("");
 
@@ -489,7 +490,8 @@ export default function Home() {
             )}
           </Card>
         </Pressable>
-        <Card style={{ flex: 1.35, gap: spacing.sm + 2, justifyContent: "center" }}>
+        <Pressable accessibilityRole="button" onPress={() => setMacrosOpen((o) => !o)} style={{ flex: 1.35 }}>
+        <Card style={{ gap: spacing.sm + 2, justifyContent: "center" }}>
           <SectionLabel>{t("home.macros")}</SectionLabel>
           {(
             [
@@ -510,7 +512,37 @@ export default function Home() {
               <Bar pct={(grams / maxMacro) * 100} color={color} />
             </View>
           ))}
+          {macrosOpen && (
+            <View
+              style={{
+                borderTopWidth: 1,
+                borderStyle: "dashed",
+                borderTopColor: "rgba(120,100,75,0.16)",
+                paddingTop: 9,
+                gap: 5,
+              }}
+            >
+              {/* kcal each macro contributes (4/4/9 kcal per g) — an estimate breakdown */}
+              {(
+                [
+                  ["protein", macros.protein, 4],
+                  ["carbs", macros.carbs, 4],
+                  ["fat", macros.fat, 9],
+                ] as const
+              ).map(([key, grams, kcalPerG]) => (
+                <View key={key} style={{ flexDirection: "row", justifyContent: "space-between" }}>
+                  <Text variant="caption" color={colors.labelMuted}>
+                    {t(`home.${key}`)}
+                  </Text>
+                  <Text variant="caption" style={{ fontFamily: fonts.semiBold }} color="#6E6355">
+                    {Math.round(grams * kcalPerG)} {t("common.kcal")}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </Card>
+        </Pressable>
       </View>
 
       {/* energy */}
