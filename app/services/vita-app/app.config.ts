@@ -44,7 +44,14 @@ const config: ExpoConfig = {
     //   VITA_API_BASE_URL=https://<api-gateway-id>.execute-api.<region>.amazonaws.com/v1
     apiBaseUrl: process.env.VITA_API_BASE_URL ?? "",
   },
-  plugins: ["expo-router", "expo-font", "expo-sqlite", "expo-secure-store", "expo-image-picker"],
+  plugins: [
+    "expo-router",
+    "expo-font",
+    "expo-sqlite",
+    "expo-secure-store",
+    "expo-image-picker",
+    "expo-notifications", // local habit check-in reminders (APP-026); scheduling works in Expo Go
+  ],
 };
 
 export default config;

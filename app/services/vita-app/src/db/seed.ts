@@ -144,6 +144,12 @@ export function seedDemoDataOnce(): void {
         ],
       );
     }
+    // A demo habit so Habits/Today and the Home "N waiting" banner have life.
+    db.runSync(
+      `INSERT INTO habits (id, name, days, time, enabled, kind, planMealName, createdAt)
+       VALUES (?, ?, ?, ?, 1, 'plain', NULL, ?)`,
+      [uuid(), "Take creatine", JSON.stringify([true, true, true, true, true, true, true]), "21:00", new Date().toISOString()],
+    );
   });
   kvSet("seeded", true);
 }

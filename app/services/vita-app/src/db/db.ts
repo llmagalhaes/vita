@@ -34,6 +34,17 @@ CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS habits (
+  id TEXT PRIMARY KEY,             -- device-local id (D1: definitions never leave the device)
+  name TEXT NOT NULL,
+  days TEXT NOT NULL,              -- JSON boolean[7]; index 0 = Sunday (Date.getDay())
+  time TEXT NOT NULL,             -- HH:MM local
+  enabled INTEGER NOT NULL DEFAULT 1,
+  kind TEXT NOT NULL DEFAULT 'plain',  -- 'plain' | 'plan'
+  planMealName TEXT,              -- set when kind = 'plan' (links to a plan meal by name)
+  createdAt TEXT NOT NULL
+);
 `;
 
 export function getDb(): SQLite.SQLiteDatabase {

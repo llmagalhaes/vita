@@ -62,6 +62,42 @@ export function addLocalEntry(entry: NewEntry): LocalEntry {
   return { ...entry, id, occurredAt, syncState: "pending" };
 }
 
+/**
+ * Write (or re-answer) a habit check-in. The entry id is deterministic —
+ * `${habitId}:${dateKey}` — so it doubles as the Idempotency-Key (BE-024: one
+ * check-in per habit per day). First answer enqueues a `create`; changing an
+ * already-synced answer enqueues an `update` (PATCH). While a create is still
+ * pending, we just rewrite the detail in place — the queued POST carries it.
+ */
+export function upsertCheckin(habitId: string, dateKey: string, entry: NewEntry): LocalEntry {
+  const db = getDb();
+  const id = `${habitId}:${dateKey}`;
+  const occurredAt = new Date(entry.occurredAt).toISOString();
+  const existing = getEntry(id);
+  db.withTransactionSync(() => {
+    if (!existing) {
+      db.runSync(
+        `INSERT INTO entries (id, type, occurredAt, inputMethod, sourcePhrase, isEstimate, detail)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [id, entry.type, occurredAt, entry.inputMethod, entry.sourcePhrase ?? null, entry.isEstimate ? 1 : 0, JSON.stringify(entry.detail)],
+      );
+      db.runSync(`INSERT INTO outbox (entryId, op) VALUES (?, 'create')`, [id]);
+    } else {
+      db.runSync(
+        `UPDATE entries SET occurredAt = ?, inputMethod = ?, sourcePhrase = ?, isEstimate = ?, detail = ?, syncState = 'pending' WHERE id = ?`,
+        [occurredAt, entry.inputMethod, entry.sourcePhrase ?? null, entry.isEstimate ? 1 : 0, JSON.stringify(entry.detail), id],
+      );
+      // Only enqueue a PATCH if the create already synced AND nothing is queued;
+      // a still-pending create will send the fresh detail on its own.
+      const queued = db.getFirstSync<{ seq: number }>(`SELECT seq FROM outbox WHERE entryId = ? LIMIT 1`, [id]);
+      if (existing.syncState === "synced" && !queued) {
+        db.runSync(`INSERT INTO outbox (entryId, op) VALUES (?, 'update')`, [id]);
+      }
+    }
+  });
+  return { ...entry, id, occurredAt, syncState: "pending" };
+}
+
 /** Entries whose occurredAt falls on the given local calendar day, ascending. */
 export function entriesForDay(day: Date): LocalEntry[] {
   const start = new Date(day);

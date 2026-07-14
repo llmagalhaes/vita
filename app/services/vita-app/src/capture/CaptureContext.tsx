@@ -113,9 +113,11 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
     // Local write always succeeds instantly; sync drains in the background.
     addLocalEntry(draft);
     logChanged();
-    void drainOutbox(api).then(({ synced }) => {
-      if (synced > 0) logChanged();
-    });
+    void drainOutbox(api)
+      .then(({ synced }) => {
+        if (synced > 0) logChanged();
+      })
+      .catch(() => {});
     advance(state, true);
   }, [state, advance]);
 

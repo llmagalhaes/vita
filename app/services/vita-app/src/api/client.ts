@@ -64,6 +64,8 @@ export interface Api {
   createProgram(doc: TrainingProgramDraft): Promise<TrainingProgramDraft>;
   updateProgram(doc: TrainingProgramDraft): Promise<TrainingProgramDraft>;
   createEntry(idempotencyKey: string, entry: NewEntry): Promise<LogEntry>;
+  /** Update an entry (check-in re-answer replaces the whole detail — BE-024). */
+  patchEntry(id: string, patch: { detail?: EntryDetail; occurredAt?: string }): Promise<LogEntry>;
   listEntries(params: {
     date?: string;
     tz?: string;
@@ -159,6 +161,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
         body: entry,
         headers: { "Idempotency-Key": idempotencyKey },
       }),
+    patchEntry: (id, patch) => request("PATCH", `/entries/${id}`, { body: patch }),
     listEntries: (params) => {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(params)) {

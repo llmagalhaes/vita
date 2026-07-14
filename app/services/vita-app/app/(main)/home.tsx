@@ -9,6 +9,8 @@ import { logChanged, useLogVersion } from "../../src/db/notify";
 import { drainOutbox } from "../../src/db/outbox";
 import { getSettings } from "../../src/db/settings";
 import { getCachedPlan, getCachedProgram, syncPlan, syncProgram } from "../../src/db/plan";
+import { listHabits } from "../../src/db/habits";
+import { openCheckins, pendingCheckins } from "../../src/habits/checkins";
 import { planDailyTotals } from "../../src/plan/compute";
 import { formatVolume } from "../../src/lib/units";
 import {
@@ -165,6 +167,11 @@ export default function Home() {
     void syncProgram().then(logChanged);
   }, []);
 
+  const pendingCheckinCount = useMemo(
+    () => pendingCheckins(listHabits(), new Date()).length,
+    [version], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+
   const meals = entries.filter((e) => e.type === "meal");
   const waters = entries.filter((e) => e.type === "water");
 
@@ -225,9 +232,11 @@ export default function Home() {
       detail: { amountMl: 250 },
     });
     logChanged();
-    void drainOutbox(api).then(({ synced }) => {
-      if (synced > 0) logChanged();
-    });
+    void drainOutbox(api)
+      .then(({ synced }) => {
+        if (synced > 0) logChanged();
+      })
+      .catch(() => {});
   };
 
   return (
@@ -245,6 +254,41 @@ export default function Home() {
           {dateStr}
         </Text>
       </View>
+
+      {/* check-ins waiting banner (opens the stack sheet) */}
+      {pendingCheckinCount > 0 && (
+        <Pressable accessibilityRole="button" onPress={openCheckins}>
+          <Card
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              paddingVertical: 14,
+              borderWidth: 1.5,
+              borderColor: "rgba(196,112,78,0.35)",
+            }}
+          >
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.estimateBg, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={colors.accent}>
+                {pendingCheckinCount}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="label" style={{ fontSize: 14.5 }}>
+                {pendingCheckinCount === 1
+                  ? t("habits.waitingOne")
+                  : t("habits.waitingMany", { count: pendingCheckinCount })}
+              </Text>
+              <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
+                {t("habits.tapToAnswer")}
+              </Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>
+              ›
+            </Text>
+          </Card>
+        </Pressable>
+      )}
 
       {/* logged today hero */}
       <Card style={{ gap: spacing.xs }}>

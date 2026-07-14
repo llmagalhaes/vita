@@ -431,6 +431,17 @@ export function createMockApi(): Api {
       byIdempotencyKey.set(idempotencyKey, created);
       return created;
     },
+    async patchEntry(id, patch) {
+      await delay(150);
+      for (const [key, e] of byIdempotencyKey) {
+        if (e.id === id) {
+          const updated: LogEntry = { ...e, ...patch, updatedAt: new Date().toISOString() };
+          byIdempotencyKey.set(key, updated);
+          return updated;
+        }
+      }
+      throw notFound();
+    },
     async listEntries() {
       await delay(150);
       // SQLite is the app's source of truth; the mock server starts empty.

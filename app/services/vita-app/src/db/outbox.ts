@@ -40,7 +40,13 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
       detail: entry.detail,
     };
     try {
-      const server = await api.createEntry(entry.id, payload);
+      // Check-in re-answers ride an `update` op → PATCH the already-synced entry
+      // (its deterministic id was the create's Idempotency-Key). Everything else
+      // is an idempotent create replay.
+      const server =
+        item.op === "update" && entry.serverId
+          ? await api.patchEntry(entry.serverId, { detail: entry.detail })
+          : await api.createEntry(entry.id, payload);
       markSynced(entry.id, server);
       db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
       synced++;

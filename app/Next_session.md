@@ -1,5 +1,34 @@
 # App Team — Next Session
 
+## Current state (Phase 2 — session 11 done 2026-07-14: slice 4 F6/F7 Habits & check-ins + notifications ✅ APP-024/025/026)
+
+- **Slice 4 complete** (`docs/backlog-local-100.md` F6/F7, **D1**). Progress: `Progress/APP-024/025/026-Progress.md`.
+- **Step 0 regen**: `types.gen.ts` regenerated from the committed contract — **no diff** (the final `checkin`
+  entry type + `CheckinDetail` and loosened Idempotency-Key were already in from slice 3's regen). `api:check`
+  clean before and after.
+- **APP-024**: device-local habits domain `src/db/habits.ts` (CRUD; `days:boolean[7]` index 0=Sun, kind
+  plain|plan, optional `planMealName`) + new `habits` table. `app/(main)/habits.tsx` rewritten: Today | Manage
+  tabs, new-habit form (dual input), habit rows with enable toggle + 14-day dot strip + expand (day chips/time/
+  remove). No streaks, no scores.
+- **APP-025**: `src/habits/checkins.ts` — check-in answers persist via the **existing outbox** as `checkin`
+  entries, id = **`habitId:date`** (doubles as Idempotency-Key; one per habit per day). Re-answer of a synced
+  day → `update` outbox op → **PATCH /entries/{id}** (new `patchEntry` on client + mock). Local SQLite is the
+  display source for dots. Plan check-in **Yes auto-logs the plan meal**; **Not quite opens capture**. Stack
+  sheet `src/habits/CheckinSheet.tsx` (drag-to-dismiss, mounted in `(main)/_layout`), reused inline in Today.
+  Home **"N waiting" banner** opens the sheet — **Home water|macros row left intact** (`flex:1`).
+- **APP-026**: `src/habits/notifier.ts` — `Notifier` interface + expo-notifications impl (lazy require),
+  `plannedNotifications` (pure weekday expansion), `refreshNotifications`/`ensureNotificationPermission` wired
+  to habit CRUD. New dep `expo-notifications ~56.0.20` (SDK-56, plugin added). **Interactive lock-screen Yes/No
+  = category registered best-effort; response→answer wiring deferred to APP-007** (needs a dev build to verify),
+  in-app stack is the working path. `src/db/notify.ts` does NOT overlap (log-change signal) — nothing folded.
+- **Fixed in passing**: the three fire-and-forget `drainOutbox(...)` sites (answerCheckin, home quick-add,
+  capture confirm) gained `.catch(() => {})` — a late background drain was leaking as a cross-suite unhandled
+  rejection under the new suites.
+- Gates: `tsc` clean · **Jest 106/106 (24 suites)**, +15 · `api:check` **exit 0 clean (no diff on regen)** ·
+  `expo export` iOS OK · `expo install --check` up to date, SDK 56, +1 dep (expo-notifications).
+- ponytail: voice-add-a-habit skipped (pill mic logs entries, not habit defs); plan-digest decorative card
+  skipped; interactive notification actions best-effort (dev-build verification is APP-007).
+
 ## Current state (Phase 2 — CEO live-bugfix pass done 2026-07-14: Home layout + sheet dismiss ✅)
 
 - **Two CEO-reported bugs fixed and verified on a real running app** (Android emulator,
