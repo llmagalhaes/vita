@@ -133,6 +133,66 @@ class TimelineFlowTest {
         get("/v1/entries?date=2026-07-13").expectStatus().isBadRequest
     }
 
+    private fun meal(occurredAt: String) =
+        mapOf(
+            "type" to "meal",
+            "occurredAt" to occurredAt,
+            "inputMethod" to "text",
+            "detail" to mapOf("items" to listOf(mapOf("name" to "Toast", "kcal" to 100))),
+        )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun listItems(uri: String): List<Map<String, Any>> =
+        (
+            get(uri)
+                .expectStatus()
+                .isOk
+                .expectBody(MAP)
+                .returnResult()
+                .responseBody!!
+        )["items"] as List<Map<String, Any>>
+
+    @Test
+    fun `from and to bound a half-open occurredAt window`() {
+        create(water("2026-07-13T08:00:00Z"))
+        create(water("2026-07-13T12:00:00Z"))
+        create(water("2026-07-13T18:00:00Z")) // exactly the `to` bound → excluded
+
+        val times =
+            listItems("/v1/entries?from=2026-07-13T10:00:00Z&to=2026-07-13T18:00:00Z")
+                .map { it["occurredAt"] as String }
+        assertThat(times).hasSize(1)
+        assertThat(times.first()).startsWith("2026-07-13T12:00")
+    }
+
+    @Test
+    fun `type CSV filters the timeline`() {
+        create(water("2026-07-13T08:00:00Z"))
+        create(meal("2026-07-13T09:00:00Z"))
+
+        assertThat(listItems("/v1/entries?type=water").map { it["type"] }).containsOnly("water")
+        assertThat(listItems("/v1/entries?type=meal,water").map { it["type"] })
+            .containsExactlyInAnyOrder("meal", "water")
+    }
+
+    @Test
+    fun `type checkin is accepted and matches nothing yet`() {
+        create(water("2026-07-13T08:00:00Z"))
+        assertThat(listItems("/v1/entries?type=checkin")).isEmpty()
+    }
+
+    @Test
+    fun `unknown type filter is a 400`() {
+        get("/v1/entries?type=bogus").expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `date combined with from is a 400`() {
+        get("/v1/entries?date=2026-07-13&tz=UTC&from=2026-07-13T00:00:00Z")
+            .expectStatus()
+            .isBadRequest
+    }
+
     @Suppress("UNCHECKED_CAST")
     @Test
     fun `cursor pages through all entries without overlap`() {

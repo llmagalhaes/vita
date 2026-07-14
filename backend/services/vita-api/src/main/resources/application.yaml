@@ -40,9 +40,16 @@ vita:
     timeout-seconds: 10
     # BE-014 abuse guard: per-user parses per UTC day; over it → 429 + Retry-After. Invisible in normal use.
     daily-parse-limit: ${VITA_AI_DAILY_PARSE_LIMIT:50}
-    # BE-015 plan/program import (ADR-0011): text → Haiku; PDF → a model with native document input (Sonnet-class, ADR-0005).
+    # Model tiering (ADR-0005), ids verified against the claude-api reference (BE-023, 2026-07-14):
+    #   text parse + text plan → Haiku (claude-haiku-4-5, confirmed working).
+    #   PDF import + photo → Sonnet-class (claude-sonnet-4-6): native document + vision input,
+    #   and thinking-OFF by default, which the 2048-token tool-forced call relies on (claude-sonnet-5
+    #   would turn adaptive thinking on and share that budget, risking a truncated tool call).
+    # BE-015 plan/program import (ADR-0011): text → Haiku; PDF → Sonnet-class native document input.
     plan-model: ${VITA_AI_PLAN_MODEL:claude-haiku-4-5}
     plan-pdf-model: ${VITA_AI_PLAN_PDF_MODEL:claude-sonnet-4-6}
+    # BE-018 photo parse (F3): Claude vision, Sonnet-class per ADR-0005 (vision only for photos/PDF).
+    photo-model: ${VITA_AI_PHOTO_MODEL:claude-sonnet-4-6}
     plan-max-output-tokens: 2048
     plan-timeout-seconds: 25 # a plan/PDF call is larger than capture parse; still inside API Gateway's 29 s ceiling
   uploads:

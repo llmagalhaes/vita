@@ -2,6 +2,7 @@ package com.llmagal.vita.entries.controller
 
 import com.llmagal.vita.entries.service.EntryResult
 import com.llmagal.vita.entries.service.EntryService
+import org.springframework.format.annotation.DateTimeFormat
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ProblemDetail
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.util.UUID
 
 /** Contract /entries write path (BE-011). Protected by the resource server (BE-008). */
@@ -41,13 +43,17 @@ class EntryController(
     }
 
     @GetMapping("/v1/entries")
+    @Suppress("LongParameterList") // contract query params, each 1:1 with the OpenAPI spec
     fun list(
         @AuthenticationPrincipal jwt: Jwt,
         @RequestParam(required = false) date: LocalDate?,
         @RequestParam(required = false) tz: String?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) from: OffsetDateTime?,
+        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) to: OffsetDateTime?,
+        @RequestParam(required = false) type: List<String>?,
         @RequestParam(required = false) cursor: String?,
         @RequestParam(defaultValue = "50") limit: Int,
-    ): EntryPage = entries.list(UUID.fromString(jwt.subject), date, tz, cursor, limit)
+    ): EntryPage = entries.list(UUID.fromString(jwt.subject), date, tz, from, to, type, cursor, limit)
 
     @GetMapping("/v1/entries/{id}")
     fun get(

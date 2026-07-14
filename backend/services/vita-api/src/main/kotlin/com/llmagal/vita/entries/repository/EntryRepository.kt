@@ -125,22 +125,34 @@ class EntryRepository(
             ).firstOrNull()
 
     /**
-     * Timeline page: newest first, optionally restricted to one day, walking
-     * older than [cursor]. Caller fetches limit+1 to detect a next page.
+     * Timeline page: newest first, optionally bounded by a half-open [from,
+     * toExclusive) occurredAt window (either end optional) and/or a `type`
+     * allow-list (BE-017), walking older than [cursor]. Caller fetches limit+1
+     * to detect a next page. All filters run on the (user_id, occurred_at, id)
+     * timeline index; `type` is a residual filter (fine at this scale).
      */
-    @Suppress("SpreadOperator") // dynamic WHERE clause → variable-length positional args
+    @Suppress("SpreadOperator", "LongParameterList") // dynamic WHERE: one param per optional filter
     fun list(
         userId: UUID,
-        range: DayRange?,
+        from: OffsetDateTime?,
+        toExclusive: OffsetDateTime?,
+        types: List<String>?,
         cursor: EntryCursor?,
         limit: Int,
     ): List<StoredEntry> {
         val sql = StringBuilder("SELECT $SELECT_COLS FROM log_entry WHERE user_id = ?")
         val params = mutableListOf<Any>(userId)
-        if (range != null) {
-            sql.append(" AND occurred_at >= ? AND occurred_at < ?")
-            params += range.start
-            params += range.endExclusive
+        if (from != null) {
+            sql.append(" AND occurred_at >= ?")
+            params += from
+        }
+        if (toExclusive != null) {
+            sql.append(" AND occurred_at < ?")
+            params += toExclusive
+        }
+        if (!types.isNullOrEmpty()) {
+            sql.append(" AND type IN (").append(types.joinToString(",") { "?" }).append(")")
+            params.addAll(types)
         }
         if (cursor != null) {
             sql.append(" AND (occurred_at, id) < (?, ?)")

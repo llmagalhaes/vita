@@ -1,13 +1,17 @@
 openapi: 3.1.0
 info:
   title: Vita API
-  version: 0.3.0
+  version: 0.4.0
   description: |
     Contract v0 — auth, user profile, log entries, AI parse. App-team review
     complete 2026-07-13 (`app/Doc/contract-review-v0.md`): approved, with two
     edits applied in 0.2.0 (muscles enum, drafts maxItems — backend ADR-0010).
     0.3.0 adds plan/program parse-import for onboarding steps 3-4 (two parse
     endpoints + a presigned-upload endpoint — backend ADR-0011).
+    0.4.0 is an additive "Vita 100% local" bump (backlog-local-100): it starts
+    with GET /entries gaining `from`/`to` and a CSV `type` filter (BE-017);
+    plan/program history+edit, `/me/vacations`, and the `checkin` entry type
+    land in later 0.4.0 tickets. No 0.3.0 consumer breaks.
     Governed by ADR-0006 (contract-first REST, RFC 7807, cursor pagination)
     and ADR-0005 (AI drafts are never persisted server-side).
 
@@ -302,10 +306,20 @@ paths:
         client-side (app review pt 2). No `?updatedSince=` delta sync in v0 —
         the app refreshes by day and infers deletes from omissions (app
         review pt 3; revisit with tombstones only if multi-device happens).
+
+        0.4.0 (BE-017) adds two additive filters, both composable with `cursor`
+        and `limit`:
+          - `from`/`to` — an explicit half-open `[from, to)` occurredAt window
+            (either bound optional) for trends/history bulk reads. Mutually
+            exclusive with `date` (sending both is a 400).
+          - `type` — a CSV allow-list of entry types. Home sends
+            `type=meal,water,workout` (excludes check-ins); Habits sends
+            `type=checkin`. `checkin` is accepted now and returns nothing until
+            that entry type ships (BE-024).
       parameters:
         - name: date
           in: query
-          description: Local calendar day to fetch, interpreted with `tz`.
+          description: Local calendar day to fetch, interpreted with `tz`. Not combinable with from/to.
           schema:
             type: string
             format: date
@@ -316,6 +330,30 @@ paths:
             (e.g. Europe/Lisbon). Required when `date` is present.
           schema:
             type: string
+        - name: from
+          in: query
+          description: Inclusive lower bound (occurredAt >=). Not combinable with `date`.
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: Exclusive upper bound (occurredAt <). Not combinable with `date`.
+          schema:
+            type: string
+            format: date-time
+        - name: type
+          in: query
+          description: >-
+            CSV allow-list of entry types to include. `checkin` is accepted
+            forward-compatibly (BE-024) and matches nothing until then.
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum: [meal, water, workout, checkin]
         - name: cursor
           in: query
           description: Opaque cursor from a previous response.

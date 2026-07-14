@@ -22,6 +22,7 @@ import java.security.MessageDigest
 import java.time.DateTimeException
 import java.time.Instant
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Base64
@@ -102,22 +103,48 @@ class EntryService(
         id: UUID,
     ): LogEntry = toLogEntry(userId, repo.findByIdForUser(userId, id) ?: notFound())
 
-    /** GET the timeline: newest first, optional single day, cursor-paginated. */
+    /**
+     * GET the timeline: newest first, cursor-paginated. Filters (BE-017):
+     * `date`+`tz` for a single local day (unchanged from v0.3.0), OR a half-open
+     * `[from, to)` occurredAt window — the two are mutually exclusive. A CSV
+     * `type` allow-list narrows either, and is validated (unknown value → 400).
+     */
+    @Suppress("LongParameterList") // contract query params, each 1:1 with the OpenAPI spec
     fun list(
         userId: UUID,
         date: LocalDate?,
         tz: String?,
+        from: OffsetDateTime?,
+        to: OffsetDateTime?,
+        types: List<String>?,
         cursor: String?,
         limit: Int,
     ): EntryPage {
-        val range = dayRange(date, tz)
+        if (date != null && (from != null || to != null)) {
+            badRequest("date cannot be combined with from/to.")
+        }
+        val (rangeFrom, rangeToExclusive) =
+            if (date != null) {
+                val range = dayRange(date, tz)!!
+                range.start to range.endExclusive
+            } else {
+                from to to
+            }
         val keyset = cursor?.let(::decodeCursor)
         val capped = limit.coerceIn(1, MAX_LIMIT)
-        val rows = repo.list(userId, range, keyset, capped + 1)
+        val rows = repo.list(userId, rangeFrom, rangeToExclusive, validTypes(types), keyset, capped + 1)
         val hasMore = rows.size > capped
         val page = if (hasMore) rows.take(capped) else rows
         val next = if (hasMore) encodeCursor(page.last()) else null
         return EntryPage(page.map { toLogEntry(userId, it) }, next)
+    }
+
+    /** CSV `type` filter: null/empty means no filter; any unknown value is a 400. */
+    private fun validTypes(types: List<String>?): List<String>? {
+        if (types.isNullOrEmpty()) return null
+        val unknown = types.filterNot { it in FILTERABLE_TYPES }
+        if (unknown.isNotEmpty()) badRequest("Unknown type filter: ${unknown.joinToString()}")
+        return types
     }
 
     /**
@@ -289,5 +316,9 @@ class EntryService(
     private companion object {
         const val MAX_WATER_ML = 10_000
         const val MAX_LIMIT = 100
+
+        // Accepted `type` filter values. Derived from the entry types plus "checkin",
+        // which the app filters on now (Habits) though the entry type ships in BE-024.
+        val FILTERABLE_TYPES: Set<String> = EntryType.entries.map { it.name }.toSet() + "checkin"
     }
 }

@@ -1,5 +1,17 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 8, 2026-07-14) — BE-023 + BE-017 done locally
+
+- **BE-023 (verify & pin AI model ids) done locally** — `Progress/BE-023-Progress.md`, ADR-0005 "Pinned model ids" table.
+  - Verified all ids against the claude-api reference. **`plan-pdf-model = claude-sonnet-4-6` is correct, not wrong** (valid Sonnet-class, native PDF+vision, thinking-OFF by default — which the 2048-token forced-tool call needs; `claude-sonnet-5` would turn adaptive thinking on and share that budget → truncation risk, so it's deferred behind a `ClaudeClient` thinking-disable change).
+  - Kept `claude-haiku-4-5` (text, plan-model). **Added `vita.ai.photo-model = claude-sonnet-4-6`** for BE-018/F3 (vision per ADR-0005). `callTool` already takes model per-call, so no client field added.
+- **BE-017 (GET /entries: from/to + CSV type) done locally — first piece of contract v0.4.0** — `Progress/BE-017-Progress.md`.
+  - Additive: `from`/`to` half-open `[from,to)` window (either bound optional, mutually exclusive with `date` → 400); `type` CSV allow-list (`meal,water,workout,checkin`; unknown → 400; `checkin` accepted forward-compat for Habits, empty until BE-024). `date` single-day + keyset cursor UNCHANGED. `type` composes with `date` (Home Today).
+  - **Contract bumped 0.3.0 → 0.4.0** (`docs/contracts/vita-api-v0.yaml`); redocly exit 0. App team notified via orchestrator.
+  - Repository `list` param changed `DayRange? → from/toExclusive/types`; runs on the existing timeline index, no migration.
+- **Verified:** `./gradlew check` green — **89/89 tests** (was 84; +5 BE-017 in TimelineFlowTest), detekt+ktlint clean, redocly exit 0.
+- **Next backend:** slice 3 — BE-019 + BE-020 (plan/program persisted, history ≤5, editable, v0.4.0 + ADR-0011 ext), then BE-024 (checkin entry type), BE-018 (photo, uses the new `photo-model`), BE-025 (vacations).
+
 ## Current state (Phase 2 session 7, 2026-07-14)
 
 - **BE-016 (layered-packages refactor) done locally** — In progress on Asana. `Progress/BE-016-layered-packages-refactor-Progress.md`, `Doc/ADRs/ADR-0012` (supersedes ADR-0001's package section).
