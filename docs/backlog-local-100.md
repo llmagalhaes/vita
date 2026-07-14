@@ -1,10 +1,10 @@
-# Backlog — "Vita 100% local" (rev 2, post-CEO Round 10)
+# Backlog — "Vita 100% local" (rev 3 — Asana synced, release pipeline added)
 
 > CEO directive (2026-07-14): **the app working 100% locally, feature by feature** — for each feature, the steps each team needs. **No GitHub CI/CD, no AWS deploy — where AWS is needed, LocalStack. Terraform stays ready (no applies). Production (F-LAST) is unscheduled until a future CEO call.**
 >
 > Method: orchestrator draft → three team-lead rounds (detail → cross-team reconciliation → CEO Round-10 answers incorporated). Local DoD everywhere: backend `./gradlew check` green + contract-first (redocly); app `tsc` clean + Jest green + walkable in **store Expo Go SDK 56**; the app team's pre-merge checklist (`tsc` · `jest` · `api:check` · `expo export`) is the guardrail — documented in `app/Doc/` when implementation starts (no CI ticket, CEO Round 10.5).
 >
-> Asana sync: tickets below get created on the team boards (with their `Model:` lines) as each slice starts. This file is the plan of record until then.
+> **Asana synced 2026-07-14 (Round 11)**: all 32 tickets created — BE-017–028 (Vita backend), APP-017–035 + APP-037 (Vita frontend), OPS-020 (Vita devops). BE-017, BE-023 and APP-017 sit in "To do"; everything else in Backlog. This file remains the consolidated plan; the Asana ticket is the working record per task.
 
 ## Standing decisions (CEO Round 10 + team reconciliation)
 
@@ -98,6 +98,8 @@ Backend order: **BE-017** → **BE-023** → **BE-019 + BE-020** → **BE-024** 
 | APP-033 | app | Offline pending-interpretation outbox op + NetInfo reconnect drain (new dep `@react-native-community/netinfo`, Expo Go-OK). | Opus 4.8 / M |
 | APP-034 | app | Maestro E2E smoke (onboarding→capture→confirm→timeline + auth deep link) once slices stabilize. | Sonnet / M |
 | APP-035 | app | Fidelity pass vs prototype (wave draw-on, entrance animations, check-ins banner motion, vacation transitions). | Sonnet / S–M |
+| BE-028 | backend | **PARKED (pre-release gate, CEO R11)** — full code hygiene & cleanup sweep: dead code, unused deps, TODO/ponytail-debt harvest, detekt/ktlint strictness, test gaps, ADR/doc consistency. | Opus 4.8 / M-L |
+| APP-037 | app | **PARKED (pre-release gate, CEO R11)** — full code hygiene & cleanup sweep: dead code, unused deps/assets, TODO harvest, lint/tsconfig strictness, i18n completeness; document the pre-merge checklist in `app/Doc/`. | Opus 4.8 / M-L |
 
 Cancelled/dropped: **OPS-018** app CI (CEO: no GitHub CI/CD — local pre-merge checklist instead, to be documented in `app/Doc/`); OPS-019 local bootstrap (compose+bootRun already works); BE-021 trends aggregate (D4); SES real Mailer (deferred to F-LAST, `LogMailer` covers local).
 
@@ -114,6 +116,16 @@ Pre-flight (anytime): finish OPS-004 — CEO sets repo Variables + PR/fork negat
 
 New infra demanded by the local features at deploy time: **none**. Cost live ≈ $25–40/mo at 5 users, under the $40 alarm.
 
+## Release pipeline (CEO Round 11 — runs only after the local-100 backlog is complete)
+
+Store accounts are being worked on by the CEO (not urgent); **nothing publishes before everything works locally.** Then, in order:
+
+1. **Code hygiene & cleanup sweep** — BE-028 + APP-037 (parked above; CEO calls this stage).
+2. **AWS deploy** — the F-LAST runbook above.
+3. **Android build validated against AWS** — CEO builds the Android app locally and validates it against the deployed backend (not the local machine).
+4. **iOS build validated on a real iPhone against AWS** — CEO builds iOS locally, validates on a physical device.
+5. **Publish: Play Store first, then App Store.** (CEO builds/submits manually from his Mac — standing decision.)
+
 ## Open questions for the CEO
 
-**None.** Round 10 closed them all. The only future CEO signals needed: (a) calling the F-LAST deploy milestone, (b) Apple/Play accounts for the blocked appendix.
+**None.** Rounds 10–11 closed them all. The only future CEO signals needed: (a) calling the hygiene/pre-release stage, (b) Apple/Play accounts becoming available.

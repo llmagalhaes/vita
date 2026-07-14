@@ -2,6 +2,17 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-14 — Round 11 (execution go + release pipeline)
+
+1. **Execution go**: local-100 backlog (rev 2) proceeds. All 32 tickets created in Asana (BE-017–028, APP-017–035 + APP-037, OPS-020), Notion updated, README added. Work continues with the CEO switching the session model to **Opus** (Fable was used for the planning rounds).
+2. **Store accounts**: CEO is working on Apple/Play accounts — will take time and is not urgent. **Everything must work locally before publishing.**
+3. **Release pipeline** (in order, only after the local-100 backlog is complete):
+   1. **Full code hygiene & cleanup sweep** — tech-debt tickets `BE-028` / `APP-037`, parked until the CEO calls this stage;
+   2. Backend deployed to AWS (F-LAST runbook);
+   3. **Android build validated against AWS** (not against the local machine);
+   4. **iOS local build validated on a real iPhone against AWS**;
+   5. Publish: **Play Store first, then App Store**. (CEO builds manually from his Mac — standing decision.)
+
 ## 2026-07-14 — Round 10 (local-100 backlog answers)
 
 Answers to the open questions in `docs/backlog-local-100.md`:

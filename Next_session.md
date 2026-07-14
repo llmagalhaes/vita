@@ -6,8 +6,16 @@
 
 **Phase 2 — Implementation.** Almost all of contract **v0.3.0** is built and tested LOCALLY. The app↔backend core loop is **proven end-to-end against the real backend** (real Postgres). AWS infra is fully applied but **parked at $0** (ECS off). **No production deploy yet** — CEO policy: local-first, deploy only at a called milestone. Everything pushed to GitHub, HEAD `fe6f4c9`. Working tree clean.
 
-### NEW BACKLOG (2026-07-14): "Vita 100% local" — see `docs/backlog-local-100.md` (rev 2)
-The CEO commissioned a feature-by-feature backlog to get the app 100% local. Three team-lead planning rounds + CEO Round 10 answers (see `docs/ceo-decisions.md`). Plan of record: **`docs/backlog-local-100.md`** — slices 1–8 local (water → workout → plan/program history+edit → habits/notifications → photo → trends → settings/vacation/export → debt+LocalStack adapters), tickets BE-017–027 / APP-017–035 / OPS-020, decisions D1–D9. **No GitHub CI/CD (OPS-018 cancelled), no AWS — LocalStack for adapter testing, Terraform kept ready, F-LAST unscheduled.** Zero open CEO questions. Start: slice 1 (F1 Water / APP-017); BE-017 + BE-023 early. Tickets get created in Asana as each slice starts. The section below ("Next actions — waiting on CEO") remains true only for the DEPLOY milestone and store accounts.
+### ACTIVE BACKLOG: "Vita 100% local" — `docs/backlog-local-100.md` (rev 3) — EXECUTION READY
+Feature-by-feature backlog to get the app 100% local (3 team-lead planning rounds + CEO Rounds 10–11 in `docs/ceo-decisions.md`). **All 32 tickets created in Asana 2026-07-14** — BE-017–028, APP-017–035 + APP-037, OPS-020; **BE-017, BE-023 and APP-017 sit in "To do"**, rest in Backlog. Notion (all 5 pages) + README updated same day.
+
+**Next session (on Opus): start execution.**
+1. Dispatch slice 1: app agent → APP-017 (water). In parallel backend agent → BE-017 (entries filters, gates slice 2) and BE-023 (pin AI model ids — cheap, gates photo/PDF). Disjoint folders → safe in parallel; orchestrator commits per team.
+2. Then follow the slice order in `docs/backlog-local-100.md` (slice 2 workout → 3 plan/program → 4 habits/notifications → 5 photo → 6 trends → 7 settings cluster → 8 debt + OPS-020 LocalStack + BE-026/027).
+3. Contract v0.4.0 lands with BE-017/019/020/024/025 (one bump, ADR-0011 ext + ADR-0013); regenerate app types after.
+4. Move each Asana ticket Backlog→To do→In progress as it starts; Progress/ file per ticket; Notion team pages at session close.
+
+**Rules unchanged**: no GitHub CI/CD (OPS-018 cancelled — local pre-merge checklists are the guardrail), no AWS applies (LocalStack for adapters), Terraform kept ready. **Release pipeline (CEO R11, only after local-100 done)**: hygiene sweep (BE-028/APP-037, parked) → AWS deploy (F-LAST) → Android build vs AWS → iOS on real iPhone vs AWS → Play Store → App Store. Stores: CEO is working on accounts, not urgent. The section below ("Next actions — waiting on CEO") remains true only for that pipeline.
 
 ## Snapshot by team
 
