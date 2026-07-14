@@ -1,5 +1,43 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 9, 2026-07-14) — BE-019 + BE-020 done locally (slice 3)
+
+- **BE-019 (eating plan) + BE-020 (training program) done locally** — persisted,
+  versioned, editable, encrypted. `Progress/BE-019-Progress.md`,
+  `Progress/BE-020-Progress.md`; ADR-0011 extended with the history/edit/re-encrypt
+  decision.
+  - New package `plans/` (controller/service/repository, ADR-0012). ONE engine
+    serves both resources: `PlanRepository` (blob-only, `PlanTable` enum →
+    injection-safe table name), `PlanService` (JsonNode, type-agnostic, per-user
+    DEK envelope — identical to entries), `PlanController` (4 endpoints × 2).
+    Reuses `EatingPlanDraft` / `TrainingProgramDraft` schemas as request+response.
+  - Migration **`V004__plans.sql`** — `eating_plan` + `training_program`, each
+    `(id, user_id, doc_enc, created_at)`, `user_id … ON DELETE CASCADE`. `doc_enc`
+    = whole confirmed draft as one AES-256-GCM blob under the per-user DEK; **no
+    denormalized numbers** (plans are never server-aggregated).
+  - **Semantics (D5):** `POST` = new version (cap `vita.plans.history-max`
+    default 5, oldest dropped); `GET` = current; `PUT` = edit current
+    (**full-doc replace + whole-blob re-encrypt in the service — no plaintext
+    server-side merge-patch**, updates newest row in place, not a new version);
+    `GET …/history` = ≤5 frozen versions `{id, createdAt, doc}`. 404 when no
+    current version exists (GET/PUT).
+  - **Crypto-at-rest + cascade verified:** `PlanFlowTest` proves stored `doc_enc`
+    bytes ≠ plaintext, and that account `purge` shreds the DEK + cascades the
+    rows; `SmokeTest` now lists `eating_plan.doc_enc` / `training_program.doc_enc`
+    among the bytea C3 columns.
+  - **Contract v0.4.0** (additive, D6 — no further bump): added `/plan`,
+    `/plan/history`, `/program`, `/program/history` under tag `plans`, plus
+    `PlanVersion` / `ProgramVersion` schemas. redocly exit 0.
+- **Verified:** `./gradlew check` green — **106 tests** (was 93; +10 PlanFlowTest,
+  +3 ProgramFlowTest), detekt+ktlint clean, redocly exit 0.
+- **App slice-3 consumes:** GET/POST/PUT `/v1/plan` (`EatingPlanDraft`) + GET
+  `/v1/plan/history` (`PlanVersion[]`); same shapes under `/v1/program`
+  (`TrainingProgramDraft` / `ProgramVersion[]`). Orchestrator to relay the
+  contract change to the app team (ADR-0006).
+- **Next backend:** BE-024 (checkin entry type, v0.4.0 + new ADR-0013), then
+  BE-018 (photo, uses `photo-model`), BE-025 (vacations). Debt/adapters
+  (BE-022/026/027) anytime after OPS-020.
+
 ## Current state (Phase 2 session 8, 2026-07-14) — Fable audit fast-follow done locally
 
 - **BE-REVIEW-FIXES (audit 1.3 + 1.4) done locally** — `Progress/BE-REVIEW-FIXES-Progress.md`. Both fixes root-caused in `EntryService.normalize` (shared by POST + PATCH):

@@ -57,6 +57,10 @@ vita:
     # URL and reads fixtures from this dir. Prod injects a real S3 presigner (devops).
     local-dir: ${VITA_UPLOADS_LOCAL_DIR:${java.io.tmpdir}/vita-uploads}
     url-ttl-seconds: 900
+  plans:
+    # BE-019/BE-020 (ADR-0011 ext): how many past versions of the eating plan /
+    # training program to keep. POST beyond this drops the oldest (D5).
+    history-max: ${VITA_PLANS_HISTORY_MAX:5}
 
 keys:
   # Never put the real key here — this file is committed. Local: secrets.yaml; prod: env var.

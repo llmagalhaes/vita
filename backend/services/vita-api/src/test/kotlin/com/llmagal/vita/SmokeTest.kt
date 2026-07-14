@@ -91,6 +91,8 @@ class SmokeTest {
             "log_entry.source_phrase_enc",
             "log_entry.detail_enc",
             "magic_link_token.email_enc",
+            "eating_plan.doc_enc",
+            "training_program.doc_enc",
         )
     }
 

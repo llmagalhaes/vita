@@ -33,6 +33,7 @@ tags:
   - name: entries
   - name: parse
   - name: uploads
+  - name: plans
 
 paths:
   # ── Auth ────────────────────────────────────────────────────────────────
@@ -659,6 +660,157 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
+  # ── Persisted eating plan & training program (versioned, editable) ───────
+  # The confirmed parse draft is stored as-is, encrypted (per-user DEK, ADR-0003).
+  # POST = import a new version (history capped, oldest dropped); GET = current;
+  # PUT = edit current (full-doc replace + re-encrypt — no server-side merge);
+  # GET …/history = the past versions (frozen; no restore in v0). BE-019/BE-020.
+  /plan:
+    get:
+      tags: [plans]
+      summary: Get the current eating plan
+      description: The newest stored version, for the Home plan row and the Eating Plan screen.
+      responses:
+        "200":
+          description: The current eating plan.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [plans]
+      summary: Import (store) an eating plan as a new version
+      description: |
+        Persists a confirmed plan draft as a new version. History is capped at a
+        server limit (default 5); importing beyond it drops the oldest version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+      responses:
+        "201":
+          description: Stored eating plan (the new current version).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [plans]
+      summary: Edit the current eating plan
+      description: |
+        Full-doc replace of the current version — any field is editable. The
+        whole document is re-encrypted server-side; there is no per-field merge.
+        Does not create a new version (past versions are frozen).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+      responses:
+        "200":
+          description: The edited eating plan.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /plan/history:
+    get:
+      tags: [plans]
+      summary: List stored eating-plan versions
+      description: The past versions (newest first), capped at the server limit. Frozen — display only.
+      responses:
+        "200":
+          description: Stored eating-plan versions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PlanVersion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /program:
+    get:
+      tags: [plans]
+      summary: Get the current training program
+      description: The newest stored version, for the Home program row and the program screen.
+      responses:
+        "200":
+          description: The current training program.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingProgramDraft" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [plans]
+      summary: Import (store) a training program as a new version
+      description: |
+        Persists a confirmed program draft as a new version. History is capped at
+        a server limit (default 5); importing beyond it drops the oldest version.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingProgramDraft" }
+      responses:
+        "201":
+          description: Stored training program (the new current version).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingProgramDraft" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [plans]
+      summary: Edit the current training program
+      description: |
+        Full-doc replace of the current version — any field is editable. The
+        whole document is re-encrypted server-side; there is no per-field merge.
+        Does not create a new version (past versions are frozen).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TrainingProgramDraft" }
+      responses:
+        "200":
+          description: The edited training program.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TrainingProgramDraft" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /program/history:
+    get:
+      tags: [plans]
+      summary: List stored training-program versions
+      description: The past versions (newest first), capped at the server limit. Frozen — display only.
+      responses:
+        "200":
+          description: Stored training-program versions.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProgramVersion" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1101,3 +1253,29 @@ components:
         exercises:
           type: array
           items: { $ref: "#/components/schemas/Exercise" }
+
+    PlanVersion:
+      type: object
+      description: One stored eating-plan version (history). Frozen — display only.
+      required: [id, createdAt, doc]
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        doc: { $ref: "#/components/schemas/EatingPlanDraft" }
+
+    ProgramVersion:
+      type: object
+      description: One stored training-program version (history). Frozen — display only.
+      required: [id, createdAt, doc]
+      properties:
+        id:
+          type: string
+          format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        doc: { $ref: "#/components/schemas/TrainingProgramDraft" }
