@@ -2,6 +2,12 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-07-14 — Round 12 (session-4 close: local-100 built + offline-log decision)
+
+1. **"Vita 100% local" backlog COMPLETE** — all slices 1–8 built and green locally in one parallel-agent session (commits `0ae4310..91a1e73`). Backend `./gradlew check` 122 + 6 LocalStack; app Jest 144, Expo Go SDK 56; contract v0.4.0. Two Fable QA audits run; audit fixes + a CEO live-test bugfix (Home layout, sheet drag-dismiss) landed.
+2. **Offline capture that can't reach `/parse` → keep auto-add, add a review banner.** CEO chose the Fable-recommended option: the app still parses+logs parked offline captures on reconnect (durability), but marks them **`needsReview`** and surfaces an **"N offline captures added — tap to review"** banner (reusing the check-in-stack UX) so the discard/adjust affordance isn't lost. Resolves audit-2 finding 1.8 (no more permanent "waiting to sync" lie). Preserves confirm-before-log intent without risking un-logged drafts. → follow-up app ticket after the audit-2 correctness fixes land.
+3. **Still PARKED (CEO-gated):** hygiene sweep (BE-028/APP-037) and F-LAST deploy — unchanged.
+
 ## 2026-07-14 — Round 11 (execution go + release pipeline)
 
 1. **Execution go**: local-100 backlog (rev 2) proceeds. All 32 tickets created in Asana (BE-017–028, APP-017–035 + APP-037, OPS-020), Notion updated, README added. Work continues with the CEO switching the session model to **Opus** (Fable was used for the planning rounds).
