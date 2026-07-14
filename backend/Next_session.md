@@ -1,5 +1,45 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 11, 2026-07-14) — BE-024 + BE-025 + BE-022 done locally
+
+Batch: checkin entry type → vacation ranges → token cleanup. ADR-0013 created
+(checkin-as-entry-type + vacation ranges). Contract v0.4.0 (additive, no bump — D6).
+
+- **BE-024 (checkin as a NEW entry type)** — `Progress/BE-024-Progress.md`.
+  Rides the existing `entries/` path: `EntryType` gained `checkin`,
+  `CheckinDetail={habitId,habitName,kind,answer,note?}` encrypted in the detail
+  (per-user DEK) like every entry, `denormalize` all-null (no aggregatable
+  numbers). Idempotency `habitId:date` via the existing header path (same answer
+  replays, different answer 409); change-answer = PATCH the entry. Home/Habits
+  split via the BE-017 CSV `type` filter (already forward-compat). **Migration
+  `V006__log_entry_checkin_type.sql`** widens the `log_entry.type` CHECK.
+  Contract: `CheckinDetail` schema + `checkin` in `EntryDetail` oneOf and
+  `NewEntry.type`; `Idempotency-Key` loosened (dropped `format: uuid`).
+- **BE-025 (vacation ranges)** — `Progress/BE-025-Progress.md`. `GET/PUT
+  /v1/me/vacations`: encrypted opaque JSON array of `{start,end}`,
+  replace-on-write, one row per user, server never interprets (only a
+  structural is-array check → 400). New `users/{controller,service,repository}/
+  Vacation*.kt` + **migration `V005__vacations.sql`** (`vacation`, `ranges_enc`
+  C3, ON DELETE CASCADE). Contract: `/me/vacations` + `VacationRange`.
+- **BE-022 (token cleanup, audit 2.3)** — `Progress/BE-022-Progress.md`.
+  `jobs/service/TokenCleanupJob.kt` — a `@Scheduled` sweep deleting consumed/
+  expired `magic_link_token` (encrypted email must not linger) + dead
+  `refresh_token` rows. **Ponytail call flagged for the orchestrator:** a direct
+  `@Scheduled` DELETE, not routed through the `job` table (a recurring cron
+  doesn't fit a one-shot queue; would bloat the very table it cleans). Reuses the
+  `jobs/` package + `@EnableScheduling`; no infra, no migration, no contract change.
+- **Verified:** `./gradlew check` green — **122 tests** (was 111; +4 CheckinFlowTest,
+  +5 VacationFlowTest, +2 TokenCleanupJobTest), detekt/ktlint
+  clean, redocly exit 0. Also fixed latent `EntryFlowTest` nondeterminism
+  (`SELECT kcal … LIMIT 1` scoped to `type='meal'` now that the shared test DB
+  holds null-kcal check-ins) and added `vacation.ranges_enc` to SmokeTest's C3 list.
+- **App consumes:** checkin via `POST /entries type=checkin` (key `habitId:date`,
+  PATCH to change) + `GET /entries?type=checkin`; vacations via `GET/PUT
+  /v1/me/vacations` (JSON array of `{start,end}`). Orchestrator relays the 0.4.0
+  additions to the app team (ADR-0006).
+- **Remaining backend:** debt/adapters BE-026 (S3 FileStore) + BE-027 (KMS
+  KeyWrapper) after OPS-020 (LocalStack); BE-028 hygiene sweep parked (pre-release).
+
 ## Current state (Phase 2 session 10, 2026-07-14) — BE-018 done locally (slice 5, photo)
 
 - **BE-018 (POST /parse/photo — Claude vision) done locally** — `Progress/BE-018-Progress.md`.

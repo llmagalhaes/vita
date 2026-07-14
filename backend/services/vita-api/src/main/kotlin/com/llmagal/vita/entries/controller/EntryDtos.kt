@@ -7,7 +7,7 @@ import java.util.UUID
 
 /** Contract `type` discriminator — lowercase names are the wire + DB values. */
 @Suppress("ktlint:standard:enum-entry-name-case", "EnumNaming")
-enum class EntryType { meal, water, workout }
+enum class EntryType { meal, water, workout, checkin }
 
 /**
  * Create payload for POST /v1/entries — also exactly the draft shape the parse

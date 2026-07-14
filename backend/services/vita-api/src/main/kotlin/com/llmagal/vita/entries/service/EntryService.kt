@@ -246,6 +246,15 @@ class EntryService(
                         ?.takeIf { it.isNotEmpty() }
                 mapper.valueToTree(workout.copy(muscles = muscles))
             }
+            EntryType.checkin -> {
+                // Server-opaque: validate the fields are present, then store verbatim.
+                val c = read<CheckinDetail>(detail)
+                if (c.habitId.isBlank()) badRequest("A check-in needs a habitId.")
+                if (c.habitName.isBlank()) badRequest("A check-in needs a habitName.")
+                if (c.kind.isBlank()) badRequest("A check-in needs a kind.")
+                if (c.answer.isBlank()) badRequest("A check-in needs an answer.")
+                mapper.valueToTree(c)
+            }
         }
 
     /** Contract MealItem minimums — kcal/macros >= 0 (mirror the log_entry CHECKs → 400 not 500). */
@@ -291,6 +300,8 @@ class EntryService(
                 val w = read<WorkoutDetail>(detail)
                 Denorm(w.kcal, null, null, null, null, w.durationMin)
             }
+            // Check-ins carry no aggregatable numbers.
+            EntryType.checkin -> Denorm(null, null, null, null, null, null)
         }
 
     private fun totalsOf(items: List<MealItem>): MacroTotals =
@@ -357,9 +368,8 @@ class EntryService(
         const val MAX_WATER_ML = 10_000
         const val MAX_LIMIT = 100
 
-        // Accepted `type` filter values. Derived from the entry types plus "checkin",
-        // which the app filters on now (Habits) though the entry type ships in BE-024.
-        val FILTERABLE_TYPES: Set<String> = EntryType.entries.map { it.name }.toSet() + "checkin"
+        // Accepted `type` filter values — every entry type (checkin now real, BE-024).
+        val FILTERABLE_TYPES: Set<String> = EntryType.entries.map { it.name }.toSet()
 
         // Contract InputMethod enum — the wire values a create may carry.
         val INPUT_METHODS = setOf("voice", "text", "photo", "tap", "checkin", "import")

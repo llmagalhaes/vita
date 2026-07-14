@@ -72,3 +72,18 @@ data class Exercise(
     val reps: Int?,
     val loadKg: Double?,
 )
+
+/**
+ * A habit check-in result (BE-024). Rides the entries path as a `checkin` entry,
+ * encrypted in the detail like every other type. Server-opaque — stored verbatim,
+ * never interpreted or aggregated (no denormalized numbers).
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+@JsonIgnoreProperties(ignoreUnknown = true)
+data class CheckinDetail(
+    val habitId: String,
+    val habitName: String,
+    val kind: String,
+    val answer: String,
+    val note: String? = null,
+)

@@ -238,6 +238,50 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         default: { $ref: "#/components/responses/Problem" }
 
+  /me/vacations:
+    # Vacation ranges (BE-025, D1). Stored as one encrypted opaque blob (per-user
+    # DEK); the server never reads or interprets these dates — this is durability
+    # for the device-local vacation config, which drives all vacation behaviour.
+    get:
+      tags: [account]
+      summary: Get the stored vacation ranges
+      description: The ranges as last written; an empty array if the user has never set any.
+      responses:
+        "200":
+          description: Vacation ranges.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VacationRange" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+    put:
+      tags: [account]
+      summary: Replace the stored vacation ranges
+      description: >-
+        Replace-on-write: the whole array is re-encrypted and replaces the
+        previous value. No merge, no server-side interpretation. Echoes what was
+        stored.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items: { $ref: "#/components/schemas/VacationRange" }
+      responses:
+        "200":
+          description: The stored vacation ranges.
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/VacationRange" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        default: { $ref: "#/components/responses/Problem" }
+
   /account:
     delete:
       tags: [account]
@@ -823,10 +867,13 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: Client-generated UUID, unique per logical create. Reused on retries.
+      description: >-
+        Client-generated key, unique per logical create, reused on retries.
+        Usually a UUID; for naturally-idempotent domains it is deterministic —
+        check-ins use `habitId:date` so a habit can be checked in once per day
+        (BE-024).
       schema:
         type: string
-        format: uuid
 
   responses:
     Problem:
@@ -914,6 +961,21 @@ components:
           format: date-time
           description: Present only while an account deletion is pending (7-day grace).
 
+    VacationRange:
+      type: object
+      description: >-
+        One vacation date range (BE-025). The array of these is stored server-side
+        as a single encrypted opaque blob (per-user DEK); the server never reads
+        or interprets it — the device drives all vacation behaviour (D1).
+      required: [start, end]
+      properties:
+        start:
+          type: string
+          format: date
+        end:
+          type: string
+          format: date
+
     InputMethod:
       type: string
       enum: [voice, text, photo, tap, checkin, import]
@@ -933,7 +995,11 @@ components:
       properties:
         type:
           type: string
-          enum: [meal, water, workout]
+          enum: [meal, water, workout, checkin]
+          description: >-
+            `checkin` (BE-024) rides this same write path as a habit check-in
+            result; Home reads exclude it, Habits reads select it (see GET
+            /entries `type`).
         occurredAt:
           type: string
           format: date-time
@@ -977,6 +1043,7 @@ components:
         - $ref: "#/components/schemas/MealDetail"
         - $ref: "#/components/schemas/WaterDetail"
         - $ref: "#/components/schemas/WorkoutDetail"
+        - $ref: "#/components/schemas/CheckinDetail"
 
     MealDetail:
       type: object
@@ -1128,6 +1195,36 @@ components:
           type: number
           minimum: 0
           description: Always kg on the wire; the app converts for imperial display.
+
+    CheckinDetail:
+      type: object
+      description: >-
+        A single habit check-in result (BE-024). Rides the /entries write path
+        as a `checkin` entry and is encrypted at rest like every other detail;
+        the server stores it verbatim and never interprets it. The
+        Idempotency-Key is deterministic — `habitId:date` — so there is one
+        check-in per habit per day; change the answer by PATCHing the entry
+        (same key + a different answer is a 409). No scores, no streaks.
+      required: [habitId, habitName, kind, answer]
+      properties:
+        habitId:
+          type: string
+          maxLength: 100
+          description: Device-local habit id — habit definitions live on the device (D1).
+        habitName:
+          type: string
+          maxLength: 100
+        kind:
+          type: string
+          maxLength: 40
+          description: App-defined habit kind (e.g. plan-meal vs plain yes/no). Server-opaque.
+        answer:
+          type: string
+          maxLength: 40
+          description: The user's single answer, e.g. "yes" / "not_quite". App-defined.
+        note:
+          type: string
+          maxLength: 500
 
     ParseResult:
       type: object

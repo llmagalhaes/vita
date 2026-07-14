@@ -93,6 +93,7 @@ class SmokeTest {
             "magic_link_token.email_enc",
             "eating_plan.doc_enc",
             "training_program.doc_enc",
+            "vacation.ranges_enc",
         )
     }
 

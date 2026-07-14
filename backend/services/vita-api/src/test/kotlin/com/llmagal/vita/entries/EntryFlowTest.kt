@@ -271,7 +271,9 @@ class EntryFlowTest {
             }
         }
         // The denormalized kcal is plaintext C2 so trends can GROUP BY it (ADR-0003).
-        val kcal = jdbc.queryForObject("SELECT kcal FROM log_entry LIMIT 1", BigDecimal::class.java)
+        // Scope to a meal row: the shared test DB also holds water/checkin rows with null kcal.
+        val kcal =
+            jdbc.queryForObject("SELECT kcal FROM log_entry WHERE type = 'meal' LIMIT 1", BigDecimal::class.java)
         assertThat(kcal!!.toInt()).isEqualTo(300)
     }
 
