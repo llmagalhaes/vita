@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# vita — bring the Vita app up/down locally for testing.
+#
+#   vita up         full stack: Postgres + backend (:8080) + Expo pointed at the real backend
+#   vita up mock    app only, mock mode (no backend, no Docker) — just click around the UI
+#   vita down       stop Expo, backend and Postgres
+#   vita status     what's running
+#   vita logs       tail the backend log (magic-link sign-in link shows up here)
+#   vita restart    down then up
+#
+# Real device: your phone (Expo Go SDK 56) and this Mac must be on the SAME Wi-Fi.
+# Android emulator instead of a phone? it can't reach the LAN IP — use `vita up mock`,
+# or set VITA_API_BASE_URL=http://10.0.2.2:8080/v1 yourself.
+# Moved the checkout? export VITA_REPO=/path/to/vita
+set -euo pipefail
+
+REPO="${VITA_REPO:-/Users/llmagalhaes/workspace/vita}"
+BE="$REPO/backend/services/vita-api"
+APP="$REPO/app/services/vita-app"
+RUN="$HOME/.vita"; LOG="$RUN/backend.log"; PIDF="$RUN/backend.pid"
+mkdir -p "$RUN"
+
+msg(){  printf '\033[36m▸ %s\033[0m\n' "$*"; }
+warn(){ printf '\033[33m! %s\033[0m\n' "$*"; }
+die(){  printf '\033[31m✗ %s\033[0m\n' "$*" >&2; exit 1; }
+
+lan_ip(){ ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true; }
+backend_up(){ curl -fsS -m 2 http://localhost:8080/health >/dev/null 2>&1; }
+
+ensure_app_deps(){
+  [ -d "$APP/node_modules" ] && return
+  msg "installing app deps (first run, one-off)…"
+  ( cd "$APP" && npm install )
+}
+
+start_backend(){
+  if backend_up; then msg "backend already up (:8080)"; return; fi
+  command -v docker >/dev/null || die "docker not found"
+  docker info >/dev/null 2>&1 || die "Docker isn't running — start Docker Desktop first"
+  [ -f "$BE/secrets.yaml" ] || warn "no $BE/secrets.yaml — meal/photo parsing (Claude) will fail"
+  msg "starting Postgres…"
+  ( cd "$BE" && docker compose up -d postgres >/dev/null )
+  msg "starting backend (gradle bootRun) — first run compiles, ~1-2 min. logs: vita logs"
+  ( cd "$BE" && nohup ./gradlew bootRun --console=plain >"$LOG" 2>&1 & echo $! >"$PIDF" )
+  printf "  waiting for :8080/health "
+  for _ in $(seq 1 180); do
+    backend_up && { echo " up"; return; }
+    printf "."; sleep 1
+  done
+  echo; die "backend didn't answer in 180s — check: vita logs"
+}
+
+up(){
+  if [ "${1:-}" = "mock" ]; then
+    msg "mock mode — app only, no backend/Docker"
+    ensure_app_deps
+    ( cd "$APP" && exec npx expo start )
+    return
+  fi
+  start_backend
+  local ip; ip="$(lan_ip)"
+  [ -n "$ip" ] || { warn "no LAN IP (Wi-Fi off?) — using localhost, works on the iOS simulator only"; ip="localhost"; }
+  ensure_app_deps
+  msg "backend → http://$ip:8080/v1"
+  msg "sign-in is passwordless: after you request the magic link, read it from 'vita logs' and open it"
+  msg "starting Expo (SDK 56) — scan the QR in Expo Go. Ctrl+C stops Expo; 'vita down' stops the backend."
+  ( cd "$APP" && VITA_API_BASE_URL="http://$ip:8080/v1" exec npx expo start )
+}
+
+down(){
+  msg "stopping Expo…";     pkill -f "expo start" 2>/dev/null || true
+  [ -f "$PIDF" ] && { kill "$(cat "$PIDF")" 2>/dev/null || true; rm -f "$PIDF"; }
+  lsof -ti tcp:8080 2>/dev/null | xargs kill 2>/dev/null || true   # gradle-forked JVM
+  msg "stopping Postgres…"; ( cd "$BE" && docker compose down >/dev/null 2>&1 || true )
+  msg "down (Postgres data kept in the pgdata volume)."
+}
+
+status(){
+  backend_up && echo "backend : UP    http://localhost:8080/health" || echo "backend : down"
+  pgrep -f "expo start" >/dev/null 2>&1 && echo "expo    : running" || echo "expo    : stopped"
+  local ip; ip="$(lan_ip)"; [ -n "$ip" ] && echo "app URL : http://$ip:8080/v1"
+  ( cd "$BE" && docker compose ps postgres 2>/dev/null ) || true
+}
+
+case "${1:-}" in
+  up)      shift; up "${1:-}";;
+  down)    down;;
+  restart) down; up "${2:-}";;
+  status)  status;;
+  logs)    [ -f "$LOG" ] && tail -f "$LOG" || die "no log yet — run 'vita up' first";;
+  *)       echo "usage: vita {up [mock] | down | status | logs | restart}"; exit 2;;
+esac
