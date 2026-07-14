@@ -12,6 +12,13 @@
 # Android emulator instead of a phone? it can't reach the LAN IP — use `vita up mock`,
 # or set VITA_API_BASE_URL=http://10.0.2.2:8080/v1 yourself.
 # Moved the checkout? export VITA_REPO=/path/to/vita
+#
+# SIGN-IN CAVEAT (real backend + Expo Go): the backend emits a `vita://auth?token=…`
+# magic link, but the custom `vita://` scheme only works in a dev build (APP-007), NOT
+# in Expo Go. To sign in against the real backend in Expo Go, open the token in the
+# Expo Go scheme instead — on the phone open:
+#     exp://<this-mac-lan-ip>:8081/--/auth?token=<TOKEN-from `vita logs`>
+# Or just use `vita up mock` (sign-in "just works") to walk the UI without a backend.
 set -euo pipefail
 
 REPO="${VITA_REPO:-/Users/llmagalhaes/workspace/vita}"
@@ -75,6 +82,17 @@ down(){
   msg "down (Postgres data kept in the pgdata volume)."
 }
 
+login(){
+  # Real-backend sign-in in Expo Go: reprint the latest magic-link token in the exp:// scheme.
+  local t; t="$(grep -aoE 'vita://auth\?token=[A-Za-z0-9_-]+' "$LOG" 2>/dev/null | tail -1 | sed 's#.*token=##')"
+  [ -n "$t" ] || die "no magic link in the log yet — in the app tap Sign in and request the link first"
+  local ip; ip="$(lan_ip)"; [ -n "$ip" ] || ip="localhost"
+  local url="exp://$ip:8081/--/auth?token=$t"
+  echo "Open this on your phone (Safari → 'Open in Expo Go'). If Expo's port isn't 8081, swap it:"
+  echo "  $url"
+  command -v qrencode >/dev/null 2>&1 && { echo; qrencode -t ANSIUTF8 "$url"; } || echo "(brew install qrencode for a scannable QR)"
+}
+
 status(){
   backend_up && echo "backend : UP    http://localhost:8080/health" || echo "backend : down"
   pgrep -f "expo start" >/dev/null 2>&1 && echo "expo    : running" || echo "expo    : stopped"
@@ -86,7 +104,8 @@ case "${1:-}" in
   up)      shift; up "${1:-}";;
   down)    down;;
   restart) down; up "${2:-}";;
+  login)   login;;
   status)  status;;
   logs)    [ -f "$LOG" ] && tail -f "$LOG" || die "no log yet — run 'vita up' first";;
-  *)       echo "usage: vita {up [mock] | down | status | logs | restart}"; exit 2;;
+  *)       echo "usage: vita {up [mock] | down | login | status | logs | restart}"; exit 2;;
 esac
