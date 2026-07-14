@@ -96,6 +96,7 @@ export default function WorkoutDetailScreen() {
   const entry = useMemo(() => (id ? getEntry(id) : null), [id]);
   const units = getSettings()?.units ?? "metric";
   const [preview, setPreview] = useState<LocalEntry | null>(null);
+  const [selectedMuscle, setSelectedMuscle] = useState<Muscle | null>(null);
 
   // Last 30 days of workouts for the history strip (this entry included, newest last).
   const history = useMemo(() => {
@@ -196,14 +197,15 @@ export default function WorkoutDetailScreen() {
         <Card style={{ gap: 14, alignItems: "center" }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", alignSelf: "stretch" }}>
             <SectionLabel>{t("workoutDetail.musclesWorked")}</SectionLabel>
-            <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
-              {t("workoutDetail.estimateNote")}
+            <Text variant="caption" style={{ fontSize: 10.5 }} color={selectedMuscle ? colors.accent : colors.labelMuted}>
+              {selectedMuscle ? t(`muscles.${selectedMuscle}`) : t("workoutDetail.estimateNote")}
             </Text>
           </View>
           <BodyMap
             highlighted={highlighted}
             frontLabel={t("workoutDetail.front")}
             backLabel={t("workoutDetail.back2")}
+            onMusclePress={setSelectedMuscle}
           />
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
             {muscles.map((m) => (

@@ -127,11 +127,13 @@ function Figure({
   highlighted,
   accent,
   size,
+  onMusclePress,
 }: {
   side: BodySide;
   highlighted: Partial<Record<Muscle, number>>;
   accent: string;
   size: number;
+  onMusclePress?: (m: Muscle) => void;
 }) {
   const resolved = resolveHighlights(side, highlighted);
   return (
@@ -154,6 +156,7 @@ function Figure({
               ry={s.ry}
               fill={accent}
               opacity={opacity}
+              onPress={onMusclePress ? () => onMusclePress(muscle) : undefined}
             />
           ) : (
             <Rect
@@ -165,6 +168,7 @@ function Figure({
               rx={s.rx}
               fill={accent}
               opacity={opacity}
+              onPress={onMusclePress ? () => onMusclePress(muscle) : undefined}
             />
           ),
         ),
@@ -182,6 +186,7 @@ export type BodyMapProps = {
   size?: number;
   frontLabel?: string;
   backLabel?: string;
+  onMusclePress?: (m: Muscle) => void;
 };
 
 export function BodyMap({
@@ -193,6 +198,7 @@ export function BodyMap({
   size = 150,
   frontLabel = "Front",
   backLabel = "Back",
+  onMusclePress,
 }: BodyMapProps) {
   const [internal, setInternal] = useState<BodySide>("front");
   const side = controlledSide ?? internal;
@@ -203,7 +209,7 @@ export function BodyMap({
 
   return (
     <View style={{ alignItems: "center", gap: 12 }}>
-      <Figure side={side} highlighted={highlighted} accent={accent} size={size} />
+      <Figure side={side} highlighted={highlighted} accent={accent} size={size} onMusclePress={onMusclePress} />
       {showToggle && (
         <View
           style={{

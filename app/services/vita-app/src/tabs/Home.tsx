@@ -434,12 +434,12 @@ export default function Home() {
       </Card>
 
       {/* water + macros */}
-      <View style={{ flexDirection: "row", gap: 12 }}>
+      {/* align-start so the expandable water list grows downward on its own; a flex:1
+          Card in this stretch row inflated the whole row to ~3x screen when expanded
+          (CEO bug #7). No height:"100%" either (that blew the row to full-screen). */}
+      <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
         <Pressable accessibilityRole="button" onPress={() => setWaterOpen((o) => !o)} style={{ flex: 1.05 }}>
-          {/* No height:"100%": inside a ScrollView a percentage height resolves against
-              the viewport and blows the row to full-screen. Default stretch alignment
-              already matches the taller (macros) column. */}
-          <Card style={{ gap: spacing.md, flex: 1 }}>
+          <Card style={{ gap: spacing.md }}>
             <SectionLabel>{t("home.water")}</SectionLabel>
             <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }}>
               {formatVolume(waterMl, units, t)}
