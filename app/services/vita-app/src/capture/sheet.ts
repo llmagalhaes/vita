@@ -3,5 +3,7 @@
 export const DISMISS_DISTANCE = 120; // px
 export const DISMISS_VELOCITY = 800; // px/s
 
-export const shouldDismiss = (translationY: number, velocityY: number): boolean =>
-  translationY > DISMISS_DISTANCE || velocityY > DISMISS_VELOCITY;
+export const shouldDismiss = (translationY: number, velocityY: number): boolean => {
+  "worklet"; // callable from the gesture worklet (UI thread) AND from JS/tests
+  return translationY > DISMISS_DISTANCE || velocityY > DISMISS_VELOCITY;
+};

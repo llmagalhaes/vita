@@ -13,3 +13,4 @@ export * from "./Donut";
 export * from "./BodyMap";
 export * from "./WaveIllustration";
 export * from "./keyboard";
+export * from "./useSheetDrag";

@@ -117,6 +117,7 @@ export function ActivityTab({ window, isExcluded }: { window: TrendWindow; isExc
         count={days.length}
         readout={(i) => ({ value: `${Math.round(days[i]!.workoutMin)}`, detail: `${t("common.min")} · ${dayMonth(days[i]!.date)}` })}
         dragHint={t("trends.dragChart")}
+        delay={60}
         footer={t("trends.connectHealth")}
       >
         {(active) => (

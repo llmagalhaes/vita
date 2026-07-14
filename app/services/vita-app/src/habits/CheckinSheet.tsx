@@ -6,19 +6,10 @@
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  Easing,
-  FadeIn,
-  SlideInDown,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { GestureDetector } from "react-native-gesture-handler";
+import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
-import { shouldDismiss } from "../capture/sheet";
-import { Button, Card, Text, colors, fonts, motion, spacing } from "../ui";
+import { Button, Card, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
 import type { Habit } from "../db/habits";
 import { listHabits } from "../db/habits";
 import { useLogVersion } from "../db/notify";
@@ -132,24 +123,7 @@ export function CheckinSheet() {
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dragY = useSharedValue(0);
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
-  const onDragEnd = (translationY: number, velocityY: number) => {
-    if (shouldDismiss(translationY, velocityY)) {
-      dragY.value = 0;
-      closeCheckins();
-    } else {
-      dragY.value = withSpring(0, { damping: 18, stiffness: 220 });
-    }
-  };
-  const dragGesture = Gesture.Pan()
-    .activeOffsetY(10)
-    .onUpdate((e) => {
-      dragY.value = Math.max(0, e.translationY);
-    })
-    .onEnd((e) => {
-      runOnJS(onDragEnd)(e.translationY, e.velocityY);
-    });
+  const { dragGesture, sheetStyle } = useSheetDrag(closeCheckins);
 
   if (!open) return null;
   void version; // re-render on log changes so a stale queue item isn't shown

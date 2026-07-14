@@ -187,6 +187,7 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         count={calCurve ? undefined : days.length}
         readout={(i) => ({ value: `${round(days[i]!.consumedKcal)}`, detail: `${t("common.kcal")} · ${dateLabel(days[i]!.date)}` })}
         dragHint={t("trends.dragChart")}
+        delay={0}
         footer={`${t("common.estimates")} · ${avgKcal} ${t("trends.avgPerDay")}`}
       >
         {(active) =>
@@ -216,6 +217,7 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         count={days.length}
         readout={(i) => ({ value: `${round(days[i]!.consumedKcal)} / ${round(days[i]!.spentKcal)}`, detail: dateLabel(days[i]!.date) })}
         dragHint={t("trends.dragChart")}
+        delay={60}
         footer={totalSpent === 0 ? t("trends.spentEmpty") : `${totalSpent} ${t("trends.spentTotal")}`}
       >
         {(active) => (
@@ -233,6 +235,7 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         count={days.length}
         readout={(i) => ({ value: `${round(days[i]!.protein)}·${round(days[i]!.carbs)}·${round(days[i]!.fat)}`, detail: `${t("trends.pcfG")} · ${dateLabel(days[i]!.date)}` })}
         dragHint={t("trends.dragChart")}
+        delay={120}
       >
         {(active) => (
           <View style={{ gap: 10 }}>
@@ -249,6 +252,7 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         count={days.length}
         readout={(i) => ({ value: formatVolume(days[i]!.waterMl, units, t), detail: dateLabel(days[i]!.date) })}
         dragHint={t("trends.dragChart")}
+        delay={180}
       >
         {(active) => (
           <DayBars days={days} value={(b) => b.waterMl} color={() => colors.macro.protein} active={active} />

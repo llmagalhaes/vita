@@ -145,7 +145,9 @@ export async function exportPdf(opts: ExportOpts): Promise<void> {
   const Print = require("expo-print");
   const Sharing = require("expo-sharing");
   const { uri } = await Print.printToFileAsync({ html });
-  if (await Sharing.isAvailableAsync()) {
-    await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
+  if (!(await Sharing.isAvailableAsync())) {
+    // Don't silently succeed — the caller surfaces this so it's not a mystery no-op.
+    throw new Error("Sharing is not available on this device.");
   }
+  await Sharing.shareAsync(uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
 }

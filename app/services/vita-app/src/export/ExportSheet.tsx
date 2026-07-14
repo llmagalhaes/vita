@@ -4,7 +4,7 @@
  * sheet — nothing leaves the phone until the user chooses a share target.
  */
 import { useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Alert, Modal, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text, colors, fonts } from "../ui";
 import { getSettings } from "../db/settings";
@@ -41,8 +41,9 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
         t,
       });
       onClose();
-    } catch {
-      // Print/share unavailable (Expo Go on some platforms) — stay open, no crash.
+    } catch (e) {
+      // Surface the real failure instead of a silent no-op (CEO bug #4). Stay open.
+      Alert.alert(t("export.title"), e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }

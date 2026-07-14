@@ -1,5 +1,6 @@
 import { type ReactNode, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 import { Text, colors, fonts } from "../ui";
 import { ScrubOverlay } from "./scrub";
 
@@ -29,9 +30,11 @@ export function linePath(values: number[], w: number, h: number, pad = 6): strin
 
 /**
  * A Trends card: uppercase title + optional unit note + a right-hand extra
- * (e.g. a bars/curve toggle). If `count` is given the body is scrub-draggable —
- * a readout line appears while dragging and the active index is handed to
- * `children` so bars can highlight/dim. Calm, estimate-labeled where relevant.
+ * (e.g. a bars/curve toggle). Matches the prototype: the card is collapsed by
+ * default and fades in on mount. Tapping the header opens it — only then does the
+ * scrub overlay mount, so a closed card never fights the tab-swipe pager for the
+ * horizontal drag (CEO bug #6). While scrubbing an open card, a readout line
+ * shows and the active index is handed to `children` so bars highlight/dim.
  */
 export function TrendCard({
   title,
@@ -42,6 +45,7 @@ export function TrendCard({
   footer,
   children,
   dragHint,
+  delay = 0,
 }: {
   title: string;
   unitNote?: string;
@@ -50,13 +54,17 @@ export function TrendCard({
   readout?: (index: number) => { value: string; detail: string };
   footer?: string;
   dragHint?: string;
+  delay?: number;
   children: (active: number | null) => ReactNode;
 }) {
+  const [open, setOpen] = useState(false);
   const [active, setActive] = useState<number | null>(null);
-  const read = active != null && readout ? readout(active) : null;
+  const scrubbable = count != null && count > 0;
+  const read = open && active != null && readout ? readout(active) : null;
 
   return (
-    <View
+    <Animated.View
+      entering={FadeInDown.duration(420).delay(delay)}
       style={{
         backgroundColor: colors.card,
         borderRadius: 24,
@@ -66,14 +74,26 @@ export function TrendCard({
         gap: 12,
       }}
     >
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-        <SectionLabel>{title}</SectionLabel>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        onPress={() => setOpen((o) => !o)}
+        style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <SectionLabel>{title}</SectionLabel>
+          {scrubbable && (
+            <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>
+              {open ? "▾" : "▸"}
+            </Text>
+          )}
+        </View>
         {extra ?? (unitNote ? (
           <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
             {unitNote}
           </Text>
         ) : null)}
-      </View>
+      </Pressable>
 
       {read && (
         <View style={{ flexDirection: "row", alignItems: "baseline", gap: 7, marginTop: -2 }}>
@@ -91,7 +111,7 @@ export function TrendCard({
 
       <View style={{ position: "relative" }}>
         {children(active)}
-        {count != null && count > 0 && (
+        {open && count != null && count > 0 && (
           <ScrubOverlay count={count} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
         )}
       </View>
@@ -101,6 +121,6 @@ export function TrendCard({
           {footer}
         </Text>
       )}
-    </View>
+    </Animated.View>
   );
 }

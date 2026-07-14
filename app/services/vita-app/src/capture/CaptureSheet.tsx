@@ -1,20 +1,11 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  Easing,
-  FadeIn,
-  SlideInDown,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { GestureDetector } from "react-native-gesture-handler";
+import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
-import { Button, Card, Chip, EstimateTag, Text, colors, fonts, motion, spacing } from "../ui";
+import { Button, Card, Chip, EstimateTag, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { mealTotals, stepItem } from "./quantity";
-import { shouldDismiss } from "./sheet";
 
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -217,30 +208,9 @@ export function CaptureSheet() {
   const { t } = useTranslation();
   const capture = useCapture();
 
-  // Drag-down-to-dismiss: pan translates the sheet with the finger (down only);
-  // past the threshold (distance or flick) it closes, otherwise it springs back.
-  // Hooks stay above the idle early-return (Rules of Hooks).
-  const dragY = useSharedValue(0);
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
-  // Decision runs on the JS thread: shouldDismiss is a plain (tested) function, so it
-  // can't be called from inside the UI-thread gesture worklet. Spring/reset of the
-  // shared value from JS is supported by Reanimated.
-  const onDragEnd = (translationY: number, velocityY: number) => {
-    if (shouldDismiss(translationY, velocityY)) {
-      dragY.value = 0; // reset — the sheet is persistently mounted, so it reopens at rest
-      capture.close();
-    } else {
-      dragY.value = withSpring(0, { damping: 18, stiffness: 220 });
-    }
-  };
-  const dragGesture = Gesture.Pan()
-    .activeOffsetY(10) // only claim a clear downward drag — button taps still work
-    .onUpdate((e) => {
-      dragY.value = Math.max(0, e.translationY);
-    })
-    .onEnd((e) => {
-      runOnJS(onDragEnd)(e.translationY, e.velocityY);
-    });
+  // Drag-down-to-dismiss (hook keeps the decision on the UI thread). Hooks stay
+  // above the idle early-return (Rules of Hooks).
+  const { dragGesture, sheetStyle } = useSheetDrag(capture.close);
 
   if (capture.status === "idle") return null;
 

@@ -10,22 +10,13 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, {
-  Easing,
-  FadeIn,
-  SlideInDown,
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-} from "react-native-reanimated";
+import { GestureDetector } from "react-native-gesture-handler";
+import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
 import { DraftCard } from "../capture/CaptureSheet";
-import { shouldDismiss } from "../capture/sheet";
 import { clearReview, deleteEntry, entriesNeedingReview, type LocalEntry } from "../db/entries";
 import { logChanged, useLogVersion } from "../db/notify";
-import { Button, Card, Text, colors, fonts, motion, spacing } from "../ui";
+import { Button, Card, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
 
 // ── Sheet open/close store (mirrors checkins): Home's banner opens the overlay
 //    mounted once in the main layout. ─────────────────────────────────────────
@@ -66,24 +57,7 @@ export function ReviewSheet() {
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const dragY = useSharedValue(0);
-  const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: dragY.value }] }));
-  const onDragEnd = (translationY: number, velocityY: number) => {
-    if (shouldDismiss(translationY, velocityY)) {
-      dragY.value = 0;
-      closeReview();
-    } else {
-      dragY.value = withSpring(0, { damping: 18, stiffness: 220 });
-    }
-  };
-  const dragGesture = Gesture.Pan()
-    .activeOffsetY(10)
-    .onUpdate((e) => {
-      dragY.value = Math.max(0, e.translationY);
-    })
-    .onEnd((e) => {
-      runOnJS(onDragEnd)(e.translationY, e.velocityY);
-    });
+  const { dragGesture, sheetStyle } = useSheetDrag(closeReview);
 
   if (!open) return null;
   void version; // re-render on log changes
