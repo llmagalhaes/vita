@@ -24,6 +24,14 @@ The CEO tested the app on a physical Android phone (Expo Go SDK 56, real backend
 
 _VacationSheet still uses its own drag (not part of the shared hook) — untouched this pass._
 
+## Session 6, pass 2 (2026-07-14) — CEO device retest + Fable fidelity backlog
+CEO retested on device: #3 better in some sheets but not vacation/capture; #4 gave the real error `expoSharing.shareAsync … not allowed to read file under given url`; #6 still not working. CEO: "já pode ir fazendo tudo" (implement the Fable backlog). Commits `7c8cf67..23dd865`:
+- **#4 (real fix):** the print-cache PDF path isn't readable by the Android share FileProvider → copy to the document dir and share from there (`src/export/pdf.ts`).
+- **#6 (real fix):** the pager's gesture was never published — added `.withRef(tabsPagerRef)` (ref moved to leaf `src/nav/pagerRef.ts` to avoid an import cycle); the open-card `ScrubOverlay` now `.blocksExternalGesture(pager)` + `activeOffsetX/failOffsetY` so a horizontal drag scrubs (pager waits) and vertical still scrolls. Added the 2px active-day guide line.
+- **Motion system (Fable A1/A2/A5/A6/A7/A8, A3, B3):** `PressScale` (Button/Chip), `Card` shadow, animated `Bar`/`Toggle`/`Chevron`, `MorphBlob` (capture parsing), Trends bar grow-in + calorie-curve draw-on. Addresses the CEO's "flat/not fluid" theme.
+
+**Full fidelity backlog + rankings:** `docs/reviews/2026-07-14-fable-fidelity-audit.md`. **Landed:** A1,A2,A3,A5,A6,A7,A8,B3 + the two device bugs. **Remaining (need CEO device pass first — motion is subjective, and A4 is a Modal→overlay refactor of working sheets):** A4 (unify Vacation/Export/preview sheets on `useSheetDrag` — this is what's left for #3 vacation), B1 water/hero, B2 water vessel, B4 muscle-exercises sheet (new feature, L), B5 check-in deck, B6–B12 polish.
+
 ## Notes
 - The grey/blue floating **gear is a device/OS overlay** (Expo Go dev-menu bubble), NOT app UI — it sits over the Home account button and intercepts taps; drag it aside.
 - Emulator (`Pixel_10_Pro`) was left running by an earlier agent; the orchestrator's Metro on :8082 was stopped. Per the CEO, do NOT boot the emulator — they verify on their phone.
