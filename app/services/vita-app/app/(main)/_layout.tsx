@@ -6,6 +6,7 @@ import { CapturePill } from "../../src/capture/CapturePill";
 import { CaptureSheet, CaptureToast } from "../../src/capture/CaptureSheet";
 import { startReconnectDrain } from "../../src/db/reconnect";
 import { CheckinSheet } from "../../src/habits/CheckinSheet";
+import { TabsPager } from "../../src/nav/TabsPager";
 import { ReviewSheet } from "../../src/review/ReviewSheet";
 import { colors } from "../../src/ui";
 
@@ -19,13 +20,21 @@ export default function MainLayout() {
 
   return (
     <CaptureProvider>
+      {/* Push/detail screens slide natively. The three top-level tabs are null
+          placeholders here (animation:"none") — TabsPager renders them, mounted
+          above this Stack, and is the visible/interactive layer on tab routes. */}
       <Stack
         screenOptions={{
           headerShown: false,
-          animation: "fade",
+          animation: "slide_from_right",
           contentStyle: { backgroundColor: colors.bg },
         }}
-      />
+      >
+        <Stack.Screen name="home" options={{ animation: "none" }} />
+        <Stack.Screen name="trends" options={{ animation: "none" }} />
+        <Stack.Screen name="habits" options={{ animation: "none" }} />
+      </Stack>
+      <TabsPager />
       <CapturePill />
       <CaptureToast />
       <CaptureSheet />

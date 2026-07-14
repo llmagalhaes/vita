@@ -1,5 +1,5 @@
 import { render, fireEvent, screen } from "@testing-library/react-native";
-import { Button, Card, Chip, Text } from "../index";
+import { Button, Card, Chip, KeyboardAvoider, KeyboardLift, Text } from "../index";
 
 test("Text renders its content", async () => {
   await render(<Text variant="title">Quiet log</Text>);
@@ -25,4 +25,22 @@ test("Button shows its label and fires onPress", async () => {
 test("Chip exposes its selected state", async () => {
   await render(<Chip label="estimate" selected />);
   expect(screen.getByRole("button", { name: "estimate" })).toBeSelected();
+});
+
+test("KeyboardLift renders its children (pill/sheet overlay wrapper)", async () => {
+  await render(
+    <KeyboardLift enabled>
+      <Text>Above the keyboard</Text>
+    </KeyboardLift>,
+  );
+  expect(screen.getByText("Above the keyboard")).toBeOnTheScreen();
+});
+
+test("KeyboardAvoider renders its children (scroll-screen wrapper)", async () => {
+  await render(
+    <KeyboardAvoider>
+      <Text>Field stays visible</Text>
+    </KeyboardAvoider>,
+  );
+  expect(screen.getByText("Field stays visible")).toBeOnTheScreen();
 });

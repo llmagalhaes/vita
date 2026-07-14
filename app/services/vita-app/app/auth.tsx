@@ -12,7 +12,7 @@ import { useAuth } from "../src/auth/useAuth";
 import { tokenFromPaste, useMagicLink } from "../src/auth/useMagicLink";
 import { api } from "../src/api";
 import { isOnboarded } from "../src/db/settings";
-import { Button, Card, Text, colors, fonts, radii, spacing } from "../src/ui";
+import { Button, Card, KeyboardAvoider, Text, colors, fonts, radii, spacing } from "../src/ui";
 
 type Provider = "google" | "apple";
 type Mode = "idle" | { consent: Provider } | { sent: string };
@@ -122,6 +122,7 @@ export default function Auth() {
   const exchanging = linkStatus === "exchanging" || busy;
 
   return (
+    <KeyboardAvoider>
     <View style={{ flex: 1, padding: 26, paddingTop: 74, justifyContent: "flex-start" }}>
       <Wordmark />
       <Text variant="title" style={{ fontSize: 26, marginTop: 14, fontFamily: fonts.semiBold }}>
@@ -169,6 +170,7 @@ export default function Auth() {
         )}
       </View>
     </View>
+    </KeyboardAvoider>
   );
 }
 

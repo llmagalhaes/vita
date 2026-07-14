@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Button, Text, colors, fonts, motion, spacing, useAccent } from "../ui";
+import { Button, KeyboardLift, Text, colors, fonts, motion, spacing, useAccent } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { pickPhoto } from "./photo";
 import { useVoiceCapture } from "./useVoiceCapture";
@@ -210,6 +210,8 @@ export function CapturePill() {
         pointerEvents="box-none"
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", paddingBottom: 22 }}
       >
+      {/* Lift the whole pill above the keyboard while its own field is open. */}
+      <KeyboardLift enabled={expanded}>
       <View
         style={{
           flexDirection: "row",
@@ -298,6 +300,7 @@ export function CapturePill() {
           <NavButton label={t("pill.habits")} icon="habits" active={pathname === "/habits"} onPress={() => router.replace("/habits")} />
         </Animated.View>
       </View>
+      </KeyboardLift>
       </View>
     </>
   );

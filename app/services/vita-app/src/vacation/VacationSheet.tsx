@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Modal, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Button, Card, Text, Toggle, colors, fonts, spacing } from "../ui";
+import { Button, Card, KeyboardLift, Text, Toggle, colors, fonts, spacing } from "../ui";
 import { createHabit, deleteHabit } from "../db/habits";
 import { getVacation, saveVacation } from "../db/vacation";
 import { getRecognizer } from "../capture/speech";
@@ -75,6 +75,7 @@ export function VacationSheet({ visible, onClose }: { visible: boolean; onClose:
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={cancel}>
       <Pressable onPress={cancel} style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.35)" }} />
+      <KeyboardLift>
       <View style={{ backgroundColor: colors.sheet, borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 22, paddingBottom: 30, gap: 14 }}>
         <View style={{ width: 42, height: 5, borderRadius: 3, backgroundColor: "rgba(120,100,75,0.22)", alignSelf: "center" }} />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -164,6 +165,7 @@ export function VacationSheet({ visible, onClose }: { visible: boolean; onClose:
         )}
         <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>{t("vacation.startNote", { to })}</Text>
       </View>
+      </KeyboardLift>
     </Modal>
   );
 }

@@ -12,6 +12,7 @@ import {
   Card,
   EditableText,
   EstimateTag,
+  KeyboardAvoider,
   Slider,
   Text,
   colors,
@@ -110,6 +111,7 @@ export default function EatingPlanScreen() {
   const selItem = sel && view.meals[sel.mi]?.items[sel.ii];
 
   return (
+    <KeyboardAvoider>
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}
@@ -363,5 +365,6 @@ export default function EatingPlanScreen() {
         </Pressable>
       </Modal>
     </ScrollView>
+    </KeyboardAvoider>
   );
 }

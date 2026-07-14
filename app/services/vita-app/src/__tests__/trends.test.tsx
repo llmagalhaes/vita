@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../i18n";
 import i18n from "../i18n";
-import Trends from "../../app/(main)/trends";
+import Trends from "../tabs/Trends";
 import { resetDbForTests } from "../db/db";
 import { addLocalEntry } from "../db/entries";
 

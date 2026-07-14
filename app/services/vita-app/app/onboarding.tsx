@@ -8,7 +8,7 @@ import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api
 import { savePlan, saveProgram } from "../src/db/plan";
 import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
 import { PlanStep, unanswered, type PlanAnswer } from "../src/onboarding/PlanStep";
-import { Button, Card, Chip, EstimateTag, Text, colors, fonts, radii, spacing } from "../src/ui";
+import { Button, Card, Chip, EstimateTag, KeyboardAvoider, Text, colors, fonts, radii, spacing } from "../src/ui";
 
 const TOTAL_STEPS = 6;
 
@@ -161,6 +161,7 @@ export default function Onboarding() {
         </Text>
       </View>
 
+      <KeyboardAvoider>
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{ paddingHorizontal: spacing.xl, paddingTop: spacing.sm, paddingBottom: 160 }}
@@ -354,6 +355,7 @@ export default function Onboarding() {
           )}
         </Animated.View>
       </ScrollView>
+      </KeyboardAvoider>
 
       <View style={{ position: "absolute", left: spacing.xl, right: spacing.xl, bottom: 40 }}>
         <Button

@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Card, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
+import { Card, KeyboardAvoider, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -70,6 +70,7 @@ export default function Account() {
     : t("account.vacationOffSub");
 
   return (
+    <KeyboardAvoider>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
         <Pressable accessibilityRole="button" accessibilityLabel={t("account.back")} onPress={() => router.replace("/home")}>
@@ -194,5 +195,6 @@ export default function Account() {
       <VacationSheet visible={vacOpen} onClose={() => setVacOpen(false)} />
       <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
     </ScrollView>
+    </KeyboardAvoider>
   );
 }

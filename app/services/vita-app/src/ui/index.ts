@@ -12,3 +12,4 @@ export * from "./EditableText";
 export * from "./Donut";
 export * from "./BodyMap";
 export * from "./WaveIllustration";
+export * from "./keyboard";

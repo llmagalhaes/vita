@@ -6,7 +6,7 @@ import type { TrainingProgramDraft } from "../../src/api";
 import { getCachedProgram, updateProgram } from "../../src/db/plan";
 import { logChanged, useLogVersion } from "../../src/db/notify";
 import { EditHeader } from "../../src/plan/editor";
-import { Button, Card, EditableText, Text, colors, fonts } from "../../src/ui";
+import { Button, Card, EditableText, KeyboardAvoider, Text, colors, fonts } from "../../src/ui";
 
 const clone = (p: TrainingProgramDraft): TrainingProgramDraft => JSON.parse(JSON.stringify(p));
 
@@ -78,6 +78,7 @@ export default function TrainingProgramScreen() {
   );
 
   return (
+    <KeyboardAvoider>
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}
@@ -200,5 +201,6 @@ export default function TrainingProgramScreen() {
         </Text>
       )}
     </ScrollView>
+    </KeyboardAvoider>
   );
 }

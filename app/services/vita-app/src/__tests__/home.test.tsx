@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react-native";
 import "../i18n";
-import Home from "../../app/(main)/home";
+import Home from "../tabs/Home";
 import { addLocalEntry } from "../db/entries";
 import { resetDbForTests } from "../db/db";
 
