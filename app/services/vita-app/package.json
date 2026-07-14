@@ -43,7 +43,8 @@
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "api:gen": "openapi-typescript ../../../docs/contracts/vita-api-v0.yaml -o src/api/types.gen.ts",
-    "api:check": "openapi-typescript ../../../docs/contracts/vita-api-v0.yaml -o .api-drift.tmp.ts && diff -q .api-drift.tmp.ts src/api/types.gen.ts && rm .api-drift.tmp.ts"
+    "api:check": "openapi-typescript ../../../docs/contracts/vita-api-v0.yaml -o .api-drift.tmp.ts && diff -q .api-drift.tmp.ts src/api/types.gen.ts && rm .api-drift.tmp.ts",
+    "integration:smoke": "tsx scripts/integration-smoke.ts"
   },
   "private": true,
   "jest": {
