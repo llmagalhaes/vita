@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
-import { Button, Card, Chip, EstimateTag, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
+import { Button, Card, Chip, EstimateTag, MorphBlob, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { mealTotals, stepItem } from "./quantity";
 
@@ -268,17 +268,7 @@ export function CaptureSheet() {
 
         {capture.status === "parsing" && (
           <View style={{ alignItems: "center", gap: spacing.lg, paddingVertical: spacing.xl }}>
-            <View
-              style={{
-                width: 56,
-                height: 56,
-                borderRadius: 24,
-                borderTopLeftRadius: 36,
-                borderBottomRightRadius: 36,
-                backgroundColor: colors.accent,
-                opacity: 0.85,
-              }}
-            />
+            <MorphBlob />
             <Text variant="label" color={colors.muted}>
               {t("capture.makingSense")}
             </Text>

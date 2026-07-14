@@ -16,3 +16,4 @@ export * from "./keyboard";
 export * from "./useSheetDrag";
 export * from "./PressScale";
 export * from "./Chevron";
+export * from "./MorphBlob";
