@@ -1,5 +1,17 @@
 # App Team — Next Session
 
+## Current state (Phase 2 — session 12 done 2026-07-14: slice 6 F8 Trends ✅ APP-027/028)
+
+- **Slice 6 complete** (`docs/backlog-local-100.md` F8, **D4** client-side-over-SQLite). Both tabs walkable in Expo Go, mock mode. Progress: `Progress/APP-027-Progress.md`, `Progress/APP-028-Progress.md`.
+- **New module `src/trends/`**: `aggregate.ts` (all windowing/bucketing math — pure, DB-free, unit-tested), `scrub.tsx` (scrub-by-drag reusing the Slider gesture pattern — `indexFromX` + `<ScrubOverlay>`, no new deps), `parts.tsx` (`TrendCard` collapsible+scrub-readout, `linePath`, `SectionLabel`), `FoodTab.tsx`, `ActivityTab.tsx`.
+- **APP-027 Food tab**: W/F/M window switch; calories **bars↔curve** toggle, consumed-vs-spent, macro balance, water (units-aware), meal-time dot plot. Scrub reads the day under the finger; non-active bars + vacation days dim. Estimates labeled. `spentKcal` = logged workout kcal (D8, honest 0 until logged).
+- **APP-028 Activity tab**: muscles heatmap = **two `BodyMap` primitives reused** (front/back, `showToggle=false`, fed `muscleStats.intensity`); ranked muscle chips w/ counts; active/aerobic minutes (honest — from logged workouts, "connect a health source" for more); workout heatmap squares → session list → **preview sheet** (Modal, mirrors workout detail, "Open this workout" deep-links).
+- **Vacation-day filter hook wired end-to-end** (D1): `vacationExcluder(ranges)` predicate threaded from `trends.tsx` through every aggregation fn. Empty list today; **slice-7/APP-030 just swaps in the persisted ranges** — no aggregation change needed.
+- **Host screen** `app/(main)/trends.tsx` replaces the stub (W/F/M + Food/Activity `Segment`s, range label). Reached via the pill's Trends button. **Home layout untouched.**
+- **Seed extended** (`src/db/seed.ts`): ~a month of deterministic history (meals/water/workouts) so W/F/M all show data. No randomness (test-stable).
+- Gates: `tsc` clean · **Jest 122/122 (26 suites)**, +16 (aggregate math 13, trends screen 3) · `api:check` **exit 0, no drift** · `expo export` iOS OK · `expo install --check` up to date, **no new deps**, SDK 56 preserved.
+- ponytail: scrub always-draggable (readout on touch) vs prototype tap-then-drag; muscle chips display-only (no per-muscle exercise sheet); squares read-only (session list is the tap target); curve = single consumed-kcal polyline.
+
 ## Current state (Phase 2 — session 11 done 2026-07-14: slice 4 F6/F7 Habits & check-ins + notifications ✅ APP-024/025/026)
 
 - **Slice 4 complete** (`docs/backlog-local-100.md` F6/F7, **D1**). Progress: `Progress/APP-024/025/026-Progress.md`.

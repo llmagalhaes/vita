@@ -126,6 +126,62 @@ export function seedDemoDataOnce(): void {
       detail: { amountMl: 250 },
     },
   ];
+
+  // A month of spread history so Trends (week / fortnight / month) has life.
+  // Deterministic pseudo-variation from the day index — no randomness in tests.
+  const workoutPool = [
+    { title: "Push day", muscles: ["chest", "shoulders", "triceps"], kcal: 340, min: 50 },
+    { title: "Pull day", muscles: ["back", "biceps", "forearms"], kcal: 320, min: 48 },
+    { title: "Leg day", muscles: ["quads", "hamstrings", "glutes", "calves"], kcal: 360, min: 55 },
+    { title: "Run", muscles: ["quads", "calves", "core"], kcal: 300, min: 32 },
+  ] as const;
+  for (let n = 1; n <= 29; n++) {
+    // 2–3 meals most days (skip a couple to look natural), water, workout every ~3rd day.
+    if (n % 7 !== 0) {
+      rows.push({
+        type: "meal",
+        occurredAt: daysAgo(n, 8, 20),
+        inputMethod: n % 2 ? "text" : "voice",
+        sourcePhrase: null,
+        isEstimate: true,
+        detail: { title: "Breakfast", items: [], totals: { kcal: 420 + (n % 5) * 40, proteinG: 22 + (n % 4) * 3, carbsG: 48 + (n % 6) * 4, fatG: 14 + (n % 3) * 2 } },
+      });
+      rows.push({
+        type: "meal",
+        occurredAt: daysAgo(n, 13, 30),
+        inputMethod: "text",
+        sourcePhrase: null,
+        isEstimate: true,
+        detail: { title: "Lunch", items: [], totals: { kcal: 620 + (n % 4) * 55, proteinG: 34 + (n % 5) * 3, carbsG: 62 + (n % 5) * 5, fatG: 22 + (n % 4) * 3 } },
+      });
+      if (n % 3 === 0) {
+        rows.push({
+          type: "meal",
+          occurredAt: daysAgo(n, 19, 45),
+          inputMethod: "voice",
+          sourcePhrase: null,
+          isEstimate: true,
+          detail: { title: "Dinner", items: [], totals: { kcal: 540 + (n % 3) * 60, proteinG: 30, carbsG: 50, fatG: 20 } },
+        });
+      }
+    }
+    for (const h of [9, 15, 20]) {
+      if ((n + h) % 2 === 0) {
+        rows.push({ type: "water", occurredAt: daysAgo(n, h, 0), inputMethod: "tap", sourcePhrase: null, isEstimate: false, detail: { amountMl: 250 } });
+      }
+    }
+    if (n % 3 === 1) {
+      const w = workoutPool[n % workoutPool.length]!;
+      rows.push({
+        type: "workout",
+        occurredAt: daysAgo(n, 18, 30),
+        inputMethod: n % 2 ? "text" : "voice",
+        sourcePhrase: null,
+        isEstimate: true,
+        detail: { title: w.title, durationMin: w.min, kcal: w.kcal, muscles: [...w.muscles], exercises: [] },
+      });
+    }
+  }
   db.withTransactionSync(() => {
     for (const r of rows) {
       db.runSync(
