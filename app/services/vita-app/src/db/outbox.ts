@@ -1,4 +1,4 @@
-import type { Api, NewEntry } from "../api/client";
+import { ApiError, type Api, type NewEntry } from "../api/client";
 import { getDb } from "./db";
 import { getEntry, markSynced } from "./entries";
 
@@ -44,8 +44,14 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
       markSynced(entry.id, server);
       db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
       synced++;
-    } catch {
-      // Offline or server error: back off and stop draining (order preserved).
+    } catch (err) {
+      // Non-retryable client error (bad/duplicate/unprocessable payload): retrying can
+      // never succeed and would stall every item behind it. Drop the poison pill and
+      // keep draining. Network/5xx: back off and stop (order preserved).
+      if (err instanceof ApiError && [400, 409, 422].includes(err.status)) {
+        db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
+        continue;
+      }
       db.runSync(`UPDATE outbox SET attempts = attempts + 1, nextAttemptAt = ? WHERE seq = ?`, [
         now() + backoffMs(item.attempts),
         item.seq,

@@ -39,6 +39,10 @@ function rowToEntry(r: Row): LocalEntry {
 export function addLocalEntry(entry: NewEntry): LocalEntry {
   const db = getDb();
   const id = uuid();
+  // Canonicalize to a UTC instant (…Z) so all stored timestamps are lexicographically
+  // comparable — offset-bearing (+01:00) backend timestamps otherwise land in the wrong
+  // local day in entriesForDay's string range query. Same instant, sent as-is to sync.
+  const occurredAt = new Date(entry.occurredAt).toISOString();
   db.withTransactionSync(() => {
     db.runSync(
       `INSERT INTO entries (id, type, occurredAt, inputMethod, sourcePhrase, isEstimate, detail)
@@ -46,7 +50,7 @@ export function addLocalEntry(entry: NewEntry): LocalEntry {
       [
         id,
         entry.type,
-        entry.occurredAt,
+        occurredAt,
         entry.inputMethod,
         entry.sourcePhrase ?? null,
         entry.isEstimate ? 1 : 0,
@@ -55,7 +59,7 @@ export function addLocalEntry(entry: NewEntry): LocalEntry {
     );
     db.runSync(`INSERT INTO outbox (entryId) VALUES (?)`, [id]);
   });
-  return { ...entry, id, syncState: "pending" };
+  return { ...entry, id, occurredAt, syncState: "pending" };
 }
 
 /** Entries whose occurredAt falls on the given local calendar day, ascending. */

@@ -1,4 +1,4 @@
-import type { Api, LogEntry, NewEntry } from "../../api/client";
+import { ApiError, type Api, type LogEntry, type NewEntry } from "../../api/client";
 import { createMockApi } from "../../api/mock";
 import { resetDbForTests } from "../db";
 import { addLocalEntry, entriesForDay, getEntry } from "../entries";
@@ -75,6 +75,28 @@ test("backoff is exponential and capped", () => {
   expect(backoffMs(0)).toBe(1000);
   expect(backoffMs(3)).toBe(8000);
   expect(backoffMs(20)).toBe(5 * 60 * 1000);
+});
+
+// Regression for Fable audit 1.2: a non-retryable 4xx used to back off and `break`, so one
+// bad payload blocked the ordered drain forever. It must be dropped so later items still sync.
+test("a poison-pill (400) is dropped and does not block a following valid item", async () => {
+  const bad = addLocalEntry(water());
+  const good = addLocalEntry(water());
+  const mock = createMockApi();
+  const api: Api = {
+    ...mock,
+    createEntry: (key, entry) => {
+      if (key === bad.id) {
+        return Promise.reject(new ApiError(400, { title: "bad payload", status: 400, type: "about:blank" }));
+      }
+      return mock.createEntry(key, entry);
+    },
+  };
+
+  const { synced } = await drainOutbox(api);
+  expect(synced).toBe(1); // the good item got through
+  expect(pendingCount()).toBe(0); // bad dropped from the queue, good synced
+  expect(getEntry(good.id)!.syncState).toBe("synced");
 });
 
 test("items not yet due are skipped", async () => {

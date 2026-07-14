@@ -8,7 +8,7 @@ import { useCapture } from "./CaptureContext";
 const timeOf = (iso: string) =>
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-function MacroBox({ label, grams }: { label: string; grams: number }) {
+function MacroBox({ label, grams }: { label: string; grams?: number | null }) {
   return (
     <View
       style={{
@@ -20,7 +20,7 @@ function MacroBox({ label, grams }: { label: string; grams: number }) {
       }}
     >
       <Text variant="label" style={{ fontSize: 15 }}>
-        {Math.round(grams)} g
+        {grams == null ? "—" : `${Math.round(grams)} g`}
       </Text>
       <Text
         style={{ fontFamily: fonts.extraBold, fontSize: 10, letterSpacing: 0.6, textTransform: "uppercase" }}
@@ -76,9 +76,9 @@ function DraftCard({ draft }: { draft: NewEntry }) {
 
       {meal?.totals && (
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <MacroBox label={t("home.protein")} grams={meal.totals.proteinG ?? 0} />
-          <MacroBox label={t("home.carbs")} grams={meal.totals.carbsG ?? 0} />
-          <MacroBox label={t("home.fat")} grams={meal.totals.fatG ?? 0} />
+          <MacroBox label={t("home.protein")} grams={meal.totals.proteinG} />
+          <MacroBox label={t("home.carbs")} grams={meal.totals.carbsG} />
+          <MacroBox label={t("home.fat")} grams={meal.totals.fatG} />
         </View>
       )}
 

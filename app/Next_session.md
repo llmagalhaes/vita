@@ -1,5 +1,15 @@
 # App Team — Next Session
 
+## Review-fix batch (2026-07-14) — Fable audit app-side findings ✅
+Fixed 5 findings from `docs/reviews/2026-07-14-fable-audit.md` (see `Progress/APP-REVIEW-FIXES-Progress.md`):
+- **1.1 HIGH** `src/db/entries.ts` — `addLocalEntry` now normalizes `occurredAt` to UTC `…Z` on write, so `entriesForDay`'s string range-query stops dropping offset-bearing (`+01:00`) timestamps near day boundaries. New regression test `src/db/__tests__/entries.test.ts`.
+- **1.2 HIGH** `src/db/outbox.ts` — poison-pill fix: 400/409/422 `ApiError` is dropped and the drain continues; network/5xx still back off + stop. New test in `outbox.test.ts`.
+- **2.1 MED** `home.tsx` — energy in/out bars scale vs `max(consumed, spent)`, no hardcoded 2500-kcal target.
+- **2.2 MED** `home.tsx` — "Last 7 days" now queries real per-day meal kcal via `entriesForDay`; spent stays honestly 0 until health sync (no invented history).
+- **2.5 LOW** `src/capture/CaptureSheet.tsx` — `MacroBox` renders "—" for null/undefined macros instead of "0 g".
+- Gates: `tsc` clean · **Jest 56/56 (12 suites)**, +2 · `expo export` iOS OK · both new tests verified to fail pre-fix.
+- **`api:check` drift is pre-existing, not this batch**: contract advanced to v0.4.0 (BE-017 `from`/`to`/`type` filters) but `types.gen.ts` not regenerated. Belongs to BE-017's app-side follow-up (backend agent editing contract live) — do NOT regen here.
+
 ## Current state (Phase 2 — session 7 done 2026-07-14: APP-017 Water complete, slice 1 ✅)
 
 - **APP-017 built** (slice 1 of `docs/backlog-local-100.md`). Water is now a complete, navigable feature. New `src/lib/units.ts` `formatVolume(ml, units, t)` (metric ml/L, imperial oz via 29.5735; i18n-ready unit words `common.ml/l/oz`). Home Water card: units-aware figure, expanded rows show **amount · method · time** and are tappable → `/water/<id>`. Timeline water cards **now navigate** (per-kind href; workout still inert for APP-018/019) — clears the "water card doesn't navigate" debt. New read-only detail screen `app/(main)/water/[id].tsx` mirroring meal-detail (hero + "That day's water" log with current entry highlighted + day total + wave). Quick-add untouched (outbox). i18n `waterDetail.*`. No new deps, no contract/backend change, SDK 56 preserved. Gates: `tsc` clean · **Jest 54/54 (11 suites)**, +3 · `api:check` clean · `expo export` iOS OK. See `Progress/APP-017-Progress.md`.

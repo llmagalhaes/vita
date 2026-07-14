@@ -150,6 +150,25 @@ export default function Home() {
 
   // Health-source energy arrives with the health-sync wave; placeholder until then.
   const spentKcal = 0;
+  // Scale the in/out bars against the pair's own larger value — no fixed daily target
+  // (philosophy: no goals/scores). 1 floor avoids /0 on an empty day.
+  const energyMax = Math.max(kcalToday, spentKcal, 1);
+
+  // Real consumed kcal for the last 7 days (today last) — no invented history.
+  const last7 = useMemo(
+    () =>
+      Array.from({ length: 7 }, (_, i) => {
+        const d = new Date();
+        d.setDate(d.getDate() - (6 - i));
+        return Math.round(
+          entriesForDay(d)
+            .filter((e) => e.type === "meal")
+            .reduce((s, e) => s + ((e.detail as MealDetail).totals?.kcal ?? 0), 0),
+        );
+      }),
+    [version], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const max7 = Math.max(...last7, 1);
 
   const hour = new Date().getHours();
   const greeting =
@@ -312,7 +331,7 @@ export default function Home() {
                 {t("home.in")}
               </Text>
               <View style={{ flex: 1 }}>
-                <Bar pct={Math.min((kcalToday / 2500) * 100, 100)} color={colors.macro.fat} />
+                <Bar pct={(kcalToday / energyMax) * 100} color={colors.macro.fat} />
               </View>
             </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}>
@@ -320,7 +339,7 @@ export default function Home() {
                 {t("home.out")}
               </Text>
               <View style={{ flex: 1 }}>
-                <Bar pct={Math.min((spentKcal / 2500) * 100, 100)} color={colors.macro.protein} />
+                <Bar pct={(spentKcal / energyMax) * 100} color={colors.macro.protein} />
               </View>
             </View>
           </View>
@@ -341,11 +360,12 @@ export default function Home() {
                 </Text>
               </View>
               <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-end", height: 52 }}>
-                {Array.from({ length: 7 }, (_, i) => (
+                {last7.map((kcal, i) => (
                   <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", gap: 4, height: "100%" }}>
                     <View style={{ flexDirection: "row", gap: 2, alignItems: "flex-end", flex: 1 }}>
-                      <View style={{ width: 7, height: `${i === 6 ? Math.min((kcalToday / 2500) * 100, 100) : 6}%`, borderRadius: 3, backgroundColor: colors.macro.fat, alignSelf: "flex-end" }} />
-                      <View style={{ width: 7, height: "6%", borderRadius: 3, backgroundColor: colors.macro.protein, alignSelf: "flex-end" }} />
+                      {/* consumed = real per-day kcal; spent stays 0 until health sync (honest absence) */}
+                      <View style={{ width: 7, height: `${(kcal / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.fat, alignSelf: "flex-end" }} />
+                      <View style={{ width: 7, height: `${(spentKcal / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.protein, alignSelf: "flex-end" }} />
                     </View>
                     <Text style={{ fontFamily: fonts.semiBold, fontSize: 9 }} color={colors.muted}>
                       {new Date(Date.now() - (6 - i) * 86400000).toLocaleDateString(undefined, { weekday: "narrow" })}
