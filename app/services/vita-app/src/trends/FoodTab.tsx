@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { entriesInRange } from "../db/entries";
 import { getSettings } from "../db/settings";
@@ -16,11 +17,40 @@ import {
   visibleDays,
   windowRange,
 } from "./aggregate";
-import { TrendCard, linePath } from "./parts";
+import { GrowBar, TrendCard, linePath } from "./parts";
 
 const round = (n: number) => Math.round(n);
 const CURVE_W = 300;
 const CURVE_H = 120;
+
+const AnimatedPath = Animated.createAnimatedComponent(Path);
+const CURVE_DASH = 900; // exceeds any path length — offset 900→0 draws it on (vtDraw)
+
+/** Calorie curve that strokes itself on, matching the prototype's `vtDraw` (Fable B3). */
+function CalorieCurve({ values }: { values: number[] }) {
+  const offset = useSharedValue(CURVE_DASH);
+  useEffect(() => {
+    offset.value = CURVE_DASH;
+    offset.value = withTiming(0, { duration: 1400, easing: Easing.out(Easing.ease) });
+  }, [values, offset]);
+  const props = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
+  return (
+    <View style={{ height: CURVE_H, borderRadius: 16, overflow: "hidden", backgroundColor: "#FBF3E6" }}>
+      <Svg width="100%" height={CURVE_H} viewBox={`0 0 ${CURVE_W} ${CURVE_H}`} preserveAspectRatio="none">
+        <AnimatedPath
+          d={linePath(values, CURVE_W, CURVE_H)}
+          fill="none"
+          stroke={colors.macro.carbs}
+          strokeWidth={4}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeDasharray={CURVE_DASH}
+          animatedProps={props}
+        />
+      </Svg>
+    </View>
+  );
+}
 
 /** Sparse day-axis label: weekday for a short window, day-of-month sampled otherwise. */
 function barLabel(d: Date, i: number, n: number): string {
@@ -60,7 +90,7 @@ function DayBars({
                 {topLabel(b)}
               </Text>
             )}
-            <View style={{ width: "100%", maxWidth: 22, height: `${(v / max) * 100}%`, minHeight: v > 0 ? 3 : 0, borderRadius: 6, backgroundColor: color(b) }} />
+            <GrowBar pct={(v / max) * 100} color={color(b)} delay={i * 30} style={{ width: "100%", maxWidth: 22, minHeight: v > 0 ? 3 : 0, borderRadius: 6 }} />
             <Text style={{ fontFamily: active === i ? fonts.extraBold : fonts.semiBold, fontSize: 10, height: 13 }} color={colors.muted}>
               {barLabel(b.date, i, n)}
             </Text>
@@ -82,8 +112,8 @@ function PairBars({ days, active }: { days: DayBucket[]; active: number | null }
         return (
           <View key={b.key} style={{ flex: 1, alignItems: "center", gap: 5, height: "100%", justifyContent: "flex-end", opacity: dim }}>
             <View style={{ flexDirection: "row", gap: 2, alignItems: "flex-end", justifyContent: "center", width: "100%", flex: 1 }}>
-              <View style={{ width: 9, height: `${(b.consumedKcal / max) * 100}%`, minHeight: b.consumedKcal > 0 ? 3 : 0, borderRadius: 4, backgroundColor: colors.macro.fat }} />
-              <View style={{ width: 9, height: `${(b.spentKcal / max) * 100}%`, minHeight: b.spentKcal > 0 ? 3 : 0, borderRadius: 4, backgroundColor: colors.macro.protein }} />
+              <GrowBar pct={(b.consumedKcal / max) * 100} color={colors.macro.fat} delay={i * 30} style={{ width: 9, minHeight: b.consumedKcal > 0 ? 3 : 0, borderRadius: 4 }} />
+              <GrowBar pct={(b.spentKcal / max) * 100} color={colors.macro.protein} delay={i * 30 + 60} style={{ width: 9, minHeight: b.spentKcal > 0 ? 3 : 0, borderRadius: 4 }} />
             </View>
             <Text style={{ fontFamily: active === i ? fonts.extraBold : fonts.semiBold, fontSize: 10, height: 13 }} color={colors.muted}>
               {barLabel(b.date, i, n)}
@@ -192,18 +222,7 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
       >
         {(active) =>
           calCurve ? (
-            <View style={{ height: CURVE_H, borderRadius: 16, overflow: "hidden", backgroundColor: "#FBF3E6" }}>
-              <Svg width="100%" height={CURVE_H} viewBox={`0 0 ${CURVE_W} ${CURVE_H}`} preserveAspectRatio="none">
-                <Path
-                  d={linePath(days.map((d) => d.consumedKcal), CURVE_W, CURVE_H)}
-                  fill="none"
-                  stroke={colors.macro.carbs}
-                  strokeWidth={4}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </View>
+            <CalorieCurve values={days.map((d) => d.consumedKcal)} />
           ) : (
             <DayBars days={days} value={(b) => b.consumedKcal} color={() => colors.macro.fat} active={active} topLabel={(b) => (b.consumedKcal > 0 ? String(round(b.consumedKcal)) : "")} />
           )

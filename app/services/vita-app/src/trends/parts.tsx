@@ -1,8 +1,23 @@
-import { type ReactNode, useState } from "react";
-import { Pressable, View } from "react-native";
-import Animated, { FadeInDown } from "react-native-reanimated";
+import { type ReactNode, useEffect, useState } from "react";
+import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
+import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { Chevron, Text, colors, fonts } from "../ui";
 import { ScrubOverlay } from "./scrub";
+
+/**
+ * A chart bar that grows up from the bottom on mount (`vtGrowY`, Fable A3). Height
+ * is a % of the parent (which justifies flex-end, so growth reads bottom-up).
+ * `delay` staggers neighbours. Remounts on window change (keyed by day) re-grow it.
+ */
+export function GrowBar({ pct, color, delay = 0, style }: { pct: number; color: string; delay?: number; style?: StyleProp<ViewStyle> }) {
+  const target = Math.max(0, Math.min(100, pct));
+  const h = useSharedValue(0);
+  useEffect(() => {
+    h.value = withDelay(delay, withTiming(target, { duration: 450 }));
+  }, [target, delay, h]);
+  const grow = useAnimatedStyle(() => ({ height: `${h.value}%` }));
+  return <Animated.View style={[style, { backgroundColor: color }, grow]} />;
+}
 
 export const SectionLabel = ({ children }: { children: string }) => (
   <Text

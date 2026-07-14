@@ -17,7 +17,7 @@ import {
   windowRange,
   workoutsInWindow,
 } from "./aggregate";
-import { SectionLabel, TrendCard } from "./parts";
+import { GrowBar, SectionLabel, TrendCard } from "./parts";
 
 const KG_PER_LB = 0.453592;
 const dayMonth = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
@@ -132,7 +132,9 @@ export function ActivityTab({ window, isExcluded }: { window: TrendWindow; isExc
               {days.map((b, i) => {
                 const dim = b.excluded ? 0.25 : active != null && active !== i ? 0.4 : 1;
                 return (
-                  <View key={b.key} style={{ flex: 1, height: `${(b.workoutMin / maxMin) * 100}%`, minHeight: b.workoutMin > 0 ? 3 : 0, maxWidth: 22, borderRadius: 5, backgroundColor: colors.accent, opacity: dim, alignSelf: "flex-end" }} />
+                  <View key={b.key} style={{ flex: 1, height: "100%", justifyContent: "flex-end", opacity: dim }}>
+                    <GrowBar pct={(b.workoutMin / maxMin) * 100} color={colors.accent} delay={i * 30} style={{ width: "100%", minHeight: b.workoutMin > 0 ? 3 : 0, maxWidth: 22, borderRadius: 5, alignSelf: "flex-end" }} />
+                  </View>
                 );
               })}
             </View>
