@@ -4,21 +4,24 @@
 
 ## Where we are (2026-07-14, session 4 closed — "Vita 100% local" backlog COMPLETE)
 
-**Phase 2 — Implementation. The entire "Vita 100% local" backlog is built and green LOCALLY.** Contract at **v0.4.0** (additive over v0.3.0). All feature slices 1–8 shipped in one parallel-agent execution day (commits `0ae4310..1cf0a27`). AWS infra still applied but **parked at $0** (ECS off). **No production deploy** — CEO policy: local-first. Working tree clean, pushed to GitHub.
+**Phase 2 — Implementation. The entire "Vita 100% local" backlog is built and green LOCALLY.** Contract at **v0.4.0** (additive over v0.3.0). All feature slices 1–8 shipped in one parallel-agent execution day (commits `0ae4310..5a35dfa`). AWS infra still applied but **parked at $0** (ECS off). **No production deploy** — CEO policy: local-first. Working tree clean, pushed to GitHub.
 
 ### DONE this session (all local, DoD = `check`/`tsc`/`jest`/`expo export` green)
 - **Backend — `./gradlew check` 122 green + 6 LocalStack adapter tests.** BE-017 entries `from`/`to`/CSV `type`; BE-023 pinned model ids (+`photo-model`; `plan-pdf-model=claude-sonnet-4-6` verified valid, sonnet-5 deferred — needs `thinking:disabled`); BE-018 `/parse/photo` vision (multipart, image discarded, 413/415/422); BE-019/020 plan+program versioned (history≤5), editable (full-doc PUT + re-encrypt), per-user-DEK encrypted, cascade-shred; BE-024 `checkin` entry type (idempotency `habitId:date`, PATCH change-answer); BE-025 `/me/vacations` encrypted opaque ranges; BE-022 `@Scheduled` token cleanup (closes audit 2.3); BE-026/027 real S3/KMS adapters behind `@Profile("aws")`, LocalStack-tested (default check stays AWS-free). ADR-0011 ext, ADR-0013.
 - **DevOps** — OPS-020 LocalStack (S3+KMS) profile-gated in backend compose; plain `docker compose up` stays Postgres-only.
-- **App — Jest 144 green, 31 suites, Expo Go SDK 56.** Slices: water (APP-017) · workout + reusable BodyMap (APP-018/019) · plan/program persist + edit-mode screens (APP-021/022/023) · photo capture (APP-020) · habits + check-ins-via-outbox + local notifications (APP-024/025/026) · Trends Food/Activity client-side agg (APP-027/028) · Account/Integrations/Vacation/Export-PDF-on-device/Energy (APP-029/030/031/032) · offline interpretation + NetInfo reconnect + Maestro E2E + fidelity pass (APP-033/034/035).
-- **Two Fable audits** (`docs/reviews/2026-07-14-fable-audit.md` = pre-session; a second full-session review ran at close). Audit fixes landed: app day-filter UTC normalization, outbox poison-pill, Home philosophy slips (no hardcoded 2500-kcal target, no fabricated 7-day chart), backend muscle mapping + numeric validation.
+- **App — Jest 158 green, 32 suites, Expo Go SDK 56.** Slices: water (APP-017) · workout + reusable BodyMap (APP-018/019) · plan/program persist + edit-mode screens (APP-021/022/023) · photo capture (APP-020) · habits + check-ins-via-outbox + local notifications (APP-024/025/026) · Trends Food/Activity client-side agg (APP-027/028) · Account/Integrations/Vacation/Export-PDF-on-device/Energy (APP-029/030/031/032) · offline interpretation + NetInfo reconnect + Maestro E2E + fidelity pass (APP-033/034/035).
+- **Two Fable audits** — `docs/reviews/2026-07-14-fable-audit.md` (pre-session) and `docs/reviews/2026-07-14-fable-audit-2.md` (full session). **Both audits' fixes landed and re-verified:** app day-filter UTC, outbox poison-pill + taxonomy (dead-photo-URI, 404/403, checkin-409 PATCH-fallback), Home philosophy slips (no 2500-kcal target, no fabricated 7-day chart incl. the spent series), offline plan/vacation dirty-flag (edits survive hydrate), backend muscle mapping + numeric validation. Crypto envelope on every new encrypted surface verified per-user-DEK + cascade/shred.
 - **CEO live-testing bugfix** (`1c6fe2c`): Home layout blowout (`height:"100%"`→`flex:1`) + confirm-sheet drag-to-dismiss (pan gesture, `runOnJS`). Verified live on Android emulator. (The blue floating gear the CEO saw is a device/OS overlay, NOT app UI.)
+- **Offline-capture review banner** (`5a35dfa`, CEO Round 12): offline captures still auto-add on reconnect but are marked `needsReview` with an "N offline captures added — tap to review" banner + review sheet (Keep/Adjust/Discard); the `failed` timeline card got a Dismiss. Restores confirm-before-log affordance without losing durability.
 
 ### What's PARKED (CEO-gated — do NOT start autonomously)
 1. **Hygiene sweep** — BE-028 + APP-037 (pre-release code cleanup). CEO calls this stage.
 2. **F-LAST production deploy** — AWS deploy → Android vs AWS → iOS on iPhone vs AWS → Play Store → App Store. Needs CEO secrets (RDS pw, 7 SSM values, GitHub repo Variables) + Apple/Play accounts. Runbook in `docs/backlog-local-100.md` §F-LAST.
 
-### Open CEO question (non-blocking, from APP-033)
-Offline capture that can't reach `/parse` is parked and **auto-logged on reconnect** (parse+log, no re-confirmation card). If the CEO wants parsed drafts to wait for a confirmation card instead, that's a small follow-up ticket.
+### Small follow-ups noted (non-blocking, not started)
+- **Authoritative discard**: the offline-review Discard and the `failed`-card Dismiss are **local-only** (SQLite is the display source; trends are client-side per D4). A capture that synced before the user discards it leaves an orphan server row. A backend delete/void op would make Discard authoritative — build only if ever needed.
+- **Audit-2 1.7 (backend, hygiene-sweep debt)**: `CryptoService` AAD binds userId only, not table/column — defense-in-depth; fold `"$userId:$table"` into BE-028.
+- **Plan/program history UI**: backend serves `/plan/history` (≤5) but the app has no "previous plans" picker yet (APP-022 explicitly deferred it) — small follow-up ticket.
 
 **Rules unchanged**: no GitHub CI/CD (local pre-merge checklists are the guardrail), no AWS applies (LocalStack for adapters), Terraform kept ready.
 
