@@ -65,6 +65,7 @@ class EntryService(
     ): EntryResult {
         // Normalize the detail (typed round-trip + meal-total recompute) so both
         // storage and the idempotency hash are canonical, whitespace-independent.
+        if (new.inputMethod !in INPUT_METHODS) badRequest("Unknown inputMethod: ${new.inputMethod}")
         val detail = normalize(new.type, new.detail)
         val denorm = denormalize(new.type, detail)
         val requestHash = hash(new, detail)
@@ -222,6 +223,7 @@ class EntryService(
             EntryType.meal -> {
                 val meal = read<MealDetail>(detail)
                 if (meal.items.isEmpty()) badRequest("A meal needs at least one item.")
+                meal.items.forEach(::validateItem)
                 mapper.valueToTree(meal.copy(totals = totalsOf(meal.items)))
             }
             EntryType.water -> {
@@ -232,9 +234,47 @@ class EntryService(
             EntryType.workout -> {
                 val workout = read<WorkoutDetail>(detail)
                 if (workout.title.isBlank()) badRequest("A workout needs a title.")
-                mapper.valueToTree(workout)
+                workout.durationMin?.let { if (it < 1) badRequest("durationMin must be >= 1.") }
+                nonNegative("workout kcal", workout.kcal)
+                workout.exercises?.forEach(::validateExercise)
+                // Closed-vocabulary muscle map: model output onto the 11 silhouettes,
+                // known aliases folded in, anything unmappable dropped (contract §915).
+                val muscles =
+                    workout.muscles
+                        ?.mapNotNull(::mapMuscle)
+                        ?.distinct()
+                        ?.takeIf { it.isNotEmpty() }
+                mapper.valueToTree(workout.copy(muscles = muscles))
             }
         }
+
+    /** Contract MealItem minimums — kcal/macros >= 0 (mirror the log_entry CHECKs → 400 not 500). */
+    private fun validateItem(item: MealItem) {
+        nonNegative("item kcal", item.kcal)
+        nonNegative("item proteinG", item.proteinG)
+        nonNegative("item carbsG", item.carbsG)
+        nonNegative("item fatG", item.fatG)
+    }
+
+    /** Contract Exercise minimums — sets/reps >= 1, loadKg >= 0. */
+    private fun validateExercise(ex: Exercise) {
+        ex.sets?.let { if (it < 1) badRequest("exercise sets must be >= 1.") }
+        ex.reps?.let { if (it < 1) badRequest("exercise reps must be >= 1.") }
+        nonNegative("exercise loadKg", ex.loadKg)
+    }
+
+    private fun nonNegative(
+        field: String,
+        value: Double?,
+    ) {
+        if (value != null && value < 0) badRequest("$field must be >= 0.")
+    }
+
+    /** One muscle string → contract vocabulary, or null if unmappable (dropped). */
+    private fun mapMuscle(raw: String): String? {
+        val m = raw.trim().lowercase()
+        return if (m in MUSCLES) m else MUSCLE_ALIASES[m]
+    }
 
     private fun denormalize(
         type: EntryType,
@@ -320,5 +360,27 @@ class EntryService(
         // Accepted `type` filter values. Derived from the entry types plus "checkin",
         // which the app filters on now (Habits) though the entry type ships in BE-024.
         val FILTERABLE_TYPES: Set<String> = EntryType.entries.map { it.name }.toSet() + "checkin"
+
+        // Contract InputMethod enum — the wire values a create may carry.
+        val INPUT_METHODS = setOf("voice", "text", "photo", "tap", "checkin", "import")
+
+        // Contract WorkoutDetail.muscles closed vocabulary (11 body-map silhouettes)…
+        val MUSCLES =
+            setOf(
+                "chest",
+                "back",
+                "shoulders",
+                "biceps",
+                "triceps",
+                "forearms",
+                "core",
+                "glutes",
+                "quads",
+                "hamstrings",
+                "calves",
+            )
+
+        // …plus the aliases the contract folds in; anything else is dropped.
+        val MUSCLE_ALIASES = mapOf("lats" to "back", "traps" to "back", "abs" to "core", "obliques" to "core")
     }
 }

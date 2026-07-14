@@ -1,5 +1,12 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 8, 2026-07-14) — Fable audit fast-follow done locally
+
+- **BE-REVIEW-FIXES (audit 1.3 + 1.4) done locally** — `Progress/BE-REVIEW-FIXES-Progress.md`. Both fixes root-caused in `EntryService.normalize` (shared by POST + PATCH):
+  - **1.3 muscle mapping**: workout `muscles` now mapped onto the 11-silhouette contract vocabulary, aliases folded (lats/traps→back, abs/obliques→core), unmappable dropped. Raw model muscles no longer reach storage.
+  - **1.4 contract minimums**: meal item kcal/macros `>= 0`, workout `durationMin >= 1` / `kcal >= 0`, exercise sets/reps `>= 1` / loadKg `>= 0`, `inputMethod` enum (in `create`). Contract-invalid input now returns **400**, not a Postgres CHECK 500 or silent bad data.
+  - **Contract untouched** (no bump — already specified this behaviour). `./gradlew check` green, **93/93 tests** (+4 in EntryFlowTest), detekt+ktlint clean.
+
 ## Current state (Phase 2 session 8, 2026-07-14) — BE-023 + BE-017 done locally
 
 - **BE-023 (verify & pin AI model ids) done locally** — `Progress/BE-023-Progress.md`, ADR-0005 "Pinned model ids" table.

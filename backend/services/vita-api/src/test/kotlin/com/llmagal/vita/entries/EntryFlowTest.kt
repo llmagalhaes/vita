@@ -185,6 +185,73 @@ class EntryFlowTest {
         post(waterBody(0), key()).expectStatus().isBadRequest
     }
 
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `workout muscles are mapped to the contract vocabulary and unmappable ones dropped`() {
+        val entry =
+            post(
+                mapOf(
+                    "type" to "workout",
+                    "occurredAt" to "2026-07-13T18:00:00Z",
+                    "inputMethod" to "text",
+                    "detail" to
+                        mapOf(
+                            "title" to "Pull day",
+                            "durationMin" to 40,
+                            "muscles" to listOf("lats", "abs", "chest", "banana"),
+                        ),
+                ),
+                key(),
+            ).expectStatus()
+                .isCreated
+                .expectBody(MAP)
+                .returnResult()
+                .responseBody!!
+
+        val muscles = (entry["detail"] as Map<String, Any>)["muscles"] as List<String>
+        // lats→back, abs→core, chest passes through, banana dropped.
+        assertThat(muscles).containsExactlyInAnyOrder("back", "core", "chest")
+    }
+
+    @Test
+    fun `rejects a negative-kcal meal item`() {
+        post(
+            mapOf(
+                "type" to "meal",
+                "occurredAt" to "2026-07-13T09:30:00Z",
+                "inputMethod" to "text",
+                "detail" to mapOf("items" to listOf(item("Void", kcal = -10, p = 0, c = 0, f = 0))),
+            ),
+            key(),
+        ).expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `rejects a workout with durationMin 0`() {
+        post(
+            mapOf(
+                "type" to "workout",
+                "occurredAt" to "2026-07-13T18:00:00Z",
+                "inputMethod" to "text",
+                "detail" to mapOf("title" to "Zero", "durationMin" to 0),
+            ),
+            key(),
+        ).expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `rejects an out-of-enum inputMethod`() {
+        post(
+            mapOf(
+                "type" to "water",
+                "occurredAt" to "2026-07-13T10:00:00Z",
+                "inputMethod" to "telepathy",
+                "detail" to mapOf("amountMl" to 250),
+            ),
+            key(),
+        ).expectStatus().isBadRequest
+    }
+
     @Test
     fun `unauthenticated create is 401`() {
         post(mealBody(), key(), bearer = null)
