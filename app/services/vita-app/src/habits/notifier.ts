@@ -11,6 +11,8 @@
  * overlap with this file, so nothing there is folded in.
  */
 import { listHabits, type Habit } from "../db/habits";
+import { notificationsEnabled } from "../db/settings";
+import { isVacationActive, vacationKeepsCheckins } from "../db/vacation";
 
 export type PermissionStatus = "granted" | "denied" | "undetermined";
 
@@ -122,10 +124,20 @@ export async function ensureNotificationPermission(): Promise<PermissionStatus> 
   return cur === "undetermined" ? n.requestPermission() : cur;
 }
 
+/**
+ * Notifications pause when the master switch is off (APP-029) or during a trip
+ * whose check-ins the user didn't choose to keep (APP-030) — one gate, both inputs.
+ */
+export function notificationsPaused(): boolean {
+  if (!notificationsEnabled()) return true;
+  return isVacationActive() && !vacationKeepsCheckins();
+}
+
 /** Reschedule from the current habit set. Best-effort — never throws into the UI. */
 export async function refreshNotifications(): Promise<void> {
   try {
-    await getNotifier().sync(listHabits());
+    // Paused → cancel everything by syncing an empty set.
+    await getNotifier().sync(notificationsPaused() ? [] : listHabits());
   } catch {
     // Expo Go may warn on Android; scheduling is non-critical to the in-app flow.
   }

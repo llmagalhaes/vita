@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
@@ -9,8 +9,10 @@ import { logChanged, useLogVersion } from "../../src/db/notify";
 import { drainOutbox } from "../../src/db/outbox";
 import { getSettings } from "../../src/db/settings";
 import { getCachedPlan, getCachedProgram, syncPlan, syncProgram } from "../../src/db/plan";
+import { endVacation, isVacationActive, getVacation, syncVacation } from "../../src/db/vacation";
 import { listHabits } from "../../src/db/habits";
 import { openCheckins, pendingCheckins } from "../../src/habits/checkins";
+import { logManualEnergy } from "../../src/energy/manual";
 import { planDailyTotals } from "../../src/plan/compute";
 import { formatVolume } from "../../src/lib/units";
 import {
@@ -153,6 +155,7 @@ export default function Home() {
   const version = useLogVersion();
   const [waterOpen, setWaterOpen] = useState(false);
   const [energyOpen, setEnergyOpen] = useState(false);
+  const [spentInput, setSpentInput] = useState("");
 
   const settings = useMemo(() => getSettings(), []);
   const units = settings?.units ?? "metric";
@@ -165,7 +168,11 @@ export default function Home() {
   useEffect(() => {
     void syncPlan().then(logChanged);
     void syncProgram().then(logChanged);
+    void syncVacation().then(logChanged);
   }, []);
+
+  const onVacation = useMemo(() => isVacationActive(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const vacRange = getVacation().ranges[0];
 
   const pendingCheckinCount = useMemo(
     () => pendingCheckins(listHabits(), new Date()).length,
@@ -174,6 +181,7 @@ export default function Home() {
 
   const meals = entries.filter((e) => e.type === "meal");
   const waters = entries.filter((e) => e.type === "water");
+  const workouts = entries.filter((e) => e.type === "workout");
 
   const kcalToday = Math.round(
     meals.reduce((sum, e) => sum + ((e.detail as MealDetail).totals?.kcal ?? 0), 0),
@@ -192,8 +200,11 @@ export default function Home() {
   );
   const maxMacro = Math.max(macros.protein, macros.carbs, macros.fat, 1);
 
-  // Health-source energy arrives with the health-sync wave; placeholder until then.
-  const spentKcal = 0;
+  // "Spent" = sum of logged workout kcal (D8, labeled estimate) — includes manual
+  // adds. Health-source energy still needs a connected source (honest absence).
+  const spentKcal = Math.round(
+    workouts.reduce((s, e) => s + ((e.detail as WorkoutDetail).kcal ?? 0), 0),
+  );
   // Scale the in/out bars against the pair's own larger value — no fixed daily target
   // (philosophy: no goals/scores). 1 floor avoids /0 on an empty day.
   const energyMax = Math.max(kcalToday, spentKcal, 1);
@@ -239,21 +250,82 @@ export default function Home() {
       .catch(() => {});
   };
 
+  const addSpent = () => {
+    const kcal = parseInt(spentInput, 10);
+    if (!Number.isFinite(kcal) || kcal <= 0) return;
+    logManualEnergy(kcal);
+    setSpentInput("");
+    logChanged();
+    void drainOutbox(api)
+      .then(({ synced }) => {
+        if (synced > 0) logChanged();
+      })
+      .catch(() => {});
+  };
+
   return (
     <ScrollView
       style={{ flex: 1 }}
       contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 64, paddingBottom: 150, gap: 13 }}
     >
       {/* header */}
-      <View style={{ paddingHorizontal: 4 }}>
-        <Text variant="title" style={{ fontSize: 21 }}>
-          {greeting}
-          {settings?.name ? `, ${settings.name}` : ""}
-        </Text>
-        <Text variant="caption" style={{ fontSize: 13, marginTop: 1 }} color={colors.muted}>
-          {dateStr}
-        </Text>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", paddingHorizontal: 4 }}>
+        <View style={{ flex: 1 }}>
+          <Text variant="title" style={{ fontSize: 21 }}>
+            {greeting}
+            {settings?.name ? `, ${settings.name}` : ""}
+          </Text>
+          <Text variant="caption" style={{ fontSize: 13, marginTop: 1 }} color={colors.muted}>
+            {dateStr}
+          </Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t("account.title")}
+          onPress={() => router.push("/account")}
+          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15 }} color="#6E6355">
+            ☺
+          </Text>
+        </Pressable>
       </View>
+
+      {/* vacation banner (sea tone) — active trip only */}
+      {onVacation && (
+        <Card
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 11,
+            paddingVertical: 12,
+            backgroundColor: "#EAF3F4",
+            borderWidth: 1.5,
+            borderColor: "rgba(62,143,163,0.32)",
+          }}
+        >
+          <View style={{ width: 34, height: 34, borderRadius: 12, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontSize: 15 }} color={colors.vacationAccent}>☀</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="label" style={{ fontSize: 13.5 }} color="#3A4C51">
+              {t("account.vacationMode")}
+            </Text>
+            <Text variant="caption" numberOfLines={1} style={{ marginTop: 1 }} color="#6B8087">
+              {vacRange ? `${vacRange.start} – ${vacRange.end}` : ""}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => endVacation()}
+            style={{ paddingVertical: 8, paddingHorizontal: 13, borderRadius: 15, backgroundColor: colors.card }}
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12 }} color={colors.vacationAccent}>
+              {t("account.end")}
+            </Text>
+          </Pressable>
+        </Card>
+      )}
 
       {/* check-ins waiting banner (opens the stack sheet) */}
       {pendingCheckinCount > 0 && (
@@ -437,6 +509,37 @@ export default function Home() {
                 gap: 9,
               }}
             >
+              {/* manual "spent" add (D8): type a number here, or say "burned 300"
+                  to the pill. Both write a workout entry (kcal, no exercises). */}
+              <View style={{ gap: 6 }}>
+                <SectionLabel>{t("home.addSpent")}</SectionLabel>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <TextInput
+                    value={spentInput}
+                    onChangeText={(v) => setSpentInput(v.replace(/[^0-9]/g, ""))}
+                    keyboardType="number-pad"
+                    placeholder={t("home.spentPlaceholder")}
+                    placeholderTextColor={colors.labelMuted}
+                    accessibilityLabel={t("home.addSpent")}
+                    onSubmitEditing={addSpent}
+                    style={{ flex: 1, borderWidth: 1, borderColor: "rgba(120,100,75,0.16)", backgroundColor: colors.sheet, borderRadius: 14, paddingVertical: 9, paddingHorizontal: 13, fontFamily: fonts.semiBold, fontSize: 14, color: colors.ink }}
+                  />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={t("home.addSpent")}
+                    disabled={!spentInput}
+                    onPress={addSpent}
+                    style={{ paddingVertical: 10, paddingHorizontal: 15, borderRadius: 15, backgroundColor: "#E7EDE1", opacity: spentInput ? 1 : 0.5 }}
+                  >
+                    <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#5F7A61">
+                      {t("home.add")}
+                    </Text>
+                  </Pressable>
+                </View>
+                <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
+                  {t("home.spentHint")}
+                </Text>
+              </View>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
                 <SectionLabel>{t("home.last7")}</SectionLabel>
                 <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>

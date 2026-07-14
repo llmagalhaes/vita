@@ -25,6 +25,7 @@ export type ParseResult = Schemas["ParseResult"];
 export type Problem = Schemas["Problem"];
 export type User = Schemas["User"];
 export type Units = Schemas["Units"];
+export type VacationRange = Schemas["VacationRange"];
 export type TokenPair = Schemas["TokenPair"];
 export type Muscle = NonNullable<WorkoutDetail["muscles"]>[number];
 
@@ -74,6 +75,9 @@ export interface Api {
   }): Promise<EntriesPage>;
   getMe(): Promise<User>;
   patchMe(patch: { name?: string; units?: Units }): Promise<User>;
+  /** Vacation ranges (D1): device-owned, opaque to the server. Replace-on-write. */
+  getVacations(): Promise<VacationRange[]>;
+  putVacations(ranges: VacationRange[]): Promise<VacationRange[]>;
 }
 
 /** Token access for the http client: attach a bearer + refresh once on 401. */
@@ -172,5 +176,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     },
     getMe: () => request("GET", "/me"),
     patchMe: (patch) => request("PATCH", "/me", { body: patch }),
+    getVacations: () => request("GET", "/me/vacations"),
+    putVacations: (ranges) => request("PUT", "/me/vacations", { body: ranges }),
   };
 }

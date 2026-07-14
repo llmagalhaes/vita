@@ -197,7 +197,11 @@
     "byVoice": "Logged by voice",
     "byText": "Logged by text",
     "byPhoto": "Logged by photo",
-    "byTap": "Quick add"
+    "byTap": "Quick add",
+    "addSpent": "Add energy spent",
+    "add": "Add",
+    "spentPlaceholder": "kcal, e.g. 300",
+    "spentHint": "A rough number is fine — or say \"burned 300\" to the pill. Labeled an estimate."
   },
   "mealDetail": {
     "eyebrow": "Meal",
@@ -383,5 +387,91 @@
     "waitingMany": "{{count}} check-ins waiting",
     "tapToAnswer": "Tap to answer",
     "noneToday": "Nothing to check in on today."
+  },
+  "account": {
+    "title": "Account",
+    "back": "Back",
+    "you": "You",
+    "applyEverywhere": "Changes apply everywhere, right away.",
+    "yourSetup": "Your setup",
+    "setupNone": "Not set yet",
+    "setupPlanSet": "Your eating plan",
+    "setupProgramSet": "Your training program",
+    "integrations": "Integrations",
+    "integrationsSub": "Connect a health source",
+    "habitsSub_one": "{{count}} habit",
+    "habitsSub_other": "{{count}} habits",
+    "habitsSub": "{{count}} habits",
+    "notifications": "Notifications",
+    "checkinReminders": "Check-in reminders",
+    "checkinRemindersSub": "Gentle nudges for your habits — on this device only.",
+    "away": "Away",
+    "vacationMode": "Vacation mode",
+    "vacationOffSub": "A calmer Vita while you're away.",
+    "setUp": "Set up",
+    "end": "End",
+    "yourData": "Your data",
+    "shareLog": "Share your log",
+    "shareLogSub": "A PDF shaped for whoever reads it.",
+    "exportTo": "Export to…",
+    "dataNote": "Your log stays on this device — exports are files you choose to share.",
+    "signOut": "Sign out"
+  },
+  "integrations": {
+    "title": "Integrations",
+    "intro": "Vita reads only what you approve. Turn any source off at any time.",
+    "notConnected": "Connect a health source",
+    "connectPrompt": "Arrives with the full app",
+    "honestNote": "Live health-source sync isn't in this build yet — these switches just remember your choice. Vita never shows synced data it doesn't have.",
+    "source": {
+      "appleHealth": "Apple Health",
+      "healthConnect": "Health Connect",
+      "strava": "Strava",
+      "garmin": "Garmin",
+      "flo": "Flo",
+      "gym": "Gym app"
+    }
+  },
+  "vacation": {
+    "title": "Vacation mode",
+    "subtitle": "A calmer Vita while you're away.",
+    "from": "From date",
+    "to": "To date",
+    "keepCheckins": "Keep check-in reminders",
+    "keepCheckinsSub": "Off pauses them until you're back.",
+    "tripAddLabel": "Add something just for the trip",
+    "tripPlaceholder": "e.g. Walk on the beach",
+    "addTrip": "Add",
+    "removeTrip": "Remove",
+    "start": "Start vacation mode",
+    "invalidRange": "Enter valid dates (YYYY-MM-DD), start on or before end.",
+    "startNote": "The app shifts to a calmer tone until {{to}}."
+  },
+  "export": {
+    "title": "Export to…",
+    "subtitle": "Each export includes only what its reader needs.",
+    "window": "Last 30 days · estimates marked as estimates",
+    "prepare": "Prepare PDF",
+    "preparing": "Preparing…",
+    "footer": "Nothing is shared until you send the file.",
+    "audience": {
+      "doctor": "My doctor",
+      "trainer": "My trainer",
+      "nutritionist": "My nutritionist",
+      "myself": "Just for me"
+    },
+    "audienceSub": {
+      "doctor": "meals, water & energy",
+      "trainer": "workouts & energy",
+      "nutritionist": "meals, macros & water",
+      "myself": "everything"
+    },
+    "section": {
+      "meals": "Meals",
+      "water": "Water",
+      "workouts": "Workouts",
+      "energy": "Energy",
+      "macros": "Macros"
+    }
   }
 }

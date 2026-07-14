@@ -4,9 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Text, colors, fonts } from "../../src/ui";
 import { ActivityTab } from "../../src/trends/ActivityTab";
 import { FoodTab } from "../../src/trends/FoodTab";
-// ponytail: vacation ranges are device-local (slice 7 / APP-030). Until that screen
-// writes them, no days are excluded. The hook is wired end-to-end so APP-030 only
-// swaps this empty list for the persisted ranges — the aggregation already honors it.
+import { vacationRanges } from "../../src/db/vacation";
 import { type TrendWindow, WINDOW_DAYS, vacationExcluder, windowRange } from "../../src/trends/aggregate";
 
 const WINDOWS: TrendWindow[] = ["W", "F", "M"];
@@ -51,8 +49,9 @@ export default function Trends() {
   const [window, setWindow] = useState<TrendWindow>("W");
   const [tab, setTab] = useState<"food" | "activity">("food");
 
-  // Slice-7 wires real vacation ranges here; empty = nothing excluded today.
-  const isExcluded = vacationExcluder([]);
+  // Real persisted vacation ranges (APP-030) drive the exclusion; the aggregation
+  // already honors the predicate. Empty until the user sets a trip.
+  const isExcluded = vacationExcluder(vacationRanges());
 
   const { start, end } = windowRange(window);
   const rangeLabel = `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })} – ${new Date(end.getTime() - 86400000).toLocaleDateString(undefined, { month: "short", day: "numeric" })}`;

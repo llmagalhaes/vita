@@ -51,6 +51,7 @@ const config: ExpoConfig = {
     "expo-secure-store",
     "expo-image-picker",
     "expo-notifications", // local habit check-in reminders (APP-026); scheduling works in Expo Go
+    "expo-sharing", // on-device export share sheet (APP-031); inert in Expo Go
   ],
 };
 

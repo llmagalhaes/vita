@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Button, Text, colors, fonts, motion, spacing } from "../ui";
+import { Button, Text, colors, fonts, motion, spacing, useAccent } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { pickPhoto } from "./photo";
 import { useVoiceCapture } from "./useVoiceCapture";
@@ -30,6 +30,7 @@ function NavButton({
   onPress: () => void;
   icon: "today" | "trends" | "habits";
 }) {
+  const accent = useAccent();
   const ink = active ? colors.card : "#6E6355";
   return (
     <Pressable
@@ -40,7 +41,7 @@ function NavButton({
         width: 66,
         height: 56,
         borderRadius: 28,
-        backgroundColor: active ? colors.accent : "transparent",
+        backgroundColor: active ? accent : "transparent",
         alignItems: "center",
         justifyContent: "center",
         gap: 3,
@@ -80,6 +81,7 @@ export function CapturePill() {
   const router = useRouter();
   const pathname = usePathname();
   const capture = useCapture();
+  const accent = useAccent();
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
   const progress = useSharedValue(0);
@@ -241,11 +243,11 @@ export function CapturePill() {
             }}
           >
             <Svg width={16} height={18} viewBox="0 0 16 18">
-              <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={colors.accent} />
-              <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={colors.accent} strokeWidth={1.6} strokeLinecap="round" />
-              <Path d="M8 14 v2.5" stroke={colors.accent} strokeWidth={1.6} strokeLinecap="round" />
+              <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={accent} />
+              <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={accent} strokeWidth={1.6} strokeLinecap="round" />
+              <Path d="M8 14 v2.5" stroke={accent} strokeWidth={1.6} strokeLinecap="round" />
             </Svg>
-            <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={colors.accent}>
+            <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={accent}>
               {t("capture.log")}
             </Text>
           </View>

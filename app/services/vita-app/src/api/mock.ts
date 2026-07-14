@@ -18,6 +18,7 @@ import {
   type TokenPair,
   type TrainingProgramDraft,
   type User,
+  type VacationRange,
 } from "./client";
 
 const LATENCY_MS = 700; // long enough to see "Making sense of it…"
@@ -100,6 +101,20 @@ export function mockParse(text: string, capturedAt?: string): ParseResult {
       sourcePhrase: text,
       isEstimate: !ml,
       detail: { amountMl },
+    });
+  }
+
+  // Manual energy spent (D8): "burned 300", "spent 450 kcal" → a workout entry
+  // with only kcal (no exercises). Same shape the manual add on Home writes.
+  const burned = lower.match(/(?:burn(?:ed|t)?|spent)\s+(\d{1,5})/);
+  if (burned) {
+    drafts.push({
+      type: "workout",
+      occurredAt,
+      inputMethod: "text",
+      sourcePhrase: text,
+      isEstimate: true,
+      detail: { title: "Energy", kcal: parseInt(burned[1]!, 10), exercises: [] },
     });
   }
 
@@ -334,6 +349,8 @@ export function createMockApi(): Api {
   // Persisted plan/program (in-memory for the session; POST/PUT store, GET reads).
   let storedPlan: EatingPlanDraft | null = null;
   let storedProgram: TrainingProgramDraft | null = null;
+  // Vacation ranges — opaque blob to the server (D1); the mock just echoes them.
+  let storedVacations: VacationRange[] = [];
   const notFound = () =>
     new ApiError(404, { type: "about:blank", title: "Not found", status: 404 });
 
@@ -455,6 +472,15 @@ export function createMockApi(): Api {
       await delay(100);
       me = { ...me, ...patch };
       return me;
+    },
+    async getVacations() {
+      await delay(100);
+      return storedVacations;
+    },
+    async putVacations(ranges) {
+      await delay(100);
+      storedVacations = ranges;
+      return ranges;
     },
   };
 }
