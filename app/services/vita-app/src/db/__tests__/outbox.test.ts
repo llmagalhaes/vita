@@ -125,6 +125,14 @@ test("offline interpretation: parked raw text is parsed into entries on drain", 
   const today = entriesForDay(new Date());
   expect(today.length).toBeGreaterThan(0);
   expect(today.every((e) => e.syncState === "synced")).toBe(true);
+  // CEO R12 #2: auto-added offline (skipped the confirm sheet) → flagged for review.
+  expect(today.every((e) => e.needsReview === true)).toBe(true);
+});
+
+test("a plain online add is NOT flagged for review", () => {
+  const e = addLocalEntry(water());
+  expect(e.needsReview).toBe(false);
+  expect(entriesForDay(new Date())[0]!.needsReview).toBe(false);
 });
 
 test("offline interpretation that can't be parsed (422) is dropped; a following entry still syncs", async () => {

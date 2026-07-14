@@ -4,9 +4,24 @@ process.env.TZ = "UTC";
 
 import type { NewEntry } from "../../api/client";
 import { resetDbForTests } from "../db";
-import { addLocalEntry, entriesForDay } from "../entries";
+import {
+  addLocalEntry,
+  clearReview,
+  countNeedsReview,
+  deleteEntry,
+  entriesForDay,
+  entriesNeedingReview,
+} from "../entries";
 
 beforeEach(() => resetDbForTests());
+
+const water = (): NewEntry => ({
+  type: "water",
+  occurredAt: new Date().toISOString(),
+  inputMethod: "tap",
+  isEstimate: false,
+  detail: { amountMl: 250 },
+});
 
 // Regression for Fable audit 1.1: entriesForDay compared ISO strings lexicographically,
 // so an offset-bearing (-05:00) timestamp for an instant that is July 14 in UTC was stored
@@ -29,4 +44,34 @@ test("an offset-bearing timestamp near a day boundary lands in the correct local
   const prevDay = new Date(instant);
   prevDay.setUTCDate(prevDay.getUTCDate() - 1);
   expect(entriesForDay(prevDay)).toHaveLength(0); // not the raw-string day (July 13)
+});
+
+// Offline-review banner (CEO R12 #2): the count/flag drive Home's "N added — review" banner.
+test("a normal add is not flagged; an offline auto-add is (needsReview)", () => {
+  addLocalEntry(water()); // online confirm path
+  expect(countNeedsReview()).toBe(0);
+
+  const flagged = addLocalEntry(water(), true); // interpretPending's reconnect auto-add
+  expect(countNeedsReview()).toBe(1);
+  expect(flagged.needsReview).toBe(true);
+  expect(entriesNeedingReview().map((e) => e.id)).toEqual([flagged.id]);
+});
+
+test("Keep clears the flag and empties the banner", () => {
+  const e = addLocalEntry(water(), true);
+  expect(countNeedsReview()).toBe(1);
+
+  clearReview(e.id);
+  expect(countNeedsReview()).toBe(0);
+  expect(entriesNeedingReview()).toHaveLength(0);
+  expect(entriesForDay(new Date())).toHaveLength(1); // kept in the log
+});
+
+test("Discard deletes the entry and empties the banner", () => {
+  const e = addLocalEntry(water(), true);
+  expect(countNeedsReview()).toBe(1);
+
+  deleteEntry(e.id);
+  expect(countNeedsReview()).toBe(0);
+  expect(entriesForDay(new Date())).toHaveLength(0); // gone from the log too
 });

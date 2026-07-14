@@ -9,6 +9,10 @@ export type LocalEntry = NewEntry & {
   // `failed` = the sync was dropped as poison (a non-retryable server rejection or a
   // dead parked capture). Terminal — Home stops promising "waiting to sync" (audit 1.8).
   syncState: "pending" | "synced" | "failed";
+  // true = auto-added on reconnect from a parked offline capture (interpretPending),
+  // so it never passed the confirm/adjust/discard sheet. Home surfaces a review banner
+  // to give that affordance back (CEO Round 12 #2). Normal online confirms are NOT flagged.
+  needsReview?: boolean;
 };
 
 type Row = {
@@ -21,6 +25,7 @@ type Row = {
   isEstimate: number;
   detail: string;
   syncState: string;
+  needsReview: number;
 };
 
 function rowToEntry(r: Row): LocalEntry {
@@ -34,11 +39,16 @@ function rowToEntry(r: Row): LocalEntry {
     isEstimate: r.isEstimate === 1,
     detail: JSON.parse(r.detail) as EntryDetail,
     syncState: r.syncState as LocalEntry["syncState"],
+    needsReview: r.needsReview === 1,
   };
 }
 
-/** Insert locally (always succeeds instantly) and enqueue for sync. */
-export function addLocalEntry(entry: NewEntry): LocalEntry {
+/**
+ * Insert locally (always succeeds instantly) and enqueue for sync. `needsReview`
+ * flags an entry auto-added from a parked offline capture — it skipped the online
+ * confirm sheet, so Home surfaces a review banner for it (CEO Round 12 #2).
+ */
+export function addLocalEntry(entry: NewEntry, needsReview = false): LocalEntry {
   const db = getDb();
   const id = uuid();
   // Canonicalize to a UTC instant (…Z) so all stored timestamps are lexicographically
@@ -47,8 +57,8 @@ export function addLocalEntry(entry: NewEntry): LocalEntry {
   const occurredAt = new Date(entry.occurredAt).toISOString();
   db.withTransactionSync(() => {
     db.runSync(
-      `INSERT INTO entries (id, type, occurredAt, inputMethod, sourcePhrase, isEstimate, detail)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO entries (id, type, occurredAt, inputMethod, sourcePhrase, isEstimate, detail, needsReview)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         id,
         entry.type,
@@ -57,11 +67,12 @@ export function addLocalEntry(entry: NewEntry): LocalEntry {
         entry.sourcePhrase ?? null,
         entry.isEstimate ? 1 : 0,
         JSON.stringify(entry.detail),
+        needsReview ? 1 : 0,
       ],
     );
     db.runSync(`INSERT INTO outbox (entryId) VALUES (?)`, [id]);
   });
-  return { ...entry, id, occurredAt, syncState: "pending" };
+  return { ...entry, id, occurredAt, syncState: "pending", needsReview };
 }
 
 /** Raw capture parked offline, awaiting interpretation on reconnect. */
@@ -187,4 +198,36 @@ export function markSynced(localId: string, server: LogEntry): void {
 /** Terminal failure: the outbox dropped this entry's op as poison (audit 1.8). */
 export function markFailed(localId: string): void {
   getDb().runSync(`UPDATE entries SET syncState = 'failed' WHERE id = ?`, [localId]);
+}
+
+/** Entries auto-added offline and still awaiting review, oldest→newest. */
+export function entriesNeedingReview(): LocalEntry[] {
+  const rows = getDb().getAllSync<Row>(
+    `SELECT * FROM entries WHERE needsReview = 1 ORDER BY occurredAt ASC`,
+  );
+  return rows.map(rowToEntry);
+}
+
+export function countNeedsReview(): number {
+  const row = getDb().getFirstSync<{ n: number }>(`SELECT COUNT(*) AS n FROM entries WHERE needsReview = 1`);
+  return row?.n ?? 0;
+}
+
+/** Keep the entry, drop the review flag (banner shrinks by one). */
+export function clearReview(id: string): void {
+  getDb().runSync(`UPDATE entries SET needsReview = 0 WHERE id = ?`, [id]);
+}
+
+/**
+ * Delete an entry locally and cancel any queued sync for it. Used by "Discard" on a
+ * review card and by the failed-card dismiss (audit Q2). ponytail: local delete only —
+ * there is no delete endpoint in the contract, and the local SQLite is the display
+ * source (entries are never re-fetched), so a removed entry stays gone on the device.
+ */
+export function deleteEntry(id: string): void {
+  const db = getDb();
+  db.withTransactionSync(() => {
+    db.runSync(`DELETE FROM entries WHERE id = ?`, [id]);
+    db.runSync(`DELETE FROM outbox WHERE entryId = ?`, [id]);
+  });
 }

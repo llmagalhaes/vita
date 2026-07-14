@@ -4,8 +4,9 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn, FadeInDown, FadeOut } from "react-native-reanimated";
 import { api, type MealDetail, type Units, type WaterDetail, type WorkoutDetail } from "../../src/api";
-import { addLocalEntry, entriesForDay, type LocalEntry } from "../../src/db/entries";
+import { addLocalEntry, countNeedsReview, deleteEntry, entriesForDay, type LocalEntry } from "../../src/db/entries";
 import { logChanged, useLogVersion } from "../../src/db/notify";
+import { openReview } from "../../src/review/ReviewSheet";
 import { drainOutbox } from "../../src/db/outbox";
 import { getSettings } from "../../src/db/settings";
 import { getCachedPlan, getCachedProgram, syncPlan, syncProgram } from "../../src/db/plan";
@@ -137,6 +138,22 @@ function TimelineCard({ entry, index, units }: { entry: LocalEntry & { type: Tim
                   ? ` · ${t("home.notSaved")}`
                   : ""}
             </Text>
+            {/* Terminal failure has no retry (audit Q2) — give a way to clear the card. */}
+            {entry.syncState === "failed" && (
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  deleteEntry(entry.id);
+                  logChanged();
+                }}
+                hitSlop={8}
+                style={{ alignSelf: "flex-start", marginTop: 6 }}
+              >
+                <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12 }} color={colors.accent}>
+                  {t("home.dismiss")}
+                </Text>
+              </Pressable>
+            )}
           </View>
           <View
             style={{ backgroundColor: pal.badgeBg, borderRadius: 14, paddingVertical: 6, paddingHorizontal: 11 }}
@@ -182,6 +199,9 @@ export default function Home() {
     () => pendingCheckins(listHabits(), new Date()).length,
     [version], // eslint-disable-line react-hooks/exhaustive-deps
   );
+
+  // Offline captures auto-added on reconnect, awaiting the review they skipped (CEO R12 #2).
+  const reviewCount = useMemo(() => countNeedsReview(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const meals = entries.filter((e) => e.type === "meal");
   const waters = entries.filter((e) => e.type === "water");
@@ -349,6 +369,43 @@ export default function Home() {
               </Text>
               <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
                 {t("habits.tapToAnswer")}
+              </Text>
+            </View>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>
+              ›
+            </Text>
+          </Card>
+        </Pressable>
+        </Animated.View>
+      )}
+
+      {/* offline captures added while offline — opens the review stack sheet */}
+      {reviewCount > 0 && (
+        <Animated.View entering={FadeInDown.duration(350)} exiting={FadeOut.duration(220)}>
+        <Pressable accessibilityRole="button" onPress={openReview}>
+          <Card
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 12,
+              paddingVertical: 14,
+              borderWidth: 1.5,
+              borderColor: "rgba(196,112,78,0.35)",
+            }}
+          >
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.estimateBg, alignItems: "center", justifyContent: "center" }}>
+              <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={colors.accent}>
+                {reviewCount}
+              </Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text variant="label" style={{ fontSize: 14.5 }}>
+                {reviewCount === 1
+                  ? t("home.offlineReviewOne")
+                  : t("home.offlineReviewMany", { count: reviewCount })}
+              </Text>
+              <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
+                {t("home.offlineReviewSub")}
               </Text>
             </View>
             <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>

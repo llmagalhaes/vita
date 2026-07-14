@@ -18,7 +18,8 @@ CREATE TABLE IF NOT EXISTS entries (
   isEstimate INTEGER NOT NULL DEFAULT 0,
   detail TEXT NOT NULL,             -- JSON EntryDetail
   updatedAt TEXT,                   -- server updatedAt once synced (LWW marker)
-  syncState TEXT NOT NULL DEFAULT 'pending'  -- pending | synced
+  syncState TEXT NOT NULL DEFAULT 'pending', -- pending | synced | failed
+  needsReview INTEGER NOT NULL DEFAULT 0     -- 1 = auto-added offline, awaiting user review
 );
 CREATE INDEX IF NOT EXISTS idx_entries_occurredAt ON entries(occurredAt);
 
@@ -61,6 +62,12 @@ export function getDb(): SQLite.SQLiteDatabase {
   if (!db) {
     db = SQLite.openDatabaseSync("vita.db");
     db.execSync(SCHEMA);
+    // needsReview landed after entries shipped; add it to pre-existing dbs.
+    // ponytail: guarded ALTER over a full migration framework — one late column, ~5 dev users.
+    const cols = db.getAllSync<{ name: string }>(`PRAGMA table_info(entries)`);
+    if (!cols.some((c) => c.name === "needsReview")) {
+      db.execSync(`ALTER TABLE entries ADD COLUMN needsReview INTEGER NOT NULL DEFAULT 0`);
+    }
   }
   return db;
 }

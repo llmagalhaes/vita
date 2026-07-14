@@ -91,7 +91,7 @@ function Stepper({
   );
 }
 
-function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIndex: number, delta: number) => void }) {
+export function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIndex: number, delta: number) => void }) {
   const { t } = useTranslation();
 
   const headline = (() => {

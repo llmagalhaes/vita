@@ -32,6 +32,7 @@ type CaptureContextValue = CaptureState & {
   clearPrefill: () => void;
   showToast: (msg: string) => void;
   requestTextEntry: () => void;
+  promptAdjust: (phrase: string) => void;
 };
 
 const idle: CaptureState = {
@@ -173,6 +174,14 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
     setState(idle);
     setTextEntryNonce((n) => n + 1);
   }, []);
+  // Adjust an offline-review entry: reopen capture prefilled with its source phrase
+  // (mirrors the online adjust). The nonce guarantees the field opens even when the
+  // phrase is empty (e.g. a photo capture with no caption).
+  const promptAdjust = useCallback((phrase: string) => {
+    setState(idle);
+    setPrefill(phrase);
+    setTextEntryNonce((n) => n + 1);
+  }, []);
 
   return (
     <CaptureContext.Provider
@@ -191,6 +200,7 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
         clearPrefill,
         showToast,
         requestTextEntry,
+        promptAdjust,
       }}
     >
       {children}

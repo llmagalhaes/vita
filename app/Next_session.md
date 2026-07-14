@@ -1,5 +1,27 @@
 # App Team — Next Session
 
+## Offline-capture review banner (2026-07-14) — CEO Round 12 #2 ✅
+
+Resolves audit-2 §5 + finding 1.8 (and Q2). Offline captures still auto-add on reconnect
+(durability) but are now flagged `needsReview` and get their skipped confirm/adjust/discard
+affordance back via a Home banner + review stack sheet. Detail: `Progress/APP-OFFLINE-REVIEW-Progress.md`.
+- **Flag**: `entries.needsReview` column (`src/db/db.ts`, guarded ALTER for old dbs);
+  `addLocalEntry(entry, needsReview=false)`. `interpretPending` (`src/db/outbox.ts`) sets it;
+  the online `CaptureContext.confirm` path does not.
+- **Banner**: `home.tsx` `countNeedsReview()` → "N offline captures added — tap to review"
+  (`home.offlineReview*`), between the check-in banner and the hero, hidden at 0. Opens `openReview()`.
+  **Home two-column water/macros `flex:1` row untouched** (verified).
+- **Review sheet**: `src/review/ReviewSheet.tsx` (new) — mirrors `CheckinSheet` (overlay,
+  drag-dismiss, step-through-queue); entry summary reuses the capture **`DraftCard`** (now exported).
+  Per entry **Keep** (`clearReview`), **Adjust** (`deleteEntry` + `capture.promptAdjust(sourcePhrase)`,
+  new context method), **Discard** (`deleteEntry`). Last one cleared → sheet closes, banner gone.
+  Mounted in `(main)/_layout`.
+- **Failed-card discard (Q2)**: `home.tsx` terminal `failed` timeline card now has a **Dismiss**
+  action (`deleteEntry` + `logChanged`). No retry infra.
+- ponytail: `deleteEntry` is local-only (no delete endpoint in the contract; SQLite is the display
+  source). **Open Q for CEO**: make Discard authoritative server-side (needs a backend delete/void op)?
+- Gates: `tsc` 0 · **Jest 158/158 (32 suites), +4** · `api:check` 0 no drift · `expo export` iOS OK.
+
 ## Review-fix batch #2 (2026-07-14) — Fable audit #2 app-side correctness ✅
 
 Fixed 8 findings from `docs/reviews/2026-07-14-fable-audit-2.md` at the shared roots

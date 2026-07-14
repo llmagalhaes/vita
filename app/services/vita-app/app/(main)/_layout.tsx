@@ -6,6 +6,7 @@ import { CapturePill } from "../../src/capture/CapturePill";
 import { CaptureSheet, CaptureToast } from "../../src/capture/CaptureSheet";
 import { startReconnectDrain } from "../../src/db/reconnect";
 import { CheckinSheet } from "../../src/habits/CheckinSheet";
+import { ReviewSheet } from "../../src/review/ReviewSheet";
 import { colors } from "../../src/ui";
 
 /** Main app shell: every screen here gets the always-present capture pill. */
@@ -29,6 +30,7 @@ export default function MainLayout() {
       <CaptureToast />
       <CaptureSheet />
       <CheckinSheet />
+      <ReviewSheet />
     </CaptureProvider>
   );
 }

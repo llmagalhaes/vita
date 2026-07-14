@@ -53,7 +53,8 @@ async function interpretPending(api: Api, pendingId: string): Promise<void> {
     p.kind === "photo"
       ? await api.parsePhoto({ image: { uri: p.imageUri ?? "" }, caption: p.text || undefined, capturedAt: p.capturedAt })
       : await api.parseText({ text: p.text ?? "", capturedAt: p.capturedAt });
-  for (const draft of result.drafts) addLocalEntry(draft);
+  // Auto-added without passing the online confirm sheet → flag for review (CEO R12 #2).
+  for (const draft of result.drafts) addLocalEntry(draft, true);
   deletePending(pendingId);
 }
 

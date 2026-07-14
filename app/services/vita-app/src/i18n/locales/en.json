@@ -202,7 +202,11 @@
     "addSpent": "Add energy spent",
     "add": "Add",
     "spentPlaceholder": "kcal, e.g. 300",
-    "spentHint": "A rough number is fine — or say \"burned 300\" to the pill. Labeled an estimate."
+    "spentHint": "A rough number is fine — or say \"burned 300\" to the pill. Labeled an estimate.",
+    "dismiss": "Dismiss",
+    "offlineReviewOne": "1 offline capture added — tap to review",
+    "offlineReviewMany": "{{count}} offline captures added — tap to review",
+    "offlineReviewSub": "Added while offline · check they look right"
   },
   "mealDetail": {
     "eyebrow": "Meal",
@@ -304,7 +308,11 @@
   "trends": {
     "title": "Trends",
     "notYet": "Trends aren't in this build yet.",
-    "window": { "W": "Week", "F": "2 weeks", "M": "Month" },
+    "window": {
+      "W": "Week",
+      "F": "2 weeks",
+      "M": "Month"
+    },
     "days": "days",
     "recordedOnly": "recorded totals only",
     "food": "Food",
@@ -350,7 +358,15 @@
     "yourHabits": "Your habits",
     "noHabits": "No habits yet. Add one for a gentle daily check-in.",
     "philosophy": "A single yes or no per check-in — no streaks, no scores.",
-    "dayLetters": ["S", "M", "T", "W", "T", "F", "S"],
+    "dayLetters": [
+      "S",
+      "M",
+      "T",
+      "W",
+      "T",
+      "F",
+      "S"
+    ],
     "linkedPlan": "plan",
     "remove": "Remove habit",
     "twoWeeksAgo": "2 weeks ago",
@@ -475,5 +491,12 @@
       "energy": "Energy",
       "macros": "Macros"
     }
+  },
+  "review": {
+    "eyebrow": "Added while offline",
+    "caption": "Parsed on reconnect",
+    "idxLabel": "{{current}} of {{total}}",
+    "keep": "Keep",
+    "allDone": "All caught up"
   }
 }
