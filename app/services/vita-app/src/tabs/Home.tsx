@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import Animated, { FadeIn, FadeInDown, FadeOut } from "react-native-reanimated";
+import Animated, { FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Svg, { Path } from "react-native-svg";
 import { api, type MealDetail, type Units, type WaterDetail, type WorkoutDetail } from "../api";
 import { addLocalEntry, countNeedsReview, deleteEntry, entriesForDay, type LocalEntry } from "../db/entries";
 import { logChanged, useLogVersion } from "../db/notify";
@@ -16,9 +17,11 @@ import { openCheckins, pendingCheckins } from "../habits/checkins";
 import { energyChartMax, last7EnergySeries, logManualEnergy } from "../energy/manual";
 import { planDailyTotals } from "../plan/compute";
 import { formatVolume } from "../lib/units";
+import { GrowBar } from "../trends/parts";
 import {
   Bar,
   Card,
+  Chevron,
   EstimateTag,
   KeyboardAvoider,
   Text,
@@ -28,6 +31,33 @@ import {
   fonts,
   spacing,
 } from "../ui";
+
+/**
+ * The little filling water tank from the prototype's water card (Fable B2).
+ * Fill height is visual fullness only — scaled against 2L or today's total,
+ * whichever is larger, so it can't read as a goal (philosophy: no goals).
+ */
+function WaterVessel({ ml }: { ml: number }) {
+  const pct = (ml / Math.max(2000, ml)) * 100;
+  const h = useSharedValue(0);
+  useEffect(() => {
+    h.value = withTiming(pct, { duration: 600 });
+  }, [pct, h]);
+  const fill = useAnimatedStyle(() => ({ height: `${h.value}%` }));
+  return (
+    <View style={{ width: 54, height: 82, borderRadius: 19, backgroundColor: "#EDF1E7", overflow: "hidden" }}>
+      <Animated.View
+        style={[
+          { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "#8CA58A", borderTopLeftRadius: 10, borderTopRightRadius: 10 },
+          fill,
+        ]}
+      />
+      <Svg width={16} height={18} style={{ position: "absolute", left: 19, top: 31 }}>
+        <Path d="M8 1.5 C8 1.5 2.8 8 2.8 11.4 a5.2 5.2 0 0 0 10.4 0 C13.2 8 8 1.5 8 1.5 Z" fill="rgba(255,253,247,0.85)" />
+      </Svg>
+    </View>
+  );
+}
 
 const SectionLabel = ({ children }: { children: string }) => (
   <Text
@@ -420,19 +450,18 @@ export default function Home() {
         </Animated.View>
       )}
 
-      {/* logged today hero */}
-      <Card style={{ gap: spacing.xs }}>
-        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-          <SectionLabel>{t("home.loggedToday")}</SectionLabel>
+      {/* logged today hero — the prototype's centered 82px figure, no card chrome (Fable B1) */}
+      <View style={{ alignItems: "center", paddingTop: 10, paddingBottom: 2 }}>
+        <Text style={{ fontFamily: fonts.extraLight, fontSize: 82, letterSpacing: -2.5, lineHeight: 86 }} color="#453E35">
+          {kcalToday}
+        </Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 7 }}>
+          <Text style={{ fontSize: 13.5 }} color={colors.muted}>
+            {t("home.kcalLoggedToday")}
+          </Text>
           <EstimateTag label={t("common.estimates")} />
         </View>
-        <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.sm }}>
-          <Text style={{ fontFamily: fonts.extraLight, fontSize: 52, letterSpacing: -1.5 }}>{kcalToday}</Text>
-          <Text variant="body" color={colors.muted}>
-            {t("common.kcal")}
-          </Text>
-        </View>
-      </Card>
+      </View>
 
       {/* water + macros */}
       {/* align-start so the expandable water list grows downward on its own; a flex:1
@@ -441,27 +470,36 @@ export default function Home() {
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
         <Pressable accessibilityRole="button" onPress={() => setWaterOpen((o) => !o)} style={{ flex: 1.05 }}>
           <Card style={{ gap: spacing.md }}>
-            <SectionLabel>{t("home.water")}</SectionLabel>
-            <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }}>
-              {formatVolume(waterMl, units, t)}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={quickAddWater}
-              style={{
-                alignSelf: "flex-start",
-                paddingVertical: 8,
-                paddingHorizontal: 13,
-                borderRadius: 17,
-                backgroundColor: "#E7EDE1",
-              }}
-            >
-              <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#5F7A61">
-                {t("home.quickAdd")}
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: "row", gap: 13, alignItems: "center" }}>
+              <WaterVessel ml={waterMl} />
+              <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                  <SectionLabel>{t("home.water")}</SectionLabel>
+                  <Chevron open={waterOpen} />
+                </View>
+                <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }} numberOfLines={1}>
+                  {formatVolume(waterMl, units, t)}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={quickAddWater}
+                  style={{
+                    alignSelf: "flex-start",
+                    paddingVertical: 8,
+                    paddingHorizontal: 13,
+                    borderRadius: 17,
+                    backgroundColor: "#E7EDE1",
+                  }}
+                >
+                  <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#5F7A61">
+                    {t("home.quickAdd")}
+                  </Text>
+                </Pressable>
+              </View>
+            </View>
             {waterOpen && (
-              <View
+              <Animated.View
+                entering={FadeIn.duration(250)}
                 style={{
                   borderTopWidth: 1,
                   borderStyle: "dashed",
@@ -486,13 +524,16 @@ export default function Home() {
                     </Text>
                   </Pressable>
                 ))}
-              </View>
+              </Animated.View>
             )}
           </Card>
         </Pressable>
         <Pressable accessibilityRole="button" onPress={() => setMacrosOpen((o) => !o)} style={{ flex: 1.35 }}>
         <Card style={{ gap: spacing.sm + 2, justifyContent: "center" }}>
-          <SectionLabel>{t("home.macros")}</SectionLabel>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+            <SectionLabel>{t("home.macros")}</SectionLabel>
+            <Chevron open={macrosOpen} />
+          </View>
           {(
             [
               ["protein", macros.protein, colors.macro.protein],
@@ -513,7 +554,8 @@ export default function Home() {
             </View>
           ))}
           {macrosOpen && (
-            <View
+            <Animated.View
+              entering={FadeIn.duration(250)}
               style={{
                 borderTopWidth: 1,
                 borderStyle: "dashed",
@@ -539,7 +581,7 @@ export default function Home() {
                   </Text>
                 </View>
               ))}
-            </View>
+            </Animated.View>
           )}
         </Card>
         </Pressable>
@@ -549,7 +591,10 @@ export default function Home() {
       <Pressable accessibilityRole="button" onPress={() => setEnergyOpen((o) => !o)}>
         <Card style={{ gap: 11 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
-            <SectionLabel>{t("home.energy")}</SectionLabel>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+              <SectionLabel>{t("home.energy")}</SectionLabel>
+              <Chevron open={energyOpen} />
+            </View>
             <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
               {t("home.energyNote")}
             </Text>
@@ -589,7 +634,8 @@ export default function Home() {
             </View>
           </View>
           {energyOpen && (
-            <View
+            <Animated.View
+              entering={FadeIn.duration(250)}
               style={{
                 borderTopWidth: 1,
                 borderStyle: "dashed",
@@ -640,8 +686,8 @@ export default function Home() {
                   <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", gap: 4, height: "100%" }}>
                     <View style={{ flexDirection: "row", gap: 2, alignItems: "flex-end", flex: 1 }}>
                       {/* both bars are that day's real logged kcal (consumed | spent) */}
-                      <View style={{ width: 7, height: `${(day.consumed / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.fat, alignSelf: "flex-end" }} />
-                      <View style={{ width: 7, height: `${(day.spent / max7) * 100}%`, borderRadius: 3, backgroundColor: colors.macro.protein, alignSelf: "flex-end" }} />
+                      <GrowBar pct={(day.consumed / max7) * 100} color={colors.macro.fat} delay={i * 40} style={{ width: 7, borderRadius: 3, alignSelf: "flex-end" }} />
+                      <GrowBar pct={(day.spent / max7) * 100} color={colors.macro.protein} delay={i * 40 + 60} style={{ width: 7, borderRadius: 3, alignSelf: "flex-end" }} />
                     </View>
                     <Text style={{ fontFamily: fonts.semiBold, fontSize: 9 }} color={colors.muted}>
                       {new Date(Date.now() - (6 - i) * 86400000).toLocaleDateString(undefined, { weekday: "narrow" })}
@@ -649,7 +695,7 @@ export default function Home() {
                   </View>
                 ))}
               </View>
-            </View>
+            </Animated.View>
           )}
         </Card>
       </Pressable>
