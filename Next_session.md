@@ -2,6 +2,24 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 6 — Fable fidelity backlog + emulator-verified bug fixes)
+
+**The CEO's 3 remaining live-test bugs (#3/#4/#6) are FIXED and emulator-verified, and the full Fable prototype-fidelity backlog is implemented.** Session ran in 4 passes, all committed + working tree clean (`2bb753f..bfc4e48`, 16 commits). tsc 0 / Jest **168 green (34 suites)** at every commit. Ledger with everything: **`app/Progress/APP-CEO-BUGS-Progress.md`** (sessions 6.1–6.4 appended).
+
+1. **Fable fidelity audit** (CEO asked for it): a Fable subagent compared prototype vs app screen-by-screen → **`docs/reviews/2026-07-14-fable-fidelity-audit.md`** (verdict: "structurally faithful, motionally flat"; 20 ranked tasks).
+2. **Backlog implemented** (CEO: "vai fazendo tudo"): motion system (`PressScale`, animated `Bar`/`Toggle`/`Chevron`, `Card` shadow, `GrowBar`, `MorphBlob`/`MorphContainer`, `SheetOverlay` + worklet `useSheetDrag`), Home hero 82px + filling water vessel, check-in deck, donut sweep, voice equalizer, portion pop-up + floating totals, onboarding/auth/account/habits staggers + pops, muscle-sessions sheet on Trends heatmap (B4), workout muscle chip pop (B8), calorie-curve draw-on + scrub guide line.
+3. **Emulator drive (CEO-authorized this session)** found + fixed 3 real device bugs:
+   - **Tab swipe "sometimes dead" (pre-existing root cause):** lazy-mounting a neighbor tab from the pan's `onBegin` setState re-rendered the pager MID-GESTURE → gesture reset → swipe snapped back. Neighbors now pre-mount from a deferred effect. Verified Home↔Trends↔Habits.
+   - **Mount animations dropped on busy boots:** new `src/ui/useStartOnLayout.ts` (mount tweens start at first `onLayout`); vessel animates px not %; `WaveIllustration` memo'd; SVG draw-ons pin final state post-tween. Verified on cold boot.
+   - **#4 PDF export (2 rounds):** print-cache path is unreadable by the share FileProvider AND the File API → final fix `printToFileAsync({base64:true})` → `File.write` into document dir → share. **Verified: Android share sheet opens "vita-log.pdf".**
+   - Also verified on screen: #6 tap-to-open scrub w/ readout + guide line (closed card = tab swipe, open card = scrub), #3 drag-dismiss on capture/vacation/export, MorphBlob parsing, pops, vessel fill, muscle sheet.
+
+**Next session:**
+- **CEO phone pass** — only subjective feel remains (all functional bugs device-verified). If motion still feels short of the prototype, iterate from the audit's P2 leftovers.
+- **Two CEO-gated items from the audit:** B12 blurred pop-up backdrops (needs `expo-blur`, new dep) · per-exercise muscle row-tinting (needs `exercises[].muscles` in the parse — backend contract change → BE ticket).
+- Housekeeping not done this session: Asana/Notion not updated (repo is current); fold into next session close.
+- Emulator + Metro (:8082) were torn down at session close.
+
 ## Where we are (2026-07-14, session 5 — CEO live-test bug-fix pass)
 
 **The CEO test-drove the app on a physical Android phone (Expo Go SDK 56, real backend) and filed 11 bugs.** 8 are fixed + committed + pushed (commits `163e8c4..8f04847`); the **navigation swipe crash (the CEO's #1 priority)** was **device-verified on the emulator**. Full per-bug ledger with root causes + the remaining recipes: **`app/Progress/APP-CEO-BUGS-Progress.md`** (READ THIS FIRST for the bug work).

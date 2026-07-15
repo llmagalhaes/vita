@@ -1,5 +1,35 @@
 # App Team — Next Session
 
+## Session 6 (2026-07-14/15) — Fable fidelity backlog + emulator-verified fixes ✅
+**All 3 remaining CEO bugs (#3/#4/#6) fixed and emulator-verified; full Fable fidelity backlog
+implemented.** Commits `2bb753f..bfc4e48`; tsc 0 / Jest 168 (34 suites). Full narrative in
+`Progress/APP-CEO-BUGS-Progress.md` §session-6 (passes 1–4). What the next session needs to know:
+
+- **New shared primitives (use these, don't re-invent):** `src/ui/PressScale.tsx` (scale-on-press),
+  `src/ui/SheetOverlay.tsx` (THE bottom-sheet chrome: backdrop + rise + worklet drag-dismiss +
+  optional keyboard lift — every sheet now rides it), `src/ui/useSheetDrag.ts`, `src/ui/Chevron.tsx`
+  (rotating disclosure, `flip` variant), animated `Bar`/`Toggle`, `src/ui/MorphBlob.tsx`
+  (+`MorphContainer`), `src/trends/parts.tsx` `GrowBar`, `src/ui/useStartOnLayout.ts`.
+- **Three device-only pitfalls discovered (respect them in future work):**
+  1. **Never setState mid-gesture** — mounting a pager neighbor from the pan's `onBegin` recreated
+     the gesture and reset its translation (the "swipe sometimes dead" bug). Pre-mount from
+     deferred effects (`src/nav/TabsPager.tsx`).
+  2. **Mount tweens must start from `onLayout`, not bare `useEffect`** — effect-scheduled
+     `withTiming` races view attachment on busy cold boots (use `useStartOnLayout`). Animated
+     %-height on an absolutely-positioned child never applies (use px). SVG `animatedProps`
+     freeze if the owner re-renders mid-tween (memo the component) and can drop the tween
+     entirely (pin final state with a timeout).
+  3. **Trends scrub vs pager:** pager publishes its gesture via `.withRef(tabsPagerRef)`
+     (`src/nav/pagerRef.ts` — leaf module, import cycle); ScrubOverlay mounts ONLY on an open
+     card and `.blocksExternalGesture(pager)`.
+- **PDF export final recipe** (`src/export/pdf.ts`): print-cache is unreadable by FileProvider AND
+  the File API → `printToFileAsync({base64:true})` → `File.write(base64)` in `Paths.document` →
+  `Sharing.shareAsync`. Emulator-verified (share sheet opens).
+- **Open (CEO-gated):** B12 blur backdrops (`expo-blur` new dep) · per-exercise muscle tinting
+  (needs `exercises[].muscles` from backend parse — contract change). Fidelity backlog reference:
+  `docs/reviews/2026-07-14-fable-fidelity-audit.md`.
+- **CEO phone pass pending** — subjective feel only; every functional bug is device-verified.
+
 ## CEO live-test bug batch (2026-07-14, session 5) — see `Progress/APP-CEO-BUGS-Progress.md`
 8 of 11 CEO-reported bugs fixed + pushed (`163e8c4..8f04847`); the swipe-nav worklet crash (top
 priority) is device-verified. **Remaining, need on-device verification (CEO tests on phone — do
