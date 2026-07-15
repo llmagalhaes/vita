@@ -15,6 +15,7 @@ import { endVacation, isVacationActive, getVacation, syncVacation } from "../db/
 import { listHabits } from "../db/habits";
 import { openCheckins, pendingCheckins } from "../habits/checkins";
 import { energyChartMax, last7EnergySeries, logManualEnergy } from "../energy/manual";
+import { healthActiveKcalToday, refreshHealthConnect, todaysHealthSnapshot } from "../health/healthConnect";
 import { planDailyTotals } from "../plan/compute";
 import { formatVolume } from "../lib/units";
 import { GrowBar } from "../trends/parts";
@@ -313,6 +314,9 @@ export default function Home() {
     void syncPlan().then(logChanged);
     void syncProgram().then(logChanged);
     void syncVacation().then(logChanged);
+    // Read today's Health Connect totals if that source is connected (APP-038).
+    // No-op in Expo Go / iOS / when disconnected; feeds the Energy card "spent".
+    void refreshHealthConnect();
   }, []);
 
   const onVacation = useMemo(() => isVacationActive(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -361,10 +365,12 @@ export default function Home() {
     };
   });
 
-  // "Spent" = sum of logged workout kcal (D8, labeled estimate) — includes manual
-  // adds. Health-source energy still needs a connected source (honest absence).
+  // "Spent" = logged workout kcal (D8, labeled estimate) + Health Connect active
+  // energy when that source is connected (APP-038). Both are estimates. HC active
+  // energy is 0 unless a *today* snapshot exists — honest absence otherwise.
+  const hcSnapshot = useMemo(() => todaysHealthSnapshot(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
   const spentKcal = Math.round(
-    workouts.reduce((s, e) => s + ((e.detail as WorkoutDetail).kcal ?? 0), 0),
+    workouts.reduce((s, e) => s + ((e.detail as WorkoutDetail).kcal ?? 0), 0) + healthActiveKcalToday(),
   );
   // Scale the in/out bars against the pair's own larger value — no fixed daily target
   // (philosophy: no goals/scores). 1 floor avoids /0 on an empty day.
@@ -695,6 +701,17 @@ export default function Home() {
                   {t("home.spentHint")}
                 </Text>
               </View>
+              {/* Health Connect readout (APP-038) — only when a today snapshot exists.
+                  Honest device data, labeled an estimate; steps + sessions have no
+                  card of their own so they surface here. */}
+              {hcSnapshot && (
+                <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.muted}>
+                  {t("home.healthConnectReadout", {
+                    steps: hcSnapshot.steps.toLocaleString(),
+                    sessions: hcSnapshot.sessions,
+                  })}
+                </Text>
+              )}
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
                 <SectionLabel>{t("home.last7")}</SectionLabel>
                 <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>

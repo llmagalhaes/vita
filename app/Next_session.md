@@ -1,5 +1,47 @@
 # App Team — Next Session
 
+## Session 9 (2026-07-15) — Health integrations + real Android APK ✅
+Milestone: Health Connect (Samsung + Google fitness data) + a sideloadable Android
+dev-build APK (no Expo Go, no stores). Tickets created first per CEO: **APP-007-android**
+(`…/1216590001991644`), **APP-038** (`…/1216604793549171`), **APP-039** (`…/1216589824648124`).
+Ledgers: `Progress/APP-007-android-dev-build-Progress.md`, `Progress/APP-038-health-connect-Progress.md`.
+ADRs **0004** (HC supersedes Google Fit) + **0005** (Android CNG dev build).
+
+- **APP-039 verdict (ADR-0004):** ONE integration — Android Health Connect — covers
+  Samsung + Google fitness data. **Google Fit is a dead end** (its APIs are deprecated;
+  no new sign-ups since 2024-05-01, sunset end-2026; Google points to Health Connect).
+  Samsung Health syncs into Health Connect since Oct 2022. Did NOT build a Google Fit client.
+- **APP-038 (HC read, device-local):** new stub-seam `src/health/healthConnect.ts` (same
+  pattern as voice/notifier): `HealthReader` iface + `stubHealthReader` (Expo Go/iOS/jest,
+  honest absence) + real `react-native-health-connect` reader (active energy/steps/sessions
+  for today). Pure `mapHealthToday` unit-tested. kv snapshot store — **NEVER the outbox**
+  (backend **ADR-0016** confirms HC data is device-local; EntrySource is server-set to `user`,
+  no health ingestion contract in v0). Feeds the Energy card **spent** (`healthActiveKcalToday`)
+  + a "N steps · M workouts · from Health Connect" readout. Integrations screen: the
+  `healthConnect` toggle is the ONE real switch (connect→permission→read; off→clear); others
+  stay honest UI-only. **New dep `react-native-health-connect@^3.5.3`** (native + plugin).
+- **APP-007-android (CNG APK):** `expo prebuild` (android/ gitignored) + `./gradlew
+  :app:assembleRelease`, debug-keystore signed. **APK boots + navigates + Home renders +
+  HC real path crash-free — all emulator-verified** (Pixel_10_Pro, host GPU).
+  **For CEO's Google OAuth client:** package `com.llmagal.vita`, SHA-1
+  `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`. APK at
+  `android/app/build/outputs/apk/release/app-release.apk` → `adb install -r`. Prod-backed
+  build: `VITA_API_BASE_URL=https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1 ./gradlew :app:assembleRelease`.
+- **Native config in `plugins/withHealthConnect.js`** (CNG-safe, idempotent): HC read
+  permissions + `<queries>` + minSdk 26 (app module forced — gesture-handler floors 26) +
+  **`MainActivity.onCreate` permission-delegate registration** (the library's Expo plugin
+  omits it → the permission request crashed with `UninitializedPropertyAccessException`;
+  found + fixed on the emulator).
+- **⚠️ prebuild rewrites `package.json` `android`/`ios` scripts to `expo run:*` each run** —
+  reverted to `expo start --*` in the committed file (we don't commit android/; CNG). Use
+  `npm start` for Expo Go. Also `expo-system-ui` warning on prebuild is benign (light-only).
+- Gates: **tsc 0 · Jest 179/179 (36 suites, +8) · expo export iOS OK · APK boots**. New dep:
+  only `react-native-health-connect`. `api:check` drift unchanged (backend's `exercises[].muscles`).
+- **Pending CEO:** (a) create the Google Android OAuth client from the package+SHA-1 above;
+  (b) real HC data verification on the **Samsung phone** (emulator has HC but no data provider,
+  and the permission grant can't be completed via automation). APP-007/APP-038 stay In progress
+  (DoD = in production; sideload works, store release is F-LAST).
+
 ## Session 8 (2026-07-15) — CEO feel-pass batch (9 prototype-drift items) ✅
 CEO verdict: "O feel está muito melhor" + PDF export confirmed great. Filed a 9-item batch and un-gated
 **`expo-blur`** (the one approved new dep). All 9 landed. Full per-item detail + verification in

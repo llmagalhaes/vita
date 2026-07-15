@@ -11,6 +11,7 @@ import { useRouter } from "expo-router";
 import { BackButton, Card, Text, Toggle, colors, fonts } from "../../src/ui";
 import { integrationEnabled, setIntegrationEnabled } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
+import { clearHealthSnapshot, connectHealthConnect } from "../../src/health/healthConnect";
 
 // id → mono badge palette; all are honest UI-only sources (no real sync in v1).
 const SOURCES = [
@@ -28,6 +29,17 @@ export default function Integrations() {
   const version = useLogVersion();
   // Re-read toggle state after each change.
   const enabled = useMemo(() => Object.fromEntries(SOURCES.map((s) => [s.id, integrationEnabled(s.id)])), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Health Connect is the ONE real integration (APP-038): toggling it on asks for
+  // read permission and pulls today's data; off clears the cached snapshot. Every
+  // other source stays an honest UI-only preference. In Expo Go / iOS the connect
+  // call is a no-op stub (returns false) — no fabricated data.
+  const toggle = (id: string, next: boolean) => {
+    setIntegrationEnabled(id, next);
+    if (id !== "healthConnect") return;
+    if (next) void connectHealthConnect();
+    else clearHealthSnapshot();
+  };
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 60, gap: 12 }}>
@@ -49,10 +61,12 @@ export default function Integrations() {
             <View style={{ flex: 1 }}>
               <Text variant="label" style={{ fontSize: 14.5 }}>{t(`integrations.source.${s.id}`)}</Text>
               <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
-                {on ? t("integrations.connectPrompt") : t("integrations.notConnected")}
+                {s.id === "healthConnect"
+                  ? on ? t("integrations.healthConnectOn") : t("integrations.healthConnectOff")
+                  : on ? t("integrations.connectPrompt") : t("integrations.notConnected")}
               </Text>
             </View>
-            <Toggle on={on} onToggle={() => setIntegrationEnabled(s.id, !on)} accessibilityLabel={t(`integrations.source.${s.id}`)} />
+            <Toggle on={on} onToggle={() => toggle(s.id, !on)} accessibilityLabel={t(`integrations.source.${s.id}`)} />
           </Card>
         );
       })}

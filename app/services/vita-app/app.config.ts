@@ -55,6 +55,8 @@ const config: ExpoConfig = {
     "expo-image-picker",
     "expo-notifications", // local habit check-in reminders (APP-026); scheduling works in Expo Go
     "expo-sharing", // on-device export share sheet (APP-031); inert in Expo Go
+    "react-native-health-connect", // HC permissions-rationale intent-filter (APP-038); dev-build only
+    "./plugins/withHealthConnect", // HC read permissions + <queries> + minSdk 26 (CNG-safe)
   ],
 };
 

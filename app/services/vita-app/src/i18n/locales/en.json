@@ -214,7 +214,8 @@
     "macrosMealsOne": "from 1 meal",
     "macrosMealsMany": "from {{count}} meals",
     "macrosFromMeals": "From your meals",
-    "macrosSheetFooter": "estimates from your descriptions"
+    "macrosSheetFooter": "estimates from your descriptions",
+    "healthConnectReadout": "{{steps}} steps · {{sessions}} workouts · from Health Connect · estimate"
   },
   "mealDetail": {
     "eyebrow": "Meal",
@@ -459,7 +460,7 @@
     "intro": "Vita reads only what you approve. Turn any source off at any time.",
     "notConnected": "Connect a health source",
     "connectPrompt": "Arrives with the full app",
-    "honestNote": "Live health-source sync isn't in this build yet — these switches just remember your choice. Vita never shows synced data it doesn't have.",
+    "honestNote": "Health Connect reads your device data when you connect it (steps, active energy, workouts). The other sources just remember your choice for now — Vita never shows synced data it doesn't have.",
     "source": {
       "appleHealth": "Apple Health",
       "healthConnect": "Health Connect",
@@ -467,7 +468,9 @@
       "garmin": "Garmin",
       "flo": "Flo",
       "gym": "Gym app"
-    }
+    },
+    "healthConnectOn": "Reading steps, active energy & workouts on this device",
+    "healthConnectOff": "Connect to read steps, active energy & workouts"
   },
   "vacation": {
     "title": "Vacation mode",
