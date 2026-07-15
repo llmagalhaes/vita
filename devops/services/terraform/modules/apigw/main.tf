@@ -63,8 +63,13 @@ resource "aws_service_discovery_service" "app" {
   dns_config {
     namespace_id = aws_service_discovery_private_dns_namespace.this.id
 
+    # SRV, not A: API Gateway's Cloud Map private integration resolves both IP AND
+    # port from the discovered instance. With A records ECS registers no
+    # AWS_INSTANCE_PORT, so API Gateway has no port to reach and returns 500. SRV +
+    # the ECS service_registries container_port (OPS-014) register IP:8080. (2026-07-15,
+    # first-deploy milestone: this path was never exercised while ECS was parked at 0.)
     dns_records {
-      type = "A"
+      type = "SRV"
       ttl  = 10
     }
 

@@ -58,7 +58,7 @@ module "apigw" {
   app_security_group_id = module.network.app_security_group_id
 }
 
-# OPS-014 — ECS Fargate service (apply blocked on BE-004 image).
+# OPS-014 — ECS Fargate service. First-deploy milestone (CEO, 2026-07-15): un-parked.
 module "ecs" {
   source                        = "../../modules/ecs"
   public_subnet_ids             = module.network.public_subnet_ids
@@ -67,7 +67,10 @@ module "ecs" {
   storage_key_arn               = module.kms.storage_key_arn
   bucket_arns                   = module.storage.bucket_arns
   service_discovery_service_arn = module.apigw.service_discovery_service_arn
-  # Parked at 0 — no image yet and prod deploys only at milestones (CEO, 2026-07-13).
-  # Flip to 1 at the first real deploy after BE-004 pushes an arm64 image.
-  desired_count = 0
+
+  # First deploy: pin the git-SHA image the backend pushed, wire prod env, run 1 task.
+  image_tag      = var.app_image_tag
+  db_url         = "jdbc:postgresql://${module.rds.endpoint}:${module.rds.port}/vita"
+  uploads_bucket = module.storage.bucket_names["uploads"]
+  desired_count  = 1
 }

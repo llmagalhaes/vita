@@ -37,15 +37,47 @@ variable "desired_count" {
   default = 1
 }
 
-# env var -> SSM param short name under /vita/prod/. Backend confirms/extends the
-# full contract before apply; VITA_JWT_SECRET is the one firm mapping today.
+# env var -> SSM param short name under /vita/prod/. Verified against the backend's
+# prod contract (application.yaml + crypto/*.kt, 2026-07-15, first-deploy milestone):
+#   DB_PASSWORD      -> spring.datasource.password
+#   VITA_SERVICE_DEK -> vita.crypto.service-dek (PLAINTEXT base64 AES-256 key used directly
+#                        by CryptoService — the param name "wrapped-service-dek" is legacy;
+#                        it is NOT KMS-wrapped, KmsKeyWrapper only wraps the per-user DEKs)
+#   VITA_HMAC_KEY    -> vita.crypto.hmac-key (email blind-index HMAC key, plaintext base64)
+# VITA_MASTER_KEY is deliberately absent: it feeds LocalKeyWrapper (@Profile !aws) only.
+# google-/apple-client-config SSM params exist but the app does not read them yet (no OAuth).
 variable "container_secrets" {
   type = map(string)
   default = {
     VITA_JWT_SECRET   = "jwt-secret"
     ANTHROPIC_API_KEY = "anthropic-api-key"
-    DB_CREDENTIALS    = "db-credentials"
+    DB_PASSWORD       = "db-credentials"
+    VITA_SERVICE_DEK  = "wrapped-service-dek"
+    VITA_HMAC_KEY     = "email-blind-index-hmac-key"
   }
+}
+
+# Non-secret prod env (plain task-def environment). SPRING_PROFILES_ACTIVE=aws is
+# LOAD-BEARING: it swaps in KmsKeyWrapper + S3FileStore (BE-026/027). Without it the
+# app boots with local-dev stand-ins and committed default keys — never in prod.
+variable "spring_profiles_active" {
+  type    = string
+  default = "aws"
+}
+
+variable "db_url" {
+  description = "JDBC URL for the RDS instance, e.g. jdbc:postgresql://<endpoint>:5432/vita"
+  type        = string
+}
+
+variable "db_username" {
+  type    = string
+  default = "vita"
+}
+
+variable "uploads_bucket" {
+  description = "S3 bucket the presigner writes to (VITA_UPLOADS_BUCKET)."
+  type        = string
 }
 
 variable "aps_workspace_arn" {
@@ -170,8 +202,14 @@ locals {
       image        = "${var.ecr_repository_url}:${var.image_tag}"
       essential    = true
       portMappings = [{ containerPort = var.container_port, protocol = "tcp" }]
-      environment  = [{ name = "AWS_REGION", value = data.aws_region.current.region }]
-      secrets      = local.app_secrets
+      environment = [
+        { name = "AWS_REGION", value = data.aws_region.current.region },
+        { name = "SPRING_PROFILES_ACTIVE", value = var.spring_profiles_active },
+        { name = "DB_URL", value = var.db_url },
+        { name = "DB_USERNAME", value = var.db_username },
+        { name = "VITA_UPLOADS_BUCKET", value = var.uploads_bucket },
+      ]
+      secrets = local.app_secrets
       # curl is present in the image (slim JRE has no wget); path/port confirmed
       # against backend/services/vita-api/Dockerfile (EXPOSE 8080, /health DB-backed).
       healthCheck = {
@@ -238,8 +276,12 @@ resource "aws_ecs_service" "this" {
     assign_public_ip = true # egress to Claude API/ECR, no NAT (ADR-0004)
   }
 
+  # container_name/port required for the SRV Cloud Map service (OPS-013): ECS then
+  # registers AWS_INSTANCE_PORT so API Gateway can reach the task on 8080.
   service_registries {
-    registry_arn = var.service_discovery_service_arn
+    registry_arn   = var.service_discovery_service_arn
+    container_name = "app"
+    container_port = var.container_port
   }
 
   deployment_circuit_breaker {
@@ -250,10 +292,10 @@ resource "aws_ecs_service" "this" {
   # Give the JVM time to boot before the first health verdict.
   health_check_grace_period_seconds = 60
 
-  # ponytail: image tag changes are pushed by the deploy pipeline, not Terraform.
-  lifecycle {
-    ignore_changes = [task_definition]
-  }
+  # ponytail: no deploy pipeline exists (standing rule: applies happen from this
+  # machine). Terraform owns the deploy — bumping image_tag / task-def content and
+  # re-applying rolls the service. Reinstate ignore_changes=[task_definition] here if
+  # a CI deploy pipeline ever takes over pushing image tags out of band.
 }
 
 output "task_role_arn" {

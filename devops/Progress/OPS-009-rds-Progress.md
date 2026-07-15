@@ -45,3 +45,9 @@ Part of the prod-eu batch: 27 to add total (RDS module = 8). Not applied.
 ## Remaining for Done
 Apply; verify reachable only from app SG on 5432, non-SSL rejected, a backup lands
 in the vault. Create the quarterly restore-rehearsal standing ticket (backlog).
+
+## Master password set 2026-07-15 (first-deploy milestone)
+`aws rds modify-db-instance --master-user-password <generated> --apply-immediately` (no prod data
+existed; brief window fine). Same value written to SSM `/vita/prod/db-credentials` (OPS-010) that the
+app reads as `DB_PASSWORD`. Verified live: the ECS task connected over TLS (force_ssl=1) to Postgres
+16.13 and Flyway migrated to v006. Restore-rehearsal (OPS-017) remains the open backlog item.

@@ -47,3 +47,54 @@ Part of the OPS-013+014 batch: **19 to add, 1 to change, 0 to destroy** (ecs = 9
 ## Remaining for Done
 BE-004 image → apply → service healthy, health 200 through API GW over https (closes
 OPS-013 e2e), rollback verified, task-role negative-tested.
+
+## UN-PARKED + LIVE 2026-07-15 (first prod deploy milestone — CEO called it)
+
+Backend lead pushed the arm64 image to ECR; DevOps ran secrets + flip + verify in parallel.
+
+**Image**: `vita-api:a03e194` (+`latest`), digest `sha256:fa747eb6d537…c10c33`, OCI index
+with a `linux/arm64` manifest (built from committed `a03e194`).
+
+**Task-def env contract corrected** (the parked defaults did NOT match what the container
+reads — this was the real failure spot). `modules/ecs/main.tf` now injects, verified against
+`backend/.../application.yaml` + `service/crypto/*.kt` and cross-checked with the backend lead:
+- plain env: `SPRING_PROFILES_ACTIVE=aws` (LOAD-BEARING — swaps in KmsKeyWrapper + S3FileStore;
+  its absence would drop to LocalKeyWrapper and fail boot), `DB_URL`, `DB_USERNAME=vita`,
+  `VITA_UPLOADS_BUCKET=vita-prod-uploads-201261380352`, `AWS_REGION`.
+- SSM secrets: `VITA_JWT_SECRET`←jwt-secret, `ANTHROPIC_API_KEY`←anthropic-api-key,
+  `DB_PASSWORD`←db-credentials (was wrongly `DB_CREDENTIALS`), `VITA_SERVICE_DEK`←wrapped-service-dek,
+  `VITA_HMAC_KEY`←email-blind-index-hmac-key. `VITA_MASTER_KEY` deliberately omitted (LocalKeyWrapper
+  only). google-/apple-client-config SSM params unused by the app → left as placeholders.
+
+**API GW integration bug found + fixed (never exercised while parked at 0):** the Cloud Map
+service used `A` records, so ECS registered the task IP but **no `AWS_INSTANCE_PORT`** → API
+Gateway's private integration had no port → fast HTTP 500. Changed `modules/apigw` Cloud Map
+`dns_records` to **SRV** and added `container_name`/`container_port=8080` to the ECS
+`service_registries`. Both the SDS (A→SRV forces replacement) and the coupled ECS service change
+race on the old SDS delete ("Service contains registered instances"), so the apply sequence is:
+scale service to 0 (drains + deregisters) → apply (old SDS empty → replaces clean, ECS re-registers
+with port). Cloud Map now returns `10.0.x.x:8080`.
+
+**Deploy ownership:** removed `ignore_changes=[task_definition]` from the ECS service — there is
+no CI deploy pipeline (standing rule: applies from this machine), so Terraform owns the deploy;
+bump `var.app_image_tag` + apply to roll a new build. Reinstate the ignore if a pipeline ever
+pushes tags out of band.
+
+**Verified in prod (evidence):**
+- Task RUNNING, container health HEALTHY; boot log shows profile `aws`, RDS Postgres 16.13
+  connected, Flyway applied all 6 migrations to v006, "Started in 70.9s".
+- `curl https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/health` → `{"status":"up"}` HTTP 200
+  (full path API GW → VPC Link → Cloud Map SRV → task:8080 → app → RDS `SELECT 1`).
+- Write path: `POST /v1/auth/magic-link` → HTTP 202; magic link logged to CloudWatch `/ecs/vita`.
+- `terraform plan` clean ("No changes").
+
+**Magic-link fishing command** (CEO/orchestrator, during testing):
+```
+aws logs filter-log-events --log-group-name /ecs/vita --region eu-west-1 \
+  --start-time $(($(date +%s000) - 600000)) --filter-pattern '"vita://auth"' \
+  --query 'events[-1].message' --output text
+```
+(prints `Magic link for <email>: vita://auth?token=…` — paste the token into the app.)
+
+→ **OPS-014 DONE (in production).** Rollback (circuit-breaker) and task-role negative tests
+still nice-to-have but not blocking; the service is live and serving.

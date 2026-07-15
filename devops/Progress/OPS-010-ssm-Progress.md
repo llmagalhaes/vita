@@ -31,3 +31,15 @@ Part of the prod-eu batch: 27 to add total (SSM = 7). Not applied.
 Apply; CEO pastes real values in the console (incl. db-credentials matching the RDS
 password — see OPS-009 flag #3). OPS-014 grants the task role read on this path only,
 negative-tested.
+
+## FILLED 2026-07-15 (first-deploy milestone) — via CLI, not console
+DevOps set the real values from this machine (`aws ssm put-parameter --overwrite`, SecureString,
+storage CMK unchanged). Values are NOT in git/state (module keeps `ignore_changes=[value]`):
+- jwt-secret, wrapped-service-dek, email-blind-index-hmac-key: freshly generated raw base64
+  32-byte keys (VITA_JWT_SECRET / VITA_SERVICE_DEK / VITA_HMAC_KEY — app base64-decodes and uses
+  directly; "wrapped-" in the name is legacy, it is NOT KMS-wrapped).
+- anthropic-api-key: real key read from `backend/.../secrets.yaml` (gitignored) → prod hits real Claude.
+- db-credentials: strong generated password, identical to the RDS master password (OPS-009).
+- google-client-config, apple-client-config: still `REPLACE_ME_IN_CONSOLE` — the app does not read
+  them (no OAuth wired). Leave until OAuth lands.
+Task role + execution role read verified end-to-end: the ECS task booted and decrypted all 5 → **OPS-010 DONE.**
