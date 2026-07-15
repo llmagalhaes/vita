@@ -8,9 +8,9 @@ import com.github.tomakehurst.wiremock.client.WireMock.postRequestedFor
 import com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo
 import com.github.tomakehurst.wiremock.core.WireMockConfiguration.options
 import com.github.tomakehurst.wiremock.stubbing.Scenario.STARTED
-import com.llmagal.vita.ai.client.ClaudeClient
-import com.llmagal.vita.ai.service.ParseMetrics
-import com.llmagal.vita.ai.service.ParseService
+import com.llmagal.vita.service.ai.ClaudeClient
+import com.llmagal.vita.service.ai.ParseMetrics
+import com.llmagal.vita.service.ai.ParseService
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy

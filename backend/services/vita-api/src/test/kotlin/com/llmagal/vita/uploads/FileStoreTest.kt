@@ -1,7 +1,7 @@
 package com.llmagal.vita.uploads
 
-import com.llmagal.vita.uploads.service.LocalFileStore
-import com.llmagal.vita.uploads.service.UnknownFileRefException
+import com.llmagal.vita.service.uploads.LocalFileStore
+import com.llmagal.vita.service.uploads.UnknownFileRefException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test

@@ -1,7 +1,99 @@
 # vita-api
 
-Vita's backend: Kotlin + Spring Boot 4, single Gradle module, flat packages (ADR-0001).
+Vita's backend: Kotlin + Spring Boot 4, single Gradle module, **layer-first packages**
+(`controller/` · `service/` · `repository/` · `model/` · `config/`, ADR-0014).
 PostgreSQL 16 + Flyway (ADR-0002). Requires JDK 21 and Docker (for Postgres and Testcontainers).
+
+A modular monolith (ADR-0001): no goals/scores/streaks/advice, estimates labelled as such,
+C3 content encrypted per-user with crypto-shred deletion (ADR-0003). One `vita-api` service
+behind API Gateway; AWS (S3/KMS) is reached only through swappable seams under the `aws`
+Spring profile, so `./gradlew check` runs with no cloud.
+
+## Package layout (ADR-0014)
+
+```mermaid
+flowchart TD
+    subgraph controller["controller/&lt;feature&gt;"]
+        C["auth · users · entries · plans<br/>ai · uploads · account · health"]
+    end
+    subgraph service["service/&lt;feature&gt;"]
+        S["auth · users · entries · plans · ai<br/>uploads · account · jobs · crypto"]
+    end
+    subgraph repository["repository/&lt;feature&gt;"]
+        R["users · entries · plans · jobs · account"]
+    end
+    subgraph model["model/ (shared DTOs &amp; records)"]
+        M["entries · ai · plans · MacroTotals · Micro"]
+    end
+    config["config/<br/>Security · AuthProps · AiConfig · AwsClients"]
+
+    C --> S --> R
+    C --> M
+    S --> M
+    config -. wires beans .-> S
+    R --> DB[("PostgreSQL 16<br/>Flyway")]
+    S -. aws profile .-> AWS[("S3 · KMS")]
+```
+
+`model/` breaks the only cross-layer cycle (services no longer import controller DTOs).
+Crypto primitives + the KMS seam live under `service/crypto`; the load-bearing seams
+`KeyWrapper`, `FileStore`, `Mailer` swap local↔AWS by profile.
+
+## Request flow (write path)
+
+```mermaid
+sequenceDiagram
+    participant App
+    participant Ctrl as controller/entries<br/>EntryController
+    participant Svc as service/entries<br/>EntryService
+    participant Crypto as service/crypto<br/>CryptoService
+    participant Repo as repository/entries<br/>EntryRepository
+    participant DB as PostgreSQL
+
+    App->>Ctrl: POST /v1/entries (Bearer JWT, Idempotency-Key)
+    Ctrl->>Svc: create(userId, key, NewEntry)
+    Svc->>Svc: normalize + recompute totals, extract C2 numbers
+    Svc->>Crypto: encryptForUser(userId, "log_entry.detail", detail)
+    Crypto-->>Svc: AES-256-GCM blob (AAD = userId:context)
+    Svc->>Repo: insertIfAbsent(C2 numbers + C3 blobs)
+    Repo->>DB: INSERT … ON CONFLICT (user_id, idempotency_key) DO NOTHING
+    DB-->>Repo: row (or conflict)
+    Repo-->>Svc: StoredEntry
+    Svc-->>Ctrl: Created / Replay(200) / Conflict(409)
+    Ctrl-->>App: 201 / 200 / 409
+```
+
+## Crypto envelope (ADR-0003, ADR-0014)
+
+```mermaid
+flowchart LR
+    subgraph perUser["Per-user DEK (C3 content)"]
+        direction TB
+        DEK["user DEK (256-bit)"]
+        KW{{"KeyWrapper seam"}}
+        DEK --> KW
+        KW -->|"!aws: AES-GCM master key"| WL["wrapped_dek"]
+        KW -->|"aws: KMS GenerateDataKey"| WK["wrapped_dek"]
+        AAD["AAD = userId : table.column"]
+        DEK --> GCM["AES-256-GCM"]
+        AAD --> GCM
+        GCM --> BLOB["detail_enc / name_enc / …"]
+    end
+    subgraph svc["Service key + blind index"]
+        SDEK["service DEK"] --> EMAIL["email_enc"]
+        HMAC["HMAC-SHA256(email)"] --> HASH["email_hash (login lookup)"]
+    end
+    SHRED["shred(userId): DELETE user_keys row"]
+    SHRED -.->|"DEK gone → every C3 blob<br/>unreadable, even in backups"| BLOB
+```
+
+- **Per-user DEK** encrypts each user's C3 content; the AAD binds every blob to
+  `userId:table.column` (`AadContext`), so a ciphertext can't be replayed across users or
+  columns. The wrapped DEK is stored KMS-wrapped (or master-key-wrapped locally).
+- **Service DEK** encrypts account-boundary identity (email). **Blind index** = HMAC of the
+  normalized email for login without decryption.
+- **Crypto-shred**: account deletion drops the wrapped DEK; all that user's C3 data becomes
+  permanently unreadable (ADR-0004).
 
 ## Run locally
 

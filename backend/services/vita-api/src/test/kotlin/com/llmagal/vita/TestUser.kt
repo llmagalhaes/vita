@@ -1,7 +1,8 @@
 package com.llmagal.vita
 
-import com.llmagal.vita.auth.service.TokenService
-import com.llmagal.vita.crypto.service.CryptoService
+import com.llmagal.vita.service.auth.TokenService
+import com.llmagal.vita.service.crypto.AadContext
+import com.llmagal.vita.service.crypto.CryptoService
 import org.springframework.jdbc.core.JdbcTemplate
 import java.util.UUID
 
@@ -33,7 +34,7 @@ fun signInTestUser(
     crypto.createUserKey(id)
     jdbc.update(
         "UPDATE users SET name_enc = ? WHERE id = ?",
-        crypto.encryptForUser(id, email.substringBefore("@").toByteArray()),
+        crypto.encryptForUser(id, AadContext.USER_NAME, email.substringBefore("@").toByteArray()),
         id,
     )
     return TestUser(id, email, tokens.issue(id).accessToken)

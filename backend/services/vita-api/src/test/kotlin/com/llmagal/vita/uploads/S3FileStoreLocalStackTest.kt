@@ -1,8 +1,8 @@
 package com.llmagal.vita.uploads
 
-import com.llmagal.vita.aws.AwsClientsConfig
-import com.llmagal.vita.uploads.service.S3FileStore
-import com.llmagal.vita.uploads.service.UnknownFileRefException
+import com.llmagal.vita.config.AwsClientsConfig
+import com.llmagal.vita.service.uploads.S3FileStore
+import com.llmagal.vita.service.uploads.UnknownFileRefException
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assumptions.assumeTrue

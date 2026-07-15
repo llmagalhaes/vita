@@ -1,12 +1,13 @@
 package com.llmagal.vita.account
 
 import com.llmagal.vita.TestcontainersConfig
-import com.llmagal.vita.account.repository.AccountRepository
-import com.llmagal.vita.account.service.AccountDeletionService
-import com.llmagal.vita.auth.service.MagicLinkService
-import com.llmagal.vita.auth.service.TokenService
-import com.llmagal.vita.crypto.service.CryptoService
-import com.llmagal.vita.jobs.service.JobWorker
+import com.llmagal.vita.repository.account.AccountRepository
+import com.llmagal.vita.service.account.AccountDeletionService
+import com.llmagal.vita.service.auth.MagicLinkService
+import com.llmagal.vita.service.auth.TokenService
+import com.llmagal.vita.service.crypto.AadContext
+import com.llmagal.vita.service.crypto.CryptoService
+import com.llmagal.vita.service.jobs.JobWorker
 import com.llmagal.vita.signInTestUser
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -133,14 +134,14 @@ class AccountFlowTest {
 
     @Test
     fun `after the grace the worker shreds the DEK and hard-deletes, unreadably`() {
-        val ciphertext = crypto.encryptForUser(userId, "a private meal note".toByteArray())
+        val ciphertext = crypto.encryptForUser(userId, AadContext.ENTRY_DETAIL, "a private meal note".toByteArray())
         deletion.requestDeletion(userId)
         elapseGrace(userId)
 
         worker.runOnce()
 
         // DEK gone → the old ciphertext can never be decrypted again (crypto-shred).
-        assertThatThrownBy { crypto.decryptForUser(userId, ciphertext) }
+        assertThatThrownBy { crypto.decryptForUser(userId, AadContext.ENTRY_DETAIL, ciphertext) }
         assertThat(userExists(userId)).isFalse()
         assertThat(jdbc.queryForObject("SELECT count(*) FROM user_keys WHERE user_id = ?", Int::class.java, userId))
             .isZero()

@@ -1,6 +1,6 @@
 package com.llmagal.vita.ai
 
-import com.llmagal.vita.ai.service.ParseQuota
+import com.llmagal.vita.service.ai.ParseQuota
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock

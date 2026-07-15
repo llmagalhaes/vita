@@ -1,11 +1,11 @@
 package com.llmagal.vita.ai
 
-import com.llmagal.vita.ai.controller.Draft
-import com.llmagal.vita.ai.controller.ParseController
-import com.llmagal.vita.ai.controller.ParseResponse
-import com.llmagal.vita.ai.controller.ParseTextRequest
-import com.llmagal.vita.ai.service.ParseQuota
-import com.llmagal.vita.ai.service.ParseService
+import com.llmagal.vita.controller.ai.ParseController
+import com.llmagal.vita.model.ai.Draft
+import com.llmagal.vita.model.ai.ParseResponse
+import com.llmagal.vita.model.ai.ParseTextRequest
+import com.llmagal.vita.service.ai.ParseQuota
+import com.llmagal.vita.service.ai.ParseService
 import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat

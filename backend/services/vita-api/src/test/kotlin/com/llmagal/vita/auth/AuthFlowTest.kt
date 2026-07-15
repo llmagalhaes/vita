@@ -1,7 +1,7 @@
 package com.llmagal.vita.auth
 
 import com.llmagal.vita.TestcontainersConfig
-import com.llmagal.vita.auth.service.Mailer
+import com.llmagal.vita.service.auth.Mailer
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test

@@ -1,5 +1,32 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 13, 2026-07-15) — BE-028 hygiene sweep done locally
+
+Pre-release cleanup (CEO un-gated BE-028). `Progress/BE-028-hygiene-sweep-Progress.md`,
+**ADR-0014** (supersedes ADR-0012). No contract/endpoint change, no new deps.
+
+- **Layer-first packages (ADR-0014).** Flipped ADR-0012's feature→layer to **layer→feature**:
+  top-level `controller/<feature>`, `service/<feature>`, `repository/<feature>`, shared
+  `model/<feature>` (+ `model/` root), `config/`. Crypto (primitive + seam + service) all under
+  `service/crypto`; `ClaudeClient` → `service/ai`; health → `controller/health`. 51 files moved
+  (`git mv`-style; package+imports only). `model/` fixes the service→controller import direction.
+  **Did NOT create `utils`/`exceptions`** (no genuine occupant — anti-empty-package). Test
+  packages stay feature-grouped. Seams `KeyWrapper`/`FileStore`/`Mailer` intact.
+- **Ponytail:** removed duplicate `MacroTotals`/`Micro` (now one `model/Nutrition.kt`); deleted
+  `ClaudeClient.extractToolOutput` (dup of `extractTyped`). Comments already clean — no churn.
+- **AAD defense-in-depth (Audit-2 1.7):** `encryptForUser/decryptForUser` now take a `context`
+  and bind AAD to `"$userId:$context"` (`table.column`, via new `AadContext`; plan docs derive
+  from `PlanTable.table`). Blobs can't be replayed across users **or** columns. **Breaks existing
+  local dev rows** (throwaway; no prod data) — new `CryptoServiceTest` covers wrong-context fail.
+- **Docs:** README rewritten for the layer-first layout + 3 Mermaid diagrams (package overview,
+  write-path flow, crypto envelope).
+- **Verified 2026-07-15:** `./gradlew check` green — **123 tests, 0 failures** (was 122; +1 AAD),
+  detekt+ktlint clean. `./gradlew localstackTest` (LocalStack up) = **6/6 green**, torn down.
+- **Deliberately NOT done:** Jackson 2→3 convergence in `ClaudeClient` (build.gradle-tracked debt)
+  — a real cross-version migration with WireMock risk, not shortest-diff-green; left isolated.
+- **Remaining backend:** none pending pre-release. Next backend action is F-LAST deploy (devops-led,
+  CEO-gated) — the reorg/AAD ship with it.
+
 ## Current state (Phase 2 session 12, 2026-07-14) — BE-026 + BE-027 done locally (real S3/KMS adapters)
 
 Real AWS SDK v2 adapters behind the existing seams, tested against LocalStack (OPS-020). No

@@ -1,9 +1,9 @@
 package com.llmagal.vita.jobs
 
 import com.llmagal.vita.TestcontainersConfig
-import com.llmagal.vita.auth.service.TokenService
-import com.llmagal.vita.crypto.service.CryptoService
-import com.llmagal.vita.jobs.service.TokenCleanupJob
+import com.llmagal.vita.service.auth.TokenService
+import com.llmagal.vita.service.crypto.CryptoService
+import com.llmagal.vita.service.jobs.TokenCleanupJob
 import com.llmagal.vita.signInTestUser
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test

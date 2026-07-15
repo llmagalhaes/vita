@@ -1,6 +1,8 @@
 package com.llmagal.vita.crypto
 
-import com.llmagal.vita.aws.AwsClientsConfig
+import com.llmagal.vita.config.AwsClientsConfig
+import com.llmagal.vita.service.crypto.AesGcm
+import com.llmagal.vita.service.crypto.KmsKeyWrapper
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag

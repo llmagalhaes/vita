@@ -1,9 +1,9 @@
 package com.llmagal.vita.uploads
 
-import com.llmagal.vita.uploads.controller.UploadRequest
-import com.llmagal.vita.uploads.controller.UploadsController
-import com.llmagal.vita.uploads.service.FileStore
-import com.llmagal.vita.uploads.service.PresignedUpload
+import com.llmagal.vita.controller.uploads.UploadRequest
+import com.llmagal.vita.controller.uploads.UploadsController
+import com.llmagal.vita.service.uploads.FileStore
+import com.llmagal.vita.service.uploads.PresignedUpload
 import io.mockk.every
 import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
