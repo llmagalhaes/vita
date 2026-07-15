@@ -1,5 +1,32 @@
 # App Team — Next Session
 
+## Session 12 (2026-07-15) — Home v2 spec (SPEC ONLY, no build) ✅
+CEO asked for a full build-ready spec of **Home v2** (dock date picker + inline timeline)
+before any code. Docs only — no src/, no simulator.
+- **`docs/home-v2/IMPLEMENTATION-SPEC.md`** — the CEO-review deliverable: component tree→file
+  map, §2 dock magnifier (Reanimated worklet math, vtTip spring, haptics-per-crossing, touch-down
+  gesture), §3 timeline (day-swipe/expand/SQLite data), §4 tokens (16 exist / 17 differ / 39 new),
+  §5 top-3 risks, §6 9-task build list + phasing (A timeline → B day-swipe → C dock → D tests),
+  §7 11 CEO questions, §8 philosophy check. Companions: `docs/home-v2/{screens-analysis,
+  handoff-extract,tokens-table}.md`.
+- **Asana epic HOME-V2 `1216600225044885`** + subtasks HOME-V2-1..9 (all **Backlog**, Model: lines).
+  **Gated** — don't start until CEO answers §7.
+- New-file map: `src/tabs/home/{DockDatePicker,DaySection,Timeline}.tsx` + `dock.ts` (pure) +
+  `src/lib/haptics.ts`; modified `src/tabs/Home.tsx`, `src/ui/tokens.ts`, en.json. Proposed dep:
+  `expo-haptics` (linear-gradient recommended skipped).
+- **Top-3 risks:** R1 day-swipe vs TabsPager (blocksExternalGesture; timeline region can't
+  tab-switch — Trends-scrub precedent); R2 dock spring fidelity (device-tune vs screens/04,05);
+  R3 onLayout-started tweens + no-setState-mid-gesture.
+- **⚠ README cites screens 01-home-overview + 02-water-card-expanded that are NOT in the handoff**
+  (CEO Q10).
+
+## Session 11 (2026-07-15) — Sheet-bounce fix SPEC (CEO review gate, no code)
+CEO regression report: sheet entrances bounce (session-10 `useSheetTransition` spring,
+ζ≈0.69). Spec ONLY — `docs/reviews/2026-07-15-sheet-motion-fix-spec.md` (root cause,
+all 10 affected sheets, exact fix = entrance → `withTiming` 450ms `motion.unfold`
+bezier + spring-back damping 18→30, diff sketch, verification, risk). Ticket
+**APP-050** (Backlog, gated on CEO approval). No src/ changes, no emulator this session.
+
 ## Session 10 (2026-07-15) — CEO app batch (10 items) + emulator verification ✅
 CEO filed a 10-item device-test batch. Tickets **APP-040…049** created In progress
 (DoD = store). Ledger: `Progress/APP-040-049-CEO-batch-Progress.md`. Contract types
