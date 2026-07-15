@@ -16,7 +16,19 @@ const CLOSE_MS = 260; // slide-out duration for a programmatic (save/confirm) cl
 const FALLBACK_HEIGHT = 700; // used until the sheet has laid out and measured itself
 
 /**
- * The one bottom-sheet transition driver: spring-in on open, finger-follow drag,
+ * Sheet entrance curve — the prototype's vtSheetUp: a monotone decelerate bezier,
+ * zero overshoot (control-point y-values 0.9, 1 ≤ 1). A `withTiming`, NOT a spring:
+ * springs underdamp and bounce (the APP-050 regression). Exported so the no-overshoot
+ * regression test can assert the entrance stays a timing curve, not a spring.
+ */
+export const ENTRANCE_ANIM = {
+  durationMs: motion.unfold.durationMs, // 450ms
+  bezier: motion.unfold.bezier, // (.22,.9,.32,1)
+} as const;
+
+/**
+ * The one bottom-sheet transition driver: rises on open (prototype vtSheetUp:
+ * 450ms decelerate bezier, no overshoot), finger-follow drag,
  * and — the point of this hook — a programmatic close (save/confirm flips
  * `visible` false) that slides the sheet DOWN + fades the backdrop the SAME way a
  * drag-dismiss does, instead of unmounting instantly (the abrupt close, APP-042).
@@ -36,7 +48,10 @@ export function useSheetTransition(visible: boolean, close: () => void) {
     if (visible) {
       translateY.value = height.value; // start off-screen…
       setRendered(true); // …mount…
-      translateY.value = withSpring(0, { damping: 20, stiffness: 210 }); // …and rise
+      translateY.value = withTiming(0, {
+        duration: ENTRANCE_ANIM.durationMs, // 450ms — prototype vtSheetUp
+        easing: Easing.bezier(...ENTRANCE_ANIM.bezier), // (.22,.9,.32,1) decelerate — no overshoot
+      }); // …and rise
     } else if (rendered) {
       translateY.value = withTiming(
         height.value,
@@ -65,7 +80,7 @@ export function useSheetTransition(visible: boolean, close: () => void) {
         // the effect above continues the slide-out from wherever the finger left it.
         runOnJS(close)();
       } else {
-        translateY.value = withSpring(0, { damping: 18, stiffness: 220 });
+        translateY.value = withSpring(0, { damping: 30, stiffness: 220 }); // ζ≈1: settles, never overshoots
       }
     });
 
