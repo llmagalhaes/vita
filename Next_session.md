@@ -2,6 +2,22 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 8 — BACKEND LIVE IN PROD + BE-007 OIDC + feel-pass)
+
+**The backend is LIVE in production and the CEO's feel-pass batch shipped.** Prod: API GW `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/` (`/health` 200), ECS task-def `vita:3` running image `909262c`, RDS Postgres 16.13, hitting **real Claude**. ~$19/mo (RDS free tier) → ~$34/mo after. Commits `881834f`→`746441a`, all pushed, tree clean.
+
+- **Prod deploy (BE-004 + OPS-014/021):** arm64 image built from committed state, pushed to ECR `vita-api`. Devops un-park fixed two never-exercised things: task-def env contract (`SPRING_PROFILES_ACTIVE=aws`, DB_PASSWORD/DEK/HMAC secret mappings) and Cloud Map **A→SRV** (A-records gave the task IP but no port → apigw 500). Magic-link in prod → CloudWatch `/ecs/vita` (SES unbuilt): `aws logs filter-log-events --log-group-name /ecs/vita --region eu-west-1 --start-time $(($(date +%s000) - 600000)) --filter-pattern '"vita://auth"' --query 'events[-1].message' --output text`.
+- **BE-007 OIDC (Google/Apple `/auth/oidc`):** built to contract, NimbusJwtDecoder (no new dep), per-provider JWKS cache, iss/aud/exp/nonce, find-or-create on (provider,subject) + email-link, shared `UserAccounts` converges magic-link+OIDC crypto. Fails closed. Deployed (V007 migration applied). Env `GOOGLE_/APPLE_OIDC_AUDIENCE` ← SSM `google-/apple-client-config` wired → CEO's client ids picked up on next task start, **no redeploy**. ADR-0015.
+- **BE-029:** contract v0.5.0 `exercises[].muscles` (additive); app per-exercise tinting deferred to next round.
+- **App feel-pass (session-8, 9 items):** tab bar hides under sheets, `expo-blur` backdrops, prototype card expand, Home 4-icon header, macros full sheet, camera Add-from-photo sheet, plan-digest habit, larger BackButton. tsc 0 / Jest 172 (35 suites). `expo-blur` added (CEO-approved). Swipe order was already correct in source — if wrong on device it's a stale build.
+- **Boards → Done (DoD=in prod):** backend 25 tickets, devops OPS-001/003/005/008/009/011/020 (+prior). Kept open: BE-003 (no CI, CEO), F-LAST (store deploy). **Notion prod doc** written under DevOps page.
+
+**Follow-ups / CEO decisions (none blocking):**
+1. **Enable Google/Apple login:** CEO creates Google Cloud OAuth **Web** client id → SSM `google-client-config`; Apple App ID bundle-id → SSM `apple-client-config`. Android/iOS platform client ids + real device login need the **APP-007 dev build** (→ Apple Developer $99/yr, Google Play $25 — start now, verification takes days). Backend returns 401 until set (safe/fail-closed).
+2. **OIDC 503-vs-401 (cosmetic):** placeholder SSM value isn't blank, so endpoint returns 401 not the clean "not configured" 503. One-line backend fix (treat sentinel/`REPLACE_ME_IN_CONSOLE` as blank) — fold into the next backend image; not worth a redeploy alone. Safe as-is (forged/real tokens can't carry that aud).
+3. **S3 uploads 30-day expiry:** user photos deleted after 30d — intended for "a quiet log"? One-line tfvar to change, needs CEO OK.
+4. **App device pass:** confirm blur/pill-slide/card-expand/swipe-order on the latest build.
+
 ## Where we are (2026-07-15, session 7 — hygiene sweep BE-028 + APP-037 DONE)
 
 **The CEO un-gated the hygiene sweep this session; both teams executed it in parallel (Opus team leads) while the CEO runs the phone feel-pass.** Commits `41bddce` (app) + `1e301b8` (backend); both gates re-verified by the orchestrator before commit.
