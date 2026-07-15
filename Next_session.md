@@ -2,6 +2,21 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 11 — sheet-bounce fix + Home v2 built + specs)
+
+**Fixed the "childish bounce" and built Home v2 (replaces v1), both emulator-verified.** Commits `01afa71` (specs) → `2afab62` (bounce) → `92266b8` (Home v2), pushed, tree clean. Fresh prod APK built (108 MB, prod URL baked, 20:41).
+
+- **Specs first (CEO-reviewed, then greenlit "manda ver"):** `docs/reviews/2026-07-15-sheet-motion-fix-spec.md` (bounce) + `docs/home-v2/IMPLEMENTATION-SPEC.md` (+ `handoff-extract.md`, `tokens-table.md`, `screens-analysis.md`, and the design `handoff/`). Produced by **Fable** team leads + sub-agents, no simulator, per CEO.
+- **APP-050 sheet bounce — FIXED.** Root cause: `useSheetTransition` (`src/ui/useSheetDrag.ts`) animated every sheet ENTRANCE with `withSpring(damping:20,stiffness:210)` = ζ≈0.69, ~33px overshoot. Fix: entrance → `withTiming` via the `motion.unfold` token (450ms, bezier .22/.9/.32/1 = prototype vtSheetUp, zero overshoot); cancelled-drag spring-back → `damping:30` (ζ≈1.01). Drag + 260ms programmatic close untouched. Emulator-verified monotonic rise, no bounce.
+- **HOME-V2 — BUILT, replaces v1** (CEO decisions: replace v1 · follow-handoff colors · menu pill already done). New `src/tabs/home/{dock.ts,DockDatePicker,DaySection,Timeline,timelineData}` + `src/lib/haptics.ts` (+dep `expo-haptics ~56.0.3`); `Home.tsx` day-aware; `TimelineCard` retired. Dock magnifier (Gaussian worklet — `"worklet"` fix cured a UI-thread TypeError caught only on device), inline expand-in-place timeline, green workout tile. **R1 (timeline day-swipe vs TabsPager) device-verified both ways** (`blocksExternalGesture` + activeOffsetX/failOffsetY; no mid-gesture setState; session-10 snapTarget intact). No backend/contract change.
+- Gates (orchestrator-verified): tsc 0 · Jest **210/210 (41 suites)** · expo export OK. Asana: APP-050 In progress; epic **HOME-V2** + subtasks 1–9 In progress (DoD=store).
+
+**CEO to decide (non-blocking):**
+1. **Install the new prod APK clean** (`adb uninstall com.llmagal.vita` first) — test the dock magnifier *feel* + Home v2 on device (emulator can't freeze the magnifier mid-drag; past days show empty on emulator only — its SQLite seed is date-anchored, real logs will populate).
+2. **Workout green went app-wide** (Trends chips + workout-detail badge) per the handoff — keep, or restrict to Home only? (WaveIllustration crest left terracotta.) One-touch tweak either way.
+3. Bounce entrance duration knob is `motion.unfold.durationMs` (320–450 band) if 450ms ever feels slow.
+- Pending from before: Google Android OAuth client (pkg `com.llmagal.vita`, SHA-1 in session-9 block) · Apple Developer → `apple-client-config` · S3 uploads 30d-expiry decision · F-LAST store deploy (gated).
+
 ## Where we are (2026-07-15, session 10 — mock-APK bug fixed + big feel-pass batch APP-040..049)
 
 **Caught + fixed a real footgun, then shipped a 10-item CEO feel-pass batch.** Commits `0734b08`→`5c6974a`, pushed, tree clean. Prod-backed APK rebuilt (108 MB, prod URL baked).
