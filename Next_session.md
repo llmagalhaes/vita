@@ -2,6 +2,16 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 7 — hygiene sweep BE-028 + APP-037 DONE)
+
+**The CEO un-gated the hygiene sweep this session; both teams executed it in parallel (Opus team leads) while the CEO runs the phone feel-pass.** Commits `41bddce` (app) + `1e301b8` (backend); both gates re-verified by the orchestrator before commit.
+
+- **Backend (BE-028)** — packages reorganized **layer-first** per explicit CEO call: `controller/<feature>`, `service/<feature>`, `repository/<feature>`, `model/<feature>`, `config` (**ADR-0014 supersedes ADR-0012**; no `utils`/`exceptions` — no genuine occupant). 51 files moved, zero logic change. Audit-2 1.7 closed: `CryptoService` AAD now binds `"$userId:$table.column"` via `AadContext` (+1 test) — **breaks pre-existing local dev rows; drop volume/re-seed** (no prod data). Ponytail: shared `model/Nutrition.kt` dedupe, dead `extractToolOutput` deleted. README rewritten w/ 3 Mermaid diagrams. `./gradlew check` **123 green** + detekt/ktlint; LocalStack adapters 6/6. Deliberately NOT done: Jackson 2→3 convergence in `ClaudeClient` (documented debt, not shortest-diff-green). Ledger: `backend/Progress/BE-028-hygiene-sweep-Progress.md`.
+- **App (APP-037)** — codebase was already clean; surgical pass only: `CountBanner` extraction (~40 lines of duplicated banner JSX), `vacationExcluder` reuse, 2 dead imports + 1 dead const, stale `v0.3.0` client pin dropped. **No file moves** (RN layout already idiomatic), **gesture/worklet paths untouched**, APP-007 seams kept, no i18n deletion (dynamic keys). New `app/services/vita-app/README.md` w/ 3 Mermaid diagrams (architecture, offline/outbox + poison-pill, navigation). tsc 0 / Jest **168 green (34 suites)** / expo export OK. Ledger: `app/Progress/APP-037-hygiene-sweep-Progress.md`.
+- Asana BE-028 + APP-037 → In progress (Done = production, F-LAST-gated); Notion Backend + Mobile pages updated by the leads.
+
+**Next session:** CEO phone feel-pass verdict (session-6 item, still pending) → iterate audit P2 leftovers if short. CEO-gated unchanged: `expo-blur` backdrops · per-exercise muscles (BE contract) · F-LAST deploy. Anyone with a live local DB must re-seed (AAD change).
+
 ## Where we are (2026-07-15, session 6 — Fable fidelity backlog + emulator-verified bug fixes)
 
 **The CEO's 3 remaining live-test bugs (#3/#4/#6) are FIXED and emulator-verified, and the full Fable prototype-fidelity backlog is implemented.** Session ran in 4 passes, all committed + working tree clean (`2bb753f..bfc4e48`, 16 commits). tsc 0 / Jest **168 green (34 suites)** at every commit. Ledger with everything: **`app/Progress/APP-CEO-BUGS-Progress.md`** (sessions 6.1–6.4 appended).
