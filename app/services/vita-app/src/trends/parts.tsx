@@ -1,22 +1,28 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
-import { Chevron, Text, colors, fonts } from "../ui";
+import { Chevron, Text, colors, fonts, useStartOnLayout } from "../ui";
 import { ScrubOverlay } from "./scrub";
 
 /**
  * A chart bar that grows up from the bottom on mount (`vtGrowY`, Fable A3). Height
  * is a % of the parent (which justifies flex-end, so growth reads bottom-up).
  * `delay` staggers neighbours. Remounts on window change (keyed by day) re-grow it.
+ * The first grow starts from onLayout (see useStartOnLayout); target changes tween.
  */
 export function GrowBar({ pct, color, delay = 0, style }: { pct: number; color: string; delay?: number; style?: StyleProp<ViewStyle> }) {
   const target = Math.max(0, Math.min(100, pct));
   const h = useSharedValue(0);
-  useEffect(() => {
+  const started = useRef(false);
+  const onLayout = useStartOnLayout(() => {
     h.value = withDelay(delay, withTiming(target, { duration: 450 }));
-  }, [target, delay, h]);
+    started.current = true;
+  });
+  useEffect(() => {
+    if (started.current) h.value = withTiming(target, { duration: 500 });
+  }, [target, h]);
   const grow = useAnimatedStyle(() => ({ height: `${h.value}%` }));
-  return <Animated.View style={[style, { backgroundColor: color }, grow]} />;
+  return <Animated.View onLayout={onLayout} style={[style, { backgroundColor: color }, grow]} />;
 }
 
 export const SectionLabel = ({ children }: { children: string }) => (

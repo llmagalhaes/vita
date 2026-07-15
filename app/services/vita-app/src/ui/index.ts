@@ -14,6 +14,7 @@ export * from "./BodyMap";
 export * from "./WaveIllustration";
 export * from "./keyboard";
 export * from "./useSheetDrag";
+export * from "./useStartOnLayout";
 export * from "./SheetOverlay";
 export * from "./PressScale";
 export * from "./Chevron";

@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { memo, useEffect } from "react";
 import { View } from "react-native";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
@@ -7,8 +7,13 @@ import { entryPalette } from "./tokens";
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const DASH = 420; // path length of the crest line — the draw-on stroke
 
-/** Organic wave footer for timeline/detail cards — paths from the prototype. */
-export function WaveIllustration({
+/**
+ * Organic wave footer for timeline/detail cards — paths from the prototype.
+ * memo'd: a parent re-render mid-draw recreates the SVG animatedProps and
+ * freezes the in-flight crest tween (styles survive re-renders, SVG animated
+ * props don't) — props are scalars, so memo keeps the component untouched.
+ */
+export const WaveIllustration = memo(function WaveIllustration({
   kind,
   height = 72,
   delay = 0,
@@ -23,6 +28,12 @@ export function WaveIllustration({
   const offset = useSharedValue(DASH);
   useEffect(() => {
     offset.value = withDelay(delay, withTiming(0, { duration: 1100, easing: Easing.out(Easing.ease) }));
+    // Safety net: SVG animated props can drop a tween scheduled during a busy
+    // cold boot — pin the final state so the crest is never left invisible.
+    const id = setTimeout(() => {
+      offset.value = 0;
+    }, delay + 1400);
+    return () => clearTimeout(id);
   }, [delay, offset]);
   const lineProps = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
 
@@ -53,4 +64,4 @@ export function WaveIllustration({
       </Svg>
     </View>
   );
-}
+});

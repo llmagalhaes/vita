@@ -44,8 +44,11 @@ export function TabsPager() {
   const active = tabIndex(pathname);
   const onTab = active >= 0;
 
-  // Home eager; Trends (heavy) and Habits mount on first approach (pan begin) or
-  // when navigated to directly, then stay mounted for instant returns.
+  // Home eager; Trends (heavy) and Habits mount shortly AFTER the current tab
+  // settles, then stay mounted for instant returns. Mounting must never happen
+  // mid-swipe: the setState re-render recreates the pan gesture and resets its
+  // translation, which ate the swipe (device-verified session 6) — so neighbors
+  // are pre-mounted from a deferred effect, not from the gesture.
   const [mounted, setMounted] = useState([true, false, false]);
   const ensure = (i: number) => {
     if (i < 0 || i > 2) return;
@@ -60,10 +63,6 @@ export function TabsPager() {
     idxRef.current = to;
     if (TAB_ROUTES[to] !== pathname) router.replace(TAB_ROUTES[to]);
   };
-  const ensureNeighbors = (from: number) => {
-    ensure(from - 1);
-    ensure(from + 1);
-  };
 
   // Follow whatever route the app navigated to (pill tap / deep link / back).
   useEffect(() => {
@@ -73,6 +72,13 @@ export function TabsPager() {
       idxRef.current = active;
       index.value = withSpring(active, SPRING);
     }
+    // Pre-mount the neighbors once this tab has settled (deferred so the tab
+    // itself paints first) — a swipe then never needs a mid-gesture mount.
+    const id = setTimeout(() => {
+      ensure(active - 1);
+      ensure(active + 1);
+    }, 350);
+    return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
@@ -82,10 +88,6 @@ export function TabsPager() {
     .failOffsetY([-18, 18])
     .onBegin(() => {
       start.value = index.value;
-      // Read the settled page from the shared value, NOT idxRef.current: reading a
-      // plain ref inside this worklet freezes it, and the later settle() write
-      // (idxRef.current = to) would then throw "Tried to modify key 'current'".
-      runOnJS(ensureNeighbors)(Math.round(index.value));
     })
     .onUpdate((e) => {
       const raw = start.value - e.translationX / Math.max(width, 1);

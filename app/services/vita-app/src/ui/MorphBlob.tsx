@@ -1,15 +1,16 @@
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import type { StyleProp, ViewStyle } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { colors } from "./tokens";
+import { useStartOnLayout } from "./useStartOnLayout";
 
-/** Shared 0↔1 loop for the blob morphs. */
+/** Shared 0↔1 loop for the blob morphs; started from onLayout (can't race attachment). */
 function useMorph(durationMs: number) {
   const t = useSharedValue(0);
-  useEffect(() => {
+  const onLayout = useStartOnLayout(() => {
     t.value = withRepeat(withTiming(1, { duration: durationMs, easing: Easing.inOut(Easing.ease) }), -1, true);
-  }, [t, durationMs]);
-  return t;
+  });
+  return { t, onLayout };
 }
 
 /**
@@ -20,7 +21,7 @@ function useMorph(durationMs: number) {
  * plus a gentle scale breath.
  */
 export function MorphBlob({ size = 56, color = colors.accent }: { size?: number; color?: string }) {
-  const t = useMorph(3200);
+  const { t, onLayout } = useMorph(3200);
   const style = useAnimatedStyle(() => {
     const pct = (n: number) => (n / 100) * size;
     return {
@@ -31,7 +32,7 @@ export function MorphBlob({ size = 56, color = colors.accent }: { size?: number;
       borderBottomLeftRadius: pct(52 - 12 * t.value),
     };
   });
-  return <Animated.View style={[{ width: size, height: size, backgroundColor: color, opacity: 0.85 }, style]} />;
+  return <Animated.View onLayout={onLayout} style={[{ width: size, height: size, backgroundColor: color, opacity: 0.85 }, style]} />;
 }
 
 /**
@@ -48,12 +49,12 @@ export function MorphContainer({
   style?: StyleProp<ViewStyle>;
   durationMs?: number;
 }) {
-  const t = useMorph(durationMs);
+  const { t, onLayout } = useMorph(durationMs);
   const morph = useAnimatedStyle(() => ({
     borderTopLeftRadius: 34 + 22 * t.value,
     borderTopRightRadius: 52 - 24 * t.value,
     borderBottomRightRadius: 40 + 18 * t.value,
     borderBottomLeftRadius: 50 - 20 * t.value,
   }));
-  return <Animated.View style={[style, { overflow: "hidden" }, morph]}>{children}</Animated.View>;
+  return <Animated.View onLayout={onLayout} style={[style, { overflow: "hidden" }, morph]}>{children}</Animated.View>;
 }

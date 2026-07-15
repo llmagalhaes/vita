@@ -145,16 +145,18 @@ export async function exportPdf(opts: ExportOpts): Promise<void> {
   const Print = require("expo-print");
   const Sharing = require("expo-sharing");
   const { File, Paths } = require("expo-file-system");
-  const { uri } = await Print.printToFileAsync({ html });
   if (!(await Sharing.isAvailableAsync())) {
     // Don't silently succeed — the caller surfaces this so it's not a mystery no-op.
     throw new Error("Sharing is not available on this device.");
   }
-  // expo-print writes into the print cache, a path the Android share FileProvider
-  // can't read ("not allowed to read file under given url"). Copy into the document
-  // dir — which the provider maps — and share from there (CEO bug #4).
+  // expo-print writes into a print-cache path that neither the share FileProvider
+  // nor the File API may READ (device-verified: "not allowed to read file under
+  // given url" / "Missing 'READ' permission"). So take the PDF as base64 straight
+  // from expo-print and write it to the document dir ourselves, then share that
+  // file (CEO bug #4).
+  const { base64 } = await Print.printToFileAsync({ html, base64: true });
   const dest = new File(Paths.document, "vita-log.pdf");
   if (dest.exists) dest.delete();
-  await new File(uri).copy(dest);
+  dest.write(base64, { encoding: "base64" });
   await Sharing.shareAsync(dest.uri, { mimeType: "application/pdf", UTI: "com.adobe.pdf" });
 }

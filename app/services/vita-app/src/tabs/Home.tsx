@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -30,6 +30,7 @@ import {
   entryPalette,
   fonts,
   spacing,
+  useStartOnLayout,
 } from "../ui";
 
 /**
@@ -37,15 +38,24 @@ import {
  * Fill height is visual fullness only — scaled against 2L or today's total,
  * whichever is larger, so it can't read as a goal (philosophy: no goals).
  */
+const VESSEL_H = 82;
+
 function WaterVessel({ ml }: { ml: number }) {
-  const pct = (ml / Math.max(2000, ml)) * 100;
+  // Fill in px, not % — an animated %-height on an absolute child never applied
+  // on-device (new arch); the vessel is fixed-height so px is exact anyway.
+  const px = (ml / Math.max(2000, ml)) * VESSEL_H;
   const h = useSharedValue(0);
+  const started = useRef(false);
+  const onLayout = useStartOnLayout(() => {
+    h.value = withTiming(px, { duration: 600 });
+    started.current = true;
+  });
   useEffect(() => {
-    h.value = withTiming(pct, { duration: 600 });
-  }, [pct, h]);
-  const fill = useAnimatedStyle(() => ({ height: `${h.value}%` }));
+    if (started.current) h.value = withTiming(px, { duration: 600 });
+  }, [px, h]);
+  const fill = useAnimatedStyle(() => ({ height: h.value }));
   return (
-    <View style={{ width: 54, height: 82, borderRadius: 19, backgroundColor: "#EDF1E7", overflow: "hidden" }}>
+    <View onLayout={onLayout} style={{ width: 54, height: VESSEL_H, borderRadius: 19, backgroundColor: "#EDF1E7", overflow: "hidden" }}>
       <Animated.View
         style={[
           { position: "absolute", left: 0, right: 0, bottom: 0, backgroundColor: "#8CA58A", borderTopLeftRadius: 10, borderTopRightRadius: 10 },

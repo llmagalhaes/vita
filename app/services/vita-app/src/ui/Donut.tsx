@@ -1,8 +1,9 @@
-import { useEffect, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { View } from "react-native";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withDelay, withTiming, type SharedValue } from "react-native-reanimated";
 import Svg, { Circle } from "react-native-svg";
 import { colors } from "./tokens";
+import { useStartOnLayout } from "./useStartOnLayout";
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
@@ -67,12 +68,17 @@ export function Donut({
   const c = 2 * Math.PI * r;
   const total = segments.reduce((s, x) => s + x.value, 0) || 1;
   const p = useSharedValue(0);
-  useEffect(() => {
+  // Sweep starts from onLayout — effect-scheduled tweens can race view attachment.
+  // The timeout pins the final state if the SVG tween gets dropped on a busy boot.
+  const onLayout = useStartOnLayout(() => {
     p.value = withDelay(150, withTiming(1, { duration: 900, easing: Easing.out(Easing.ease) }));
-  }, [p]);
+    setTimeout(() => {
+      p.value = 1;
+    }, 1300);
+  });
   let before = 0;
   return (
-    <View style={{ width: size, height: size }}>
+    <View onLayout={onLayout} style={{ width: size, height: size }}>
       <Svg width={size} height={size}>
         <Circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={colors.track} strokeWidth={strokeWidth} />
         {segments.map((seg, i) => {

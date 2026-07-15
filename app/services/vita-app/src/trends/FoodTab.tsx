@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
@@ -7,7 +7,7 @@ import { entriesInRange } from "../db/entries";
 import { getSettings } from "../db/settings";
 import { useLogVersion } from "../db/notify";
 import { formatVolume } from "../lib/units";
-import { Text, colors, fonts } from "../ui";
+import { Text, colors, fonts, useStartOnLayout } from "../ui";
 import {
   type DayBucket,
   type ExcludeDay,
@@ -29,13 +29,26 @@ const CURVE_DASH = 900; // exceeds any path length — offset 900→0 draws it o
 /** Calorie curve that strokes itself on, matching the prototype's `vtDraw` (Fable B3). */
 function CalorieCurve({ values }: { values: number[] }) {
   const offset = useSharedValue(CURVE_DASH);
-  useEffect(() => {
+  const started = useRef(false);
+  const draw = () => {
     offset.value = CURVE_DASH;
     offset.value = withTiming(0, { duration: 1400, easing: Easing.out(Easing.ease) });
-  }, [values, offset]);
+    // Pin the final state — SVG tweens can be dropped when scheduled on a busy thread.
+    setTimeout(() => {
+      offset.value = 0;
+    }, 1600);
+  };
+  const onLayout = useStartOnLayout(() => {
+    draw();
+    started.current = true;
+  });
+  useEffect(() => {
+    if (started.current) draw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values]);
   const props = useAnimatedProps(() => ({ strokeDashoffset: offset.value }));
   return (
-    <View style={{ height: CURVE_H, borderRadius: 16, overflow: "hidden", backgroundColor: "#FBF3E6" }}>
+    <View onLayout={onLayout} style={{ height: CURVE_H, borderRadius: 16, overflow: "hidden", backgroundColor: "#FBF3E6" }}>
       <Svg width="100%" height={CURVE_H} viewBox={`0 0 ${CURVE_W} ${CURVE_H}`} preserveAspectRatio="none">
         <AnimatedPath
           d={linePath(values, CURVE_W, CURVE_H)}
