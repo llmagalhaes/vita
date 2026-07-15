@@ -56,6 +56,9 @@ data class Exercise(
     val sets: Int?,
     val reps: Int?,
     val loadKg: Double?,
+    // Per-exercise muscles for the app's muscle tinting; same closed vocabulary
+    // as WorkoutDetail.muscles, mapped/dropped by EntryService.
+    val muscles: List<String>? = null,
 )
 
 /**

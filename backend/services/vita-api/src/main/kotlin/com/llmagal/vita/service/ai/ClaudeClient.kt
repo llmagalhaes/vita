@@ -331,7 +331,7 @@ class ClaudeClient(
               - workout: { "title", "durationMin"?: integer minutes, "kcal"?: energy estimate,
                 "muscles"?: subset of chest, back, shoulders, biceps, triceps, forearms, core,
                 glutes, quads, hamstrings, calves, "exercises"?: [ { "name", "sets"?, "reps"?,
-                "loadKg"? } ] }.
+                "loadKg"?, "muscles"?: the muscles that exercise works, from the same list } ] }.
             Every number is an estimate. Omit any field you cannot estimate.
             """.trimIndent()
 

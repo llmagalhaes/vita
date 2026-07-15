@@ -213,6 +213,40 @@ class EntryFlowTest {
         assertThat(muscles).containsExactlyInAnyOrder("back", "core", "chest")
     }
 
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `per-exercise muscles are mapped to the contract vocabulary`() {
+        val entry =
+            post(
+                mapOf(
+                    "type" to "workout",
+                    "occurredAt" to "2026-07-13T18:00:00Z",
+                    "inputMethod" to "text",
+                    "detail" to
+                        mapOf(
+                            "title" to "Push day",
+                            "exercises" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Bench press",
+                                        "muscles" to listOf("chest", "triceps", "banana"),
+                                    ),
+                                ),
+                        ),
+                ),
+                key(),
+            ).expectStatus()
+                .isCreated
+                .expectBody(MAP)
+                .returnResult()
+                .responseBody!!
+
+        val exercises = (entry["detail"] as Map<String, Any>)["exercises"] as List<Map<String, Any>>
+        val exMuscles = exercises[0]["muscles"] as List<String>
+        // chest/triceps pass through, banana dropped.
+        assertThat(exMuscles).containsExactlyInAnyOrder("chest", "triceps")
+    }
+
     @Test
     fun `rejects a negative-kcal meal item`() {
         post(

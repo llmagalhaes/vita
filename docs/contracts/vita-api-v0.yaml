@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vita API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     Contract v0 — auth, user profile, log entries, AI parse. App-team review
     complete 2026-07-13 (`app/Doc/contract-review-v0.md`): approved, with two
@@ -12,6 +12,8 @@ info:
     with GET /entries gaining `from`/`to` and a CSV `type` filter (BE-017);
     plan/program history+edit, `/me/vacations`, and the `checkin` entry type
     land in later 0.4.0 tickets. No 0.3.0 consumer breaks.
+    0.5.0 adds `Exercise.muscles` (per-exercise muscle tinting) — additive,
+    optional; the workout-level `WorkoutDetail.muscles` is unchanged.
     Governed by ADR-0006 (contract-first REST, RFC 7807, cursor pagination)
     and ADR-0005 (AI drafts are never persisted server-side).
 
@@ -1195,6 +1197,27 @@ components:
           type: number
           minimum: 0
           description: Always kg on the wire; the app converts for imperial display.
+        muscles:
+          type: array
+          items:
+            type: string
+            enum:
+              - chest
+              - back
+              - shoulders
+              - biceps
+              - triceps
+              - forearms
+              - core
+              - glutes
+              - quads
+              - hamstrings
+              - calves
+          description: >-
+            Same closed vocabulary as WorkoutDetail.muscles, but per exercise —
+            drives per-exercise muscle tinting in the app (0.5.0). Optional; the
+            backend maps model output onto this list and drops anything
+            unmappable. The workout-level `muscles` stays for back-compat.
 
     CheckinDetail:
       type: object

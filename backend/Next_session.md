@@ -1,5 +1,39 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 14, 2026-07-15) — BE-004 image LIVE in ECR + BE-029 per-exercise muscles
+
+Production milestone called (CEO). Two deliverables: `Progress/BE-004-prod-deploy-Progress.md`,
+`Progress/BE-029-per-exercise-muscles-Progress.md`.
+
+- **BE-004 (image build + push) — DONE (backend half).** arm64 image from committed `a03e194`
+  (backend == BE-028 `1e301b8`) pushed to ECR `vita-api`, tags `a03e194` + `latest`,
+  **digest `sha256:fa747eb6d537d5df3d52da32e417922f4bd2f68fadcdfe9645dc1e34e7c10c33`**, ~164 MB,
+  native arm64 (Apple Silicon host, no emulation). Sanity-booted against a fresh compose Postgres:
+  Flyway migrated empty→v006, `/health` `{"status":"up"}`, boot ~3s. **Devops owns the flip**
+  (`desired_count`→1) + API Gateway verify — they poll ECR.
+- **BE-004 boot-env contract — FLAGGED to devops (mismatches in `modules/ecs/main.tf`):**
+  1. **`SPRING_PROFILES_ACTIVE=aws` is MISSING** from the ECS task `environment` → app would boot
+     with LocalKeyWrapper (needs `VITA_MASTER_KEY`, absent → **boot fail**) + LocalFileStore.
+  2. `container_secrets` maps `DB_CREDENTIALS` but the app reads **`DB_PASSWORD`** (+ plain
+     `DB_URL`, `DB_USERNAME`). And is **missing `VITA_SERVICE_DEK`** (←wrapped-service-dek) +
+     **`VITA_HMAC_KEY`** (←email-blind-index-hmac-key) → CryptoService fails to construct at boot.
+  3. `VITA_UPLOADS_BUCKET` not set → defaults to `vita-uploads-local` (wrong bucket; only bites the
+     PDF-upload path, not boot).
+  See BE-004 ledger + the orchestrator report for the full name→meaning table. **`wrapped-service-dek`
+  / `email-blind-index-hmac-key` / `jwt-secret` must be pasted as RAW base64 32-byte keys** (the app
+  base64-decodes and uses them directly — it does NOT KMS-unwrap the service DEK; the name is misleading).
+- **BE-004 magic-link for prod testing:** LogMailer (SES unbuilt) logs the link at INFO →
+  `aws logs tail /ecs/vita --region eu-west-1 --filter-pattern "Magic link" --follow`. Link is
+  `vita://auth?...`. (LogMailer logs the email = PII; acceptable only for CEO self-test pre-SES.)
+- **BE-029 (per-exercise muscles) — DONE locally, in the working tree (uncommitted).** Contract
+  **v0.4.0 → v0.5.0**: optional `Exercise.muscles` (same 11-silhouette vocab as `WorkoutDetail.muscles`,
+  additive, workout-level field kept). `Exercise` model + `EntryService` map each exercise's muscles
+  (reused `mapMuscle`, extracted `mapMuscles`); Claude tool preamble extended. `./gradlew check`
+  **124 tests** green, redocly exit 0. **Ships in the NEXT image** (not the pushed `a03e194`).
+
+- **Next backend action:** orchestrator commits BE-029 → new image → devops redeploys. App team to
+  be notified of contract v0.5.0 (per ADR-0006). Nothing else pending pre-release.
+
 ## Current state (Phase 2 session 13, 2026-07-15) — BE-028 hygiene sweep done locally
 
 Pre-release cleanup (CEO un-gated BE-028). `Progress/BE-028-hygiene-sweep-Progress.md`,

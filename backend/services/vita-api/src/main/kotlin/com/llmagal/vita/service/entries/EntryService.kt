@@ -249,13 +249,10 @@ class EntryService(
                 nonNegative("workout kcal", workout.kcal)
                 workout.exercises?.forEach(::validateExercise)
                 // Closed-vocabulary muscle map: model output onto the 11 silhouettes,
-                // known aliases folded in, anything unmappable dropped (contract §915).
-                val muscles =
-                    workout.muscles
-                        ?.mapNotNull(::mapMuscle)
-                        ?.distinct()
-                        ?.takeIf { it.isNotEmpty() }
-                mapper.valueToTree(workout.copy(muscles = muscles))
+                // known aliases folded in, anything unmappable dropped. Applied to the
+                // workout-level list AND each exercise's list (same vocabulary).
+                val exercises = workout.exercises?.map { it.copy(muscles = mapMuscles(it.muscles)) }
+                mapper.valueToTree(workout.copy(muscles = mapMuscles(workout.muscles), exercises = exercises))
             }
             EntryType.checkin -> {
                 // Server-opaque: validate the fields are present, then store verbatim.
@@ -294,6 +291,12 @@ class EntryService(
     private fun mapMuscle(raw: String): String? {
         val m = raw.trim().lowercase()
         return if (m in MUSCLES) m else MUSCLE_ALIASES[m]
+    }
+
+    /** A raw muscle list → distinct contract-vocabulary list, or null if none survive. */
+    private fun mapMuscles(raw: List<String>?): List<String>? {
+        val mapped = raw?.mapNotNull(::mapMuscle)?.distinct()
+        return mapped?.takeIf { it.isNotEmpty() }
     }
 
     private fun denormalize(
