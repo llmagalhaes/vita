@@ -2,6 +2,18 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 9 — real Android APK + Health Connect + Google login configured)
+
+**The app now runs as a real sideloadable Android APK (no Expo Go) and reads Samsung/Google health data via Health Connect. Google sign-in is configured server-side in prod.** Commits `85539ce` + `2af6ff1`, pushed, tree clean.
+
+- **APP-007-android (APK, ADR-0005):** CNG `expo prebuild` (`android/` gitignored) + `assembleRelease` (debug-keystore signed). **Emulator-verified standalone**: auth → onboarding → Home → Integrations, `vita://` scheme + real expo-notifications branch working. APK at `app/services/vita-app/android/app/build/outputs/apk/release/app-release.apk` (108 MB); install `adb install -r`. Prod-backed build: `VITA_API_BASE_URL=https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1 ./gradlew :app:assembleRelease`.
+- **APP-038 Health Connect (ADR-0004):** `react-native-health-connect@3.5.3` behind the stub seam (real in dev build, stub in Expo Go). Reads today's active energy/steps/sessions → **kv snapshot, SQLite-only, never the outbox** (matches backend **ADR-0016**: backend builds NOTHING for health data, device-local by design; flip path documented). Feeds Energy card, estimates labeled. Fixed a native crash in the lib (missing `HealthConnectPermissionDelegate` — `plugins/withHealthConnect.js`).
+- **APP-039 / Google Fit verdict:** NOT built — Fit APIs deprecated (no new sign-ups since 2024-05, sunset end-2026); **Health Connect covers Samsung Health + Google data**. Ticket Done.
+- **Google login:** CEO's Web client id set in SSM `google-client-config`; ECS task recycled, rollout COMPLETED, `/health` 200 → Google OIDC genuinely configured in prod. **BE-030** sentinel fix (Apple placeholder → clean 503) rides the next image. Backend `./gradlew check` 148 green; app tsc 0 / Jest 179 (36 suites).
+- Asana: APP-007-android + APP-038 In progress (DoD=prod/store), APP-039 Done, BE-030/031 created; boards current.
+
+**CEO next actions:** (1) create the **Google Android OAuth client**: package `com.llmagal.vita`, SHA-1 `5E:8F:16:06:2E:A3:CD:2C:4A:0D:54:78:76:BA:A6:F3:8C:AB:F6:25`; (2) install the APK on the Samsung phone, enable Samsung Health → Health Connect sync, toggle Health Connect in Vita (emulator has no health data provider — real-data verification is CEO-only); (3) Apple Developer account → bundle id into SSM `apple-client-config`. Pending previous: S3 uploads 30d expiry decision; F-LAST store deploy (gated).
+
 ## Where we are (2026-07-15, session 8 — BACKEND LIVE IN PROD + BE-007 OIDC + feel-pass)
 
 **The backend is LIVE in production and the CEO's feel-pass batch shipped.** Prod: API GW `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/` (`/health` 200), ECS task-def `vita:3` running image `909262c`, RDS Postgres 16.13, hitting **real Claude**. ~$19/mo (RDS free tier) → ~$34/mo after. Commits `881834f`→`746441a`, all pushed, tree clean.
