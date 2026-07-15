@@ -94,8 +94,9 @@ class OidcVerifier(
                 else -> throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown provider: $provider")
             }
         // Fail closed: without a configured audience we cannot check `aud`, so we never
-        // accept the token (rather than trust an unverified one).
-        if (cfg.props.audience.isBlank()) {
+        // accept the token (rather than trust an unverified one). The SSM placeholder is
+        // non-blank but not a real client id — treat it as unconfigured too (→ 503, not 401).
+        if (cfg.props.audience.isBlank() || cfg.props.audience == SSM_PLACEHOLDER) {
             throw ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "$provider sign-in is not configured.")
         }
         return cfg
@@ -115,6 +116,10 @@ class OidcVerifier(
     )
 
     private companion object {
+        // The unconfigured-provider sentinel devops seeds into the SSM client-config params
+        // until the CEO pastes the real OAuth client id. Non-blank, so guard it explicitly.
+        const val SSM_PLACEHOLDER = "REPLACE_ME_IN_CONSOLE"
+
         // Google mints tokens with either issuer form; Apple only the https one.
         val GOOGLE_ISSUERS = setOf("https://accounts.google.com", "accounts.google.com")
         val APPLE_ISSUERS = setOf("https://appleid.apple.com")

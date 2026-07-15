@@ -128,6 +128,15 @@ class OidcVerifierTest {
     }
 
     @Test
+    fun `the SSM placeholder audience fails closed with 503`() {
+        val token = OidcTestTokens.idToken()
+        assertThatThrownBy { verifier(googleAudience = "REPLACE_ME_IN_CONSOLE").verify("google", token, null) }
+            .isInstanceOfSatisfying(ResponseStatusException::class.java) {
+                assertThat(it.statusCode).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
+            }
+    }
+
+    @Test
     fun `an unknown provider is a 400`() {
         assertThatThrownBy { verifier().verify("facebook", "x", null) }
             .isInstanceOfSatisfying(ResponseStatusException::class.java) {

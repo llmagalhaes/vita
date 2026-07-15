@@ -1,5 +1,43 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 16, 2026-07-15) — health-integrations milestone: backend no-op verdict (ADR-0016) + BE-030 OIDC sentinel fix
+
+Milestone: **Samsung Health via Android Health Connect (+ assess Google Fit)**. App builds
+the device-side read in parallel. Backend deliverables: **ADR-0016**, `Progress/BE-030-oidc-sentinel-Progress.md`,
+`Progress/BE-031-health-connect-verdict-Progress.md`. Two Asana tickets created (In progress):
+BE-030 `1216590099219043`, BE-031 `1216590099127127`.
+
+- **BE-031 (health verdict) — the backend builds NOTHING for this milestone (ADR-0016).**
+  Health Connect data is device-local (SQLite = display source), trends are client-side (D4),
+  no multi-device/delta sync in v0, and the data is a re-syncable mirror of an external source
+  — so under data-minimization it is not copied to the server. Health entries stay in SQLite,
+  **not** pushed to `POST /entries` / the outbox.
+  - **Write path & `source`:** `POST /entries` stamps `source='user'` (DB default; `NewEntry`
+    has no `source` field, insert never sets it). **Correct as-is, not broken** — the backend
+    never receives a health entry in the local-only model. No fix.
+  - Device energy "spent" server persistence: **not needed** (D4 + SQLite display source).
+  - **Contract UNCHANGED** (no new call) — matches what the app team was told. `EntrySource`
+    already carries the health values for a *future* ingestion path; no `NewEntry.source` added
+    now (YAGNI). **No LOUD flag — no contract change this milestone.**
+  - Apple Health (later) = same shape = same verdict, build nothing.
+  - **Flip path** (if health data must ever be server-durable, ADR-0016): additive optional
+    `NewEntry.source` (bump + wire to InsertData/insert SQL; column+CHECK already exist, no
+    migration) + a de-dup/idempotency scheme for re-synced ranges. Not built.
+  - **Relay to app team:** do NOT enqueue `source: health_connect` entries to the outbox —
+    SQLite-only. Contract unchanged confirms this by omission.
+- **BE-030 (OIDC sentinel) — DONE locally, uncommitted.** `OidcVerifier.configFor` now treats
+  the SSM placeholder `REPLACE_ME_IN_CONSOLE` as unconfigured (→ 503) in addition to blank, so
+  an unconfigured provider returns the clean 503 not a misleading 401. One guard + const
+  `SSM_PLACEHOLDER`, +1 test. Google is now genuinely configured in SSM (real client id set) so
+  unaffected; the fix matters for **Apple** (still placeholder). No contract change, no new dep.
+- **Verified 2026-07-15:** `./gradlew check` green — **148 tests, 0 failures** (was 147; +1
+  OidcVerifierTest), detekt+ktlint clean. LocalStack suites untouched (6/6, not re-run).
+- **Next backend action:** orchestrator commits (BE-030 code + ADR-0016 + ledgers) → the
+  BE-030 one-liner rides the **next image** with any other pending backend SHA (BE-007 was
+  already deployed per session 15 handover; confirm current prod image before rebuild). A new
+  image/redeploy is **not urgent** — BE-030 only changes an error code (401→503) on the
+  still-placeholder Apple provider; it can ride the next deploy rather than trigger one now.
+
 ## Current state (Phase 2 session 15, 2026-07-15) — BE-007 OIDC done locally + Jackson 2→3 converged + board swept to Done
 
 Backend is **LIVE in prod** (API GW `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/`,
