@@ -37,11 +37,11 @@ test("Home renders today's entries from SQLite with labeled estimates", async ()
   // kcal hero: meal totals only, labeled as estimates ("265" also shows in the energy card)
   expect(screen.getAllByText("265").length).toBeGreaterThan(0);
   expect(screen.getByText("estimates")).toBeOnTheScreen();
-  // timeline cards
+  // timeline v2: meal card title + kcal badge (labeled an estimate with ~)
   expect(screen.getByText("Banana & peanuts")).toBeOnTheScreen();
-  expect(screen.getByText("265 kcal")).toBeOnTheScreen();
-  expect(screen.getAllByText("250 ml").length).toBeGreaterThan(0); // water card total + timeline badge
-  // pending entries visibly unsynced
+  expect(screen.getByText("~265 kcal")).toBeOnTheScreen();
+  expect(screen.getAllByText("250 ml").length).toBeGreaterThan(0); // water card total + timeline marker
+  // pending entries visibly unsynced (v2 rows keep the sync note)
   expect(screen.getAllByText(/waiting to sync/).length).toBeGreaterThan(0);
 });
 

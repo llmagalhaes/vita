@@ -27,6 +27,7 @@ export const colors = {
   border: "rgba(120,100,75,0.10)",
   sheet: "#FBF6EC",
   scrubGuide: "rgba(69,62,53,0.4)", // vertical guide line under the scrub finger
+  dotIdle: "#D9CFBD", // Home v2 dock date-picker idle (unmagnified) dot
 } as const;
 
 /** Soft card shadow lifted from the prototype (`0 10px 26px rgba(105,84,60,.08)`). */
@@ -38,15 +39,37 @@ export const shadow = {
   elevation: 3, // Android
 } as const;
 
+/** Home v2 timeline meal/workout row shadow (`0 8px 20px rgba(105,84,60,.07)`). */
+export const shadowRow = {
+  shadowColor: "#69543C",
+  shadowOpacity: 0.07,
+  shadowRadius: 20,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: 2,
+} as const;
+
+/** Home v2 dock tooltip pill shadow (`0 6px 16px rgba(120,80,50,.28)`). */
+export const shadowTooltip = {
+  shadowColor: "#785032",
+  shadowOpacity: 0.28,
+  shadowRadius: 16,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 6,
+} as const;
+
 /**
  * Per-entry-kind palette for timeline cards and wave illustrations
  * (prototype `tl` mapping; workout color-mix values flattened for the
  * default accent — light-only v1).
  */
 export const entryPalette = {
-  meal: { c1: "#F0C9A8", c2: "#E8B48C", line: "#C98A3F", badgeBg: "#F7E7D4", badgeInk: "#A66A3F" },
-  water: { c1: "#C9D6BE", c2: "#A9BC9B", line: "#5F7A61", badgeBg: "#E7EDE1", badgeInk: "#5F7A61" },
-  workout: { c1: "#F0D8CB", c2: "#E4B7A0", line: "#C4704E", badgeBg: "#F7E9DF", badgeInk: "#C4704E" },
+  // `dot` = Home v2 timeline spine dot (reuses the macro palette per the handoff,
+  // a colour system distinct from `line`, which drives WaveIllustration crests).
+  // `badge` = icon tile + kcal chip. Workout is green (`#E7EDE1`/`#5F7A61`) per the
+  // design handoff (CEO: movement is green, not terracotta — reconciled app-wide).
+  meal: { c1: "#F0C9A8", c2: "#E8B48C", line: "#C98A3F", badgeBg: "#F7E7D4", badgeInk: "#A66A3F", dot: "#E0A375" },
+  water: { c1: "#C9D6BE", c2: "#A9BC9B", line: "#5F7A61", badgeBg: "#E7EDE1", badgeInk: "#5F7A61", dot: "#A9BC9B" },
+  workout: { c1: "#F0D8CB", c2: "#E4B7A0", line: "#C4704E", badgeBg: "#E7EDE1", badgeInk: "#5F7A61", dot: "#8CA58A" },
 } as const;
 
 /**

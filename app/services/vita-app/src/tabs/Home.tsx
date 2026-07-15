@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { api, type MealDetail, type Units, type WaterDetail, type WorkoutDetail } from "../api";
+import { api, type MealDetail, type WaterDetail, type WorkoutDetail } from "../api";
 import { addLocalEntry, countNeedsReview, deleteEntry, entriesForDay, type LocalEntry } from "../db/entries";
 import { logChanged, useLogVersion } from "../db/notify";
 import { openReview } from "../review/ReviewSheet";
@@ -20,6 +20,8 @@ import { planDailyTotals } from "../plan/compute";
 import { formatVolume } from "../lib/units";
 import { GrowBar } from "../trends/parts";
 import { MacrosSheet, type MacroMeal } from "./MacrosSheet";
+import { DaySection } from "./home/DaySection";
+import { Timeline } from "./home/Timeline";
 import {
   Bar,
   Card,
@@ -29,9 +31,7 @@ import {
   KeyboardAvoider,
   PressScale,
   Text,
-  WaveIllustration,
   colors,
-  entryPalette,
   fonts,
   spacing,
   useStartOnLayout,
@@ -208,92 +208,6 @@ type TimelineKind = "meal" | "water" | "workout";
 const isTimelineEntry = (e: LocalEntry): e is LocalEntry & { type: TimelineKind } =>
   e.type !== "checkin";
 
-function TimelineCard({ entry, index, units }: { entry: LocalEntry & { type: TimelineKind }; index: number; units: Units }) {
-  const { t } = useTranslation();
-  const router = useRouter();
-  const kind = entry.type;
-  const pal = entryPalette[kind];
-  const { title, meta } = (() => {
-    if (kind === "water") {
-      const d = entry.detail as WaterDetail;
-      return { title: t("home.waterEntry"), meta: formatVolume(d.amountMl, units, t) };
-    }
-    if (kind === "workout") {
-      const d = entry.detail as WorkoutDetail;
-      return {
-        title: d.title,
-        meta: d.durationMin != null ? `${d.durationMin} ${t("common.min")}` : t("home.workout"),
-      };
-    }
-    const d = entry.detail as MealDetail;
-    return {
-      title: d.title ?? t("home.meal"),
-      meta: `${Math.round(d.totals?.kcal ?? 0)} ${t("common.kcal")}`,
-    };
-  })();
-
-  // Every kind opens its detail screen (per-kind route).
-  const href = `/${kind}/${entry.id}`;
-
-  return (
-    <Animated.View entering={FadeIn.duration(500).delay(index * 70)}>
-      <Pressable accessibilityRole="button" onPress={() => router.push(href)}>
-      <Card style={{ padding: 0, overflow: "hidden" }}>
-        <View
-          style={{
-            flexDirection: "row",
-            alignItems: "flex-start",
-            justifyContent: "space-between",
-            gap: spacing.sm + 2,
-            paddingHorizontal: 18,
-            paddingTop: 15,
-            paddingBottom: 4,
-          }}
-        >
-          <View style={{ flexShrink: 1 }}>
-            <Text variant="title" style={{ fontSize: 19 }} color="#453E35">
-              {title}
-            </Text>
-            <Text variant="caption" style={{ fontSize: 12.5, marginTop: 2 }} color={colors.muted}>
-              {inputMethodLabel(entry, t)} · {timeOf(entry.occurredAt)}
-              {entry.syncState === "pending"
-                ? ` · ${t("home.waitingToSync")}`
-                : entry.syncState === "failed"
-                  ? ` · ${t("home.notSaved")}`
-                  : ""}
-            </Text>
-            {/* Terminal failure has no retry (audit Q2) — give a way to clear the card. */}
-            {entry.syncState === "failed" && (
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  deleteEntry(entry.id);
-                  logChanged();
-                }}
-                hitSlop={8}
-                style={{ alignSelf: "flex-start", marginTop: 6 }}
-              >
-                <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12 }} color={colors.accent}>
-                  {t("home.dismiss")}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-          <View
-            style={{ backgroundColor: pal.badgeBg, borderRadius: 14, paddingVertical: 6, paddingHorizontal: 11 }}
-          >
-            <Text style={{ fontFamily: fonts.extraBold, fontSize: 12 }} color={pal.badgeInk}>
-              {meta}
-            </Text>
-          </View>
-        </View>
-        <WaveIllustration kind={kind} delay={100 + index * 90} />
-      </Card>
-      </Pressable>
-    </Animated.View>
-  );
-}
-
 export default function Home() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -304,9 +218,35 @@ export default function Home() {
   const [spentInput, setSpentInput] = useState("");
   const [endVacationConfirmOpen, setEndVacationConfirmOpen] = useState(false);
 
+  // Home v2 timeline: which day the timeline browses (0 = today, up to 9 back).
+  // Discrete commits only — never set mid-gesture. The top cards stay pinned to
+  // today regardless; only the timeline below is day-aware.
+  const [selectedDayOffset, setSelectedDayOffset] = useState(0);
+  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(() => new Set());
+  const goDay = useCallback((off: number) => setSelectedDayOffset(off), []);
+  const onToggleEntry = useCallback((key: string) => {
+    setExpandedKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+  // Terminal-failure dismiss for a timeline entry (audit Q2) — no retry infra.
+  const onDismissEntry = useCallback((id: string) => {
+    deleteEntry(id);
+    logChanged();
+  }, []);
+
   const settings = useMemo(() => getSettings(), []);
   const units = settings?.units ?? "metric";
   const entries = useMemo(() => entriesForDay(new Date()).filter(isTimelineEntry), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  // The selected day's entries drive the timeline (same SQLite query, offset date).
+  const dayEntries = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - selectedDayOffset);
+    return entriesForDay(d).filter(isTimelineEntry);
+  }, [version, selectedDayOffset]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Persisted plan/program: cache is the display source, hydrated from the server
   // once on mount (kv write bumps the log version so these re-read).
@@ -757,18 +697,20 @@ export default function Home() {
         />
       )}
 
-      {/* timeline */}
-      <View style={{ paddingHorizontal: 4, paddingTop: 6 }}>
-        <SectionLabel>{t("home.today")}</SectionLabel>
+      {/* timeline v2 — date section (label + Today↺ pill + dock) then the
+          day-swipeable timeline. Replaces the old wave-illustrated cards. */}
+      <View style={{ paddingTop: 6 }}>
+        <DaySection selectedOffset={selectedDayOffset} goDay={goDay} />
       </View>
-      {entries.length === 0 && (
-        <Text variant="body" color={colors.muted} style={{ paddingHorizontal: 4 }}>
-          {t("home.emptyTimeline")}
-        </Text>
-      )}
-      {entries.map((e, i) => (
-        <TimelineCard key={e.id} entry={e} index={i} units={units} />
-      ))}
+      <Timeline
+        entries={dayEntries}
+        units={units}
+        selectedOffset={selectedDayOffset}
+        goDay={goDay}
+        expandedKeys={expandedKeys}
+        onToggle={onToggleEntry}
+        onDismiss={onDismissEntry}
+      />
     </ScrollView>
     <MacrosSheet
       visible={macrosSheetOpen}

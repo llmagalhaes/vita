@@ -1,5 +1,55 @@
 # App Team — Next Session
 
+## Session 13 (2026-07-15) — Home v2 (dock date picker + inline timeline) SHIPPED + emulator-verified ✅
+CEO greenlit the build ("manda ver"). Home v2 **replaces** v1 (no toggle). Full detail:
+`Progress/HOME-V2-Progress.md`. Epic **HOME-V2** `1216600225044885` (subtasks 1..9 → In progress).
+- **New**: `src/tabs/home/{dock.ts,DockDatePicker,DaySection,Timeline,timelineData}.tsx` + `src/lib/haptics.ts`.
+  **Modified**: `src/tabs/Home.tsx` (day-aware), `src/ui/tokens.ts`, `en.json`. New dep **`expo-haptics ~56.0.3`**.
+- **Dock magnifier**: per-dot Gaussian `useAnimatedStyle`, touch-down gesture (`manualActivation` +
+  `blocksExternalGesture(tabsPagerRef)`), commit-on-release only, per-crossing haptic tick, `vtTip` tooltip.
+  Release spring = ONE `drag` value 1→0 with the overshoot bezier `(.34,1.56,.64,1)/550` blending drag↔idle
+  (no per-frame withSpring). `transformOrigin:"center bottom"`.
+- **Timeline v2**: spine/gutter rows, water passive marker, meal/workout expand-in-place (multi-open,
+  keyed `e_{offset}_{id}`, "Full details →" today-only), day-swipe (elastic ends, slide-in on commit).
+  Kept the offline sync-note + failed-dismiss the old card had.
+- **⚠️ Worklet gotcha (caught ON the emulator, red-screen):** dock.ts pure helpers MUST carry `"worklet"` —
+  they run inside the dock's `useAnimatedStyle`/gesture; without it Reanimated throws "Object is not a function"
+  on the UI thread. This class of bug does NOT reproduce under Jest — the emulator pass is why it was caught.
+- **R1 (day-swipe vs tab pager)** device-verified BOTH ways: timeline region → change day (stays on Today);
+  top-cards region → change tab (Today→Trends, one tab, no session-10 last-tab regression); vertical drag on the
+  timeline scrolls. `blocksExternalGesture` + shared-value live-state (no mid-gesture recreation, no setState).
+- **CEO decision baked in**: workout tile/badge is now GREEN `#E7EDE1`/`#5F7A61` (movement = green) — reconciled
+  app-wide (ripples to Trends chips + workout-detail badge); `entryPalette.workout.line` kept terracotta so
+  WaveIllustration crests on detail screens are unchanged. **Flag for CEO** (§7 Q7 default that mattered).
+- **Emulator (Pixel_10_Pro, Expo Go SDK 56, mock):** verified dock idle (matches screens/03), drag→day commit
+  ("FRIDAY Jul 10"), Today↺ return, timeline rows (green workout tile), expand-in-place chips/items/Full details
+  (matches screens/06), multi-open, R1 both ways. **NOT frozen in a screenshot:** the magnifier's live bulge +
+  tooltip mid-drag (adb screencap lands on arbitrary frames) — gesture works end-to-end, math unit-tested.
+- Gates: **tsc 0 · Jest 210/210 (41 suites, +2: dock, timelineData) · expo export OK**.
+- **CEO Qs**: workout-green reconcile app-wide OK? · Full-details today-only OK? · past-day content shows empty on
+  this emulator only because the persisted seed is anchored to an older date (query is the tested `entriesForDay`).
+
+## Session 13 (2026-07-15) — APP-050 sheet-bounce fix SHIPPED + emulator-verified ✅
+CEO greenlit the session-11 spec. Applied the exact 2-line behavioral fix to **`src/ui/useSheetDrag.ts`** only:
+- **Entrance**: `withSpring(0,{damping:20,stiffness:210})` (ζ≈0.69, ~33px overshoot) →
+  `withTiming(0,{duration:450, easing:Easing.bezier(.22,.9,.32,1)})` via a new exported
+  `ENTRANCE_ANIM` const that reuses `motion.unfold` (verified = `{450,[.22,.9,.32,1]}` — no hardcoded values).
+- **Cancelled-drag spring-back**: damping 18→30 (ζ≈1.01). Drag-follow + 260ms programmatic close untouched.
+- **New test `src/ui/__tests__/useSheetDrag.test.ts`** (3 asserts): entrance is a 450ms timing descriptor,
+  monotone-decelerate bezier (control y ≤ 1), no `damping`/`stiffness` keys. The Reanimated jest mock doesn't
+  simulate spring overshoot (a frame test would false-negative) → used the spec's descriptor-assertion fallback.
+- Gates: **tsc 0 · Jest 202/202 (39 suites, +3) · expo export iOS OK**.
+- **Emulator (Pixel_10_Pro, Expo Go SDK 56, mock):** MacrosSheet entrance frame-burst = **clean monotone rise
+  to rest, zero overshoot, byte-identical settled frames** (no bounce, no wobble). The childish bounce is gone.
+  Recurring cold-boot ANRs (documented session-10 slow-JS emulator behavior, not an app regression); app reached
+  a fully interactive Home repeatedly. Ledger: `Progress/APP-050-sheet-bounce-spec-Progress.md`.
+- **⚠️ COMMIT HYGIENE — the working tree also holds uncommitted, in-progress HOME-V2 work that is NOT mine and
+  NOT APP-050:** `src/tabs/home/` (DockDatePicker/DaySection/Timeline), `src/lib/haptics.ts`, and modified
+  `src/tabs/Home.tsx`, `src/ui/tokens.ts`, `src/i18n/locales/en.json`, `package.json`/`package-lock.json`
+  (expo-haptics). **The APP-050 commit must include ONLY `src/ui/useSheetDrag.ts` + `src/ui/__tests__/useSheetDrag.test.ts`.**
+  Separately, that HOME-V2 `DockDatePicker.tsx` has a runtime `useAnimatedStyle` crash ("Object is not a function")
+  surfaced on the emulator — belongs to whoever owns HOME-V2, unrelated to this fix.
+
 ## Session 12 (2026-07-15) — Home v2 spec (SPEC ONLY, no build) ✅
 CEO asked for a full build-ready spec of **Home v2** (dock date picker + inline timeline)
 before any code. Docs only — no src/, no simulator.
