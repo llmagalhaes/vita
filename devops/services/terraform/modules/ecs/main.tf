@@ -45,15 +45,21 @@ variable "desired_count" {
 #                        it is NOT KMS-wrapped, KmsKeyWrapper only wraps the per-user DEKs)
 #   VITA_HMAC_KEY    -> vita.crypto.hmac-key (email blind-index HMAC key, plaintext base64)
 # VITA_MASTER_KEY is deliberately absent: it feeds LocalKeyWrapper (@Profile !aws) only.
-# google-/apple-client-config SSM params exist but the app does not read them yet (no OAuth).
+# GOOGLE_/APPLE_OIDC_AUDIENCE (BE-007, ADR-0015): the OAuth client ids. The app reads
+# ${GOOGLE_OIDC_AUDIENCE:}/${APPLE_OIDC_AUDIENCE:} (application.yaml `oidc.*.audience`);
+# empty/placeholder → the OIDC endpoint fails closed (503), never 404. SSM params stay
+# REPLACE_ME_IN_CONSOLE until the CEO pastes real client ids — a value change is picked up
+# on the next task start, no redeploy. Wired now so no task-def churn is needed later.
 variable "container_secrets" {
   type = map(string)
   default = {
-    VITA_JWT_SECRET   = "jwt-secret"
-    ANTHROPIC_API_KEY = "anthropic-api-key"
-    DB_PASSWORD       = "db-credentials"
-    VITA_SERVICE_DEK  = "wrapped-service-dek"
-    VITA_HMAC_KEY     = "email-blind-index-hmac-key"
+    VITA_JWT_SECRET      = "jwt-secret"
+    ANTHROPIC_API_KEY    = "anthropic-api-key"
+    DB_PASSWORD          = "db-credentials"
+    VITA_SERVICE_DEK     = "wrapped-service-dek"
+    VITA_HMAC_KEY        = "email-blind-index-hmac-key"
+    GOOGLE_OIDC_AUDIENCE = "google-client-config"
+    APPLE_OIDC_AUDIENCE  = "apple-client-config"
   }
 }
 

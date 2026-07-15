@@ -1,6 +1,17 @@
 # DevOps — Next session
 
-## Current state (BACKEND IS LIVE IN PRODUCTION — 2026-07-15)
+## Current state (BACKEND LIVE — OIDC BUILD `909262c` DEPLOYED — 2026-07-15)
+
+**Latest roll (OPS-021):** redeployed to `909262c` (BE-007 Google/Apple OIDC + BE-029 per-exercise
+muscles + Jackson convergence) and wired the OIDC env. Task-def now **`vita:3`**, RUNNING+HEALTHY,
+`/health` 200, Flyway applied **V007** (oidc_identity). Ledger: `Progress/OPS-021-oidc-redeploy-Progress.md`.
+- **OIDC env wired**: task-def maps SSM `/vita/prod/google-client-config` → `GOOGLE_OIDC_AUDIENCE`
+  and `apple-client-config` → `APPLE_OIDC_AUDIENCE` (env-from-SSM secret, same shape as crypto params).
+  CEO pastes real client ids into those two SSM params → next task start picks them up, **no redeploy**.
+- **CEO caveat**: while the SSM params hold the placeholder `REPLACE_ME_IN_CONSOLE`, a `POST /v1/auth/oidc`
+  returns **401** (not the 503 the brief predicted) — the placeholder is a non-empty string so the
+  backend's `isBlank()` 503 guard doesn't trip; it decodes and rejects the token instead. Still fully
+  fail-closed (no token ever accepted). See ledger "Caveat" for the optional backend sentinel fix.
 
 **First prod deploy milestone DONE.** The CEO called "subir o backend em produção"; backend lead
 pushed the arm64 image and DevOps un-parked the infra in parallel. The API is serving.
@@ -8,14 +19,15 @@ pushed the arm64 image and DevOps un-parked the infra in parallel. The API is se
 - **API base URL** (hand to the app / CEO): `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/`
   - `GET /health` → `{"status":"up"}` HTTP 200 (verified end-to-end: API GW → VPC Link → Cloud Map
     SRV → Fargate task:8080 → app → RDS `SELECT 1`).
-- **Image**: `vita-api:a03e194` (+`latest`), digest `sha256:fa747eb6d537…c10c33`, linux/arm64.
+- **Image**: `vita-api:909262c`, digest `sha256:108eaab9b70e…5af06`, linux/arm64 (was `a03e194`).
 - **ECS**: cluster/service `vita`, 1 Fargate task (256 CPU / 1024 MB, ARM64) RUNNING + HEALTHY,
-  `module.ecs.desired_count = 1`. App boots under Spring profile `aws` (KmsKeyWrapper + S3FileStore),
-  Flyway migrated RDS to v006 on first boot.
+  task-def `vita:3`, `module.ecs.desired_count = 1`. App boots under Spring profile `aws` (KmsKeyWrapper
+  + S3FileStore), Flyway migrated RDS to **v007** (oidc_identity) on this boot.
 - **RDS**: master password set via CLI, mirrored into SSM `db-credentials`. Connected over TLS.
 - **Secrets**: 5 app-consumed SSM SecureStrings filled from this machine (jwt, service-dek, hmac,
-  anthropic real key, db-credentials). `google-/apple-client-config` left placeholder (app doesn't
-  read them — no OAuth). See `Progress/OPS-010-ssm-Progress.md`.
+  anthropic real key, db-credentials). `google-/apple-client-config` still placeholder
+  (`REPLACE_ME_IN_CONSOLE`) but now **wired** into the task-def (OPS-021) → CEO pastes real client ids,
+  next task start picks them up. See `Progress/OPS-010-ssm-Progress.md` + `OPS-021-...`.
 - **GitHub repo Variables** set (`gh variable set` on llmagalhaes/vita): `AWS_PLAN_ROLE_ARN`,
   `AWS_APPLY_ROLE_ARN`, `AWS_REGION=eu-west-1`. Unblocks the OPS-004 plan workflow.
 
@@ -77,7 +89,11 @@ gp3 ~$2). Under the $40 budget alarm.
   matches product intent (Vita keeps a "quiet log" — do meal/photo entries need to survive past 30d?).
   If yes, raise/remove the lifecycle on `vita-prod-uploads-*` (a one-line tfvar, needs CEO OK to apply).
   (Exports staying at 30d is fine — they're regenerated on demand.)
-- **google-/apple-client-config** SSM params are placeholders and unused (no OAuth wired). Keep or drop?
+- **google-/apple-client-config** SSM params now wired to the OIDC env (OPS-021) but hold the placeholder
+  `REPLACE_ME_IN_CONSOLE`. To turn Google/Apple sign-in on: paste the real OAuth client ids into both
+  SSM SecureStrings, then restart the ECS task (or let the next roll pick them up) — no terraform needed.
+  Until then the OIDC endpoint returns 401 (fail-closed). Optional: backend can treat the placeholder as
+  blank to restore the "not configured" 503 signal.
 - Carried: audit/log retention 400 d default; exports 90 d; domain-purchase trigger (still `vita://` scheme).
 
 ## Blockers
