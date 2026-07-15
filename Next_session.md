@@ -2,6 +2,17 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 12 — CEO fidelity verdict → prototype-details spec READY TO EXECUTE)
+
+**CEO reviewed the app against the prototype (screenshots + a 37.7s recording of the prototype) and called it "ainda bem longe" on animations, gestures and small details (button shadows).** Fable (this session) read the full prototype source minutely + analyzed the video frame-by-frame and wrote the execution spec: **`docs/reviews/2026-07-15-prototype-details-spec.md`** — START THERE. CEO is switching the session to Opus for execution.
+
+- **P0 (CEO-named, never fixed across 3 sessions): APP-051** Macros card must open a **centered pop-up** (light blurred backdrop, vtPop 300ms) — today it's a bottom sheet (`src/tabs/MacrosSheet.tsx` via `SheetOverlay`). Build reusable `PopOverlay`, converge plan.tsx's ad-hoc `popIn`.
+- **P0: APP-052** Trends bars don't sweep on entry — **root cause found**: TabsPager pre-mounts Trends, GrowBar animates once offscreen. Fix = focus-epoch replay keyed off settled `pathname` (NO pager surgery, NO mid-gesture setState). Also stagger 55ms/16ms (not 30), grow 550ms, curve draw-ons missing.
+- **P0: APP-053** Check-in deck → centered pop-up with stacked peek cards, advance anim (translateX 52px + rotate 2°), drop-out dismiss (90px threshold), "All caught up" auto-close 1100ms.
+- **P1: APP-054** shadows (Button/Toggle have ZERO today; accent-tinted CTA shadows per spec table) · **APP-055** toast (missing app-wide) · **APP-056** press-scale calibration per surface.
+- **P2: APP-057** detail-screen entrance choreography diff-pass.
+- Gates: tsc/Jest + **mandatory emulator drive per P0** (drive script in the spec). Asana: create APP-051..057 (Model: Opus 051–053, Sonnet 054–057). Gesture rules from sessions 6/11 stand — pager untouched.
+
 ## Where we are (2026-07-15, session 11 — sheet-bounce fix + Home v2 built + specs)
 
 **Fixed the "childish bounce" and built Home v2 (replaces v1), both emulator-verified.** Commits `01afa71` (specs) → `2afab62` (bounce) → `92266b8` (Home v2), pushed, tree clean. Fresh prod APK built (108 MB, prod URL baked, 20:41).
