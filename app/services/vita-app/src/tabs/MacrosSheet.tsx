@@ -1,13 +1,14 @@
 /**
  * Macros pop-up (CEO #5, prototype "Macros pop-up"). Tapping the Home macros card
- * opens this full sheet over the blurred backdrop instead of the old in-card
- * expansion: per-macro grams + bar, then a breakdown of each meal that contributed.
- * Informational only — estimates labeled, no goals/targets (philosophy).
+ * opens a CENTERED card that scales in over a blurred backdrop (APP-051) — NOT a
+ * bottom sheet (the bug the CEO flagged three sessions running): per-macro grams +
+ * bar, then a breakdown of each meal that contributed. Informational only —
+ * estimates labeled, no goals/targets (philosophy).
  */
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Path } from "react-native-svg";
-import { Bar, SheetOverlay, Text, colors, fonts, spacing } from "../ui";
+import { Bar, PopOverlay, Text, colors, fonts, shadowPop, spacing } from "../ui";
 
 export type MacroMeal = { id: string; title: string; proteinG: number; carbsG: number; fatG: number; kcal: number; at: string };
 
@@ -33,8 +34,18 @@ export function MacrosSheet({
   ] as const;
 
   return (
-    <SheetOverlay visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
-      <View style={{ gap: spacing.md }}>
+    <PopOverlay visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderRadius: 26,
+          padding: 20,
+          borderWidth: 1,
+          borderColor: "rgba(120,100,75,0.08)",
+          gap: spacing.md,
+          ...shadowPop,
+        }}
+      >
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View>
             <Text variant="title" style={{ fontSize: 17 }}>
@@ -103,6 +114,6 @@ export function MacrosSheet({
           {t("home.macrosSheetFooter")}
         </Text>
       </View>
-    </SheetOverlay>
+    </PopOverlay>
   );
 }

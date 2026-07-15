@@ -37,7 +37,20 @@ export function Toggle({
       <Animated.View style={[{ width: 46, height: 27, borderRadius: 15, justifyContent: "center" }, track]}>
         <Animated.View
           style={[
-            { position: "absolute", top: 3, width: 21, height: 21, borderRadius: 11, backgroundColor: colors.card },
+            {
+              position: "absolute",
+              top: 3,
+              width: 21,
+              height: 21,
+              borderRadius: 11,
+              backgroundColor: colors.card,
+              // prototype knob shadow `0 2px 6px rgba(60,45,30,.25)`
+              shadowColor: "#3C2D1E",
+              shadowOpacity: 0.25,
+              shadowRadius: 6,
+              shadowOffset: { width: 0, height: 2 },
+              elevation: 3,
+            },
             knob,
           ]}
         />

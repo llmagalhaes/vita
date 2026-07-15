@@ -8,7 +8,7 @@
 import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Card, SheetOverlay, Text, Toggle, colors, fonts } from "../ui";
+import { Card, SheetOverlay, Text, Toggle, colors, fonts, showToast } from "../ui";
 import { createHabit, deleteHabit } from "../db/habits";
 import { getVacation, saveVacation } from "../db/vacation";
 import { getRecognizer } from "../capture/speech";
@@ -66,6 +66,7 @@ export function VacationSheet({ visible, onClose }: { visible: boolean; onClose:
     saveVacation({ ranges: [{ start: from, end: to }], keepCheckins, tripHabitIds: tripHabits.map((h) => h.id) });
     setTripHabits([]);
     onClose();
+    showToast(t("toast.vacationOn"));
   };
 
   // Cancel: undo the trip habits we speculatively created this session.

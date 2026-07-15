@@ -8,7 +8,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
+import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, showToast, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -207,6 +207,7 @@ export default function Account() {
       onConfirm={() => {
         endVacation();
         setEndConfirmOpen(false);
+        showToast(t("toast.vacationEnded"));
       }}
       onClose={() => setEndConfirmOpen(false)}
     />

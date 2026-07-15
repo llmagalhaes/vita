@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, type NewEntry } from "../api";
 import { addLocalEntry, enqueueInterpretation } from "../db/entries";
 import { logChanged } from "../db/notify";
 import { drainOutbox } from "../db/outbox";
+import { showToast } from "../ui/toast";
 import { persistForQueue } from "./photo";
 
 export type CaptureStatus = "idle" | "parsing" | "review" | "error";
@@ -20,7 +21,6 @@ type CaptureState = {
 
 type CaptureContextValue = CaptureState & {
   prefill: string;
-  toast: string | null;
   textEntryNonce: number;
   submit: (text: string) => void;
   submitPhoto: (image: { uri: string }, caption?: string) => void;
@@ -59,15 +59,7 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const [state, setState] = useState<CaptureState>(idle);
   const [prefill, setPrefill] = useState("");
-  const [toast, setToast] = useState<string | null>(null);
   const [textEntryNonce, setTextEntryNonce] = useState(0);
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showToast = useCallback((msg: string) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(msg);
-    toastTimer.current = setTimeout(() => setToast(null), 2200);
-  }, []);
 
   // Offline (no network to reach /parse): park the raw capture; the reconnect drain
   // interprets it later so nothing is lost. A reached-but-failing server (ApiError)
@@ -188,7 +180,6 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
       value={{
         ...state,
         prefill,
-        toast,
         textEntryNonce,
         submit,
         submitPhoto,

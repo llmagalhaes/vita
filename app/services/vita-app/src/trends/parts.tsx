@@ -1,21 +1,35 @@
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { createContext, useContext, type ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { Chevron, Text, colors, fonts, useStartOnLayout } from "../ui";
 import { ScrubOverlay } from "./scrub";
 
 /**
+ * Focus-replay epoch (APP-052). Trends is PRE-MOUNTED by TabsPager (session-6 swipe
+ * fix), so a one-shot mount animation runs once, offscreen, and the bars are already
+ * static by the time the user swipes in. Trends bumps this epoch every time it
+ * becomes the settled tab; `TrendCard` re-keys off it so the card fade + the bars'
+ * left→right grow replay on every entry (the CEO's named bug). Bumping happens on
+ * navigation settle only (never mid-gesture — the pager rule stands).
+ */
+export const TrendsReplayContext = createContext(0);
+
+/** Per-window bar stagger (prototype `tDelay`): 55ms/bar for the 7-day view, 16ms for 15/30. */
+export const barDelay = (i: number, count: number): number => i * (count === 7 ? 55 : 16);
+
+/**
  * A chart bar that grows up from the bottom on mount (`vtGrowY`, Fable A3). Height
  * is a % of the parent (which justifies flex-end, so growth reads bottom-up).
- * `delay` staggers neighbours. Remounts on window change (keyed by day) re-grow it.
- * The first grow starts from onLayout (see useStartOnLayout); target changes tween.
+ * `delay` staggers neighbours. Remounts (window change, or the Trends focus-replay
+ * key) re-grow it. The first grow starts from onLayout (see useStartOnLayout);
+ * target changes tween.
  */
 export function GrowBar({ pct, color, delay = 0, style }: { pct: number; color: string; delay?: number; style?: StyleProp<ViewStyle> }) {
   const target = Math.max(0, Math.min(100, pct));
   const h = useSharedValue(0);
   const started = useRef(false);
   const onLayout = useStartOnLayout(() => {
-    h.value = withDelay(delay, withTiming(target, { duration: 450 }));
+    h.value = withDelay(delay, withTiming(target, { duration: 550 })); // vtGrowY .55s
     started.current = true;
   });
   useEffect(() => {
@@ -82,9 +96,11 @@ export function TrendCard({
   const [active, setActive] = useState<number | null>(null);
   const scrubbable = count != null && count > 0;
   const read = open && active != null && readout ? readout(active) : null;
+  const epoch = useContext(TrendsReplayContext); // re-key on Trends entry → replay fade + bar grow
 
   return (
     <Animated.View
+      key={epoch}
       entering={FadeInDown.duration(420).delay(delay)}
       style={{
         backgroundColor: colors.card,

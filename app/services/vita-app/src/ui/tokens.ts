@@ -58,6 +58,47 @@ export const shadowTooltip = {
 } as const;
 
 /**
+ * Raised-control shadows the prototype gives every button/CTA (APP-054). The app
+ * shipped Button/Toggle with none. `shadowCta` is a fn: the prototype tints a
+ * primary CTA's shadow with the accent itself (`0 10px 22px accent@35%`), so it
+ * must follow the active accent (incl. the vacation sea tone) — pass the color.
+ */
+export const shadowCta = (color: string) =>
+  ({ shadowColor: color, shadowOpacity: 0.35, shadowRadius: 14, shadowOffset: { width: 0, height: 8 }, elevation: 5 }) as const;
+/** Light neutral raise: inputs, ghost tiles, secondary buttons (`0 6px 18px rgba(105,84,60,.07)`). */
+export const shadowSoft = {
+  shadowColor: "#69543C",
+  shadowOpacity: 0.07,
+  shadowRadius: 18,
+  shadowOffset: { width: 0, height: 6 },
+  elevation: 2,
+} as const;
+/** Dark button / toast raise (`0 10px 24px rgba(60,45,30,.28)`). */
+export const shadowDark = {
+  shadowColor: "#3C2D1E",
+  shadowOpacity: 0.28,
+  shadowRadius: 24,
+  shadowOffset: { width: 0, height: 10 },
+  elevation: 6,
+} as const;
+/** Centered pop-up card (`0 20px 50px rgba(105,84,60,.20)`) — Macros/portion pops. */
+export const shadowPop = {
+  shadowColor: "#69543C",
+  shadowOpacity: 0.2,
+  shadowRadius: 30,
+  shadowOffset: { width: 0, height: 12 },
+  elevation: 10,
+} as const;
+/** Check-in deck's deep card raise (`0 26px 60px rgba(60,45,30,.30)`). */
+export const shadowDeck = {
+  shadowColor: "#3C2D1E",
+  shadowOpacity: 0.3,
+  shadowRadius: 32,
+  shadowOffset: { width: 0, height: 20 },
+  elevation: 12,
+} as const;
+
+/**
  * Per-entry-kind palette for timeline cards and wave illustrations
  * (prototype `tl` mapping; workout color-mix values flattened for the
  * default accent — light-only v1).

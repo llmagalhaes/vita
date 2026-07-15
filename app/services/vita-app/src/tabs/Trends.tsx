@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
+import { usePathname } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text, colors, fonts } from "../ui";
 import { ActivityTab } from "../trends/ActivityTab";
 import { FoodTab } from "../trends/FoodTab";
+import { TrendsReplayContext } from "../trends/parts";
 import { MuscleSheet, type MuscleSelection } from "../trends/MuscleSheet";
 import { WorkoutPreviewSheet } from "../workout/PreviewSheet";
 import { vacationRanges } from "../db/vacation";
@@ -51,6 +53,14 @@ export default function Trends() {
   const { t } = useTranslation();
   const [window, setWindow] = useState<TrendWindow>("W");
   const [tab, setTab] = useState<"food" | "activity">("food");
+  // Focus-replay (APP-052): bump an epoch every time Trends becomes the settled tab
+  // so its charts re-run their left→right grow on each entry, not just once at the
+  // offscreen pre-mount. pathname flips only on navigation settle — never mid-swipe.
+  const focused = usePathname() === "/trends";
+  const [replayEpoch, setReplayEpoch] = useState(0);
+  useEffect(() => {
+    if (focused) setReplayEpoch((e) => e + 1);
+  }, [focused]);
   // Sheets live here so they absolute-fill the screen (not the scroll content).
   const [preview, setPreview] = useState<LocalEntry | null>(null);
   const [muscleSel, setMuscleSel] = useState<MuscleSelection | null>(null);
@@ -87,11 +97,13 @@ export default function Trends() {
         flex
       />
 
-      {tab === "food" ? (
-        <FoodTab window={window} isExcluded={isExcluded} />
-      ) : (
-        <ActivityTab window={window} isExcluded={isExcluded} onPreview={setPreview} onMuscle={(muscle, sessions) => setMuscleSel({ muscle, sessions })} />
-      )}
+      <TrendsReplayContext.Provider value={replayEpoch}>
+        {tab === "food" ? (
+          <FoodTab window={window} isExcluded={isExcluded} />
+        ) : (
+          <ActivityTab window={window} isExcluded={isExcluded} onPreview={setPreview} onMuscle={(muscle, sessions) => setMuscleSel({ muscle, sessions })} />
+        )}
+      </TrendsReplayContext.Provider>
     </ScrollView>
     <MuscleSheet selection={muscleSel} onClose={() => setMuscleSel(null)} onPreview={setPreview} />
     <WorkoutPreviewSheet entry={preview} onClose={() => setPreview(null)} />

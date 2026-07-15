@@ -3,7 +3,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { BackButton, Button, Card, Chevron, KeyboardAvoider, Text, Toggle, colors, fonts, spacing } from "../ui";
+import { BackButton, Button, Card, Chevron, KeyboardAvoider, Text, Toggle, colors, fonts, showToast, spacing } from "../ui";
 import {
   createHabit,
   deleteHabit,
@@ -277,6 +277,7 @@ function HabitRow({ habit }: { habit: Habit }) {
   const remove = () => {
     deleteHabit(habit.id);
     afterHabitChange();
+    showToast(t("toast.habitRemoved"));
   };
 
   return (

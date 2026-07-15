@@ -557,5 +557,10 @@
     "idxLabel": "{{current}} of {{total}}",
     "keep": "Keep",
     "allDone": "All caught up"
+  },
+  "toast": {
+    "habitRemoved": "Habit removed",
+    "vacationOn": "Vacation mode on",
+    "vacationEnded": "Vacation ended — welcome back"
   }
 }

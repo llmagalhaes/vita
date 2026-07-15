@@ -349,23 +349,3 @@ export function CaptureSheet() {
   );
 }
 
-/** Small dark toast above the pill ("Added to your log"). */
-export function CaptureToast() {
-  const capture = useCapture();
-  if (!capture.toast) return null;
-  return (
-    <View
-      pointerEvents="none"
-      style={{ position: "absolute", left: 0, right: 0, bottom: 122, alignItems: "center" }}
-    >
-      <Animated.View
-        entering={FadeIn.duration(motion.fade.durationMs)}
-        style={{ backgroundColor: "#453E35", borderRadius: 18, paddingVertical: 10, paddingHorizontal: 18 }}
-      >
-        <Text variant="label" style={{ fontFamily: fonts.semiBold, fontSize: 13 }} color="#F7F0E4">
-          {capture.toast}
-        </Text>
-      </Animated.View>
-    </View>
-  );
-}

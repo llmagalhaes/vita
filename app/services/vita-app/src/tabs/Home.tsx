@@ -33,6 +33,7 @@ import {
   Text,
   colors,
   fonts,
+  showToast,
   spacing,
   useStartOnLayout,
 } from "../ui";
@@ -475,9 +476,10 @@ export default function Home() {
                 <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }} numberOfLines={1}>
                   {formatVolume(waterMl, units, t)}
                 </Text>
-                <Pressable
+                <PressScale
                   accessibilityRole="button"
                   onPress={quickAddWater}
+                  scale={0.94} // small round-ish button — snappier press than the .97 default (prototype .94)
                   style={{
                     alignSelf: "flex-start",
                     paddingVertical: 8,
@@ -489,7 +491,7 @@ export default function Home() {
                   <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#5F7A61">
                     {t("home.quickAdd")}
                   </Text>
-                </Pressable>
+                </PressScale>
               </View>
             </View>
             {waterOpen && (
@@ -727,6 +729,7 @@ export default function Home() {
       onConfirm={() => {
         endVacation();
         setEndVacationConfirmOpen(false);
+        showToast(t("toast.vacationEnded"));
       }}
       onClose={() => setEndVacationConfirmOpen(false)}
     />

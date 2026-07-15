@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
 import Animated, { Keyframe } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
-import { Button, Card, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetTransition, useSheetPresence } from "../ui";
+import { Button, Card, SheetBackdrop, Text, colors, fonts, motion, shadowDeck, spacing, useSheetTransition, useSheetPresence } from "../ui";
 import type { Habit } from "../db/habits";
 import { listHabits } from "../db/habits";
 import { useLogVersion } from "../db/notify";
@@ -32,10 +32,14 @@ export function CheckinQuestion({
   habit,
   onAnswer,
   idxLabel,
+  deck = false,
 }: {
   habit: Habit;
   onAnswer: (answer: Answer) => void;
   idxLabel?: string;
+  /** In the centered deck the top card sits deep above the stack (prototype
+   *  `0 26px 60px rgba(60,45,30,.30)`); the inline Habits→Today card stays flat. */
+  deck?: boolean;
 }) {
   const { t } = useTranslation();
   const isPlan = habit.kind === "plan";
@@ -45,6 +49,7 @@ export function CheckinQuestion({
         gap: spacing.md,
         borderWidth: 1.5,
         borderColor: "rgba(196,112,78,0.35)",
+        ...(deck ? shadowDeck : null),
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
@@ -145,7 +150,7 @@ export function CheckinSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal: 30 }}>
-      <SheetBackdrop onClose={closeCheckins} closeLabel={t("common.cancel")} style={backdropStyle} />
+      <SheetBackdrop onClose={closeCheckins} closeLabel={t("common.cancel")} scrim="dark" style={backdropStyle} />
       <GestureDetector gesture={dragGesture}>
         <Animated.View
           onLayout={onSheetLayout}
@@ -155,16 +160,48 @@ export function CheckinSheet() {
           {current ? (
             <>
               <View>
-                {/* peeking deck — tinted strips for up to 2 queued cards behind the top one */}
+                {/* peeking deck — opaque tinted strips for up to 2 queued cards behind the
+                    top one (prototype #F1E8D7 / #F8F0E1, read right over the dark scrim) */}
                 {remaining > 1 && (
-                  <View style={{ position: "absolute", top: -14, left: 24, right: 24, height: 20, borderRadius: 14, backgroundColor: "rgba(255,253,247,0.45)" }} />
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -21,
+                      left: 20,
+                      right: 20,
+                      height: 56,
+                      borderRadius: 22,
+                      backgroundColor: "#F1E8D7",
+                      shadowColor: "#3C2D1E",
+                      shadowOpacity: 0.1,
+                      shadowRadius: 20,
+                      shadowOffset: { width: 0, height: 8 },
+                      elevation: 4,
+                    }}
+                  />
                 )}
                 {remaining > 0 && (
-                  <View style={{ position: "absolute", top: -8, left: 12, right: 12, height: 24, borderRadius: 16, backgroundColor: "rgba(255,253,247,0.7)" }} />
+                  <View
+                    style={{
+                      position: "absolute",
+                      top: -11,
+                      left: 10,
+                      right: 10,
+                      height: 66,
+                      borderRadius: 24,
+                      backgroundColor: "#F8F0E1",
+                      shadowColor: "#3C2D1E",
+                      shadowOpacity: 0.12,
+                      shadowRadius: 24,
+                      shadowOffset: { width: 0, height: 10 },
+                      elevation: 5,
+                    }}
+                  />
                 )}
                 <Animated.View key={current.id} entering={index === 0 ? undefined : nextCardIn}>
                   <CheckinQuestion
                     habit={current}
+                    deck
                     idxLabel={t("habits.idxLabel", { current: index + 1, total: queue.length })}
                     onAnswer={(a) => {
                       answer(current, a);

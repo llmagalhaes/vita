@@ -17,7 +17,7 @@ import {
   visibleDays,
   windowRange,
 } from "./aggregate";
-import { GrowBar, TrendCard, linePath } from "./parts";
+import { GrowBar, TrendCard, barDelay, linePath } from "./parts";
 
 const round = (n: number) => Math.round(n);
 const CURVE_W = 300;
@@ -103,7 +103,7 @@ function DayBars({
                 {topLabel(b)}
               </Text>
             )}
-            <GrowBar pct={(v / max) * 100} color={color(b)} delay={i * 30} style={{ width: "100%", maxWidth: 22, minHeight: v > 0 ? 3 : 0, borderRadius: 6 }} />
+            <GrowBar pct={(v / max) * 100} color={color(b)} delay={barDelay(i, n)} style={{ width: "100%", maxWidth: 22, minHeight: v > 0 ? 3 : 0, borderRadius: 6 }} />
             <Text style={{ fontFamily: active === i ? fonts.extraBold : fonts.semiBold, fontSize: 10, height: 13 }} color={colors.muted}>
               {barLabel(b.date, i, n)}
             </Text>
@@ -125,8 +125,8 @@ function PairBars({ days, active }: { days: DayBucket[]; active: number | null }
         return (
           <View key={b.key} style={{ flex: 1, alignItems: "center", gap: 5, height: "100%", justifyContent: "flex-end", opacity: dim }}>
             <View style={{ flexDirection: "row", gap: 2, alignItems: "flex-end", justifyContent: "center", width: "100%", flex: 1 }}>
-              <GrowBar pct={(b.consumedKcal / max) * 100} color={colors.macro.fat} delay={i * 30} style={{ width: 9, minHeight: b.consumedKcal > 0 ? 3 : 0, borderRadius: 4 }} />
-              <GrowBar pct={(b.spentKcal / max) * 100} color={colors.macro.protein} delay={i * 30 + 60} style={{ width: 9, minHeight: b.spentKcal > 0 ? 3 : 0, borderRadius: 4 }} />
+              <GrowBar pct={(b.consumedKcal / max) * 100} color={colors.macro.fat} delay={barDelay(i, n)} style={{ width: 9, minHeight: b.consumedKcal > 0 ? 3 : 0, borderRadius: 4 }} />
+              <GrowBar pct={(b.spentKcal / max) * 100} color={colors.macro.protein} delay={barDelay(i, n)} style={{ width: 9, minHeight: b.spentKcal > 0 ? 3 : 0, borderRadius: 4 }} />
             </View>
             <Text style={{ fontFamily: active === i ? fonts.extraBold : fonts.semiBold, fontSize: 10, height: 13 }} color={colors.muted}>
               {barLabel(b.date, i, n)}

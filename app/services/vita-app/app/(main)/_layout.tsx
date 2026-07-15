@@ -3,12 +3,12 @@ import { useEffect } from "react";
 import { useAuth } from "../../src/auth/useAuth";
 import { CaptureProvider } from "../../src/capture/CaptureContext";
 import { CapturePill } from "../../src/capture/CapturePill";
-import { CaptureSheet, CaptureToast } from "../../src/capture/CaptureSheet";
+import { CaptureSheet } from "../../src/capture/CaptureSheet";
 import { startReconnectDrain } from "../../src/db/reconnect";
 import { CheckinSheet } from "../../src/habits/CheckinSheet";
 import { TabsPager } from "../../src/nav/TabsPager";
 import { ReviewSheet } from "../../src/review/ReviewSheet";
-import { colors } from "../../src/ui";
+import { colors, ToastHost } from "../../src/ui";
 
 /** Main app shell: every screen here gets the always-present capture pill. */
 export default function MainLayout() {
@@ -36,10 +36,10 @@ export default function MainLayout() {
       </Stack>
       <TabsPager />
       <CapturePill />
-      <CaptureToast />
       <CaptureSheet />
       <CheckinSheet />
       <ReviewSheet />
+      <ToastHost />
     </CaptureProvider>
   );
 }
