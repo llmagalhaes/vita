@@ -1,7 +1,6 @@
 /**
- * Typed API client for docs/contracts/vita-api-v0.yaml (v0.3.0).
+ * Typed API client for docs/contracts/vita-api-v0.yaml.
  * Types come from types.gen.ts — regenerate with `npm run api:gen`.
- * Covers auth (APP-008) + parse + entries + me.
  */
 import type { components } from "./types.gen";
 

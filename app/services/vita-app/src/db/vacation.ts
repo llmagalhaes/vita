@@ -14,7 +14,7 @@
  */
 import { api } from "../api";
 import type { VacationRange } from "../api/client";
-import { dayKey } from "../trends/aggregate";
+import { dayKey, vacationExcluder } from "../trends/aggregate";
 import { setVacationAccent } from "../ui/accent";
 import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "./kv";
 import { logChanged } from "./notify";
@@ -32,8 +32,7 @@ export const getVacation = (): VacationConfig => kvGet<VacationConfig>(KEY) ?? e
 
 /** A day (inclusive) inside any stored range → on vacation. */
 export function isVacationActive(today: Date = new Date()): boolean {
-  const key = dayKey(today);
-  return getVacation().ranges.some((r) => key >= r.start.slice(0, 10) && key <= r.end.slice(0, 10));
+  return vacationExcluder(getVacation().ranges)(dayKey(today));
 }
 
 /** Ranges for the trends vacation-day excluder (D1/slice-6 hook). */

@@ -1,5 +1,26 @@
 # App Team — Next Session
 
+## Session 7 (2026-07-15) — APP-037 hygiene sweep ✅
+**CEO un-gated APP-037.** Surgical ponytail sweep — the codebase was already clean
+(sessions 4–6 kept it tidy), so this was small deliberate cuts + the missing README,
+not a demolition. Ledger: `Progress/APP-037-hygiene-sweep-Progress.md`. Gates: tsc 0 ·
+**Jest 168/168 (34 suites, unchanged)** · `expo export` iOS OK. No new deps, no
+behavior change, product philosophy intact.
+- **What changed (all real, all small):** dropped a stale `v0.3.0` header pin in
+  `api/client.ts`; deduped the vacation range predicate (`isVacationActive` now reuses
+  `vacationExcluder`); extracted a `CountBanner` in `tabs/Home.tsx` (~40 dup lines
+  gone, flex:1 row + worklets untouched); removed 2 unused imports (`pdf.ts`,
+  `onboarding.tsx`) and a dead const `WEEKDAYS` (`tabs/Habits.tsx`).
+- **What was deliberately left alone:** all gesture/worklet paths (TabsPager pan,
+  SheetOverlay/useSheetDrag, useStartOnLayout, scrub-vs-pager, PDF export); the
+  voice/OIDC/notifier **stubs** (load-bearing seams for APP-007); i18n keys (dynamic
+  lookups); no file moves (RN structure already idiomatic — CEO directive).
+- **New: `services/vita-app/README.md`** — what/how-to-run/tests + **3 Mermaid
+  diagrams** (architecture, offline/outbox sync w/ needsReview + poison-pill taxonomy,
+  navigation/screen map).
+- Scans confirmed clean: no dead files, no dead i18n keys, no swallowed catches, no
+  stray console, no commented-out code, no genuinely-dead exports.
+
 ## Session 6 (2026-07-14/15) — Fable fidelity backlog + emulator-verified fixes ✅
 **All 3 remaining CEO bugs (#3/#4/#6) fixed and emulator-verified; full Fable fidelity backlog
 implemented.** Commits `2bb753f..bfc4e48`; tsc 0 / Jest 168 (34 suites). Full narrative in

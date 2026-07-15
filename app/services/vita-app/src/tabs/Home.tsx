@@ -107,6 +107,43 @@ function SetupRow({ glyph, title, sub, onPress }: { glyph: string; title: string
   );
 }
 
+/** Accented count banner (check-ins waiting, offline captures to review). */
+function CountBanner({ count, title, sub, onPress }: { count: number; title: string; sub: string; onPress: () => void }) {
+  return (
+    <Animated.View entering={FadeInDown.duration(350)} exiting={FadeOut.duration(220)}>
+      <Pressable accessibilityRole="button" onPress={onPress}>
+        <Card
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 12,
+            paddingVertical: 14,
+            borderWidth: 1.5,
+            borderColor: "rgba(196,112,78,0.35)",
+          }}
+        >
+          <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.estimateBg, alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={colors.accent}>
+              {count}
+            </Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="label" style={{ fontSize: 14.5 }}>
+              {title}
+            </Text>
+            <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
+              {sub}
+            </Text>
+          </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>
+            ›
+          </Text>
+        </Card>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
 function inputMethodLabel(e: LocalEntry, t: (k: string) => string): string {
   switch (e.inputMethod) {
     case "voice":
@@ -388,76 +425,22 @@ export default function Home() {
 
       {/* check-ins waiting banner (opens the stack sheet) */}
       {pendingCheckinCount > 0 && (
-        <Animated.View entering={FadeInDown.duration(350)} exiting={FadeOut.duration(220)}>
-        <Pressable accessibilityRole="button" onPress={openCheckins}>
-          <Card
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 14,
-              borderWidth: 1.5,
-              borderColor: "rgba(196,112,78,0.35)",
-            }}
-          >
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.estimateBg, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={colors.accent}>
-                {pendingCheckinCount}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text variant="label" style={{ fontSize: 14.5 }}>
-                {pendingCheckinCount === 1
-                  ? t("habits.waitingOne")
-                  : t("habits.waitingMany", { count: pendingCheckinCount })}
-              </Text>
-              <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
-                {t("habits.tapToAnswer")}
-              </Text>
-            </View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>
-              ›
-            </Text>
-          </Card>
-        </Pressable>
-        </Animated.View>
+        <CountBanner
+          count={pendingCheckinCount}
+          title={pendingCheckinCount === 1 ? t("habits.waitingOne") : t("habits.waitingMany", { count: pendingCheckinCount })}
+          sub={t("habits.tapToAnswer")}
+          onPress={openCheckins}
+        />
       )}
 
       {/* offline captures added while offline — opens the review stack sheet */}
       {reviewCount > 0 && (
-        <Animated.View entering={FadeInDown.duration(350)} exiting={FadeOut.duration(220)}>
-        <Pressable accessibilityRole="button" onPress={openReview}>
-          <Card
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 12,
-              paddingVertical: 14,
-              borderWidth: 1.5,
-              borderColor: "rgba(196,112,78,0.35)",
-            }}
-          >
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.estimateBg, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={colors.accent}>
-                {reviewCount}
-              </Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text variant="label" style={{ fontSize: 14.5 }}>
-                {reviewCount === 1
-                  ? t("home.offlineReviewOne")
-                  : t("home.offlineReviewMany", { count: reviewCount })}
-              </Text>
-              <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
-                {t("home.offlineReviewSub")}
-              </Text>
-            </View>
-            <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.labelMuted}>
-              ›
-            </Text>
-          </Card>
-        </Pressable>
-        </Animated.View>
+        <CountBanner
+          count={reviewCount}
+          title={reviewCount === 1 ? t("home.offlineReviewOne") : t("home.offlineReviewMany", { count: reviewCount })}
+          sub={t("home.offlineReviewSub")}
+          onPress={openReview}
+        />
       )}
 
       {/* logged today hero — the prototype's centered 82px figure, no card chrome (Fable B1) */}

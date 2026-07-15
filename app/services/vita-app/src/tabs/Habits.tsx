@@ -31,7 +31,6 @@ const EYEBROW = {
   textTransform: "uppercase",
 } as const;
 
-const WEEKDAYS = [false, true, true, true, true, true, false]; // Mon–Fri (index 0 = Sun)
 const EVERY_DAY = [true, true, true, true, true, true, true];
 
 /** After any habit change: re-read screens and reschedule notifications. */

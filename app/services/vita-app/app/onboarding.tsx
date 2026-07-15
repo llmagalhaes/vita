@@ -8,7 +8,7 @@ import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api
 import { savePlan, saveProgram } from "../src/db/plan";
 import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
 import { PlanStep, unanswered, type PlanAnswer } from "../src/onboarding/PlanStep";
-import { Button, Card, Chip, EstimateTag, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
+import { Button, Card, Chip, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
 
 const TOTAL_STEPS = 6;
 

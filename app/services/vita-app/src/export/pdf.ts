@@ -8,7 +8,7 @@
  * unit-tested; `exportPdf` is the thin IO wrapper that reads the DB and drives
  * the native modules (lazy-required so Jest never loads them).
  */
-import type { MealDetail, Units, WaterDetail, WorkoutDetail } from "../api/client";
+import type { MealDetail, Units, WorkoutDetail } from "../api/client";
 import type { LocalEntry } from "../db/entries";
 import { entriesInRange } from "../db/entries";
 import { aggregateDays } from "../trends/aggregate";
