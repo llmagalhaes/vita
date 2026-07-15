@@ -1,5 +1,27 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 17, 2026-07-15) — BE-032: live-verified Claude model ids for PDF/photo import
+
+CEO shipping PDF + photo import against PROD Claude. Re-checked the flagged risk that
+`plan-pdf-model` / `photo-model = claude-sonnet-4-6` was stale. **Verdict: false alarm — the ids
+are correct; no change needed.** Ledger: `Progress/BE-032-model-id-live-verify-Progress.md`; ADR-0005
+updated with a "Live re-verification (BE-032)" note.
+
+- **Verified live against the real Anthropic API** (key from gitignored `secrets.yaml`, never logged):
+  `GET /v1/models` → `claude-haiku-4-5`, `claude-sonnet-4-6`, `claude-sonnet-5` all HTTP 200
+  (active). Plus a live `POST /v1/messages` replicating the exact `parsePhoto` path on
+  `claude-sonnet-4-6` (base64 image + forced `record_log_entries`, no `thinking`, `max_tokens` 2048)
+  → `stop_reason: tool_use`, no `thinking` block, not truncated.
+- **`claude-sonnet-4-6` is a real, current model** — NOT stale. It runs thinking-OFF by default when
+  `thinking` is omitted (confirmed by the live call), which is exactly what the budget-capped forced
+  tool needs. `claude-sonnet-5` would default adaptive-thinking ON and share the 2048 budget →
+  truncation risk; stays deferred behind a `ClaudeClient` thinking-disable change (ADR-0005).
+- **No `application.yaml` / `ClaudeClient` change.** `./gradlew check` green — **148 tests, 0 failures**
+  (unchanged; no code touched).
+- **Redeploy: NO.** Prod (image `909262c`) already runs these ids live since session 8. PDF/photo
+  import will not 4xx/5xx on model ids. ADR/ledger doc updates ride the next commit; no image rebuild
+  needed for this.
+
 ## Current state (Phase 2 session 16, 2026-07-15) — health-integrations milestone: backend no-op verdict (ADR-0016) + BE-030 OIDC sentinel fix
 
 Milestone: **Samsung Health via Android Health Connect (+ assess Google Fit)**. App builds
