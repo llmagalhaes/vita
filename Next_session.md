@@ -2,16 +2,19 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
-## Where we are (2026-07-15, session 12 — CEO fidelity verdict → prototype-details spec READY TO EXECUTE)
+## Where we are (2026-07-16, session 12 — prototype-fidelity pass EXECUTED + device-verified)
 
-**CEO reviewed the app against the prototype (screenshots + a 37.7s recording of the prototype) and called it "ainda bem longe" on animations, gestures and small details (button shadows).** Fable (this session) read the full prototype source minutely + analyzed the video frame-by-frame and wrote the execution spec: **`docs/reviews/2026-07-15-prototype-details-spec.md`** — START THERE. CEO is switching the session to Opus for execution.
+**Fable specced the prototype-details work (from the CEO's fidelity verdict + a frame-by-frame read of the prototype recording), then Opus executed it.** Spec: `docs/reviews/2026-07-15-prototype-details-spec.md`. Commits `5e11c84` (spec) → `cf43985` (code), pushed, tree clean.
 
-- **P0 (CEO-named, never fixed across 3 sessions): APP-051** Macros card must open a **centered pop-up** (light blurred backdrop, vtPop 300ms) — today it's a bottom sheet (`src/tabs/MacrosSheet.tsx` via `SheetOverlay`). Build reusable `PopOverlay`, converge plan.tsx's ad-hoc `popIn`.
-- **P0: APP-052** Trends bars don't sweep on entry — **root cause found**: TabsPager pre-mounts Trends, GrowBar animates once offscreen. Fix = focus-epoch replay keyed off settled `pathname` (NO pager surgery, NO mid-gesture setState). Also stagger 55ms/16ms (not 30), grow 550ms, curve draw-ons missing.
-- **P0: APP-053** Check-in deck → centered pop-up with stacked peek cards, advance anim (translateX 52px + rotate 2°), drop-out dismiss (90px threshold), "All caught up" auto-close 1100ms.
-- **P1: APP-054** shadows (Button/Toggle have ZERO today; accent-tinted CTA shadows per spec table) · **APP-055** toast (missing app-wide) · **APP-056** press-scale calibration per surface.
-- **P2: APP-057** detail-screen entrance choreography diff-pass.
-- Gates: tsc/Jest + **mandatory emulator drive per P0** (drive script in the spec). Asana: create APP-051..057 (Model: Opus 051–053, Sonnet 054–057). Gesture rules from sessions 6/11 stand — pager untouched.
+- **APP-051 Macros = centered pop-up — DONE + device-verified.** The CEO's thrice-flagged bug: was a bottom sheet (`SheetOverlay`), now a centered card scaling in over a blurred backdrop. Built reusable **`src/ui/PopOverlay.tsx`** (mirrors SheetOverlay: SheetBackdrop + sheetPresence + vtPop timing, no drag); `MacrosSheet` + the eating-plan portion pop-up both use it (plan.tsx's ad-hoc `popIn`/`Modal` deleted). Emulator screenshot confirms it's centered.
+- **APP-052 Trends entry-replay — DONE + device-verified (screen-recorded).** Root cause was right: TabsPager pre-mounts Trends → GrowBar animated once offscreen. Fix = **focus epoch** off the settled `usePathname()` (`TrendsReplayContext`, `src/trends/parts.tsx`) that re-keys `TrendCard` → fade + bar-grow replay on every entry. NO pager surgery, no mid-gesture setState. Stagger corrected to `barDelay(i,n)` = 55ms(7d)/16ms(15-30d); paired bars share the day delay; grow 550ms. Recorded the grow firing on swipe-in.
+- **APP-053 Check-in deck — dark scrim + deep deck shadow + opaque peek strips (`#F1E8D7`/`#F8F0E1`).** Code done; NOT driven on device (mock demo had "nothing to check in today" — needs a pending check-in to see it). The deck was already centered with advance/pop from session 6; this pass upgraded the scrim/shadow only.
+- **APP-054 shadows — DONE + verified** (accent CTA shadow visible on the auth "Accept & continue"). New tokens `shadowCta(color)/shadowSoft/shadowDark/shadowPop/shadowDeck`; Button primary + Toggle knob now cast shadows (were flat).
+- **APP-055 toast — DONE.** Promoted to a module store `src/ui/toast.ts` + one `ToastHost` (converged the old capture-only `CaptureToast`); wired habit-removed, vacation start + end. `showToast(...)` callable anywhere.
+- **APP-056 press-scale** — Button CTA .98, water quick-add .94. (Light pass; more surfaces optional.)
+- **APP-057 (choreography diff-pass) — NOT done** (P2; most already landed sessions 6-8, deferred).
+- Gates: **tsc 0 · Jest 211 pass** (+2 new: toast timer, `barDelay`). The 1 "failure" is a **pre-existing midnight date-boundary flake** in `vacation.test.ts` — proven on the pristine tree via stash, unrelated to this work (worth a separate fix: the test uses wall-clock `new Date()` across a day boundary).
+- **CEO next:** on-device feel pass (Macros pop, Trends sweep, shadows, toast); trigger a check-in to see the deck's dark scrim. Asana: create APP-051..056 (Done=store). +deps: none.
 
 ## Where we are (2026-07-15, session 11 — sheet-bounce fix + Home v2 built + specs)
 
