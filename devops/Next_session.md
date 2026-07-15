@@ -51,6 +51,15 @@ on top of the ~$6 idle baseline (2 KMS CMKs, CloudTrail/GuardDuty/S3) → **≈ 
 free tier**, rising to **≈ $34/mo** once the 12-month RDS free tier lapses (+db.t4g.micro ~$13 + 20 GB
 gp3 ~$2). Under the $40 budget alarm.
 
+## Docs + board (2026-07-15, post-deploy)
+- **Notion prod doc written**: "Production — what's running & why" under the DevOps page
+  (https://app.notion.com/p/39e213f6aff481628d49d95207772719) — operational source of truth,
+  every ID cross-checked against live AWS/state. See `Progress/OPS-DOC-prod-Progress.md`.
+- **Asana board swept to reality**: OPS-001/003/005/008/009/011/020 → Done (joining
+  002/006/007/010/013/014). Open: OPS-004 (CEO negative tests), OPS-012, OPS-015, OPS-016, OPS-017.
+- **Drift corrected in docs (read-only, no infra change)**: S3 exports lifecycle is 30d not 90d;
+  uploads also 30d (photos expire monthly — flagged to CEO/backend below).
+
 ## Next steps / backlog (unchanged priority)
 - **OPS-017** RDS restore-rehearsal (first backup lands from the `daily-45d` plan; rehearse a PITR restore).
 - **OPS-012** SES out of sandbox (real magic-link email; today it's CloudWatch only).
@@ -64,6 +73,10 @@ gp3 ~$2). Under the $40 budget alarm.
 - **Public IPv4 cost**: the task runs in public subnets with `assign_public_ip=true` (no NAT, egress
   to Claude/ECR) → ~$3.6/mo for the public IP. Fine for cost, but if you'd rather, a NAT instance/GW
   is more expensive, so the public-IP approach stays the cheap choice. No action needed — flagging.
+- **S3 uploads lifecycle = expire-30d**: user photos are deleted 30 days after upload. Confirm that
+  matches product intent (Vita keeps a "quiet log" — do meal/photo entries need to survive past 30d?).
+  If yes, raise/remove the lifecycle on `vita-prod-uploads-*` (a one-line tfvar, needs CEO OK to apply).
+  (Exports staying at 30d is fine — they're regenerated on demand.)
 - **google-/apple-client-config** SSM params are placeholders and unused (no OAuth wired). Keep or drop?
 - Carried: audit/log retention 400 d default; exports 90 d; domain-purchase trigger (still `vita://` scheme).
 
