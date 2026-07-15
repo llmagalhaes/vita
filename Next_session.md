@@ -2,6 +2,16 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-15, session 10 — mock-APK bug fixed + big feel-pass batch APP-040..049)
+
+**Caught + fixed a real footgun, then shipped a 10-item CEO feel-pass batch.** Commits `0734b08`→`5c6974a`, pushed, tree clean. Prod-backed APK rebuilt (108 MB, prod URL baked).
+
+- **Mock-APK bug (root-caused):** the session-9 `assembleRelease` was built WITHOUT `VITA_API_BASE_URL` → `apiBaseUrl=""` → `isMockApi=true` → in-process mock API + `seedDemoDataOnce()` demo rows. That was the CEO's "dado estranho". Fix = rebuild with the env var. **All prod APKs MUST bake `VITA_API_BASE_URL`**; the CEO must install clean (`adb uninstall com.llmagal.vita` first) or seeded mock rows persist. Open recommendation: make release fail-loud if the URL is empty (not yet done).
+- **App batch APP-040..049 (all 10, emulator-verified where it counts):** PDF import (`expo-document-picker`→`/uploads`→presigned S3 PUT→parse) + voice import mic; **app-wide fluid close** (`useSheetTransition` — save slides out like drag-dismiss); **swipe fix** (`snapTarget` ±1 page/gesture — was `velocity*0.25` jumping to last tab; emulator-verified); chart scrub on UI thread; **BodyMap single-view + "⇄ See back" toggle** (was front+back at once) + tinting fix; workout history → preview(IMG-3)→detail(IMG-4); tap-muscle→exercise highlight (`exercises[].muscles`, types regen to v0.5.0, api:check clean); vacation End confirm (`ConfirmSheet`); macros sheet was already correct (stale build). tsc 0 / Jest 199 (38 suites) / expo export OK. +1 dep `expo-document-picker ~56.0.4`.
+- **Backend BE-032:** live-verified `claude-sonnet-4-6` (plan-pdf/photo model) is REAL + correct against the Anthropic API — PDF/photo import won't 4xx on model id. Docs only, no redeploy. Google Web client id is live in prod SSM (task recycled).
+
+**Not driven live (CEO to confirm on real device):** real PDF parse against prod Claude (mock path verified; app is contract-correct); muscle→exercise highlight (emulator's stale SQLite had exercise-less workouts; logic unit-tested, selection UI live-verified). **CEO next:** install the new prod APK clean; Google Android OAuth client (pkg `com.llmagal.vita`, SHA-1 in session-9 block); Apple Developer → `apple-client-config`; S3 uploads 30d-expiry decision.
+
 ## Where we are (2026-07-15, session 9 — real Android APK + Health Connect + Google login configured)
 
 **The app now runs as a real sideloadable Android APK (no Expo Go) and reads Samsung/Google health data via Health Connect. Google sign-in is configured server-side in prod.** Commits `85539ce` + `2af6ff1`, pushed, tree clean.
