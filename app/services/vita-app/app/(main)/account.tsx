@@ -8,7 +8,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { Card, Chevron, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
+import { BackButton, Card, Chevron, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -76,9 +76,7 @@ export default function Account() {
     <KeyboardAvoider>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("account.back")} onPress={() => router.replace("/home")}>
-          <Text style={{ fontSize: 22 }} color={colors.ink}>‹</Text>
-        </Pressable>
+        <BackButton onPress={() => router.replace("/home")} label={t("account.back")} />
         <Label>{t("account.title")}</Label>
       </View>
 

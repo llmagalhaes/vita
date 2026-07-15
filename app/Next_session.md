@@ -1,5 +1,31 @@
 # App Team — Next Session
 
+## Session 8 (2026-07-15) — CEO feel-pass batch (9 prototype-drift items) ✅
+CEO verdict: "O feel está muito melhor" + PDF export confirmed great. Filed a 9-item batch and un-gated
+**`expo-blur`** (the one approved new dep). All 9 landed. Full per-item detail + verification in
+`Progress/APP-CEO-BUGS-Progress.md` §session-8. Gates: **tsc 0 · Jest 172/172 (35 suites, +4) · expo export
+iOS OK · expo install --check up to date** (expo-blur `~56.0.3`, SDK 56 preserved).
+
+- **New shared primitives (reuse these):** `src/ui/sheetPresence.ts` (`useSheetPresence`/`useAnySheetOpen`
+  — app-wide "a sheet is open" signal; the pill hides under any sheet), `src/ui/SheetBackdrop.tsx` (blurred
+  backdrop via expo-blur, light tint + cream scrim fallback), `src/ui/BackButton.tsx` (42px round chevron,
+  the ONE back button — swept everywhere).
+- **Changed primitives:** `Card` now renders `Animated.View` (drop-in; pass `layout` to get a height tween —
+  Home water/energy expanders do). Sheets (SheetOverlay + Capture/Check-in/Review) now ride SheetBackdrop.
+- **New sheets:** `src/tabs/MacrosSheet.tsx` (Home macros → full sheet), `src/capture/PhotoSheet.tsx`
+  ("Add from a photo": camera vs library). `photo.ts` `pickPhoto(source)` gained a camera path.
+- **Plan-digest habit:** `HabitKind` += `"digest"` (notification-only, excluded from check-ins); notifier
+  sends the meal's macros + example foods via new pure `src/habits/digest.ts planDigestBody`.
+- **Home header:** 4 icons (trends/habits/integrations/account) replaced the single ☺ button.
+- **⚠️ Fragile paths untouched:** TabsPager gesture, useSheetDrag worklets — no changes. Item 9 (swipe order)
+  was **already** Today→Trends→Habits in source (`TAB_ROUTES` + `tabs.test.ts`); left as-is, flagged for a
+  device pass (do NOT boot the emulator without CEO authorization).
+- **Needs device/Expo-Go visual confirm (can't test under jest):** (a) expo-blur actually blurs on the CEO's
+  phone — else the cream scrim still dims (acceptable fallback); (b) the pill slides away cleanly under every
+  sheet; (c) swipe order matches the menu on the latest build (item 9).
+- **`api:check` drift** = backend's parallel `exercises[].muscles` (already at HEAD, per-exercise tinting is
+  next round) — not this batch; `types.gen.ts` intentionally not regenerated.
+
 ## Session 7 (2026-07-15) — APP-037 hygiene sweep ✅
 **CEO un-gated APP-037.** Surgical ponytail sweep — the codebase was already clean
 (sessions 4–6 kept it tidy), so this was small deliberate cuts + the missing README,

@@ -8,7 +8,9 @@
 import { uuid } from "../lib/uuid";
 import { getDb } from "./db";
 
-export type HabitKind = "plain" | "plan";
+// "plain" = yes/no check-in · "plan" = plan check-in (yes auto-logs the meal) ·
+// "digest" = notification only, sends that plan meal's macros + example foods (no answer).
+export type HabitKind = "plain" | "plan" | "digest";
 
 export type Habit = {
   id: string;
@@ -18,7 +20,7 @@ export type Habit = {
   time: string; // HH:MM
   enabled: boolean;
   kind: HabitKind;
-  /** Plan-meal link (by meal name) when kind === "plan". */
+  /** Plan-meal link (by meal name) when kind === "plan" or "digest". */
   planMealName?: string;
   createdAt: string;
 };

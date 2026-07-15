@@ -3,12 +3,12 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
 import type { Muscle, Units, WorkoutDetail } from "../../../src/api";
 import { entriesInRange, getEntry, type LocalEntry } from "../../../src/db/entries";
 import { WorkoutPreviewSheet } from "../../../src/workout/PreviewSheet";
 import { getSettings } from "../../../src/db/settings";
 import {
+  BackButton,
   BodyMap,
   Card,
   Chip,
@@ -41,30 +41,6 @@ function inputMethodKey(m: string): string {
     default:
       return "workoutDetail.byText";
   }
-}
-
-function BackButton({ onPress, label }: { onPress: () => void; label: string }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        borderWidth: 1,
-        borderColor: "rgba(120,100,75,0.16)",
-        backgroundColor: colors.card,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Svg width={18} height={18}>
-        <Path d="M10.8 4.5 L6.3 9 L10.8 13.5" fill="none" stroke={colors.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </Pressable>
-  );
 }
 
 const SectionLabel = ({ children }: { children: string }) => (

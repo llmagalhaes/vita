@@ -11,12 +11,12 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { Easing, SlideInDown } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
 import { DraftCard } from "../capture/CaptureSheet";
 import { clearReview, deleteEntry, entriesNeedingReview, type LocalEntry } from "../db/entries";
 import { logChanged, useLogVersion } from "../db/notify";
-import { Button, Card, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
+import { Button, Card, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetDrag, useSheetPresence } from "../ui";
 
 // ── Sheet open/close store (mirrors checkins): Home's banner opens the overlay
 //    mounted once in the main layout. ─────────────────────────────────────────
@@ -58,6 +58,7 @@ export function ReviewSheet() {
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { dragGesture, sheetStyle } = useSheetDrag(closeReview);
+  useSheetPresence(open); // hide the tab bar under the sheet (CEO #1)
 
   if (!open) return null;
   void version; // re-render on log changes
@@ -88,9 +89,7 @@ export function ReviewSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal: 24 }}>
-      <Animated.View entering={FadeIn.duration(motion.fade.durationMs)} style={{ position: "absolute", inset: 0 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={closeReview} style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.38)" }} />
-      </Animated.View>
+      <SheetBackdrop onClose={closeReview} closeLabel={t("common.cancel")} />
       <GestureDetector gesture={dragGesture}>
         <Animated.View
           entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}

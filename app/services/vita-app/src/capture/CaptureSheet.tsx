@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, FadeIn, Keyframe, SlideInDown } from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
-import { Button, Card, Chip, EstimateTag, MorphBlob, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
+import { Button, Card, Chip, EstimateTag, MorphBlob, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetDrag, useSheetPresence } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { mealTotals, stepItem } from "./quantity";
 
@@ -217,6 +217,7 @@ export function CaptureSheet() {
   // Drag-down-to-dismiss (hook keeps the decision on the UI thread). Hooks stay
   // above the idle early-return (Rules of Hooks).
   const { dragGesture, sheetStyle } = useSheetDrag(capture.close);
+  useSheetPresence(capture.status !== "idle"); // hide the tab bar under the sheet (CEO #1)
 
   if (capture.status === "idle") return null;
 
@@ -236,14 +237,7 @@ export function CaptureSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end" }}>
-      <Animated.View entering={FadeIn.duration(motion.fade.durationMs)} style={{ position: "absolute", inset: 0 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("common.cancel")}
-          onPress={capture.close}
-          style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.32)" }}
-        />
-      </Animated.View>
+      <SheetBackdrop onClose={capture.close} closeLabel={t("common.cancel")} />
       <GestureDetector gesture={dragGesture}>
       <Animated.View
         entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}

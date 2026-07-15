@@ -5,10 +5,10 @@
  * says so ("connect a health source", "arrives with the full app").
  */
 import { useMemo } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Card, Text, Toggle, colors, fonts } from "../../src/ui";
+import { BackButton, Card, Text, Toggle, colors, fonts } from "../../src/ui";
 import { integrationEnabled, setIntegrationEnabled } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 
@@ -32,9 +32,7 @@ export default function Integrations() {
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 60, gap: 12 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("account.back")} onPress={() => router.back()}>
-          <Text style={{ fontSize: 22 }} color={colors.ink}>‹</Text>
-        </Pressable>
+        <BackButton onPress={() => router.back()} label={t("account.back")} />
         <Text style={{ fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: "uppercase" }} color={colors.labelMuted}>
           {t("integrations.title")}
         </Text>

@@ -2,8 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import Animated, { FadeIn, FadeInDown, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import Svg, { Path } from "react-native-svg";
+import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Svg, { Circle, Path } from "react-native-svg";
 import { api, type MealDetail, type Units, type WaterDetail, type WorkoutDetail } from "../api";
 import { addLocalEntry, countNeedsReview, deleteEntry, entriesForDay, type LocalEntry } from "../db/entries";
 import { logChanged, useLogVersion } from "../db/notify";
@@ -18,12 +18,14 @@ import { energyChartMax, last7EnergySeries, logManualEnergy } from "../energy/ma
 import { planDailyTotals } from "../plan/compute";
 import { formatVolume } from "../lib/units";
 import { GrowBar } from "../trends/parts";
+import { MacrosSheet, type MacroMeal } from "./MacrosSheet";
 import {
   Bar,
   Card,
   Chevron,
   EstimateTag,
   KeyboardAvoider,
+  PressScale,
   Text,
   WaveIllustration,
   colors,
@@ -66,6 +68,48 @@ function WaterVessel({ ml }: { ml: number }) {
         <Path d="M8 1.5 C8 1.5 2.8 8 2.8 11.4 a5.2 5.2 0 0 0 10.4 0 C13.2 8 8 1.5 8 1.5 Z" fill="rgba(255,253,247,0.85)" />
       </Svg>
     </View>
+  );
+}
+
+/** One round header icon button (CEO #4 — the prototype's 4-icon row). */
+function HeaderIcon({ label, onPress, icon }: { label: string; onPress: () => void; icon: "trends" | "checks" | "sliders" | "person" }) {
+  const ink = "#6E6355";
+  return (
+    <PressScale
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
+    >
+      <Svg width={18} height={18} viewBox="0 0 18 18">
+        {icon === "trends" && (
+          <>
+            <Path d="M3 13.5 L7 9 L10 11.5 L15 5.5" fill="none" stroke={ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
+            <Circle cx={15} cy={5.5} r={1.6} fill={ink} />
+          </>
+        )}
+        {icon === "checks" && (
+          <>
+            <Circle cx={9} cy={9} r={6.4} fill="none" stroke={ink} strokeWidth={1.6} />
+            <Path d="M6.2 9.3 l1.9 1.9 L12 7" fill="none" stroke={ink} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+          </>
+        )}
+        {icon === "sliders" && (
+          <>
+            <Path d="M3 5.5 h12 M3 9 h12 M3 12.5 h12" stroke={ink} strokeWidth={1.5} strokeLinecap="round" />
+            <Circle cx={6.5} cy={5.5} r={1.9} fill={colors.card} stroke={ink} strokeWidth={1.4} />
+            <Circle cx={11.5} cy={9} r={1.9} fill={colors.card} stroke={ink} strokeWidth={1.4} />
+            <Circle cx={7.5} cy={12.5} r={1.9} fill={colors.card} stroke={ink} strokeWidth={1.4} />
+          </>
+        )}
+        {icon === "person" && (
+          <>
+            <Circle cx={9} cy={6.4} r={3} fill="none" stroke={ink} strokeWidth={1.6} />
+            <Path d="M3.6 15 a5.5 4.6 0 0 1 10.8 0" fill="none" stroke={ink} strokeWidth={1.6} strokeLinecap="round" />
+          </>
+        )}
+      </Svg>
+    </PressScale>
   );
 }
 
@@ -253,7 +297,7 @@ export default function Home() {
   const router = useRouter();
   const version = useLogVersion();
   const [waterOpen, setWaterOpen] = useState(false);
-  const [macrosOpen, setMacrosOpen] = useState(false);
+  const [macrosSheetOpen, setMacrosSheetOpen] = useState(false);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [spentInput, setSpentInput] = useState("");
 
@@ -302,6 +346,20 @@ export default function Home() {
     { protein: 0, carbs: 0, fat: 0 },
   );
   const maxMacro = Math.max(macros.protein, macros.carbs, macros.fat, 1);
+
+  // Per-meal macro breakdown for the macros sheet (CEO #5).
+  const macroMeals: MacroMeal[] = meals.map((e) => {
+    const d = e.detail as MealDetail;
+    return {
+      id: e.id,
+      title: d.title ?? t("home.meal"),
+      proteinG: d.totals?.proteinG ?? 0,
+      carbsG: d.totals?.carbsG ?? 0,
+      fatG: d.totals?.fatG ?? 0,
+      kcal: d.totals?.kcal ?? 0,
+      at: e.occurredAt,
+    };
+  });
 
   // "Spent" = sum of logged workout kcal (D8, labeled estimate) — includes manual
   // adds. Health-source energy still needs a connected source (honest absence).
@@ -373,16 +431,12 @@ export default function Home() {
             {dateStr}
           </Text>
         </View>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("account.title")}
-          onPress={() => router.push("/account")}
-          style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 15 }} color="#6E6355">
-            ☺
-          </Text>
-        </Pressable>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <HeaderIcon label={t("pill.trends")} icon="trends" onPress={() => router.replace("/trends")} />
+          <HeaderIcon label={t("pill.habits")} icon="checks" onPress={() => router.replace("/habits")} />
+          <HeaderIcon label={t("account.integrations")} icon="sliders" onPress={() => router.push("/integrations")} />
+          <HeaderIcon label={t("account.title")} icon="person" onPress={() => router.push("/account")} />
+        </View>
       </View>
 
       {/* vacation banner (sea tone) — active trip only; eases in/out on start/end */}
@@ -462,7 +516,7 @@ export default function Home() {
           (CEO bug #7). No height:"100%" either (that blew the row to full-screen). */}
       <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
         <Pressable accessibilityRole="button" onPress={() => setWaterOpen((o) => !o)} style={{ flex: 1.05 }}>
-          <Card style={{ gap: spacing.md }}>
+          <Card layout={LinearTransition.duration(220)} style={{ gap: spacing.md }}>
             <View style={{ flexDirection: "row", gap: 13, alignItems: "center" }}>
               <WaterVessel ml={waterMl} />
               <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
@@ -521,11 +575,14 @@ export default function Home() {
             )}
           </Card>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => setMacrosOpen((o) => !o)} style={{ flex: 1.35 }}>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("home.macrosSheetTitle")} onPress={() => setMacrosSheetOpen(true)} style={{ flex: 1.35 }}>
         <Card style={{ gap: spacing.sm + 2, justifyContent: "center" }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
             <SectionLabel>{t("home.macros")}</SectionLabel>
-            <Chevron open={macrosOpen} />
+            {/* ↗ opens the full macros sheet (prototype) */}
+            <Svg width={13} height={13} viewBox="0 0 13 13">
+              <Path d="M4 9 L9 4 M5 4 h4 v4" fill="none" stroke={colors.labelMuted} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
           </View>
           {(
             [
@@ -546,43 +603,13 @@ export default function Home() {
               <Bar pct={(grams / maxMacro) * 100} color={color} />
             </View>
           ))}
-          {macrosOpen && (
-            <Animated.View
-              entering={FadeIn.duration(250)}
-              style={{
-                borderTopWidth: 1,
-                borderStyle: "dashed",
-                borderTopColor: "rgba(120,100,75,0.16)",
-                paddingTop: 9,
-                gap: 5,
-              }}
-            >
-              {/* kcal each macro contributes (4/4/9 kcal per g) — an estimate breakdown */}
-              {(
-                [
-                  ["protein", macros.protein, 4],
-                  ["carbs", macros.carbs, 4],
-                  ["fat", macros.fat, 9],
-                ] as const
-              ).map(([key, grams, kcalPerG]) => (
-                <View key={key} style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                  <Text variant="caption" color={colors.labelMuted}>
-                    {t(`home.${key}`)}
-                  </Text>
-                  <Text variant="caption" style={{ fontFamily: fonts.semiBold }} color="#6E6355">
-                    {Math.round(grams * kcalPerG)} {t("common.kcal")}
-                  </Text>
-                </View>
-              ))}
-            </Animated.View>
-          )}
         </Card>
         </Pressable>
       </View>
 
       {/* energy */}
       <Pressable accessibilityRole="button" onPress={() => setEnergyOpen((o) => !o)}>
-        <Card style={{ gap: 11 }}>
+        <Card layout={LinearTransition.duration(220)} style={{ gap: 11 }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
               <SectionLabel>{t("home.energy")}</SectionLabel>
@@ -724,6 +751,12 @@ export default function Home() {
         <TimelineCard key={e.id} entry={e} index={i} units={units} />
       ))}
     </ScrollView>
+    <MacrosSheet
+      visible={macrosSheetOpen}
+      onClose={() => setMacrosSheetOpen(false)}
+      macros={macros}
+      meals={macroMeals}
+    />
     </KeyboardAvoider>
   );
 }

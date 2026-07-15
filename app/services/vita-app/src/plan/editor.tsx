@@ -1,31 +1,6 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Svg, { Path } from "react-native-svg";
-import { Text, colors, fonts } from "../ui";
-
-export function BackButton({ onPress, label }: { onPress: () => void; label: string }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        width: 34,
-        height: 34,
-        borderRadius: 17,
-        borderWidth: 1,
-        borderColor: "rgba(120,100,75,0.16)",
-        backgroundColor: colors.card,
-        alignItems: "center",
-        justifyContent: "center",
-      }}
-    >
-      <Svg width={18} height={18}>
-        <Path d="M10.8 4.5 L6.3 9 L10.8 13.5" fill="none" stroke={colors.ink} strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" />
-      </Svg>
-    </Pressable>
-  );
-}
+import { BackButton, Text, colors, fonts } from "../ui";
 
 const Pill = ({ label, onPress, filled }: { label: string; onPress: () => void; filled?: boolean }) => (
   <Pressable

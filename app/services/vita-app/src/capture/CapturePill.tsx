@@ -5,9 +5,9 @@ import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { Button, KeyboardLift, Text, colors, fonts, motion, spacing, useAccent } from "../ui";
+import { Button, KeyboardLift, Text, colors, fonts, motion, spacing, useAccent, useAnySheetOpen } from "../ui";
 import { useCapture } from "./CaptureContext";
-import { pickPhoto } from "./photo";
+import { PhotoSheet } from "./PhotoSheet";
 import { useVoiceCapture } from "./useVoiceCapture";
 import { VoiceOverlay } from "./VoiceOverlay";
 
@@ -86,6 +86,18 @@ export function CapturePill() {
   const [text, setText] = useState("");
   const progress = useSharedValue(0);
 
+  // Slide the whole pill away while any sheet/pop-up is open — the prototype's
+  // floating menu disappears under a sheet (CEO #1, image 2).
+  const anySheet = useAnySheetOpen();
+  const hide = useSharedValue(0);
+  useEffect(() => {
+    hide.value = withTiming(anySheet ? 1 : 0, { duration: 200 });
+  }, [anySheet, hide]);
+  const hideStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: hide.value * 120 }],
+    opacity: 1 - hide.value,
+  }));
+
   useEffect(() => {
     progress.value = withTiming(expanded ? 1 : 0, unfold);
   }, [expanded, progress]);
@@ -115,15 +127,10 @@ export function CapturePill() {
     setExpanded(false);
   };
 
-  // Photo capture: pick → downscale → parse. Calm states for decline/error.
+  // Photo capture: tap the camera → the "Add from a photo" sheet (camera vs
+  // library, CEO #6). Each source picks → downscale → parse; calm decline/error.
+  const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [photoNotice, setPhotoNotice] = useState<null | "denied" | "error">(null);
-  const onCameraPress = async () => {
-    const r = await pickPhoto();
-    if (r.status === "picked") capture.submitPhoto(r.photo);
-    else if (r.status === "denied") setPhotoNotice("denied");
-    else if (r.status === "error") setPhotoNotice("error");
-    // cancelled → no notice, stay calm
-  };
   // "Type instead" from anywhere (photo decline, or the sheet's parse-fail) opens the field.
   useEffect(() => {
     if (capture.textEntryNonce > 0) {
@@ -170,6 +177,22 @@ export function CapturePill() {
         }}
         onDismiss={voice.dismiss}
       />
+      <PhotoSheet
+        visible={photoSheetOpen}
+        onClose={() => setPhotoSheetOpen(false)}
+        onPicked={(photo) => {
+          setPhotoSheetOpen(false);
+          capture.submitPhoto(photo);
+        }}
+        onDenied={() => {
+          setPhotoSheetOpen(false);
+          setPhotoNotice("denied");
+        }}
+        onError={() => {
+          setPhotoSheetOpen(false);
+          setPhotoNotice("error");
+        }}
+      />
       {photoNotice && (
         <View
           pointerEvents="box-none"
@@ -207,15 +230,15 @@ export function CapturePill() {
         </View>
       )}
       <View
-        pointerEvents="box-none"
+        pointerEvents={anySheet ? "none" : "box-none"}
         style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", paddingBottom: 22 }}
       >
       {/* Lift the whole pill above the keyboard while its own field is open. */}
       <KeyboardLift enabled={expanded}>
-      {/* vtPop — the pill pops in on mount like the prototype */}
+      {/* vtPop — the pill pops in on mount like the prototype; slides away under a sheet */}
       <Animated.View
         entering={ZoomIn.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
-        style={{
+        style={[hideStyle, {
           flexDirection: "row",
           alignItems: "center",
           backgroundColor: "rgba(255,253,247,0.94)",
@@ -228,7 +251,7 @@ export function CapturePill() {
           shadowRadius: 22,
           shadowOffset: { width: 0, height: 18 },
           elevation: 8,
-        }}
+        }]}
       >
         <GestureDetector gesture={micGesture}>
           <View
@@ -277,7 +300,7 @@ export function CapturePill() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t("capture.photo.a11yLabel")}
-            onPress={onCameraPress}
+            onPress={() => setPhotoSheetOpen(true)}
             style={{
               width: 42,
               height: 42,

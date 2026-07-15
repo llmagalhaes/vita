@@ -32,7 +32,29 @@ const input = (over: Partial<HabitInput> = {}): HabitInput => ({
 test("plannedNotifications maps day index 0=Sunday to expo weekday 1", () => {
   const [n, ...rest] = plannedNotifications([habit()]);
   expect(rest).toHaveLength(0);
-  expect(n).toEqual({ habitId: "h1", title: "Take creatine", weekday: 2, hour: 7, minute: 30 });
+  expect(n).toEqual({
+    habitId: "h1",
+    title: "Vita",
+    body: "Take creatine — a quick check-in",
+    kind: "plain",
+    weekday: 2,
+    hour: 7,
+    minute: 30,
+  });
+});
+
+test("a plan-digest alarm carries the resolved digest body and kind (CEO #7)", () => {
+  const digest = habit({ id: "d1", name: "Lunch digest", kind: "digest", planMealName: "Lunch" });
+  const [n] = plannedNotifications([digest], (h) =>
+    h.kind === "digest" ? `${h.planMealName}, from your plan · 40 g protein` : null,
+  );
+  expect(n!.kind).toBe("digest");
+  expect(n!.body).toBe("Lunch, from your plan · 40 g protein");
+});
+
+test("a digest with no resolvable body falls back to a neutral line, never a check-in prompt", () => {
+  const [n] = plannedNotifications([habit({ kind: "digest", name: "Lunch" })]);
+  expect(n!.body).toBe("Lunch — from your plan");
 });
 
 test("plannedNotifications skips disabled habits and invalid times", () => {

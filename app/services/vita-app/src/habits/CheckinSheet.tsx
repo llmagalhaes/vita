@@ -4,12 +4,12 @@
  * The same CheckinQuestion card is reused inline by the Habits → Today tab.
  */
 import { useEffect, useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, Keyframe, SlideInDown } from "react-native-reanimated";
+import Animated, { Easing, Keyframe, SlideInDown } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
-import { Button, Card, Text, colors, fonts, motion, spacing, useSheetDrag } from "../ui";
+import { Button, Card, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetDrag, useSheetPresence } from "../ui";
 import type { Habit } from "../db/habits";
 import { listHabits } from "../db/habits";
 import { useLogVersion } from "../db/notify";
@@ -124,6 +124,7 @@ export function CheckinSheet() {
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { dragGesture, sheetStyle } = useSheetDrag(closeCheckins);
+  useSheetPresence(open); // hide the tab bar under the sheet (CEO #1)
 
   if (!open) return null;
   void version; // re-render on log changes so a stale queue item isn't shown
@@ -144,9 +145,7 @@ export function CheckinSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal: 30 }}>
-      <Animated.View entering={FadeIn.duration(motion.fade.durationMs)} style={{ position: "absolute", inset: 0 }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={closeCheckins} style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.38)" }} />
-      </Animated.View>
+      <SheetBackdrop onClose={closeCheckins} closeLabel={t("common.cancel")} />
       <GestureDetector gesture={dragGesture}>
         <Animated.View
           entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}

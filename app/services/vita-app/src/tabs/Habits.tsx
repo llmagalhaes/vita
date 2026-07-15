@@ -3,7 +3,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { Button, Card, Chevron, KeyboardAvoider, Text, Toggle, colors, fonts, spacing } from "../ui";
+import { BackButton, Button, Card, Chevron, KeyboardAvoider, Text, Toggle, colors, fonts, spacing } from "../ui";
 import {
   createHabit,
   deleteHabit,
@@ -15,6 +15,7 @@ import {
 } from "../db/habits";
 import { logChanged, useLogVersion } from "../db/notify";
 import { getCachedPlan } from "../db/plan";
+import { mealTotals } from "../plan/compute";
 import {
   answeredCheckins,
   habitDots,
@@ -32,6 +33,17 @@ const EYEBROW = {
 } as const;
 
 const EVERY_DAY = [true, true, true, true, true, true, true];
+
+const TYPE_LABEL: Record<HabitKind, string> = {
+  plain: "habits.form.typePlain",
+  plan: "habits.form.typePlan",
+  digest: "habits.form.typeDigest",
+};
+const TYPE_CAPTION: Record<HabitKind, string> = {
+  plain: "habits.form.typePlainCaption",
+  plan: "habits.form.typePlanCaption",
+  digest: "habits.form.typeDigestCaption",
+};
 
 /** After any habit change: re-read screens and reschedule notifications. */
 function afterHabitChange() {
@@ -82,7 +94,8 @@ function HabitForm({ onDone }: { onDone: () => void }) {
   const [days, setDays] = useState<boolean[]>([...EVERY_DAY]);
   const [planMealName, setPlanMealName] = useState<string | undefined>();
 
-  const canSave = name.trim().length > 0 && (kind === "plain" || !!planMealName);
+  const needsMeal = kind === "plan" || kind === "digest";
+  const canSave = name.trim().length > 0 && (!needsMeal || !!planMealName);
 
   const save = () => {
     if (!canSave) return;
@@ -102,7 +115,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
 
         {plan && plan.meals.length > 0 && (
           <View style={{ flexDirection: "row", gap: 6 }}>
-            {(["plain", "plan"] as HabitKind[]).map((k) => {
+            {(["plain", "plan", "digest"] as HabitKind[]).map((k) => {
               const on = kind === k;
               return (
                 <Pressable
@@ -113,6 +126,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
                   style={{
                     flex: 1,
                     paddingVertical: 9,
+                    paddingHorizontal: 2,
                     borderRadius: 14,
                     alignItems: "center",
                     borderWidth: 1.5,
@@ -120,8 +134,8 @@ function HabitForm({ onDone }: { onDone: () => void }) {
                     backgroundColor: on ? colors.estimateBg : "transparent",
                   }}
                 >
-                  <Text style={{ fontFamily: fonts.bold, fontSize: 12 }} color={on ? colors.accent : colors.muted}>
-                    {t(k === "plain" ? "habits.form.typePlain" : "habits.form.typePlan")}
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11.5 }} numberOfLines={1} color={on ? colors.accent : colors.muted}>
+                    {t(TYPE_LABEL[k])}
                   </Text>
                 </Pressable>
               );
@@ -129,16 +143,17 @@ function HabitForm({ onDone }: { onDone: () => void }) {
           </View>
         )}
         <Text variant="caption" color={colors.labelMuted} style={{ marginTop: -4, lineHeight: 16 }}>
-          {t(kind === "plain" ? "habits.form.typePlainCaption" : "habits.form.typePlanCaption")}
+          {t(TYPE_CAPTION[kind])}
         </Text>
 
-        {kind === "plan" && (
+        {needsMeal && (
           <View style={{ gap: 7 }}>
             <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.muted}>
               {t("habits.form.whichMeal")}
             </Text>
             {(plan?.meals ?? []).map((m) => {
               const on = planMealName === m.name;
+              const tot = mealTotals(m);
               return (
                 <Pressable
                   key={m.name}
@@ -152,6 +167,7 @@ function HabitForm({ onDone }: { onDone: () => void }) {
                     flexDirection: "row",
                     alignItems: "center",
                     justifyContent: "space-between",
+                    gap: 8,
                     padding: 12,
                     borderRadius: 14,
                     borderWidth: 1.5,
@@ -159,14 +175,24 @@ function HabitForm({ onDone }: { onDone: () => void }) {
                     backgroundColor: on ? colors.estimateBg : "transparent",
                   }}
                 >
-                  <Text variant="label" style={{ fontSize: 13.5 }}>
-                    {m.name}
-                  </Text>
-                  {m.time ? (
-                    <Text variant="caption" color={colors.labelMuted}>
-                      {m.time}
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text variant="label" style={{ fontSize: 13.5 }} numberOfLines={1}>
+                      {m.name}
                     </Text>
-                  ) : null}
+                    {m.time ? (
+                      <Text variant="caption" style={{ fontSize: 11, marginTop: 1 }} color={colors.labelMuted}>
+                        {m.time}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={{ alignItems: "flex-end" }}>
+                    <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12 }} color="#6E6355">
+                      ~{Math.round(tot.kcal)} {t("common.kcal")}
+                    </Text>
+                    <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
+                      {Math.round(tot.proteinG)}P·{Math.round(tot.carbsG)}C·{Math.round(tot.fatG)}F
+                    </Text>
+                  </View>
                 </Pressable>
               );
             })}
@@ -261,10 +287,10 @@ function HabitRow({ habit }: { habit: Habit }) {
             <Text variant="title" style={{ fontSize: 15 }} numberOfLines={1}>
               {habit.name}
             </Text>
-            {habit.kind === "plan" && (
+            {habit.kind !== "plain" && (
               <View style={{ backgroundColor: colors.estimateBg, borderRadius: 7, paddingHorizontal: 6, paddingVertical: 2 }}>
                 <Text style={{ fontFamily: fonts.extraBold, fontSize: 9, letterSpacing: 0.7, textTransform: "uppercase" }} color={colors.estimateInk}>
-                  {t("habits.linkedPlan")}
+                  {t(habit.kind === "digest" ? "habits.linkedDigest" : "habits.linkedPlan")}
                 </Text>
               </View>
             )}
@@ -284,29 +310,38 @@ function HabitRow({ habit }: { habit: Habit }) {
         </Pressable>
       </View>
 
-      <View style={{ flexDirection: "row", gap: 6 }}>
-        {dots.map((d, i) => (
-          <View
-            key={i}
-            style={{
-              width: 13,
-              height: 13,
-              borderRadius: 7,
-              backgroundColor: d === "none" ? colors.track : dotColor(d),
-              borderWidth: d === "none" ? 1 : 0,
-              borderColor: "rgba(120,100,75,0.18)",
-            }}
-          />
-        ))}
-      </View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-        <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>
-          {t("habits.twoWeeksAgo")}
+      {habit.kind === "digest" ? (
+        // A digest is a notification only — no yes/no history to plot.
+        <Text variant="caption" style={{ fontSize: 11.5 }} color={colors.labelMuted}>
+          {t("habits.digestNote")}
         </Text>
-        <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>
-          {t("habits.todayShort")}
-        </Text>
-      </View>
+      ) : (
+        <>
+          <View style={{ flexDirection: "row", gap: 6 }}>
+            {dots.map((d, i) => (
+              <View
+                key={i}
+                style={{
+                  width: 13,
+                  height: 13,
+                  borderRadius: 7,
+                  backgroundColor: d === "none" ? colors.track : dotColor(d),
+                  borderWidth: d === "none" ? 1 : 0,
+                  borderColor: "rgba(120,100,75,0.18)",
+                }}
+              />
+            ))}
+          </View>
+          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+            <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>
+              {t("habits.twoWeeksAgo")}
+            </Text>
+            <Text variant="caption" style={{ fontSize: 10 }} color={colors.labelMuted}>
+              {t("habits.todayShort")}
+            </Text>
+          </View>
+        </>
+      )}
 
       {expanded && (
         <Animated.View entering={FadeIn.duration(250)} style={{ borderTopWidth: 1, borderTopColor: "rgba(120,100,75,0.14)", borderStyle: "dashed", paddingTop: 12, gap: 11 }}>
@@ -362,16 +397,7 @@ export default function Habits() {
     <KeyboardAvoider>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 60, paddingBottom: 150, gap: 13 }} keyboardShouldPersistTaps="handled">
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t("habits.back")}
-          onPress={() => router.replace("/home")}
-          style={{ width: 34, height: 34, borderRadius: 17, borderWidth: 1, borderColor: "rgba(120,100,75,0.16)", backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 16 }} color={colors.ink}>
-            ‹
-          </Text>
-        </Pressable>
+        <BackButton onPress={() => router.replace("/home")} label={t("habits.back")} />
         <Text style={EYEBROW} color={colors.labelMuted}>
           {t("habits.eyebrow")}
         </Text>

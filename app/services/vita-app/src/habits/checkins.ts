@@ -29,7 +29,10 @@ export function dateKey(d: Date): string {
 export const getCheckin = (habitId: string, dk: string): LocalEntry | null =>
   getEntry(`${habitId}:${dk}`);
 
-const scheduledOn = (h: Habit, d: Date): boolean => h.enabled && !!h.days[d.getDay()];
+// A digest habit is a notification only — it never asks for a yes/no answer, so it
+// never appears in the check-in surfaces (pending/answered/dots).
+const scheduledOn = (h: Habit, d: Date): boolean =>
+  h.enabled && h.kind !== "digest" && !!h.days[d.getDay()];
 
 /** Habits due today with no answer yet. */
 export function pendingCheckins(habits: Habit[], today: Date): Habit[] {

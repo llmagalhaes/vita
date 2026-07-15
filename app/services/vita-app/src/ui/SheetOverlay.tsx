@@ -1,10 +1,12 @@
 import { type ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, SlideInDown } from "react-native-reanimated";
+import Animated, { Easing, SlideInDown } from "react-native-reanimated";
 import { colors, motion, spacing } from "./tokens";
 import { useSheetDrag } from "./useSheetDrag";
 import { KeyboardLift } from "./keyboard";
+import { SheetBackdrop } from "./SheetBackdrop";
+import { useSheetPresence } from "./sheetPresence";
 
 /**
  * The app's one bottom-sheet chrome (Fable A4): dimmed backdrop that fades in,
@@ -29,17 +31,11 @@ export function SheetOverlay({
   lift?: boolean;
 }) {
   const { dragGesture, sheetStyle } = useSheetDrag(onClose); // hook above the early return
+  useSheetPresence(visible); // hide the floating tab bar while this sheet is up (CEO #1)
   if (!visible) return null;
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end", zIndex: 50 }}>
-      <Animated.View entering={FadeIn.duration(motion.fade.durationMs)} style={{ position: "absolute", inset: 0 }}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={closeLabel}
-          onPress={onClose}
-          style={{ flex: 1, backgroundColor: "rgba(60,50,38,0.35)" }}
-        />
-      </Animated.View>
+      <SheetBackdrop onClose={onClose} closeLabel={closeLabel} />
       <KeyboardLift enabled={lift}>
         <GestureDetector gesture={dragGesture}>
           <Animated.View

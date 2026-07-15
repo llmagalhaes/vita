@@ -51,6 +51,55 @@ Drove the whole app on the Pixel_10_Pro emulator (Expo Go 56, mocked API): onboa
 
 Also emulator-verified: #3 drag-dismiss fluid on capture AND vacation/export (SheetOverlay), #6 scrub with readout + guide line + no pager fight (closed card swipes tabs, open card scrubs), MorphBlob parsing state, result-card pop, consent/summary pops, water vessel, muscle chips. **Remaining for CEO's phone pass: feel/fluidity judgment only — every functional bug is now device-verified fixed.**
 
+## Session 8 (2026-07-15) — CEO feel-pass batch (prototype-drift, 9 items) + expo-blur un-gated
+CEO verdict after the phone feel-pass: "O feel está muito melhor", PDF export confirmed great. He filed a
+9-item prototype-drift batch and **un-gated `expo-blur`** (the one approved new dep). All landed. Gates:
+**tsc 0 · Jest 172/172 (35 suites, +4) · expo export iOS OK · expo install --check up to date** (expo-blur
+`~56.0.3`, SDK 56 preserved). `api:check` shows one drift = the **backend's parallel `exercises[].muscles`
+contract addition** (already committed to the yaml at HEAD, per-exercise tinting explicitly out of scope this
+round) — NOT introduced here; `types.gen.ts` intentionally not regenerated (app consumes it next round).
+
+Per-item status:
+1. **Tab bar hidden under sheets** — new shared `src/ui/sheetPresence.ts` (one module counter +
+   `useSheetPresence(visible)` + `useAnySheetOpen()`). Every sheet registers presence: `SheetOverlay`
+   (covers Vacation/Export/Preview/Muscle/Photo/Macros), plus one line each in Capture/Check-in/Review
+   sheets. `CapturePill` subscribes → slides the pill down (translateY 120 + opacity 0, 200ms) and sets
+   `pointerEvents="none"` while any sheet is up. **No change to useSheetDrag / drag worklets.**
+2. **expo-blur backdrop** — new shared `src/ui/SheetBackdrop.tsx` (BlurView `tint="light"` +
+   `blurMethod="dimezisBlurView"` on Android + a cream tint scrim as the tap target). Swapped into
+   `SheetOverlay`, Capture/Check-in/Review sheets (replaced the dark `rgba(60,50,38,…)` dims). Jest mock
+   `__mocks__/expo-blur.tsx` (stub View). Fallback: if a surface can't blur, the scrim still dims —
+   **needs a visual confirm in Expo Go** (blur can't render under jest).
+3. **Cards expand like the prototype** — `Card` now renders `Animated.View` (identical when no anim props),
+   so the Home water + energy expanders get `layout={LinearTransition.duration(220)}` = smooth height tween
+   on expand/collapse. Only those two opt in.
+4. **Home 4-icon header** — replaced the single ☺ button with the prototype's 4 round icons (exact SVG paths):
+   trend-line→`/trends`, check-circle→`/habits`, sliders→`/integrations`, person→`/account`.
+5. **Macros → full sheet** — new `src/tabs/MacrosSheet.tsx` (SheetOverlay, blurred backdrop): per-macro
+   grams+bar, "From your meals" breakdown (title · P/C/F · kcal · time), estimate footer. Home macros card
+   now opens it (↗ arrow) instead of the old inline expansion; the inline macros block was removed.
+6. **Camera option on Log** — new `src/capture/PhotoSheet.tsx` "Add from a photo" (title/subtitle per proto),
+   two option cards: **Take a photo** (camera) vs **Choose from library**. `photo.ts` `pickPhoto(source)` now
+   does `launchCameraAsync` OR `launchImageLibraryAsync`. Camera perms added to `app.config.ts`
+   (NSCameraUsageDescription + android CAMERA).
+7. **Plan-digest habit** — `HabitKind` gains `"digest"`. Habit form: three chips (Yes/no · Plan check-in ·
+   Plan digest) when a plan exists; digest reuses the meal picker (rows now show ~kcal + P·C·F). A digest is a
+   **notification only** (no yes/no): excluded from check-in surfaces (`scheduledOn` drops digest), HabitRow
+   hides the dot strip and shows "Arrives as a notification". Notifier: `PlannedNotification` gains `body`+`kind`;
+   `plannedNotifications(habits, digestBody?)` builds the digest body; digests schedule with **no interactive
+   category**. New pure `src/habits/digest.ts` `planDigestBody(plan, meal)` → "Lunch, from your plan · 52 g
+   protein · 61 g carbs · 27 g fat · e.g. Grilled chicken, Rice & beans, Salad". +4 tests (2 digest-body, 2 notifier).
+8. **Larger back button** — new shared `src/ui/BackButton.tsx` (42px circle, bold 22px SVG chevron, press-scale).
+   Swept every screen: Habits, account, integrations, water/[id], meal/[id], workout/[id], plan/program (editor).
+   Deleted 4 duplicate local BackButton definitions + the text-`‹` glyphs.
+9. **Swipe order** — **already correct in source**: `TAB_ROUTES = ["/home","/trends","/habits"]` = Today→Trends→
+   Habits, matching the pill nav order and the passing `tabs.test.ts`. There is no runtime reorder path. Left the
+   device-verified pager gesture untouched. **Flag: needs a device pass** — if the CEO still sees a wrong order on
+   the latest build it's a stale-build perception, not a source bug (do NOT boot the emulator without authorization).
+
+Deferred (as scoped): per-exercise muscle tinting (waits on the backend `exercises[].muscles` contract, next round).
+VoiceOverlay backdrop left as-is (live-capture overlay, not a sheet; the pill must stay usable mid-voice).
+
 ## Notes
 - The grey/blue floating **gear is a device/OS overlay** (Expo Go dev-menu bubble), NOT app UI — it sits over the Home account button and intercepts taps; drag it aside.
 - Emulator (`Pixel_10_Pro`) was left running by an earlier agent; the orchestrator's Metro on :8082 was stopped. Per the CEO, do NOT boot the emulator — they verify on their phone.

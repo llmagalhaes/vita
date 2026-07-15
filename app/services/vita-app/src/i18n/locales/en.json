@@ -209,7 +209,12 @@
     "dismiss": "Dismiss",
     "offlineReviewOne": "1 offline capture added — tap to review",
     "offlineReviewMany": "{{count}} offline captures added — tap to review",
-    "offlineReviewSub": "Added while offline · check they look right"
+    "offlineReviewSub": "Added while offline · check they look right",
+    "macrosSheetTitle": "Macros today",
+    "macrosMealsOne": "from 1 meal",
+    "macrosMealsMany": "from {{count}} meals",
+    "macrosFromMeals": "From your meals",
+    "macrosSheetFooter": "estimates from your descriptions"
   },
   "mealDetail": {
     "eyebrow": "Meal",
@@ -289,7 +294,14 @@
       "denied": "Vita needs access to your photos to read a plate or whiteboard. Turn it on in Settings, or type instead. Photos are read once and never stored.",
       "error": "Vita couldn't open your photos. You can type instead.",
       "unrecognized": "Vita couldn't find a meal or workout in that photo. Try another, or type it instead.",
-      "tooLarge": "That image is a little large. Try another, or type it instead."
+      "tooLarge": "That image is a little large. Try another, or type it instead.",
+      "sheetTitle": "Add from a photo",
+      "sheetSubtitle": "a plate, a meal, a workout or a whole routine — Vita reads what it sees",
+      "takePhoto": "Take a photo",
+      "takePhotoSub": "use your camera",
+      "fromLibrary": "Choose from library",
+      "fromLibrarySub": "pick an existing photo",
+      "sheetNote": "Vita reads the photo to fill in a card — nothing is stored."
     },
     "voice": {
       "a11yHint": "Tap to type. Press and hold to speak.",
@@ -388,7 +400,9 @@
       "timeLabel": "Time",
       "daysLabel": "Days",
       "save": "Save habit",
-      "planNeedsPlan": "Add an eating plan first to link a meal."
+      "planNeedsPlan": "Add an eating plan first to link a meal.",
+      "typeDigest": "Plan digest",
+      "typeDigestCaption": "Sends that meal's macros and example foods from your plan."
     },
     "checkin": "Check-in",
     "planCheckin": "Plan check-in",
@@ -407,7 +421,9 @@
     "waitingOne": "1 check-in waiting",
     "waitingMany": "{{count}} check-ins waiting",
     "tapToAnswer": "Tap to answer",
-    "noneToday": "Nothing to check in on today."
+    "noneToday": "Nothing to check in on today.",
+    "linkedDigest": "digest",
+    "digestNote": "Arrives as a notification — no check-in."
   },
   "account": {
     "title": "Account",

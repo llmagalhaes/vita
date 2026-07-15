@@ -11,9 +11,11 @@
  * overlap with this file, so nothing there is folded in.
  */
 import Constants, { ExecutionEnvironment } from "expo-constants";
-import { listHabits, type Habit } from "../db/habits";
+import { listHabits, type Habit, type HabitKind } from "../db/habits";
 import { notificationsEnabled } from "../db/settings";
 import { isVacationActive, vacationKeepsCheckins } from "../db/vacation";
+import { getCachedPlan } from "../db/plan";
+import { planDigestBody } from "./digest";
 
 /**
  * Expo Go (SDK 53+) removed expo-notifications' scheduling/permission APIs — calling
@@ -30,6 +32,9 @@ export type PermissionStatus = "granted" | "denied" | "undetermined";
 export type PlannedNotification = {
   habitId: string;
   title: string;
+  /** Notification body — a digest reads back the plan meal; others prompt a check-in. */
+  body: string;
+  kind: HabitKind;
   weekday: number; // 1 = Sunday … 7 = Saturday (expo-notifications convention)
   hour: number;
   minute: number;
@@ -48,8 +53,13 @@ export const CHECKIN_CATEGORY = "vita-checkin";
 /**
  * Pure: expand habits into concrete alarms. days index 0 = Sunday maps to expo
  * weekday 1; a bad/empty time is skipped rather than scheduled at 00:00.
+ * `digestBody(habit)` resolves a digest habit's notification body (macros + example
+ * foods) from the plan; injected so this stays pure/testable.
  */
-export function plannedNotifications(habits: Habit[]): PlannedNotification[] {
+export function plannedNotifications(
+  habits: Habit[],
+  digestBody: (h: Habit) => string | null = () => null,
+): PlannedNotification[] {
   const out: PlannedNotification[] = [];
   for (const h of habits) {
     if (!h.enabled) continue;
@@ -58,8 +68,12 @@ export function plannedNotifications(habits: Habit[]): PlannedNotification[] {
     const hour = Number(m[1]);
     const minute = Number(m[2]);
     if (hour > 23 || minute > 59) continue;
+    const body =
+      h.kind === "digest"
+        ? (digestBody(h) ?? `${h.name} — from your plan`)
+        : `${h.name} — a quick check-in`;
     h.days.forEach((on, i) => {
-      if (on) out.push({ habitId: h.id, title: h.name, weekday: i + 1, hour, minute });
+      if (on) out.push({ habitId: h.id, title: "Vita", body, kind: h.kind, weekday: i + 1, hour, minute });
     });
   }
   return out;
@@ -92,12 +106,13 @@ function createExpoNotifier(): Notifier {
         // ponytail: categories unsupported in Expo Go → skip; tap-to-open still works.
       }
       await Notifications.cancelAllScheduledNotificationsAsync();
-      for (const p of plannedNotifications(habits)) {
+      for (const p of plannedNotifications(habits, (h) => planDigestBody(getCachedPlan(), h.planMealName))) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: "Vita",
-            body: `${p.title} — a quick check-in`,
-            categoryIdentifier: CHECKIN_CATEGORY,
+            title: p.title,
+            body: p.body,
+            // Digests are informational — no Yes/No actions; check-ins get the category.
+            ...(p.kind === "digest" ? {} : { categoryIdentifier: CHECKIN_CATEGORY }),
             data: { habitId: p.habitId },
           },
           trigger: {

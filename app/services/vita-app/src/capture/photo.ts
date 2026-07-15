@@ -3,9 +3,8 @@
  * JPEG to the parse flow. Transport is multipart to POST /parse/photo (D3) —
  * the image never touches /uploads and is discarded server-side (ADR-0005).
  *
- * ponytail: library pick (not camera) — works on device AND simulator, so the
- * CEO can demo in Expo Go anywhere. Swap `launchImageLibraryAsync` →
- * `launchCameraAsync` (+ camera permission) once a live-capture flow is wanted.
+ * Two sources (CEO #6): the "Add from a photo" sheet offers a live camera and the
+ * photo library; both downscale to the same small JPEG and feed the same parse flow.
  */
 import * as ImageManipulator from "expo-image-manipulator";
 import * as ImagePicker from "expo-image-picker";
@@ -66,15 +65,21 @@ export async function persistForQueue(uri: string): Promise<string> {
   }
 }
 
-/** Full pick → downscale, mapping every branch to a calm outcome. */
-export async function pickPhoto(): Promise<PickOutcome> {
+export type PhotoSource = "camera" | "library";
+
+/** Full pick → downscale from either source, mapping every branch to a calm outcome. */
+export async function pickPhoto(source: PhotoSource = "library"): Promise<PickOutcome> {
   try {
-    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const perm =
+      source === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) return { status: "denied" };
-    const res = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
-      quality: 1, // we compress in downscale()
-    });
+    const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ["images"], quality: 1 }; // we compress in downscale()
+    const res =
+      source === "camera"
+        ? await ImagePicker.launchCameraAsync(opts)
+        : await ImagePicker.launchImageLibraryAsync(opts);
     const asset = res.canceled ? null : res.assets?.[0];
     if (!asset) return { status: "cancelled" };
     const photo = await downscale({

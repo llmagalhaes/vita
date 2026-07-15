@@ -23,14 +23,17 @@ const config: ExpoConfig = {
         "Vita uses the microphone so you can speak what you had instead of typing. Audio never leaves your device.",
       NSSpeechRecognitionUsageDescription:
         "Vita turns your speech into text on your device to log meals, water and workouts. Only the text is used.",
-      // Photo capture (APP-020). Works in Expo Go; copy ready for dev builds.
+      // Photo capture (APP-020 + CEO #6 camera source). Works in Expo Go; copy ready for dev builds.
       NSPhotoLibraryUsageDescription:
+        "Vita reads a photo of your plate or gym whiteboard to draft an entry. The image is read once and never stored.",
+      NSCameraUsageDescription:
         "Vita reads a photo of your plate or gym whiteboard to draft an entry. The image is read once and never stored.",
     },
   },
   android: {
     package: "com.llmagal.vita",
-    permissions: ["android.permission.RECORD_AUDIO"], // voice capture (APP-012)
+    // voice capture (APP-012) + camera photo source (CEO #6)
+    permissions: ["android.permission.RECORD_AUDIO", "android.permission.CAMERA"],
     adaptiveIcon: {
       backgroundColor: "#EDE5D6",
       foregroundImage: "./assets/android-icon-foreground.png",
