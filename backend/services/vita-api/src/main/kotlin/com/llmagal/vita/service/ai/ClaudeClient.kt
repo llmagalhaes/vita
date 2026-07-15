@@ -1,9 +1,6 @@
 package com.llmagal.vita.service.ai
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties // annotations are shared across Jackson 2/3
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.MediaType
@@ -11,6 +8,10 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import org.springframework.web.client.RestClientException
+import tools.jackson.core.JacksonException
+import tools.jackson.databind.DeserializationFeature
+import tools.jackson.databind.json.JsonMapper
+import tools.jackson.module.kotlin.jacksonMapperBuilder
 import java.time.Duration
 import java.time.OffsetDateTime
 import java.util.Base64
@@ -73,10 +74,13 @@ class ClaudeClient(
 ) {
     private val log = LoggerFactory.getLogger(ClaudeClient::class.java)
 
-    private val mapper: ObjectMapper =
-        ObjectMapper()
-            .registerKotlinModule()
+    // Jackson 3 (tools.jackson), same mapper family as Boot 4 MVC — BE-013 dual-mapper debt
+    // converged (BE-007). Kotlin module via jacksonMapperBuilder(); leniency belt-and-braces
+    // with the @JsonIgnoreProperties on ToolOutput/ToolDraft.
+    private val mapper: JsonMapper =
+        jacksonMapperBuilder()
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            .build()
 
     private val rest: RestClient = restClient(baseUrl, timeoutSeconds)
 
@@ -153,7 +157,7 @@ class ClaudeClient(
                 inputTokens = usage?.get("input_tokens")?.asInt(0) ?: 0,
                 outputTokens = usage?.get("output_tokens")?.asInt(0) ?: 0,
             )
-        } catch (e: com.fasterxml.jackson.core.JacksonException) {
+        } catch (e: JacksonException) {
             log.debug("No readable usage in Claude response: {}", e.message)
             ClaudeUsage(0, 0)
         }
@@ -188,10 +192,10 @@ class ClaudeClient(
     ): T? =
         try {
             val content = mapper.readTree(response).get("content") ?: return null
-            val toolUse = content.firstOrNull { it.get("type")?.asText() == "tool_use" } ?: return null
+            val toolUse = content.firstOrNull { it.get("type")?.asString() == "tool_use" } ?: return null
             val input = toolUse.get("input") ?: return null
             mapper.treeToValue(input, type)
-        } catch (e: com.fasterxml.jackson.core.JacksonException) {
+        } catch (e: JacksonException) {
             // Missing required fields / wrong shape → treated as uninterpretable (422) upstream.
             log.debug("Discarding unparseable Claude tool output: {}", e.message)
             null

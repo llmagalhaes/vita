@@ -1,6 +1,7 @@
 package com.llmagal.vita.controller.auth
 
 import com.llmagal.vita.service.auth.MagicLinkService
+import com.llmagal.vita.service.auth.OidcService
 import com.llmagal.vita.service.auth.TokenPair
 import com.llmagal.vita.service.auth.TokenService
 import jakarta.servlet.http.HttpServletRequest
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController
 class AuthController(
     private val magicLink: MagicLinkService,
     private val tokens: TokenService,
+    private val oidc: OidcService,
 ) {
     data class EmailRequest(
         val email: String,
@@ -32,6 +34,14 @@ class AuthController(
 
     data class RefreshRequest(
         val refreshToken: String,
+    )
+
+    /** POST /v1/auth/oidc — provider is google|apple; name is Apple's first-sign-in name. */
+    data class OidcRequest(
+        val provider: String,
+        val idToken: String,
+        val nonce: String? = null,
+        val name: String? = null,
     )
 
     @PostMapping("/magic-link")
@@ -54,6 +64,11 @@ class AuthController(
     fun verify(
         @RequestBody body: TokenRequest,
     ): TokenPair = magicLink.verify(body.token)
+
+    @PostMapping("/oidc")
+    fun oidc(
+        @RequestBody body: OidcRequest,
+    ): TokenPair = oidc.signIn(body.provider, body.idToken, body.nonce, body.name)
 
     @PostMapping("/refresh")
     fun refresh(

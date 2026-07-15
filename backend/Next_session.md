@@ -1,5 +1,48 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 15, 2026-07-15) — BE-007 OIDC done locally + Jackson 2→3 converged + board swept to Done
+
+Backend is **LIVE in prod** (API GW `https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/`,
+`/health` 200, real Claude). This session: enable Google/Apple sign-in, finish remaining
+backend debt, and reconcile the Asana board to production. Deliverables:
+`Progress/BE-007-oidc-Progress.md`, **ADR-0015**.
+
+- **BE-007 (`POST /v1/auth/oidc`, Google + Apple) — DONE locally, uncommitted.** To contract,
+  **no contract change** (`/auth/oidc` was already in v0). Verification reuses Spring Security
+  `NimbusJwtDecoder` (JWKS fetch+cache, RS256, iss/aud/exp, **no new dep**); nonce + verified-email
+  handled in code. Find-or-create on `(provider, subject)` (new `oidc_identity` table, migration
+  **V007**), link by verified email, cancel-deletion, one session model via `TokenService`. New
+  shared `service/auth/UserAccounts` (find/create/cancel-deletion) — **magic-link refactored onto
+  it** so the crypto envelope can't drift. **Fail closed**: unconfigured audience → 503; verify
+  fail → 401; unknown provider → 400. Files: `config/OidcProps`, `service/auth/{OidcVerifier,
+  OidcService,UserAccounts}`, `repository/auth/OidcIdentityRepository`, `controller/auth/AuthController`
+  (OIDC endpoint), `db/migration/V007__oidc_identity.sql`, tests `OidcVerifierTest`+`OidcFlowTest`+
+  `OidcTestTokens`.
+- **Config the CEO must fill (blocks Google/Apple sign-in going live):** `vita.oidc.google.audience`
+  ← env `GOOGLE_OIDC_AUDIENCE`, `vita.oidc.apple.audience` ← `APPLE_OIDC_AUDIENCE`, mapped by
+  devops from the SSM params **`google-client-config` / `apple-client-config`**. Each holds the
+  **OAuth client id (the `aud`)**. Blank → that provider 503s (fail-closed). See the orchestrator
+  report / BE-007 ledger for the full CEO Google/Apple action list (which client-id types, app
+  vs backend, APP-007 dependency).
+- **Jackson 2→3 convergence (BE-028 residual debt) — DONE.** `ClaudeClient` + `ParseEvalCases`
+  now use Jackson 3 (`tools.jackson`, `jacksonMapperBuilder()`); removed the J2
+  `com.fasterxml.jackson.module:jackson-module-kotlin` dep (only shared `jackson-annotations`
+  remains, transitive). Verified against the WireMock golden parse tests. Dual-mapper debt retired.
+- **Asana board swept to production reality.** Moved **25 tickets → Done** (BE-001,002,004,005,006,
+  008–020,022–028) with a "live in prod via image a03e194 / API GW verified" comment each. Left
+  **In progress**: BE-007 (built, not yet deployed — awaits image + CEO config), BE-029 (committed
+  `881834f` but NOT in image `a03e194` — ships next image), BE-003 (CI — genuinely unshipped, CEO
+  chose no paid pipeline).
+- **`./gradlew check` green — 147 tests, 0 failures** (was 124 at `881834f`; +16 OidcVerifierTest,
+  +7 OidcFlowTest), detekt + ktlint clean. LocalStack suites untouched (still 6/6, not re-run).
+- **Next backend action:** orchestrator commits BE-007 → build the next arm64 image from that SHA
+  (includes BE-029 + BE-007) → push to ECR `vita-api` (`<sha>` + `latest`) → devops redeploys.
+  Image build recipe: `services/vita-api/Dockerfile` (arm64), `docker buildx build --platform
+  linux/arm64`, push via `aws ecr get-login-password` (acct 201261380352, eu-west-1). Did NOT
+  build/push this session — the image must carry the committed BE-007 SHA, which only exists after
+  the orchestrator commits (subagents don't run git). OIDC stays 503 in prod until the CEO drops the
+  client ids into the two SSM params.
+
 ## Current state (Phase 2 session 14, 2026-07-15) — BE-004 image LIVE in ECR + BE-029 per-exercise muscles
 
 Production milestone called (CEO). Two deliverables: `Progress/BE-004-prod-deploy-Progress.md`,

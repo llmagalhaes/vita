@@ -1,7 +1,6 @@
 package com.llmagal.vita.service.auth
 
 import com.llmagal.vita.config.AuthProps
-import com.llmagal.vita.service.crypto.AadContext
 import com.llmagal.vita.service.crypto.CryptoService
 import org.springframework.http.HttpStatus
 import org.springframework.jdbc.core.JdbcTemplate
@@ -27,6 +26,7 @@ class MagicLinkService(
     private val crypto: CryptoService,
     private val mailer: Mailer,
     private val tokens: TokenService,
+    private val accounts: UserAccounts,
     private val props: AuthProps,
 ) {
     private val random = SecureRandom()
@@ -82,31 +82,12 @@ class MagicLinkService(
     }
 
     private fun findOrCreateUser(email: String): UUID {
-        val hash = crypto.emailHash(email)
-        val existing =
-            jdbc.queryForList("SELECT id FROM users WHERE email_hash = ?", UUID::class.java, hash).firstOrNull()
+        val existing = accounts.findByEmail(email)
         if (existing != null) {
-            // Any successful sign-in cancels a pending account deletion (ADR-0004).
-            jdbc.update("UPDATE users SET deletion_requested_at = NULL WHERE id = ?", existing)
+            accounts.cancelPendingDeletion(existing)
             return existing
         }
-        // ponytail: no lock around create — a duplicate race just hits the email_hash
-        // unique constraint and the retry signs in. Fine at 5 users.
-        val id = UUID.randomUUID()
-        jdbc.update(
-            "INSERT INTO users (id, email_hash, email_enc) VALUES (?, ?, ?)",
-            id,
-            hash,
-            crypto.encryptWithServiceKey(email.toByteArray()),
-        )
-        crypto.createUserKey(id)
-        // Placeholder name from the email local-part (app review pt 1); user renames in onboarding.
-        jdbc.update(
-            "UPDATE users SET name_enc = ? WHERE id = ?",
-            crypto.encryptForUser(id, AadContext.USER_NAME, email.substringBefore("@").toByteArray()),
-            id,
-        )
-        return id
+        return accounts.create(email, null)
     }
 
     private fun normalize(email: String) = email.trim().lowercase()

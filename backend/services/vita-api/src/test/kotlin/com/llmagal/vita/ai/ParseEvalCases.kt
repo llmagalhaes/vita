@@ -1,12 +1,12 @@
 package com.llmagal.vita.ai
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
-import com.fasterxml.jackson.databind.JsonNode
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties // annotations are shared across Jackson 2/3
 import com.llmagal.vita.model.ai.ParseResponse
 import org.assertj.core.api.Assertions.assertThat
+import tools.jackson.databind.JsonNode
+import tools.jackson.databind.ObjectMapper
+import tools.jackson.module.kotlin.jacksonObjectMapper
+import tools.jackson.module.kotlin.readValue
 
 /**
  * The versioned parse eval set (BE-014, ADR-0005): fixture inputs → expected shapes
@@ -15,7 +15,7 @@ import org.assertj.core.api.Assertions.assertThat
  * both check the same expectations.
  */
 object ParseEvalCases {
-    private val mapper: ObjectMapper = ObjectMapper().registerKotlinModule()
+    private val mapper: ObjectMapper = jacksonObjectMapper()
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     data class Case(

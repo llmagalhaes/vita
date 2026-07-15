@@ -24,9 +24,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-oauth2-resource-server")
     implementation("org.springframework.boot:spring-boot-starter-data-jdbc")
     implementation("tools.jackson.module:jackson-module-kotlin") // Jackson 3 — Boot 4 MVC uses tools.jackson
-    // ponytail: BE-013 ClaudeClient has a private Jackson 2 ObjectMapper for Anthropic payloads
-    // (isolated from MVC's Jackson 3). Converge to tools.jackson later — tracked in BE-013 Progress.
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
+    // BE-007: the BE-013 dual-mapper debt is retired — ClaudeClient + the eval helper now use
+    // Jackson 3 (tools.jackson) like the rest of the service. Only jackson-annotations
+    // (com.fasterxml.jackson.annotation, shared across 2/3) remains, pulled transitively.
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("io.micrometer:micrometer-core") // BE-014: parse token/cost counters (no actuator; version from Boot BOM)
     implementation("org.springframework.boot:spring-boot-starter-flyway")

@@ -78,6 +78,18 @@ vita:
     # BE-019/BE-020 (ADR-0011 ext): how many past versions of the eating plan /
     # training program to keep. POST beyond this drops the oldest (D5).
     history-max: ${VITA_PLANS_HISTORY_MAX:5}
+  oidc:
+    # BE-007 (ADR-0015): Google/Apple sign-in. `audience` is the OAuth client id we must
+    # see in the token's `aud` — it comes from the SSM params google-client-config /
+    # apple-client-config (devops maps SSM → these env vars). BLANK in dev, and a blank
+    # audience makes that provider fail closed (503). jwks-uri is the fixed provider
+    # constant (overridden to a stub in tests); issuers are hardcoded in OidcVerifier.
+    google:
+      audience: ${GOOGLE_OIDC_AUDIENCE:}
+      jwks-uri: ${GOOGLE_JWKS_URI:https://www.googleapis.com/oauth2/v3/certs}
+    apple:
+      audience: ${APPLE_OIDC_AUDIENCE:}
+      jwks-uri: ${APPLE_JWKS_URI:https://appleid.apple.com/auth/keys}
 
 keys:
   # Never put the real key here — this file is committed. Local: secrets.yaml; prod: env var.
