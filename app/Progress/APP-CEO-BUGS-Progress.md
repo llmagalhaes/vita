@@ -41,7 +41,15 @@ CEO device retest #2: #3 still stiff on vacation/capture, #4 real error = share 
 - **B4:** muscle tap on Trends heatmap/chips → sessions sheet → preview (exercises are per-session in our model, not per-exercise — honest equivalent of the prototype's exercise list). **B8:** workout-detail muscle tap pops a dismissible info chip; chips reflect selection.
 - **Polish:** pill mount pop, parse-result card pop, scrub readout fade, meal-detail row/bar staggers.
 
-**Not done (deliberate):** B12 blurred backdrops (needs `expo-blur` — new dep, CEO call); per-exercise muscle row-tinting in B8 (needs `exercises[].muscles` from the backend parse — contract change, backend ticket if wanted). All 34 suites / 168 tests green, tsc clean at every commit. **Everything needs the CEO's on-device pass.**
+**Not done (deliberate):** B12 blurred backdrops (needs `expo-blur` — new dep, CEO call); per-exercise muscle row-tinting in B8 (needs `exercises[].muscles` from the backend parse — contract change, backend ticket if wanted). All 34 suites / 168 tests green, tsc clean at every commit.
+
+## Session 6, pass 4 (2026-07-15) — full emulator drive (CEO-authorized) + 3 real device bugs found & fixed
+Drove the whole app on the Pixel_10_Pro emulator (Expo Go 56, mocked API): onboarding → plan read-back → Home → capture (meal + workout) → Trends (swipe/scrub) → sheets → export. Commit `dbc9576`. Found and fixed three bugs only a device shows:
+1. **Tab swipe "sometimes dead" (pre-existing, the REAL #1 nav bug):** the pan's `onBegin` lazily mounted the neighbor tab via setState → pager re-rendered MID-GESTURE → gesture recreated, translation reset → swipe snapped back. Neighbors now pre-mount from a deferred effect after a tab settles. **Verified: Home↔Trends↔Habits swipes all work.**
+2. **Mount animations dropped on busy boots:** effect-scheduled `withTiming` raced view attachment (bars/vessel/crest stayed empty on cold boot). New `useStartOnLayout` starts mount tweens at first `onLayout`; vessel animates px (animated %-height on absolute child never applies); `WaveIllustration` memo'd (parent re-render freezes in-flight SVG animatedProps) + SVG draw-ons pin final state post-tween. **Verified on cold boot: vessel fills, crest draws, bars grow.**
+3. **PDF export (#4) round 2:** the File-API copy also lacks READ permission on the print cache. Final fix: `printToFileAsync({ base64: true })` → `File.write(base64)` into the document dir → share. **Verified: Android share sheet opens "Sharing 1 file — vita-log.pdf".**
+
+Also emulator-verified: #3 drag-dismiss fluid on capture AND vacation/export (SheetOverlay), #6 scrub with readout + guide line + no pager fight (closed card swipes tabs, open card scrubs), MorphBlob parsing state, result-card pop, consent/summary pops, water vessel, muscle chips. **Remaining for CEO's phone pass: feel/fluidity judgment only — every functional bug is now device-verified fixed.**
 
 ## Notes
 - The grey/blue floating **gear is a device/OS overlay** (Expo Go dev-menu bubble), NOT app UI — it sits over the Home account button and intercepts taps; drag it aside.
