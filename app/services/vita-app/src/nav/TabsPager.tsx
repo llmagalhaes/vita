@@ -35,6 +35,28 @@ export function tabIndex(pathname: string): number {
   return TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
 }
 
+const SNAP_DIST_FRAC = 0.5; // dragged past half a page → commit to the neighbour
+const SNAP_VEL = 500; // px/s flick threshold
+
+/**
+ * Pure snap decision (worklet-safe, tested). One swipe moves AT MOST one page
+ * from the page the drag STARTED on — no velocity-projected multi-page jumps
+ * (APP-043: fast flicks used to clamp straight to the last tab).
+ * translationX/velocityX follow gesture-handler signs: dragging the finger LEFT
+ * is negative and advances to a higher index. Returns a clamped [0,2] page.
+ */
+export function snapTarget(startPage: number, translationX: number, velocityX: number, width: number): number {
+  "worklet";
+  const base = Math.round(startPage);
+  const w = Math.max(width, 1);
+  const dragToNext = -translationX / w; // >0 toward a higher index
+  const flickToNext = -velocityX; // >0 toward a higher index
+  let dir = 0;
+  if (dragToNext > SNAP_DIST_FRAC || flickToNext > SNAP_VEL) dir = 1;
+  else if (dragToNext < -SNAP_DIST_FRAC || flickToNext < -SNAP_VEL) dir = -1;
+  return Math.max(0, Math.min(2, base + dir));
+}
+
 const SPRING = { damping: 22, stiffness: 210, mass: 0.9 } as const;
 
 export function TabsPager() {
@@ -94,8 +116,7 @@ export function TabsPager() {
       index.value = Math.max(-0.15, Math.min(2.15, raw)); // rubber-band past ends
     })
     .onEnd((e) => {
-      const v = e.velocityX / Math.max(width, 1);
-      const to = Math.max(0, Math.min(2, Math.round(index.value - v * 0.25)));
+      const to = snapTarget(start.value, e.translationX, e.velocityX, width);
       index.value = withSpring(to, SPRING);
       runOnJS(settle)(to);
     });

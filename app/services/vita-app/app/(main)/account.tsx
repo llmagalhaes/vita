@@ -8,7 +8,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { BackButton, Card, Chevron, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
+import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -56,6 +56,7 @@ export default function Account() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [vacOpen, setVacOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
   const units = settings?.units ?? "metric";
   const plan = getCachedPlan();
@@ -161,7 +162,7 @@ export default function Account() {
           <Text variant="caption" numberOfLines={1} style={{ marginTop: 1 }} color={colors.muted}>{vacSub}</Text>
         </View>
         {onVacation ? (
-          <Pressable accessibilityRole="button" onPress={() => endVacation()} style={{ paddingVertical: 9, paddingHorizontal: 15, borderRadius: 17, borderWidth: 1.5, borderColor: "rgba(120,100,75,0.16)" }}>
+          <Pressable accessibilityRole="button" onPress={() => setEndConfirmOpen(true)} style={{ paddingVertical: 9, paddingHorizontal: 15, borderRadius: 17, borderWidth: 1.5, borderColor: "rgba(120,100,75,0.16)" }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.muted}>{t("account.end")}</Text>
           </Pressable>
         ) : (
@@ -197,6 +198,18 @@ export default function Account() {
     {/* sheets absolute-fill the screen — outside the ScrollView so they don't scroll with content */}
     <VacationSheet visible={vacOpen} onClose={() => setVacOpen(false)} />
     <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
+    <ConfirmSheet
+      visible={endConfirmOpen}
+      title={t("account.endVacationConfirmTitle")}
+      message={t("account.endVacationConfirmBody")}
+      confirmLabel={t("account.end")}
+      cancelLabel={t("common.cancel")}
+      onConfirm={() => {
+        endVacation();
+        setEndConfirmOpen(false);
+      }}
+      onClose={() => setEndConfirmOpen(false)}
+    />
     </KeyboardAvoider>
   );
 }

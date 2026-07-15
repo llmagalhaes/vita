@@ -61,12 +61,13 @@ const FRONT: Partial<Record<Muscle, Shape[]>> = {
   ],
   core: [{ k: "r", x: 86, y: 134, w: 28, h: 62, rx: 12 }],
   quads: [
-    { k: "e", cx: 86, cy: 258, rx: 14, ry: 34 },
-    { k: "e", cx: 114, cy: 258, rx: 14, ry: 34 },
+    // Front thighs: sit high on the leg so the tint reads as quadriceps, not knee.
+    { k: "e", cx: 85, cy: 250, rx: 13, ry: 40 },
+    { k: "e", cx: 115, cy: 250, rx: 13, ry: 40 },
   ],
   calves: [
-    { k: "e", cx: 87, cy: 344, rx: 10, ry: 28 },
-    { k: "e", cx: 113, cy: 344, rx: 10, ry: 28 },
+    { k: "e", cx: 85, cy: 346, rx: 10, ry: 28 },
+    { k: "e", cx: 115, cy: 346, rx: 10, ry: 28 },
   ],
 };
 
@@ -85,16 +86,18 @@ const BACK: Partial<Record<Muscle, Shape[]>> = {
     { k: "e", cx: 156, cy: 176, rx: 8, ry: 22 },
   ],
   glutes: [
-    { k: "e", cx: 86, cy: 206, rx: 16, ry: 15 },
-    { k: "e", cx: 114, cy: 206, rx: 16, ry: 15 },
+    // Hips, just below the torso where the legs begin.
+    { k: "e", cx: 85, cy: 212, rx: 14, ry: 14 },
+    { k: "e", cx: 115, cy: 212, rx: 14, ry: 14 },
   ],
   hamstrings: [
-    { k: "e", cx: 86, cy: 268, rx: 14, ry: 32 },
-    { k: "e", cx: 114, cy: 268, rx: 14, ry: 32 },
+    // Back thighs, below the glutes and above the calves.
+    { k: "e", cx: 85, cy: 272, rx: 13, ry: 34 },
+    { k: "e", cx: 115, cy: 272, rx: 13, ry: 34 },
   ],
   calves: [
-    { k: "e", cx: 87, cy: 344, rx: 10, ry: 28 },
-    { k: "e", cx: 113, cy: 344, rx: 10, ry: 28 },
+    { k: "e", cx: 85, cy: 346, rx: 10, ry: 28 },
+    { k: "e", cx: 115, cy: 346, rx: 10, ry: 28 },
   ],
 };
 
@@ -184,8 +187,12 @@ export type BodyMapProps = {
   showToggle?: boolean;
   accent?: string;
   size?: number;
+  /** View label shown under the figure ("Front"/"Back"; rendered uppercase). */
   frontLabel?: string;
   backLabel?: string;
+  /** "⇄ See back/front" button text (defaults to the opposite view label). */
+  seeFrontLabel?: string;
+  seeBackLabel?: string;
   onMusclePress?: (m: Muscle) => void;
 };
 
@@ -198,6 +205,8 @@ export function BodyMap({
   size = 150,
   frontLabel = "Front",
   backLabel = "Back",
+  seeFrontLabel,
+  seeBackLabel,
   onMusclePress,
 }: BodyMapProps) {
   const [internal, setInternal] = useState<BodySide>("front");
@@ -206,50 +215,45 @@ export function BodyMap({
     onSideChange?.(s);
     if (controlledSide === undefined) setInternal(s);
   };
+  // Button flips to the OTHER side; label reflects where you'd go.
+  const flipLabel = side === "front" ? (seeBackLabel ?? backLabel) : (seeFrontLabel ?? frontLabel);
+  const viewLabel = side === "front" ? frontLabel : backLabel;
 
   return (
-    <View style={{ alignItems: "center", gap: 12 }}>
-      <Figure side={side} highlighted={highlighted} accent={accent} size={size} onMusclePress={onMusclePress} />
+    <View style={{ alignItems: "center", gap: 8, alignSelf: "stretch" }}>
       {showToggle && (
-        <View
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={flipLabel}
+          onPress={() => setSide(side === "front" ? "back" : "front")}
           style={{
+            alignSelf: "flex-end",
             flexDirection: "row",
+            alignItems: "center",
+            gap: 5,
             backgroundColor: colors.surface,
             borderRadius: radii.pill,
-            padding: 3,
+            paddingVertical: 6,
+            paddingHorizontal: 12,
           }}
         >
-          {(
-            [
-              ["front", frontLabel],
-              ["back", backLabel],
-            ] as const
-          ).map(([key, label]) => {
-            const on = side === key;
-            return (
-              <Pressable
-                key={key}
-                accessibilityRole="button"
-                accessibilityState={{ selected: on }}
-                onPress={() => setSide(key)}
-                style={{
-                  paddingVertical: 6,
-                  paddingHorizontal: 16,
-                  borderRadius: radii.pill,
-                  backgroundColor: on ? colors.card : "transparent",
-                }}
-              >
-                <Text
-                  variant="caption"
-                  style={{ fontFamily: on ? fonts.bold : fonts.semiBold, fontSize: 12.5 }}
-                  color={on ? colors.ink : colors.muted}
-                >
-                  {label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={colors.accent}>
+            ⇄
+          </Text>
+          <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 12 }} color={colors.ink}>
+            {flipLabel}
+          </Text>
+        </Pressable>
+      )}
+      <Figure side={side} highlighted={highlighted} accent={accent} size={size} onMusclePress={onMusclePress} />
+      {showToggle && (
+        <Text
+          variant="caption"
+          style={{ fontFamily: fonts.extraBold, fontSize: 10.5, letterSpacing: 1.4, textTransform: "uppercase" }}
+          color={colors.labelMuted}
+        >
+          {viewLabel}
+        </Text>
       )}
     </View>
   );

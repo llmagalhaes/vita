@@ -1,3 +1,4 @@
+import { type ComponentProps } from "react";
 import { Pressable, Platform } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
@@ -14,13 +15,20 @@ export function SheetBackdrop({
   onClose,
   closeLabel,
   intensity = 26,
+  style,
 }: {
   onClose: () => void;
   closeLabel?: string;
   intensity?: number;
+  /** Driven opacity from the sheet transition. When set, it (not FadeIn) owns the fade,
+   *  so the backdrop fades OUT in step with the sheet's slide-out on a programmatic close. */
+  style?: ComponentProps<typeof Animated.View>["style"];
 }) {
   return (
-    <Animated.View entering={FadeIn.duration(motion.fade.durationMs)} style={{ position: "absolute", inset: 0 }}>
+    <Animated.View
+      entering={style ? undefined : FadeIn.duration(motion.fade.durationMs)}
+      style={[{ position: "absolute", inset: 0 }, style]}
+    >
       <BlurView
         intensity={intensity}
         tint="light"

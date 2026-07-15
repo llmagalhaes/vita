@@ -24,6 +24,7 @@ import {
   Bar,
   Card,
   Chevron,
+  ConfirmSheet,
   EstimateTag,
   KeyboardAvoider,
   PressScale,
@@ -301,6 +302,7 @@ export default function Home() {
   const [macrosSheetOpen, setMacrosSheetOpen] = useState(false);
   const [energyOpen, setEnergyOpen] = useState(false);
   const [spentInput, setSpentInput] = useState("");
+  const [endVacationConfirmOpen, setEndVacationConfirmOpen] = useState(false);
 
   const settings = useMemo(() => getSettings(), []);
   const units = settings?.units ?? "metric";
@@ -472,7 +474,7 @@ export default function Home() {
           </View>
           <Pressable
             accessibilityRole="button"
-            onPress={() => endVacation()}
+            onPress={() => setEndVacationConfirmOpen(true)}
             style={{ paddingVertical: 8, paddingHorizontal: 13, borderRadius: 15, backgroundColor: colors.card }}
           >
             <Text style={{ fontFamily: fonts.bold, fontSize: 12 }} color={colors.vacationAccent}>
@@ -773,6 +775,18 @@ export default function Home() {
       onClose={() => setMacrosSheetOpen(false)}
       macros={macros}
       meals={macroMeals}
+    />
+    <ConfirmSheet
+      visible={endVacationConfirmOpen}
+      title={t("account.endVacationConfirmTitle")}
+      message={t("account.endVacationConfirmBody")}
+      confirmLabel={t("account.end")}
+      cancelLabel={t("common.cancel")}
+      onConfirm={() => {
+        endVacation();
+        setEndVacationConfirmOpen(false);
+      }}
+      onClose={() => setEndVacationConfirmOpen(false)}
     />
     </KeyboardAvoider>
   );

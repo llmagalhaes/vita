@@ -68,13 +68,17 @@ export function seedDemoDataOnce(): void {
       isEstimate: true,
       detail: {
         title: "Leg day",
-        durationMin: 45,
-        kcal: 315,
+        durationMin: 52,
+        kcal: 430,
         muscles: ["quads", "hamstrings", "glutes", "calves"],
+        // Per-exercise muscles (0.5.0) — drives tap-a-muscle → exercise highlight (APP-049).
         exercises: [
-          { name: "Back squat", sets: 4, reps: 8, loadKg: 80 },
-          { name: "Leg press", sets: 3, reps: 12 },
-          { name: "Romanian deadlift", sets: 3, reps: 10, loadKg: 60 },
+          { name: "Back squat", sets: 4, reps: 8, loadKg: 80, muscles: ["quads", "glutes"] },
+          { name: "Leg press", sets: 3, reps: 12, muscles: ["quads"] },
+          { name: "Romanian deadlift", sets: 3, reps: 10, loadKg: 60, muscles: ["hamstrings", "glutes"] },
+          { name: "Walking lunges", sets: 2, reps: 20, muscles: ["quads", "glutes"] },
+          { name: "Seated calf raise", sets: 4, reps: 15, muscles: ["calves"] },
+          { name: "Leg curl", sets: 3, reps: 12, muscles: ["hamstrings"] },
         ],
       },
     },

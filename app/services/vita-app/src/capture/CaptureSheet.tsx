@@ -1,9 +1,10 @@
+import { useRef } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, Keyframe, SlideInDown } from "react-native-reanimated";
+import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
 import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
-import { Button, Card, Chip, EstimateTag, MorphBlob, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetDrag, useSheetPresence } from "../ui";
+import { Button, Card, Chip, EstimateTag, MorphBlob, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetTransition, useSheetPresence } from "../ui";
 import { useCapture } from "./CaptureContext";
 import { mealTotals, stepItem } from "./quantity";
 
@@ -214,17 +215,25 @@ export function CaptureSheet() {
   const { t } = useTranslation();
   const capture = useCapture();
 
-  // Drag-down-to-dismiss (hook keeps the decision on the UI thread). Hooks stay
-  // above the idle early-return (Rules of Hooks).
-  const { dragGesture, sheetStyle } = useSheetDrag(capture.close);
-  useSheetPresence(capture.status !== "idle"); // hide the tab bar under the sheet (CEO #1)
+  // One shared driver springs the sheet in, follows the drag, and slides it back
+  // down + fades the backdrop on a programmatic close (confirm/cancel) instead of
+  // snapping shut (APP-042). Hooks stay above the early return (Rules of Hooks).
+  const live = capture.status !== "idle";
+  const { rendered, sheetStyle, backdropStyle, dragGesture, onSheetLayout } = useSheetTransition(live, capture.close);
+  useSheetPresence(live); // hide the tab bar under the sheet (CEO #1)
 
-  if (capture.status === "idle") return null;
+  // ponytail: cache the last live state so the confirmed card slides out WITH its
+  // content, instead of an empty sheet (capture.status is already idle mid-exit).
+  const lastLive = useRef(capture);
+  if (live) lastLive.current = capture;
 
-  const multiple = capture.drafts.length > 1;
+  if (!rendered) return null;
+
+  const view = live ? capture : lastLive.current; // reads during exit come from the snapshot
+  const multiple = view.drafts.length > 1;
 
   // Photo-parsed meals get quantity steppers; each step re-scales item + totals.
-  const current = capture.drafts[capture.index];
+  const current = view.drafts[view.index];
   const stepHandler =
     current?.type === "meal" && current.inputMethod === "photo"
       ? (itemIndex: number, delta: number) => {
@@ -237,10 +246,10 @@ export function CaptureSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end" }}>
-      <SheetBackdrop onClose={capture.close} closeLabel={t("common.cancel")} />
+      <SheetBackdrop onClose={capture.close} closeLabel={t("common.cancel")} style={backdropStyle} />
       <GestureDetector gesture={dragGesture}>
       <Animated.View
-        entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
+        onLayout={onSheetLayout}
         style={[
           {
             backgroundColor: colors.sheet,
@@ -266,7 +275,7 @@ export function CaptureSheet() {
           }}
         />
 
-        {capture.status === "parsing" && (
+        {view.status === "parsing" && (
           <View style={{ alignItems: "center", gap: spacing.lg, paddingVertical: spacing.xl }}>
             <MorphBlob />
             <Text variant="label" color={colors.muted}>
@@ -277,29 +286,29 @@ export function CaptureSheet() {
               style={{ fontStyle: "italic", textAlign: "center", maxWidth: 280, lineHeight: 18 }}
               color={colors.labelMuted}
             >
-              “{capture.phrase}”
+              “{view.phrase}”
             </Text>
           </View>
         )}
 
-        {capture.status === "review" && capture.drafts[capture.index] && (
+        {view.status === "review" && view.drafts[view.index] && (
           <View style={{ gap: spacing.md }}>
-            {capture.phrase.length > 0 && (
+            {view.phrase.length > 0 && (
               <Text
                 variant="caption"
                 style={{ fontStyle: "italic", textAlign: "center", paddingHorizontal: spacing.xl }}
                 color={colors.labelMuted}
               >
-                “{capture.phrase}”
+                “{view.phrase}”
               </Text>
             )}
             {multiple && (
               <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>
-                {t("capture.draftCount", { current: capture.index + 1, total: capture.drafts.length })}
+                {t("capture.draftCount", { current: view.index + 1, total: view.drafts.length })}
               </Text>
             )}
-            <Animated.View key={`${capture.index}-${capture.drafts.length}`} entering={resultPop}>
-              <DraftCard draft={capture.drafts[capture.index]!} onStep={stepHandler} />
+            <Animated.View key={`${view.index}-${view.drafts.length}`} entering={resultPop}>
+              <DraftCard draft={view.drafts[view.index]!} onStep={stepHandler} />
             </Animated.View>
             <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
               <View style={{ flex: 1 }}>
@@ -319,15 +328,15 @@ export function CaptureSheet() {
           </View>
         )}
 
-        {capture.status === "error" && (
+        {view.status === "error" && (
           <View style={{ alignItems: "center", gap: spacing.lg, paddingVertical: spacing.xl }}>
             <Text variant="body" style={{ textAlign: "center", maxWidth: 280 }} color={colors.muted}>
-              {t(capture.errorKey)}
+              {t(view.errorKey)}
             </Text>
             <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
               <Button label={t("common.cancel")} variant="ghost" onPress={capture.close} />
-              {capture.canRetry ? (
-                <Button label={t("common.tryAgain")} onPress={() => capture.submit(capture.phrase)} />
+              {view.canRetry ? (
+                <Button label={t("common.tryAgain")} onPress={() => capture.submit(view.phrase)} />
               ) : (
                 <Button label={t("capture.photo.typeInstead")} onPress={capture.requestTextEntry} />
               )}

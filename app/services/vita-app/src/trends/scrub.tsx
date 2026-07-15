@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { runOnJS } from "react-native-reanimated";
+import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
 import { colors } from "../ui";
 import { tabsPagerRef } from "../nav/pagerRef";
 
 /** Touch x (px within the chart) → the day index under the finger. Pure/tested. */
-export const indexFromX = (x: number, width: number, count: number): number =>
-  width <= 0 || count <= 0 ? 0 : Math.max(0, Math.min(count - 1, Math.floor((x / width) * count)));
+export const indexFromX = (x: number, width: number, count: number): number => {
+  "worklet";
+  return width <= 0 || count <= 0 ? 0 : Math.max(0, Math.min(count - 1, Math.floor((x / width) * count)));
+};
 
 /**
  * Scrub-by-drag overlay — same gesture-handler Pan + runOnJS pattern as Slider.
@@ -35,28 +37,52 @@ export function ScrubOverlay({
 }) {
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
-  const pick = (x: number) => onScrub(indexFromX(x, width, count));
+
+  // Touch x lives on the UI thread so the guide tracks the finger without a JS
+  // round-trip (APP-044). onScrub still fires for the readout, but only when the
+  // day index actually changes — cuts a per-frame JS hop to one hop per column.
+  const touchX = useSharedValue<number | null>(null);
+  const lastIdx = useSharedValue(-1);
 
   const pan = Gesture.Pan()
     .blocksExternalGesture(tabsPagerRef)
     .activeOffsetX([-10, 10])
     .failOffsetY([-16, 16])
-    .onBegin((e) => runOnJS(pick)(e.x))
-    .onUpdate((e) => runOnJS(pick)(e.x))
-    .onFinalize(() => onEnd && runOnJS(onEnd)());
+    .onBegin((e) => {
+      touchX.value = e.x;
+      const i = indexFromX(e.x, width, count);
+      lastIdx.value = i;
+      runOnJS(onScrub)(i);
+    })
+    .onUpdate((e) => {
+      touchX.value = e.x;
+      const i = indexFromX(e.x, width, count);
+      if (i !== lastIdx.value) {
+        lastIdx.value = i;
+        runOnJS(onScrub)(i);
+      }
+    })
+    .onFinalize(() => {
+      touchX.value = null;
+      lastIdx.value = -1;
+      if (onEnd) runOnJS(onEnd)();
+    });
 
-  // Guide line at the active day's column centre.
-  const guideX = active != null && count > 0 && width > 0 ? ((active + 0.5) / count) * width : null;
+  // Guide follows the finger on the UI thread; before/after a drag it falls back
+  // to the active day's column centre (initial render, external selection).
+  const guideStyle = useAnimatedStyle(() => {
+    const fallback = active != null && count > 0 && width > 0 ? ((active + 0.5) / count) * width : null;
+    const x = touchX.value != null ? touchX.value : fallback;
+    return { opacity: x == null ? 0 : 1, transform: [{ translateX: (x ?? 0) - 1 }] };
+  });
 
   return (
     <GestureDetector gesture={pan}>
       <View accessibilityLabel={accessibilityLabel} onLayout={onLayout} style={StyleSheet.absoluteFill}>
-        {guideX != null && (
-          <View
-            pointerEvents="none"
-            style={{ position: "absolute", top: 0, bottom: 0, left: guideX - 1, width: 2, backgroundColor: colors.scrubGuide }}
-          />
-        )}
+        <Animated.View
+          pointerEvents="none"
+          style={[{ position: "absolute", top: 0, bottom: 0, left: 0, width: 2, backgroundColor: colors.scrubGuide }, guideStyle]}
+        />
       </View>
     </GestureDetector>
   );

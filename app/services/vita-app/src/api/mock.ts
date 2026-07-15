@@ -401,6 +401,12 @@ export function createMockApi(): Api {
       await delay(LATENCY_MS);
       return mockParseProgram(text);
     },
+    async requestUpload() {
+      await delay(150);
+      // Non-https uploadUrl → putPresignedFile skips the network; the fake fileRef
+      // then flows into parse*, which returns the canned draft (text undefined).
+      return { fileRef: `mock-file.${uuid()}`, uploadUrl: "mock://plan-upload", expiresAt: new Date(Date.now() + 600_000).toISOString() };
+    },
     async getPlan() {
       await delay(120);
       if (!storedPlan) throw notFound();

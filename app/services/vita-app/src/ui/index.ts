@@ -16,6 +16,7 @@ export * from "./keyboard";
 export * from "./useSheetDrag";
 export * from "./useStartOnLayout";
 export * from "./SheetOverlay";
+export * from "./ConfirmSheet";
 export * from "./SheetBackdrop";
 export * from "./sheetPresence";
 export * from "./BackButton";

@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, Keyframe, SlideInDown } from "react-native-reanimated";
+import Animated, { Keyframe } from "react-native-reanimated";
 import { useCapture } from "../capture/CaptureContext";
-import { Button, Card, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetDrag, useSheetPresence } from "../ui";
+import { Button, Card, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetTransition, useSheetPresence } from "../ui";
 import type { Habit } from "../db/habits";
 import { listHabits } from "../db/habits";
 import { useLogVersion } from "../db/notify";
@@ -123,10 +123,10 @@ export function CheckinSheet() {
     }
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const { dragGesture, sheetStyle } = useSheetDrag(closeCheckins);
+  const { rendered, sheetStyle, backdropStyle, dragGesture, onSheetLayout } = useSheetTransition(open, closeCheckins);
   useSheetPresence(open); // hide the tab bar under the sheet (CEO #1)
 
-  if (!open) return null;
+  if (!rendered) return null;
   void version; // re-render on log changes so a stale queue item isn't shown
 
   const current = queue[index];
@@ -145,10 +145,10 @@ export function CheckinSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal: 30 }}>
-      <SheetBackdrop onClose={closeCheckins} closeLabel={t("common.cancel")} />
+      <SheetBackdrop onClose={closeCheckins} closeLabel={t("common.cancel")} style={backdropStyle} />
       <GestureDetector gesture={dragGesture}>
         <Animated.View
-          entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
+          onLayout={onSheetLayout}
           style={[{ maxWidth: 340, width: "100%", alignSelf: "center", gap: spacing.sm }, sheetStyle]}
         >
           <View style={{ width: 40, height: 4.5, borderRadius: 3, backgroundColor: "rgba(120,100,75,0.35)", alignSelf: "center", marginBottom: 4 }} />

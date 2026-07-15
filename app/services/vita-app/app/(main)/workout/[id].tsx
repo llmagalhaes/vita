@@ -6,6 +6,7 @@ import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
 import type { Muscle, Units, WorkoutDetail } from "../../../src/api";
 import { entriesInRange, getEntry, type LocalEntry } from "../../../src/db/entries";
 import { WorkoutPreviewSheet } from "../../../src/workout/PreviewSheet";
+import { exercisesForMuscle, overallRole } from "../../../src/workout/muscleExercises";
 import { getSettings } from "../../../src/db/settings";
 import {
   BackButton,
@@ -109,6 +110,10 @@ export default function WorkoutDetailScreen() {
   const exercises = detail.exercises ?? [];
   const highlighted = Object.fromEntries(muscles.map((m) => [m, 1])) as Partial<Record<Muscle, number>>;
 
+  // Selected muscle → which exercises worked it (empty when older/seeded data has no per-exercise muscles).
+  const hits = selectedMuscle ? exercisesForMuscle(exercises, selectedMuscle) : [];
+  const hitIndexes = new Set(hits.map((h) => h.index));
+
   const d = new Date(entry.occurredAt);
   const now = new Date();
   const isToday =
@@ -187,8 +192,10 @@ export default function WorkoutDetailScreen() {
           </View>
           <BodyMap
             highlighted={highlighted}
-            frontLabel={t("workoutDetail.front")}
-            backLabel={t("workoutDetail.back2")}
+            frontLabel={t("workoutDetail.frontView")}
+            backLabel={t("workoutDetail.backView")}
+            seeFrontLabel={t("workoutDetail.seeFront")}
+            seeBackLabel={t("workoutDetail.seeBack")}
             onMusclePress={(m) => setSelectedMuscle((cur) => (cur === m ? null : m))}
           />
           {selectedMuscle && (
@@ -196,9 +203,7 @@ export default function WorkoutDetailScreen() {
               key={selectedMuscle}
               entering={popIn}
               style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 9,
+                gap: 6,
                 backgroundColor: colors.estimateBg,
                 borderWidth: 1,
                 borderColor: "rgba(196,112,78,0.3)",
@@ -208,13 +213,21 @@ export default function WorkoutDetailScreen() {
                 alignSelf: "stretch",
               }}
             >
-              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
-              <Text variant="label" style={{ fontSize: 13, flex: 1 }} color={colors.estimateInk}>
-                {t(`muscles.${selectedMuscle}`)}
-              </Text>
-              <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={() => setSelectedMuscle(null)} hitSlop={8}>
-                <Text color={colors.estimateInk} style={{ fontSize: 14 }}>✕</Text>
-              </Pressable>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 9 }}>
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+                <Text variant="label" style={{ fontSize: 13, flex: 1 }} color={colors.estimateInk}>
+                  {t(`muscles.${selectedMuscle}`)}
+                  {hits.length > 0 ? `  ·  ${t(`workoutDetail.role.${overallRole(hits)}`)}` : ""}
+                </Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={() => setSelectedMuscle(null)} hitSlop={8}>
+                  <Text color={colors.estimateInk} style={{ fontSize: 14 }}>✕</Text>
+                </Pressable>
+              </View>
+              {hits.length > 0 && (
+                <Text variant="caption" style={{ fontSize: 12, marginLeft: 17 }} color={colors.muted}>
+                  {hits.map((h) => h.exercise.name).join(" · ")}
+                </Text>
+              )}
             </Animated.View>
           )}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
@@ -222,6 +235,9 @@ export default function WorkoutDetailScreen() {
               <Chip key={m} label={t(`muscles.${m}`)} selected={m === selectedMuscle} onPress={() => setSelectedMuscle((cur) => (cur === m ? null : m))} />
             ))}
           </View>
+          <Text variant="caption" style={{ fontSize: 10.5, textAlign: "center" }} color={colors.labelMuted}>
+            {t("workoutDetail.tapMuscleHint")}
+          </Text>
         </Card>
       )}
 
@@ -229,30 +245,43 @@ export default function WorkoutDetailScreen() {
       {exercises.length > 0 && (
         <Card style={{ paddingVertical: 14 }}>
           <View style={{ paddingBottom: 4 }}>
-            <SectionLabel>{t("workoutDetail.exercises")}</SectionLabel>
+            <SectionLabel>{t("workoutDetail.exercisesAsImported")}</SectionLabel>
           </View>
-          {exercises.map((ex, i) => (
-            <View
-              key={`${ex.name}-${i}`}
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                gap: 10,
-                paddingVertical: 10,
-                borderBottomWidth: i === exercises.length - 1 ? 0 : 1,
-                borderBottomColor: "rgba(120,100,75,0.07)",
-              }}
-            >
-              <View style={{ width: 7, height: 7, borderRadius: 3.5, backgroundColor: entryPalette.workout.line }} />
-              <Text variant="label" style={{ fontSize: 14, flex: 1 }} color={colors.ink}>
-                {ex.name}
-              </Text>
-              <Text variant="caption" style={{ fontSize: 13 }} color={colors.muted}>
-                {ex.sets != null && ex.reps != null ? `${ex.sets} × ${ex.reps}` : ex.sets != null ? `${ex.sets} ${t("workoutDetail.sets")}` : ""}
-                {ex.loadKg != null ? `  ·  ${formatLoad(ex.loadKg, units, t)}` : ""}
-              </Text>
-            </View>
-          ))}
+          {exercises.map((ex, i) => {
+            // When a muscle is selected + this workout has per-exercise data, emphasise the
+            // exercises that worked it and dim the rest; otherwise every row reads normally.
+            const dimmed = hitIndexes.size > 0 && !hitIndexes.has(i);
+            const lit = hitIndexes.has(i);
+            return (
+              <View
+                key={`${ex.name}-${i}`}
+                style={{
+                  flexDirection: "row",
+                  alignItems: "center",
+                  gap: 10,
+                  paddingVertical: 10,
+                  paddingHorizontal: lit ? 8 : 0,
+                  marginHorizontal: lit ? -8 : 0,
+                  borderRadius: 12,
+                  backgroundColor: lit ? entryPalette.workout.badgeBg : "transparent",
+                  opacity: dimmed ? 0.38 : 1,
+                  borderBottomWidth: i === exercises.length - 1 ? 0 : 1,
+                  borderBottomColor: "rgba(120,100,75,0.07)",
+                }}
+              >
+                <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 12, width: 16 }} color={lit ? colors.accent : colors.labelMuted}>
+                  {i + 1}
+                </Text>
+                <Text variant="label" style={{ fontSize: 14, flex: 1, fontFamily: lit ? fonts.bold : undefined }} color={colors.ink}>
+                  {ex.name}
+                </Text>
+                <Text variant="caption" style={{ fontSize: 13 }} color={colors.muted}>
+                  {ex.sets != null && ex.reps != null ? `${ex.sets} × ${ex.reps}` : ex.sets != null ? `${ex.sets} ${t("workoutDetail.sets")}` : ""}
+                  {ex.loadKg != null ? `  ·  ${formatLoad(ex.loadKg, units, t)}` : ""}
+                </Text>
+              </View>
+            );
+          })}
         </Card>
       )}
 

@@ -1,5 +1,48 @@
 # App Team — Next Session
 
+## Session 10 (2026-07-15) — CEO app batch (10 items) + emulator verification ✅
+CEO filed a 10-item device-test batch. Tickets **APP-040…049** created In progress
+(DoD = store). Ledger: `Progress/APP-040-049-CEO-batch-Progress.md`. Contract types
+regenerated to **v0.5.0** (`exercises[].muscles`) → `api:check` CLEAN (standing drift
+cleared). Gates: **tsc 0 · Jest 199/199 (38 suites) · expo export OK**. New dep:
+**expo-document-picker ~56.0.4** (SDK-56, the one justified add, PDF import).
+
+- **Verified ON THE EMULATOR (Pixel_10_Pro, Expo Go SDK 56, mock mode):**
+  - **#4 swipe→last (recurring, real fix):** `TabsPager.snapTarget` replaced the
+    velocity-projected `round(index − v·0.25)` (which flung 2+ pages on a fast flick) with
+    a ±1-page-from-start snap. Fast flick from Today lands on **Trends**, never the last
+    tab. One swipe = one adjacent tab.
+  - **#3 fluid close (real):** `SheetOverlay`+`useSheetTransition` unify open/drag/programmatic
+    close on one `translateY`; caught the macros sheet **mid-slide** (handle at the edge,
+    backdrop faded) — no snap. Migrated Capture/Checkin/Review sheets too (`useSheetDrag`→
+    `useSheetTransition`; those 3 were the tsc-break the orchestrator reconciled).
+  - **#5 scrub (real polish):** guide line follows the finger on the UI thread, readout
+    tracks the day.
+  - **#6 macros sheet:** ALREADY DONE (stale build) — opens "Macros today" (IMG-1).
+  - **#8 BodyMap:** now ONE view + "⇄ See back/front" toggle (not front+back at once);
+    tint regions correct.
+  - **#9 preview→detail:** IMG-3 preview (date badge, "min · kcal · via SOURCE", chips,
+    "Preview · drag down to close") → IMG-4 detail ("MUSCLES LIKELY WORKED", See back).
+  - **#10 muscle→exercise:** chip AND avatar region select → selected-muscle panel + header
+    + chip highlight. Exercise-highlight/role sub-panel is unit-tested (`muscleExercises`);
+    couldn't be shown live because the emulator's persisted SQLite surfaced older
+    exercise-less "leg day" captures.
+- **Verified by tests/code (not driven live):** #1 PDF import (`planImport.ts` + test;
+  client `requestUpload`/`putPresignedFile`, mock, PlanStep `importPdf`, onboarding wiring)
+  and #2 voice import (mic on PlanStep describe via `getRecognizer`) — onboarding-gated,
+  not re-driven to avoid re-onboarding on the emulator. #7 vacation End confirm
+  (`ConfirmSheet`, both call sites) — `account.test` covers it; vacation was inactive.
+- **⚠️ Self-inflicted emulator degradation:** a `wm size` experiment (to film the 260ms
+  close) black-screened Expo Go and triggered repeated ANRs. Recovered with force-stop +
+  relaunch; freed the idle 8081 Metro. **Not an app regression** — the app ran smoothly
+  before and after.
+- **Benign warnings (pre-existing, non-fatal):** Reanimated "Property 'transform' … may be
+  overwritten by a layout animation"; expo-blur "dimezisBlurView … blurTarget not configured
+  → fallback none" (Android blur → cream scrim).
+- **CEO / backend:** PROD PDF parse against real Claude (`plan-pdf-model`) not exercised
+  here (mock verified) — first real import will surface any model-id error; backend is
+  verifying in parallel.
+
 ## Session 9 (2026-07-15) — Health integrations + real Android APK ✅
 Milestone: Health Connect (Samsung + Google fitness data) + a sideloadable Android
 dev-build APK (no Expo Go, no stores). Tickets created first per CEO: **APP-007-android**

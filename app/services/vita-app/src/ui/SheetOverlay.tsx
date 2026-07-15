@@ -1,19 +1,19 @@
 import { type ReactNode } from "react";
 import { View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, SlideInDown } from "react-native-reanimated";
-import { colors, motion, spacing } from "./tokens";
-import { useSheetDrag } from "./useSheetDrag";
+import Animated from "react-native-reanimated";
+import { colors, spacing } from "./tokens";
+import { useSheetTransition } from "./useSheetDrag";
 import { KeyboardLift } from "./keyboard";
 import { SheetBackdrop } from "./SheetBackdrop";
 import { useSheetPresence } from "./sheetPresence";
 
 /**
- * The app's one bottom-sheet chrome (Fable A4): dimmed backdrop that fades in,
- * sheet that rises on the prototype's pop bezier (`vtSheetUp`) and really drags
- * closed via the worklet-side `useSheetDrag` — replaces the stock RN `Modal`
- * (`animationType="slide"/"fade"`) whose handle bar was decorative. Render it
- * last inside a screen; it absolute-fills that screen.
+ * The app's one bottom-sheet chrome (Fable A4): dimmed backdrop and a sheet that
+ * springs up on open and — via `useSheetTransition` — slides back DOWN + fades the
+ * backdrop on close, whether that close comes from a drag-dismiss or a save/confirm
+ * flipping `visible` false (APP-042: no more abrupt snap). Replaces the stock RN
+ * `Modal`. Render it last inside a screen; it absolute-fills that screen.
  * `lift` rides the sheet above the keyboard (sheets with text fields).
  */
 export function SheetOverlay({
@@ -30,16 +30,16 @@ export function SheetOverlay({
   closeLabel?: string;
   lift?: boolean;
 }) {
-  const { dragGesture, sheetStyle } = useSheetDrag(onClose); // hook above the early return
+  const { rendered, sheetStyle, backdropStyle, dragGesture, onSheetLayout } = useSheetTransition(visible, onClose);
   useSheetPresence(visible); // hide the floating tab bar while this sheet is up (CEO #1)
-  if (!visible) return null;
+  if (!rendered) return null;
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end", zIndex: 50 }}>
-      <SheetBackdrop onClose={onClose} closeLabel={closeLabel} />
+      <SheetBackdrop onClose={onClose} closeLabel={closeLabel} style={backdropStyle} />
       <KeyboardLift enabled={lift}>
         <GestureDetector gesture={dragGesture}>
           <Animated.View
-            entering={SlideInDown.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
+            onLayout={onSheetLayout}
             style={[
               {
                 backgroundColor: colors.sheet,

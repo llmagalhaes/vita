@@ -7,7 +7,8 @@ import Svg, { Circle, Ellipse } from "react-native-svg";
 import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api";
 import { savePlan, saveProgram } from "../src/db/plan";
 import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
-import { PlanStep, unanswered, type PlanAnswer } from "../src/onboarding/PlanStep";
+import { PlanStep, unanswered, type ImportResult, type PlanAnswer } from "../src/onboarding/PlanStep";
+import { importPdf } from "../src/onboarding/planImport";
 import { Button, Card, Chip, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
 
 const TOTAL_STEPS = 6;
@@ -74,6 +75,21 @@ export default function Onboarding() {
 
   const confirmedDraft = <D,>(a: PlanAnswer<D>): D | null =>
     a.kind === "answered" && a.confirmed ? a.draft : null;
+
+  // Compose the PDF import (pick → upload) with the fileRef parse; the filename is
+  // the read-back "phrase". Same answered draft as the describe path → same confirm card.
+  const runPdfImport = async <D,>(
+    parse: (b: { fileRef: string }) => Promise<D>,
+  ): Promise<ImportResult<D>> => {
+    const out = await importPdf();
+    if (out.status === "cancelled") return { status: "cancelled" };
+    if (out.status !== "ready") return { status: "error" };
+    try {
+      return { status: "answered", draft: await parse({ fileRef: out.fileRef }), label: out.name };
+    } catch {
+      return { status: "error" };
+    }
+  };
 
   function finish() {
     saveSettings({ name: name.trim(), units, keepTrack, connected });
@@ -249,6 +265,7 @@ export default function Onboarding() {
               value={plan}
               onChange={setPlan}
               parse={(text) => api.parseEatingPlan({ text })}
+              importPdf={() => runPdfImport((b) => api.parseEatingPlan(b))}
               bullets={(d) => d.meals.map((m) => (m.time ? `${m.name} · ${m.time}` : m.name))}
             />
           )}
@@ -258,6 +275,7 @@ export default function Onboarding() {
               value={program}
               onChange={setProgram}
               parse={(text) => api.parseTrainingProgram({ text })}
+              importPdf={() => runPdfImport((b) => api.parseTrainingProgram(b))}
               bullets={(d) => d.days.map((day) => day.name)}
             />
           )}

@@ -30,6 +30,9 @@ export type Muscle = NonNullable<WorkoutDetail["muscles"]>[number];
 
 export type EntriesPage = { items: LogEntry[]; nextCursor?: string };
 
+/** POST /uploads → presigned target for a two-phase PDF import (plan/program). */
+export type UploadTarget = { fileRef: string; uploadUrl: string; expiresAt: string };
+
 export type OidcRequest = {
   provider: "google" | "apple";
   idToken: string;
@@ -56,6 +59,8 @@ export interface Api {
   parseEatingPlan(body: { text?: string; fileRef?: string }): Promise<EatingPlanDraft>;
   /** Onboarding step 4: text (or PDF fileRef) → draft training program for confirmation. */
   parseTrainingProgram(body: { text?: string; fileRef?: string }): Promise<TrainingProgramDraft>;
+  /** Phase 1 of PDF import: get a presigned S3 PUT target; then PUT bytes (putPresignedFile), then parse({ fileRef }). */
+  requestUpload(body: { purpose: "plan_document"; contentType: "application/pdf" }): Promise<UploadTarget>;
   // Persisted eating plan (versioned server-side; PUT is full-doc replace, no patch).
   getPlan(): Promise<EatingPlanDraft>; // 404 if never set
   createPlan(doc: EatingPlanDraft): Promise<EatingPlanDraft>; // POST — new version
@@ -153,6 +158,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     },
     parseEatingPlan: (body) => request("POST", "/parse/eating-plan", { body }),
     parseTrainingProgram: (body) => request("POST", "/parse/training-program", { body }),
+    requestUpload: (body) => request("POST", "/uploads", { body }),
     getPlan: () => request("GET", "/plan"),
     createPlan: (doc) => request("POST", "/plan", { body: doc }),
     updatePlan: (doc) => request("PUT", "/plan", { body: doc }),
@@ -178,4 +184,26 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     getVacations: () => request("GET", "/me/vacations"),
     putVacations: (ranges) => request("PUT", "/me/vacations", { body: ranges }),
   };
+}
+
+/**
+ * Phase 2 of PDF import: raw PUT of the picked file's bytes straight to the
+ * presigned S3 URL (no bearer, no baseUrl — it's S3, not our API). The RN way to
+ * get the bytes is a Blob from the local file uri. Content-Type MUST match the
+ * one sent to POST /uploads or S3 rejects the signature.
+ * ponytail: mock mode returns a non-https sentinel url — nothing to upload, skip.
+ */
+export async function putPresignedFile(
+  uploadUrl: string,
+  localUri: string,
+  contentType = "application/pdf",
+): Promise<void> {
+  if (!/^https?:/i.test(uploadUrl)) return;
+  const blob = await fetch(localUri).then((r) => r.blob());
+  const res = await fetch(uploadUrl, {
+    method: "PUT",
+    headers: { "Content-Type": contentType },
+    body: blob,
+  });
+  if (!res.ok) throw new Error(`upload PUT failed: ${res.status}`);
 }

@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
 import { Button, Card, EstimateTag, Text, colors, fonts, radii, spacing } from "../ui";
+import { getRecognizer } from "../capture/speech";
 
 /** Prototype vtPop for the parsed summary card / answered chip. */
 const popIn = new Keyframe({
@@ -24,6 +25,15 @@ export type PlanAnswer<D = unknown> =
   | { kind: "none" };
 
 export const unanswered = { kind: "unanswered" } as const;
+
+/**
+ * Result of the PDF import flow (APP-040), composed by the caller (pick → upload →
+ * parse). Same `answered` draft the describe path produces, so the confirm card is reused.
+ */
+export type ImportResult<D> =
+  | { status: "answered"; draft: D; label: string }
+  | { status: "cancelled" } // user backed out — return to the options, no notice
+  | { status: "error" };
 
 function OptionCard({
   mono,
@@ -83,6 +93,7 @@ export function PlanStep<D extends { summary: string }>({
   value,
   onChange,
   parse,
+  importPdf,
   bullets,
 }: {
   /** i18n namespace: "onboarding.plan" or "onboarding.program" */
@@ -91,6 +102,8 @@ export function PlanStep<D extends { summary: string }>({
   onChange: (next: PlanAnswer<D>) => void;
   /** REAL parse endpoint (api.parseEatingPlan / api.parseTrainingProgram). */
   parse: (text: string) => Promise<D>;
+  /** Full PDF import (pick → upload → parse fileRef), composed by the caller (APP-040). */
+  importPdf?: () => Promise<ImportResult<D>>;
   /** Read-back bullets from the parsed draft (meal names / day names). */
   bullets: (draft: D) => string[];
 }) {
@@ -107,6 +120,24 @@ export function PlanStep<D extends { summary: string }>({
       onChange({ kind: "error" });
     }
   }
+
+  // Import a PDF: the native picker covers the screen; reuse the parsing→answered states.
+  async function runImport() {
+    if (!importPdf) return;
+    onChange({ kind: "parsing" });
+    const r = await importPdf();
+    if (r.status === "cancelled") return onChange({ kind: "unanswered" });
+    if (r.status === "error") return onChange({ kind: "error" });
+    onChange({ kind: "answered", phrase: r.label, draft: r.draft, confirmed: false });
+  }
+
+  // Dual input (APP-041): the mic fills the describe field via the app recognizer;
+  // the user edits, then the existing Read-back button runs the same parse path.
+  const onMic = () => {
+    const rec = getRecognizer();
+    rec.start({ onPartial: setDraft, onFinal: setDraft, onError: () => {} });
+    setTimeout(() => rec.stop(), 400);
+  };
 
   return (
     <View style={{ gap: spacing.lg }}>
@@ -134,7 +165,7 @@ export function PlanStep<D extends { summary: string }>({
             monoInk="#5F7A61"
             title={t(`${ns}.import`)}
             sub={t(`${ns}.importSub`)}
-            onPress={() => onChange({ kind: "describing", via: "import", text: "" })}
+            onPress={runImport}
           />
           </Animated.View>
           <Animated.View entering={FadeIn.duration(400).delay(140)}>
@@ -152,11 +183,6 @@ export function PlanStep<D extends { summary: string }>({
 
       {value.kind === "describing" && (
         <View style={{ gap: spacing.md }}>
-          {value.via === "import" && (
-            <Text variant="caption" color={colors.estimateInk}>
-              {t(`${ns}.importNote`)}
-            </Text>
-          )}
           <TextInput
             value={draft}
             onChangeText={setDraft}
@@ -177,11 +203,32 @@ export function PlanStep<D extends { summary: string }>({
               textAlignVertical: "top",
             }}
           />
-          <Button
-            label={t("onboarding.planShared.readBack")}
-            disabled={draft.trim() === ""}
-            onPress={() => readBack(draft.trim())}
-          />
+          <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={t("onboarding.planShared.dictate")}
+              onPress={onMic}
+              style={{
+                width: 50,
+                height: 50,
+                borderRadius: 25,
+                borderWidth: 1.5,
+                borderColor: "rgba(120,100,75,0.16)",
+                backgroundColor: colors.card,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <Text style={{ fontSize: 18 }}>🎙</Text>
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Button
+                label={t("onboarding.planShared.readBack")}
+                disabled={draft.trim() === ""}
+                onPress={() => readBack(draft.trim())}
+              />
+            </View>
+          </View>
         </View>
       )}
 

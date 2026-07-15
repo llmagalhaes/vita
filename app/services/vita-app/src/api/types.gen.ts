@@ -1484,6 +1484,8 @@ export interface components {
             reps?: number;
             /** @description Always kg on the wire; the app converts for imperial display. */
             loadKg?: number;
+            /** @description Same closed vocabulary as WorkoutDetail.muscles, but per exercise — drives per-exercise muscle tinting in the app (0.5.0). Optional; the backend maps model output onto this list and drops anything unmappable. The workout-level `muscles` stays for back-compat. */
+            muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves")[];
         };
         /** @description A single habit check-in result (BE-024). Rides the /entries write path as a `checkin` entry and is encrypted at rest like every other detail; the server stores it verbatim and never interprets it. The Idempotency-Key is deterministic — `habitId:date` — so there is one check-in per habit per day; change the answer by PATCHing the entry (same key + a different answer is a 409). No scores, no streaks. */
         CheckinDetail: {

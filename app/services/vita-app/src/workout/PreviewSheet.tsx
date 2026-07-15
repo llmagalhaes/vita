@@ -10,14 +10,40 @@ import { useRouter } from "expo-router";
 import type { Muscle, Units, WorkoutDetail } from "../api/client";
 import type { LocalEntry } from "../db/entries";
 import { getSettings } from "../db/settings";
-import { Chip, EstimateTag, SheetOverlay, Text, colors, fonts, spacing } from "../ui";
+import { Chip, SheetOverlay, Text, colors, fonts, spacing } from "../ui";
 
 const KG_PER_LB = 0.453592;
-const dayMonth = (d: Date) => d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
 function formatLoad(kg: number, units: Units, t: (k: string) => string): string {
-  return units === "imperial" ? `${Math.round(kg / KG_PER_LB)} ${t("workoutDetail.lb")}` : `${kg} ${t("workoutDetail.kg")}`;
+  return units === "imperial" ? `${Math.round(kg / KG_PER_LB)} ${t("workoutDetail.lb")}` : `${kg}${t("workoutDetail.kg")}`;
+}
+
+/** Short source name for the "via …" meta line (IMG-3), from how the entry was logged. */
+function sourceKey(m: string): string {
+  switch (m) {
+    case "voice":
+      return "workoutDetail.source.voice";
+    case "photo":
+      return "workoutDetail.source.photo";
+    case "tap":
+      return "workoutDetail.source.tap";
+    default:
+      return "workoutDetail.source.text";
+  }
+}
+
+/** Calendar-style date chip: big day over short upper-case month (IMG-3 "11 JUL"). */
+function DateBadge({ date }: { date: Date }) {
+  return (
+    <View style={{ alignItems: "center", backgroundColor: colors.surface, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, minWidth: 52 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 22 }} color={colors.ink}>
+        {date.getDate()}
+      </Text>
+      <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 10, letterSpacing: 1 }} color={colors.labelMuted}>
+        {date.toLocaleDateString(undefined, { month: "short" }).toUpperCase()}
+      </Text>
+    </View>
+  );
 }
 
 export function WorkoutPreviewSheet({
@@ -41,27 +67,18 @@ export function WorkoutPreviewSheet({
     <SheetOverlay visible={entry != null} onClose={onClose} closeLabel={t("common.cancel")}>
       {entry != null && d != null && (
         <View style={{ gap: spacing.md }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-            <View style={{ flexShrink: 1 }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+            <DateBadge date={new Date(entry.occurredAt)} />
+            <View style={{ flexShrink: 1, gap: 3 }}>
               <Text variant="title" style={{ fontSize: 19 }}>
                 {d.title}
               </Text>
-              <Text variant="caption" style={{ fontSize: 12.5, marginTop: 2 }} color={colors.muted}>
-                {dayMonth(new Date(entry.occurredAt))} · {timeOf(entry.occurredAt)}
-                {d.durationMin != null ? ` · ${d.durationMin} ${t("common.min")}` : ""}
+              <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
+                {d.durationMin != null ? `${d.durationMin} ${t("common.min")} · ` : ""}
+                {d.kcal != null ? `~${Math.round(d.kcal)} ${t("common.kcal")} · ` : ""}
+                {t("workoutDetail.via")} {t(sourceKey(entry.inputMethod)).toUpperCase()}
               </Text>
             </View>
-            {d.kcal != null && (
-              <View style={{ alignItems: "flex-end", gap: 3 }}>
-                <Text style={{ fontFamily: fonts.light, fontSize: 22 }}>
-                  {Math.round(d.kcal)}{" "}
-                  <Text variant="caption" color={colors.muted}>
-                    {t("common.kcal")}
-                  </Text>
-                </Text>
-                <EstimateTag label={t("common.estimate")} />
-              </View>
-            )}
           </View>
           {muscles.length > 0 && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
@@ -84,17 +101,23 @@ export function WorkoutPreviewSheet({
                     borderBottomColor: "rgba(120,100,75,0.07)",
                   }}
                 >
+                  <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 12, width: 15 }} color={colors.labelMuted}>
+                    {i + 1}
+                  </Text>
                   <Text variant="label" style={{ flex: 1, fontSize: 13.5 }} color={colors.ink}>
                     {ex.name}
                   </Text>
                   <Text variant="caption" style={{ fontSize: 12 }} color={colors.muted}>
-                    {ex.sets != null && ex.reps != null ? `${ex.sets} × ${ex.reps}` : ""}
-                    {ex.loadKg != null ? `  ·  ${formatLoad(ex.loadKg, units, t)}` : ""}
+                    {ex.sets != null && ex.reps != null ? `${ex.sets}×${ex.reps}` : ""}
+                    {ex.loadKg != null ? `·${formatLoad(ex.loadKg, units, t)}` : ""}
                   </Text>
                 </View>
               ))}
             </View>
           )}
+          <Text variant="caption" style={{ fontSize: 11, textAlign: "center" }} color={colors.labelMuted}>
+            {t("workoutDetail.previewHint")}
+          </Text>
           {entry.id !== hideOpenFor && (
             <Pressable
               accessibilityRole="button"

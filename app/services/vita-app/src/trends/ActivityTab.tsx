@@ -87,18 +87,15 @@ export function ActivityTab({
             {t("trends.sessionsTouching")}
           </Text>
         </View>
-        <View style={{ flexDirection: "row", gap: 24, justifyContent: "center" }}>
-          <BodyMap highlighted={muscles.intensity} side="front" showToggle={false} size={90} onMusclePress={(m) => onMuscle(m, sessionsOf(m))} />
-          <BodyMap highlighted={muscles.intensity} side="back" showToggle={false} size={90} onMusclePress={(m) => onMuscle(m, sessionsOf(m))} />
-        </View>
-        <View style={{ flexDirection: "row", justifyContent: "center", gap: 22 }}>
-          <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" }} color={colors.labelMuted}>
-            {t("workoutDetail.front")}
-          </Text>
-          <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 10, letterSpacing: 1, textTransform: "uppercase" }} color={colors.labelMuted}>
-            {t("workoutDetail.back2")}
-          </Text>
-        </View>
+        <BodyMap
+          highlighted={muscles.intensity}
+          size={120}
+          frontLabel={t("workoutDetail.frontView")}
+          backLabel={t("workoutDetail.backView")}
+          seeFrontLabel={t("workoutDetail.seeFront")}
+          seeBackLabel={t("workoutDetail.seeBack")}
+          onMusclePress={(m) => onMuscle(m, sessionsOf(m))}
+        />
         {muscles.ranked.length > 0 ? (
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, justifyContent: "center" }}>
             {muscles.ranked.map(({ muscle, count }) => (
