@@ -175,6 +175,16 @@ data "aws_iam_policy_document" "task" {
     resources = [local.ssm_path_glob]
   }
   # app-data CMK is NOT here — its key policy (OPS-006) grants this role directly.
+  # Uploads/exports S3 buckets use SSE-KMS with the storage CMK. The presigned PUT is
+  # signed by THIS task role, so S3 encrypts the object as this principal → needs
+  # GenerateDataKey; S3FileStore.read GETs the object back to parse → needs Decrypt.
+  # The storage key policy enables IAM grants (kms:* to account root), so scoping here
+  # to the storage key ARN only is sufficient and least-privilege (OPS-022, APP-060).
+  statement {
+    sid       = "S3SseKmsStorageKey"
+    actions   = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
+    resources = [var.storage_key_arn]
+  }
   statement {
     sid       = "SesSend"
     actions   = ["ses:SendEmail", "ses:SendRawEmail"]

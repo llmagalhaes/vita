@@ -1,5 +1,19 @@
 # DevOps — Next session
 
+## 2026-07-20 — OPS-022 DONE (S3 presigned-PUT 403 fixed, verified live)
+Prod PDF import (APP-060) was 403 AccessDenied on the presigned PUT: the uploads bucket
+(`vita-prod-uploads-201261380352`) is SSE-KMS with the **storage CMK** `075c7c59-...`, the presigned
+PUT is signed by the **task role** `vita-ecs-task`, and that role had S3 Get/Put/Delete but **no KMS
+grant** → S3 couldn't GenerateDataKey. Fix = one statement `S3SseKmsStorageKey`
+(`kms:GenerateDataKey`+`Encrypt`+`Decrypt`, scoped to the storage key ARN only) added to the task
+role inline policy in `modules/ecs/main.tf`. Decrypt is needed too — `S3FileStore.read()` GETs the
+PDF back to parse. Storage key policy already grants kms:* to root, so no key-policy edit.
+`terraform plan` = `0 add, 1 change, 0 destroy`; applied. **Verified end-to-end against live prod**:
+magic-link → JWT → POST /v1/uploads → presigned PUT → **HTTP 200** (was 403); head-object shows the
+object encrypted under `075c...`; simulate-principal-policy = allowed. Test object deleted. No task
+restart needed (IAM policy eval is at request time; running task picked it up immediately). Ledger:
+`Progress/OPS-022-kms-presign-Progress.md`.
+
 ## Current state (BACKEND LIVE — OIDC BUILD `909262c` DEPLOYED — 2026-07-15)
 
 **Latest roll (OPS-021):** redeployed to `909262c` (BE-007 Google/Apple OIDC + BE-029 per-exercise
