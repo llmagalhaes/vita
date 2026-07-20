@@ -167,6 +167,13 @@ function CountBanner({ count, title, sub, onPress }: { count: number; title: str
             paddingVertical: 14,
             borderWidth: 1.5,
             borderColor: "rgba(196,112,78,0.35)",
+            // warm terracotta lift, distinct from the neutral card shadow (prototype
+            // check-in banner `0 10px 24px rgba(160,100,60,.12)`) — APP-065
+            shadowColor: "#A0643C",
+            shadowOpacity: 0.12,
+            shadowRadius: 16,
+            shadowOffset: { width: 0, height: 10 },
+            elevation: 4,
           }}
         >
           <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.estimateBg, alignItems: "center", justifyContent: "center" }}>
@@ -380,12 +387,11 @@ export default function Home() {
             {dateStr}
           </Text>
         </View>
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <HeaderIcon label={t("pill.trends")} icon="trends" onPress={() => router.replace("/trends")} />
-          <HeaderIcon label={t("pill.habits")} icon="checks" onPress={() => router.replace("/habits")} />
-          <HeaderIcon label={t("account.integrations")} icon="sliders" onPress={() => router.push("/integrations")} />
-          <HeaderIcon label={t("account.title")} icon="person" onPress={() => router.push("/account")} />
-        </View>
+        {/* Single Account entry (APP-068): Trends & Habits already live on the nav
+            pill, and Integrations is reached from Account → Your setup — so the
+            session-8 four-icon row was redundant. Reverts to the Round-5 single
+            person button; nothing is orphaned. */}
+        <HeaderIcon label={t("account.title")} icon="person" onPress={() => router.push("/account")} />
       </View>
 
       {/* vacation banner (sea tone) — active trip only; eases in/out on start/end */}
@@ -473,7 +479,15 @@ export default function Home() {
                   <SectionLabel>{t("home.water")}</SectionLabel>
                   <Chevron open={waterOpen} />
                 </View>
-                <Text style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }} numberOfLines={1}>
+                {/* adjustsFontSizeToFit: the vessel leaves a narrow text column;
+                    on narrow devices "500 ml" was truncating to "500 …" (APP-066).
+                    Shrink to fit one line instead of clipping the unit. */}
+                <Text
+                  style={{ fontFamily: fonts.light, fontSize: 21, letterSpacing: -0.5 }}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
+                >
                   {formatVolume(waterMl, units, t)}
                 </Text>
                 <PressScale
@@ -513,11 +527,15 @@ export default function Home() {
                     style={{ flexDirection: "row", alignItems: "center", gap: spacing.sm }}
                   >
                     <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.macro.protein }} />
-                    <Text variant="caption" style={{ fontFamily: fonts.semiBold, flex: 1 }} color="#6E6355">
-                      {formatVolume((w.detail as WaterDetail).amountMl, units, t)}
+                    {/* One ellipsized meta string (amount · method) + a short time, per the
+                        prototype (line 458): the old split put an unconstrained method·time
+                        Text beside a flex:1 amount, starving it to ~0px so "250 ml" wrapped
+                        one char per line (APP-066). minWidth:0 lets it actually shrink. */}
+                    <Text variant="caption" numberOfLines={1} style={{ fontFamily: fonts.semiBold, flex: 1, minWidth: 0 }} color="#6E6355">
+                      {formatVolume((w.detail as WaterDetail).amountMl, units, t)} · {inputMethodLabel(w, t)}
                     </Text>
-                    <Text variant="caption" color={colors.labelMuted}>
-                      {inputMethodLabel(w, t)} · {timeOf(w.occurredAt)}
+                    <Text variant="caption" style={{ flexShrink: 0 }} color={colors.labelMuted}>
+                      {timeOf(w.occurredAt)}
                     </Text>
                   </Pressable>
                 ))}

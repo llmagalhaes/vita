@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Chevron, SheetOverlay, Text, colors, fonts } from "../ui";
+import { Chevron, SheetOverlay, Text, colors, fonts, shadowCta } from "../ui";
 import { getSettings } from "../db/settings";
 import { AUDIENCES, exportPdf, type Section } from "./pdf";
 
@@ -89,7 +89,7 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
                     })}
                   </View>
                   <Text variant="caption" color={colors.labelMuted}>{t("export.window")}</Text>
-                  <Pressable accessibilityRole="button" disabled={sections.length === 0 || busy} onPress={prepare} style={{ height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", opacity: sections.length === 0 || busy ? 0.5 : 1 }}>
+                  <Pressable accessibilityRole="button" disabled={sections.length === 0 || busy} onPress={prepare} style={{ height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", opacity: sections.length === 0 || busy ? 0.5 : 1, ...(sections.length === 0 || busy ? null : shadowCta(colors.accent)) }}>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color="#FFF9F1">{busy ? t("export.preparing") : t("export.prepare")}</Text>
                   </Pressable>
                 </View>

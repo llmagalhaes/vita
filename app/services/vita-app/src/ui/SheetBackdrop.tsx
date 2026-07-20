@@ -14,7 +14,7 @@ import { motion } from "./tokens";
 export function SheetBackdrop({
   onClose,
   closeLabel,
-  intensity = 26,
+  intensity = 40, // stronger, "strongly blurred" macros/sheet backdrop (APP-063)
   scrim = "light",
   style,
 }: {
@@ -36,16 +36,22 @@ export function SheetBackdrop({
       style={[{ position: "absolute", inset: 0 }, style]}
     >
       <BlurView
-        intensity={dark ? 14 : intensity}
+        intensity={dark ? 16 : intensity}
         tint={dark ? "dark" : "light"}
         blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
+        // Android divides the perceived blur by blurReductionFactor (default 4),
+        // which made release builds read as barely-blurred — the CEO's "not blurred"
+        // flag (APP-063). 1 keeps the full intensity, closer to iOS / the prototype.
+        blurReductionFactor={Platform.OS === "android" ? 1 : undefined}
         style={{ position: "absolute", inset: 0 }}
       />
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={closeLabel}
         onPress={onClose}
-        style={{ flex: 1, backgroundColor: dark ? "rgba(60,50,38,0.38)" : "rgba(237,229,214,0.4)" }}
+        // Prototype macros/sheet scrim: light cream rgba(247,242,233,.45). This tint
+        // is also the guaranteed fallback if a device can't blur at all.
+        style={{ flex: 1, backgroundColor: dark ? "rgba(60,50,38,0.38)" : "rgba(247,242,233,0.45)" }}
       />
     </Animated.View>
   );

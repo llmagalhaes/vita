@@ -20,13 +20,16 @@ export default function MainLayout() {
 
   return (
     <CaptureProvider>
-      {/* Push/detail screens slide natively. The three top-level tabs are null
-          placeholders here (animation:"none") — TabsPager renders them, mounted
-          above this Stack, and is the visible/interactive layer on tab routes. */}
+      {/* Push/detail screens fade + rise in (`fade_from_bottom`) to match the
+          prototype's screen grammar: every detail screen uses `vtIn` (fade +
+          translateY 16→0 over .3s), NOT a lateral slide (APP-064 — the lateral
+          `vtSlideIn` is only the prototype's fake tab nav, which our real pager
+          replaces). The three top-level tabs stay `animation:"none"` placeholders —
+          TabsPager renders them above this Stack and owns the swipe, untouched. */}
       <Stack
         screenOptions={{
           headerShown: false,
-          animation: "slide_from_right",
+          animation: "fade_from_bottom",
           contentStyle: { backgroundColor: colors.bg },
         }}
       >

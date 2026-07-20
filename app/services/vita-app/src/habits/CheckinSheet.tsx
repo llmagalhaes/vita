@@ -49,7 +49,12 @@ export function CheckinQuestion({
         gap: spacing.md,
         borderWidth: 1.5,
         borderColor: "rgba(196,112,78,0.35)",
-        ...(deck ? shadowDeck : null),
+        // deck top-card sits deep above the stack; the inline Habits→Today card gets
+        // the prototype's own pending-card lift `0 12px 28px rgba(105,84,60,.10)`
+        // (deeper than the default Card shadow) — APP-065.
+        ...(deck
+          ? shadowDeck
+          : { shadowColor: "#69543C", shadowOpacity: 0.1, shadowRadius: 18, shadowOffset: { width: 0, height: 12 }, elevation: 4 }),
       }}
     >
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 }}>

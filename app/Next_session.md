@@ -1,5 +1,69 @@
 # App Team — Next Session
 
+## Session 14 (2026-07-20) — VISUAL batch APP-062..068 SHIPPED + emulator-verified ✅
+CEO device-tested the 2026-07-20 prod APK and filed visual/fidelity bugs. This session owned the
+VISUAL batch; a sibling agent owned the FUNCTIONAL batch (APP-058..061) in a separate worktree —
+capture/sync/outbox/health/api-client untouched here. Ledger: `Progress/APP-062-068-visual-batch-Progress.md`.
+- **APP-066 (P0)** Home water card explosion ROOT-CAUSED + fixed (`src/tabs/Home.tsx`): the expanded
+  row split a `flex:1` amount from an *unconstrained* `method·time` Text (RN `flexShrink` default 0)
+  → starved the amount → per-char wrap. Fix = one ellipsized meta `Text` (`flex:1,minWidth:0,
+  numberOfLines`) + short `flexShrink:0` time (the prototype's own pattern); header amount →
+  `adjustsFontSizeToFit`. **Decision:** the prototype DOES have the in-card history (proto L456–466)
+  — kept it, fixed layout. Emulator: 4×250 ml → 4 clean rows, no explosion.
+- **APP-063** Macros pop card already matched the prototype; residual gap was Android blur. Fix
+  (`src/ui/SheetBackdrop.tsx`): `blurReductionFactor={1}` on Android (default 4 divides the blur →
+  the "not blurred" cause), intensity 26→40, scrim → prototype-exact `rgba(247,242,233,.45)`. Kept
+  `blurMethod="dimezisBlurView"` (already correct in expo-blur 56.0.3). ⚠ **CEO: confirm "strongly
+  blurred" on the next prod APK** — emulator blur ≠ device.
+- **APP-064** stack transition `slide_from_right → fade_from_bottom` (`app/(main)/_layout.tsx`) —
+  findings: prototype detail screens use `vtIn` (fade+rise), lateral slide was only its fake tab nav.
+  Tab pager + sheet system untouched.
+- **APP-065** shadow sweep: Account export CTA + Export "Prepare PDF" → `shadowCta`; Home CountBanner
+  → warm `#A0643C@.12`; inline CheckinQuestion → prototype `#69543C@.10`.
+- **APP-062** dock tooltip `bottom 26→52` + `overflow:"visible"` on row/slot (`DockDatePicker.tsx`);
+  `dock.ts` worklet directives untouched. Needs a live-drag device check (mid-drag transient).
+- **APP-067** nav pill (= CapturePill) soft lift: `shadowRadius 22→30`, elevation 8→9, bg .94→.90;
+  active/icon/label colours already matched the prototype.
+- **APP-068** reverted session-8's 4-icon Home header to a single Account (person) icon (Trends/Habits
+  = pill; Integrations via Account → Your setup; nothing orphaned).
+- Gates: **tsc 0 · Jest 212/212 (43 suites) · expo export iOS OK**. No new deps, no backend change.
+  All 7 tickets commented, left In progress (DoD=store).
+- **CEO Qs:** (1) confirm the macros backdrop reads "strongly blurred" on a real device; (2) the dock
+  tooltip position/feel on a live drag.
+
+## Session 14 (2026-07-20) — CEO device-test functional batch APP-058..061 ✅ (root-caused vs real prod)
+CEO device-tested the fresh prod APK (real prod backend) → 4 functional bugs. All root-caused
+against the **live prod backend** (magic-link→verify→parse→POST /entries→refresh all exercised).
+Ledger: `Progress/APP-058-061-functional-batch-Progress.md`. Gates: **tsc 0 · Jest 216/216
+(43 suites, +5) · expo export iOS OK**. No backend change. Files: see ledger.
+- **APP-061 (P0) "~0 kcal" — PROVEN + FIXED.** Real `/parse/text` returns meal drafts with
+  `items` (real kcal) but **NO `totals`** (contract: server recomputes totals on write). Every
+  Home surface reads `detail.totals.kcal ?? 0` → ~0. Mock computes totals inline → only ever OK
+  in mock mode. Fix: **`fillDraftTotals()` at the API boundary (`src/api/client.ts`)** — sums
+  items→totals for meal drafts lacking them, in `parseText`/`parsePhoto`. One chokepoint fixes the
+  confirm card + all Home surfaces + offline-interpret. +3 regression tests reproduce the prod reply.
+- **APP-061 "waiting to sync" — NOT an API failure.** POST /entries=201, /auth/refresh=200 vs prod.
+  Fixed a latent **boot-ordering bug** (`app/_layout.tsx`: drain fired before `loadSession()`
+  resolved → unauth 401 → backoff) and **instrumented the silent backoff** (`src/db/outbox.ts`
+  `console.warn` op/status/attempts, visible in `adb logcat`) so the next device run names any
+  residual cause. Retry semantics unchanged (offline durability kept).
+- **APP-058 voice — real STT was never built.** `active` hardcoded to `stubRecognizer()`,
+  `setRecognizer` never called, **no STT dep**. Standalone streamed a CANNED phrase and logged a
+  fabricated meal. Fix (no native dep): `getRecognizer()` → streaming stub only in Expo Go/jest;
+  any real build → new **`unavailableRecognizer()`** → the existing "voice isn't available — Type
+  instead" state. **CEO Q: build real STT now (native dep + rebuild) or ship the honest fallback?**
+- **APP-060 PDF import — INFRA defect, not app.** S3 presigned PUT → **403**: `vita-ecs-task` role
+  lacks `kms:GenerateDataKey` on uploads CMK `075c7c59-ebae-4806-a1a8-01e7671e29a8` → object never
+  lands → parse 422. **→ DevOps ticket** (grant KMS encrypt to the task role). App now surfaces the
+  real S3 error (`putPresignedFile` body + `planImport` warn) instead of a blank "upload error".
+- **APP-059 Health Connect — wiring correct (device-only), UX made honest.** Toggle was
+  fire-and-forget; now awaits `connectHealthConnect()`, reverts on failure + toasts guidance
+  ("install HC, enable Samsung Health→HC sync") / a no-data hint. On-device recipe in the ledger.
+- **⚠ Worktree note for orchestrator:** this agent's worktree was created on a stale base commit
+  (`ffe880b`, missing all app source); I `git reset --hard` it to main (`6b48de3`) to get the code,
+  then symlinked `node_modules` from the shared checkout to run gates. My 9 changed files are the
+  session-14 diff; no other app work is mine.
+
 ## Session 13 (2026-07-15) — Home v2 (dock date picker + inline timeline) SHIPPED + emulator-verified ✅
 CEO greenlit the build ("manda ver"). Home v2 **replaces** v1 (no toggle). Full detail:
 `Progress/HOME-V2-Progress.md`. Epic **HOME-V2** `1216600225044885` (subtasks 1..9 → In progress).

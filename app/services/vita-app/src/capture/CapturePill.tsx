@@ -241,16 +241,19 @@ export function CapturePill() {
         style={[hideStyle, {
           flexDirection: "row",
           alignItems: "center",
-          backgroundColor: "rgba(255,253,247,0.94)",
+          backgroundColor: "rgba(255,253,247,0.9)",
           borderWidth: 1,
           borderColor: colors.border,
           borderRadius: 36,
           padding: 6,
+          // prototype's soft floating lift `0 18px 44px rgba(105,84,60,.20)` — the
+          // radius was too tight (22) to read as a soft lift (APP-067). Active nav
+          // colours already match the prototype (accent bg + cream ink).
           shadowColor: "#69543C",
           shadowOpacity: 0.2,
-          shadowRadius: 22,
+          shadowRadius: 30,
           shadowOffset: { width: 0, height: 18 },
-          elevation: 8,
+          elevation: 9,
         }]}
       >
         <GestureDetector gesture={micGesture}>

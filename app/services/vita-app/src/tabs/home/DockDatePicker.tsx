@@ -124,7 +124,10 @@ function Tip({
       style={[
         {
           position: "absolute",
-          bottom: 26,
+          // Float well above the fingertip: at 26 the pill sat right under the
+          // dragging finger and clipped against the 44px row (APP-062). The dot
+          // also lifts up to 13px when magnified, so clear that too.
+          bottom: 52,
           alignSelf: "center",
           backgroundColor: accent,
           paddingHorizontal: 9,
@@ -239,10 +242,10 @@ export function DockDatePicker({
         onLayout={onLayout}
         accessibilityRole="adjustable"
         accessibilityLabel="Select a day"
-        style={{ flexDirection: "row", alignItems: "flex-end", height: ROW_H, paddingHorizontal: 6 }}
+        style={{ flexDirection: "row", alignItems: "flex-end", height: ROW_H, paddingHorizontal: 6, overflow: "visible" }}
       >
         {Array.from({ length: NDAYS }, (_, i) => (
-          <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%" }}>
+          <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%", overflow: "visible" }}>
             <Tip i={i} fingerX={fingerX} dragging={dragging} rowWidth={rowWidth} label={dayDates[i] ?? ""} accent={accent} />
             <Dot i={i} fingerX={fingerX} drag={drag} rowWidth={rowWidth} selected={selected} accent={accent} />
           </View>

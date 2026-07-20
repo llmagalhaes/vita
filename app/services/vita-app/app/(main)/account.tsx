@@ -8,7 +8,7 @@ import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
-import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, showToast, spacing } from "../../src/ui";
+import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, shadowCta, showToast, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -184,7 +184,7 @@ export default function Account() {
             <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t("account.shareLogSub")}</Text>
           </View>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => setExportOpen(true)} style={{ height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center" }}>
+        <Pressable accessibilityRole="button" onPress={() => setExportOpen(true)} style={{ height: 46, borderRadius: 23, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", ...shadowCta(colors.accent) }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14.5 }} color="#FFF9F1">{t("account.exportTo")}</Text>
         </Pressable>
       </Card>
