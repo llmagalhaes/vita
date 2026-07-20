@@ -14,7 +14,10 @@
 - **APP-056 press-scale** — Button CTA .98, water quick-add .94. (Light pass; more surfaces optional.)
 - **APP-057 (choreography diff-pass) — NOT done** (P2; most already landed sessions 6-8, deferred).
 - Gates: **tsc 0 · Jest 211 pass** (+2 new: toast timer, `barDelay`). The 1 "failure" is a **pre-existing midnight date-boundary flake** in `vacation.test.ts` — proven on the pristine tree via stash, unrelated to this work (worth a separate fix: the test uses wall-clock `new Date()` across a day boundary).
-- **CEO next:** on-device feel pass (Macros pop, Trends sweep, shadows, toast); trigger a check-in to see the deck's dark scrim. Asana: create APP-051..056 (Done=store). +deps: none.
+- **Fresh prod APK built (2026-07-16 09:12).** `app/services/vita-app/android/app/build/outputs/apk/release/app-release.apk` (113 MB, v0.1.0). `VITA_API_BASE_URL=https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1` baked — **verified** inside the APK (`assets/app.config` → `"apiBaseUrl":"…/v1"`, so `isMockApi=false`, real prod backend, NOT mock). Rebuild cmd: `ANDROID_HOME=~/Library/Android/sdk VITA_API_BASE_URL=<url> ./gradlew :app:assembleRelease` from `android/`. Install clean: `adb uninstall com.llmagal.vita && adb install -r <apk>` (clean uninstall avoids stale seeded mock rows — session-10 footgun).
+- **Prod magic-link sign-in** (SES not built → link is in CloudWatch): after tapping "Send link" in the app, `aws logs filter-log-events --log-group-name /ecs/vita --region eu-west-1 --start-time $(($(date +%s000) - 600000)) --filter-pattern '"vita://auth"' --query 'events[-1].message' --output text` → open the returned `vita://auth?token=…` on the phone (standalone APK honors the scheme), or paste the token into the dev field.
+- **CEO next:** install the prod APK clean + on-device feel pass (Macros pop, Trends sweep, shadows, toast); trigger a check-in to see the deck's dark scrim. Asana: create APP-051..056 (Done=store). +deps: none.
+- **Dev-server note:** during verification the Metro on :8081 was flipped to mock and then **restored** to the LAN backend (`http://192.168.1.209:8080/v1`); an emulator + Expo Go were left running against it.
 
 ## Where we are (2026-07-15, session 11 — sheet-bounce fix + Home v2 built + specs)
 
