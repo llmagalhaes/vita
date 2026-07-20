@@ -27,3 +27,9 @@ variable "app_image_tag" {
   type        = string
   default     = "909262c"
 }
+
+variable "mail_from_address" {
+  description = "Verified SES sender for the magic-link email (OPS-023). Sandbox: sender == recipient == CEO during testing."
+  type        = string
+  default     = "lucasmagalhaes2007@gmail.com"
+}

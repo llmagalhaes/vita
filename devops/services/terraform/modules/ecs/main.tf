@@ -9,6 +9,10 @@ variable "app_security_group_id" { type = string }
 variable "ecr_repository_url" { type = string }
 variable "storage_key_arn" { type = string }
 variable "service_discovery_service_arn" { type = string }
+variable "ses_identity_arn" {
+  description = "SES sender identity ARN (OPS-023) — scopes ses:SendEmail to that From:."
+  type        = string
+}
 
 variable "bucket_arns" {
   description = "map(uploads/exports -> arn) from the storage module."
@@ -60,6 +64,9 @@ variable "container_secrets" {
     VITA_HMAC_KEY        = "email-blind-index-hmac-key"
     GOOGLE_OIDC_AUDIENCE = "google-client-config"
     APPLE_OIDC_AUDIENCE  = "apple-client-config"
+    # OPS-023: the verified SES From: address. Backend (BE-033) reads
+    # MAIL_FROM_ADDRESS; blank/REPLACE_ME → email disabled (logs the link).
+    MAIL_FROM_ADDRESS = "mail-from"
   }
 }
 
@@ -185,10 +192,12 @@ data "aws_iam_policy_document" "task" {
     actions   = ["kms:GenerateDataKey", "kms:Encrypt", "kms:Decrypt"]
     resources = [var.storage_key_arn]
   }
+  # Scoped to the one verified sender identity (OPS-023) — the app may only send
+  # AS that From:. Same least-privilege pattern as the KMS statement above.
   statement {
     sid       = "SesSend"
     actions   = ["ses:SendEmail", "ses:SendRawEmail"]
-    resources = ["*"]
+    resources = [var.ses_identity_arn]
   }
   statement {
     sid       = "AmpRemoteWrite"

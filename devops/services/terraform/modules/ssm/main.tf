@@ -42,6 +42,23 @@ resource "aws_ssm_parameter" "secret" {
   }
 }
 
+# OPS-023 — mail-from is NOT a placeholder: the From: address is the CEO's own
+# (already verified as the SES identity), not a credential, so Terraform owns the
+# real value (no ignore_changes). Backend (BE-033) treats blank / REPLACE_ME as
+# "email disabled → log the link", so this must carry the real address from apply.
+variable "mail_from_address" {
+  description = "Verified SES sender address, wired to task-def env MAIL_FROM_ADDRESS."
+  type        = string
+}
+
+resource "aws_ssm_parameter" "mail_from" {
+  name   = "${var.path_prefix}/mail-from"
+  type   = "SecureString"
+  key_id = var.kms_key_arn
+  tier   = "Standard"
+  value  = var.mail_from_address
+}
+
 # Path prefix ARN the task role (OPS-014) scopes read access to — nothing else.
 output "parameter_path_arn" {
   value = "arn:aws:ssm:*:*:parameter${var.path_prefix}/*"

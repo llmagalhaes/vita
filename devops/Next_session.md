@@ -1,5 +1,18 @@
 # DevOps — Next session
 
+## 2026-07-20 — OPS-023 IN PROGRESS (SES magic-link email; applied + verified, awaiting CEO click)
+Real email sending (CEO decision 2026-07-20). Implements old backlog **OPS-012** (closed as duplicate).
+Terraform applied in prod-eu: new `modules/ses` email-address identity for `lucasmagalhaes2007@gmail.com`
+(sandbox, no domain/DKIM); new SSM SecureString `/vita/prod/mail-from` with the REAL address (not a
+placeholder — Terraform owns it, no ignore_changes); task-def env `MAIL_FROM_ADDRESS` sourced from it
+(rev **vita:4**, service recycled, /health 200); task-role `SesSend` narrowed from `*` to the identity
+ARN (`ses:SendEmail`+`SendRawEmail`, simulate-principal-policy = allowed). ENV CONTRACT fixed with
+backend BE-033: blank/`REPLACE_ME` ⇒ email disabled → log link. Plan was 3 add / 2 change / 1 destroy
+(destroy = old task-def rev), second apply clean. **ONE gate left: the SES identity is `Pending` — AWS
+emailed a verification link to the CEO; NOTHING sends until he clicks it.** Post-click SendEmail test
+command + CEO follow-ups (production-access request, real domain + DKIM for real users) in
+`Progress/OPS-023-ses-mail-Progress.md`. Not moving to Done until verified live post-click.
+
 ## 2026-07-20 — OPS-022 DONE (S3 presigned-PUT 403 fixed, verified live)
 Prod PDF import (APP-060) was 403 AccessDenied on the presigned PUT: the uploads bucket
 (`vita-prod-uploads-201261380352`) is SSE-KMS with the **storage CMK** `075c7c59-...`, the presigned
@@ -88,7 +101,8 @@ gp3 ~$2). Under the $40 budget alarm.
 
 ## Next steps / backlog (unchanged priority)
 - **OPS-017** RDS restore-rehearsal (first backup lands from the `daily-45d` plan; rehearse a PITR restore).
-- **OPS-012** SES out of sandbox (real magic-link email; today it's CloudWatch only).
+- ~~**OPS-012** SES out of sandbox~~ → superseded by **OPS-023** (SES identity/IAM/SSM applied
+  2026-07-20; still sandbox — production-access request is a later CEO decision, see OPS-023 ledger).
 - **Observability ticket**: create the AMP workspace, finish the ADOT sidecar pipeline (currently
   essential=false, no remote_write config), tighten `aps:RemoteWrite` from `*` to the workspace ARN,
   point the CEO's local Grafana at AMP (ADR-0007).

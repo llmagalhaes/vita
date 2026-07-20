@@ -37,8 +37,15 @@ module "rds" {
 
 # OPS-010 — App secrets as SSM SecureString.
 module "ssm" {
-  source      = "../../modules/ssm"
-  kms_key_arn = module.kms.storage_key_arn
+  source            = "../../modules/ssm"
+  kms_key_arn       = module.kms.storage_key_arn
+  mail_from_address = var.mail_from_address
+}
+
+# OPS-023 — SES sender identity for the magic-link email (backend BE-033).
+module "ses" {
+  source         = "../../modules/ses"
+  sender_address = var.mail_from_address
 }
 
 # OPS-011 — App S3 buckets (uploads + exports).
@@ -67,6 +74,7 @@ module "ecs" {
   storage_key_arn               = module.kms.storage_key_arn
   bucket_arns                   = module.storage.bucket_arns
   service_discovery_service_arn = module.apigw.service_discovery_service_arn
+  ses_identity_arn              = module.ses.identity_arn
 
   # First deploy: pin the git-SHA image the backend pushed, wire prod env, run 1 task.
   image_tag      = var.app_image_tag
