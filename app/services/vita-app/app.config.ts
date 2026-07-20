@@ -57,6 +57,21 @@ const config: ExpoConfig = {
     "expo-sharing", // on-device export share sheet (APP-031); inert in Expo Go
     "react-native-health-connect", // HC permissions-rationale intent-filter (APP-038); dev-build only
     "./plugins/withHealthConnect", // HC read permissions + <queries> + minSdk 26 (CNG-safe)
+    [
+      // On-device STT (APP-069): RECORD_AUDIO + iOS usage strings + <queries> for
+      // android.speech.RecognitionService. Real engine only in a CNG build.
+      "expo-speech-recognition",
+      {
+        microphonePermission:
+          "Vita uses the microphone so you can speak what you had instead of typing. Audio never leaves your device.",
+        speechRecognitionPermission:
+          "Vita turns your speech into text on your device to log meals, water and workouts. Only the text is used.",
+        androidSpeechServicePackages: [
+          "com.google.android.googlequicksearchbox",
+          "com.google.android.as",
+        ],
+      },
+    ],
   ],
 };
 

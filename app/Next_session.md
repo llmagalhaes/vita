@@ -1,5 +1,36 @@
 # App Team — Next Session
 
+## Session 15 (2026-07-20) — REAL on-device voice STT SHIPPED (APP-069, CEO option A) ✅
+CEO chose option A: build real sound→text on device (interpretation stays Claude via
+`/parse/text`; audio never leaves the device). Ledger: `Progress/APP-069-voice-stt-Progress.md`.
+Ticket APP-069 (`1216730553659158`) left **In progress** (DoD = store).
+- **Lib: `expo-speech-recognition@56.0.1`** (pinned exact; npm dist-tags confirm 56.0.x = the
+  SDK-56 line — `sdk-54/55` are 3.1.3). Maintained Expo config-plugin module over Android
+  `SpeechRecognizer` / iOS `SFSpeechRecognizer`: partial results, device locale, on-device,
+  CNG-safe permission/`<queries>` wiring — drops straight onto the existing `SpeechRecognizer`
+  seam. No cloud STT, no audio upload (ponytail rung 5).
+- **`src/capture/speech.ts`**: new `nativeRecognizer(mod?)` bridges native `result`/`error`/`end`
+  events → the interface (`onPartial`/`onFinal` once/`onError`; user `aborted` suppressed; `end`
+  safety-net empty final). New zero-dep `deviceLocale()` = Hermes `Intl…resolvedOptions().locale`
+  (→ pt-BR from device, no expo-localization). `defaultRecognizer`: Expo Go/jest → `stubRecognizer`;
+  real build → `nativeRecognizer` (falls back to `unavailableRecognizer` if the module can't load).
+  **The fabricating canned-phrase stub never runs on device again** (APP-058 root cause closed).
+- **`app.config.ts`**: added the `expo-speech-recognition` plugin (mic + speech usage strings,
+  `androidSpeechServicePackages`) → injects RECORD_AUDIO + iOS strings + `RecognitionService`
+  `<queries>`. Merged manifest verified.
+- **`src/capture/__tests__/speech.test.ts`** (+5): native event mapping via a fake module
+  (partial/final ordering+dedupe, error→onError honest, abort suppresses late events, end→reset,
+  denied never fabricates).
+- Gates: **tsc 0 · Jest 221/221 (44 suites, +5) · expo export iOS OK**. `expo install --check`:
+  no warning for the new dep (listed drifts pre-existing, out of scope). Prebuild regen OK
+  (reverted its package.json script rewrite, per the CNG note). **Fresh release APK rebuilt** with
+  prod URL baked (`android/app/build/outputs/apk/release/app-release.apk`).
+- **Emulator STT is unreliable** (no recognition service → honest "type instead"), so on-device
+  transcription/pt-BR/permission dialog are **CEO-device-only**. Full recipe in the ledger:
+  hold mic → say **"comi um pão de queijo e café com leite"** → parsed meal draft.
+- **CEO:** run the device recipe on your phone; no blocking questions. Optional: pin a fixed STT
+  language instead of device locale (one-line `deviceLocale()` change) — say if you want it.
+
 ## Session 14 (2026-07-20) — VISUAL batch APP-062..068 SHIPPED + emulator-verified ✅
 CEO device-tested the 2026-07-20 prod APK and filed visual/fidelity bugs. This session owned the
 VISUAL batch; a sibling agent owned the FUNCTIONAL batch (APP-058..061) in a separate worktree —
