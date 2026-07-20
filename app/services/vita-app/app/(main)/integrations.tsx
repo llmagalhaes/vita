@@ -10,8 +10,9 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { BackButton, Card, Text, Toggle, colors, fonts } from "../../src/ui";
 import { integrationEnabled, setIntegrationEnabled } from "../../src/db/settings";
-import { useLogVersion } from "../../src/db/notify";
-import { clearHealthSnapshot, connectHealthConnect } from "../../src/health/healthConnect";
+import { logChanged, useLogVersion } from "../../src/db/notify";
+import { clearHealthSnapshot, connectHealthConnect, todaysHealthSnapshot } from "../../src/health/healthConnect";
+import { showToast } from "../../src/ui/toast";
 
 // id → mono badge palette; all are honest UI-only sources (no real sync in v1).
 const SOURCES = [
@@ -37,8 +38,22 @@ export default function Integrations() {
   const toggle = (id: string, next: boolean) => {
     setIntegrationEnabled(id, next);
     if (id !== "healthConnect") return;
-    if (next) void connectHealthConnect();
-    else clearHealthSnapshot();
+    if (!next) {
+      clearHealthSnapshot();
+      return;
+    }
+    // Don't leave the switch "on" while nothing happened. If Health Connect
+    // isn't usable (not installed, permission declined, Expo Go/iOS stub), revert
+    // and tell the user the actual next step — Samsung Health → HC sync (APP-059).
+    void connectHealthConnect().then((granted) => {
+      if (!granted) {
+        setIntegrationEnabled("healthConnect", false);
+        logChanged();
+        showToast(t("integrations.healthConnectUnavailable"));
+      } else if (!todaysHealthSnapshot()) {
+        showToast(t("integrations.healthConnectNoData"));
+      }
+    });
   };
 
   return (

@@ -166,6 +166,15 @@ describe("VoiceOverlay rendering per state", () => {
   });
 });
 
+describe("unavailable recognizer (real build, no STT engine — APP-058)", () => {
+  test("reports unavailable and never fabricates a transcript", async () => {
+    const { unavailableRecognizer } = require("../capture/speech");
+    const rec = unavailableRecognizer();
+    expect(rec.isAvailable()).toBe(false);
+    await expect(rec.requestPermission()).resolves.toBe("unavailable");
+  });
+});
+
 describe("stub recognizer streams a demo phrase", () => {
   test("final equals what was streamed", () => {
     jest.useFakeTimers();

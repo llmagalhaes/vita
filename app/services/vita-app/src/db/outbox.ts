@@ -165,7 +165,12 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
           progressed = true;
           continue;
         }
-        // Network/5xx: back off and stop, preserving order.
+        // Network/5xx: back off and stop, preserving order. Surface WHY — a
+        // silent backoff is what makes an entry sit at "waiting to sync" forever
+        // with no clue (APP-061). In a release APK this lands in `adb logcat`
+        // (tag ReactNativeJS), so the next device test names the real cause.
+        const reason = err instanceof ApiError ? `HTTP ${err.status}` : `network ${(err as Error)?.message ?? err}`;
+        console.warn(`[outbox] sync backoff op=${item.op} entry=${item.entryId} attempts=${item.attempts} reason=${reason}`);
         db.runSync(`UPDATE outbox SET attempts = attempts + 1, nextAttemptAt = ? WHERE seq = ?`, [
           now() + backoffMs(item.attempts),
           item.seq,

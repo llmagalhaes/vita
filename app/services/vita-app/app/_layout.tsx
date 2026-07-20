@@ -30,13 +30,17 @@ export default function RootLayout() {
     Nunito_800ExtraBold,
   });
 
-  // Open/migrate the db once, seed the mock-mode demo log, drain leftovers,
-  // and read the stored session from secure-store before gating navigation.
+  // Open/migrate the db once, seed the mock-mode demo log, read the stored
+  // session from secure-store, THEN drain leftovers. The drain must wait for the
+  // session: draining first fires POST /entries with no bearer (session not yet
+  // in memory) → 401 → backoff, leaving prior-session entries stuck "waiting to
+  // sync" until the next user action (APP-061).
   useState(() => {
     getDb();
     if (isMockApi) seedDemoDataOnce();
-    void drainOutbox(api).catch(() => {});
-    void loadSession();
+    void loadSession().finally(() => {
+      void drainOutbox(api).catch(() => {});
+    });
   });
 
   const authReady = useAuthReady();

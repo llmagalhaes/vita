@@ -101,6 +101,38 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The real backend's /parse endpoints return meal drafts with `items` but NO
+ * `totals` — the contract says the server recomputes totals from items on write
+ * (MacroTotals: "clients treat as read-mostly"). Every Home surface reads
+ * `detail.totals.kcal ?? 0`, so a totals-less draft renders as ~0 kcal (APP-061).
+ * Fill them at the API boundary so the confirmation card, the stored entry, and
+ * the offline-interpret path all show real numbers. Idempotent: a draft that
+ * already carries totals (the mock, or a future backend that sends them) is left
+ * untouched. ponytail: same 4-line sum as capture/quantity.mealTotals, kept local
+ * to avoid an api→capture import cycle.
+ */
+export function fillDraftTotals(result: ParseResult): ParseResult {
+  return {
+    ...result,
+    drafts: result.drafts.map((d) => {
+      if (d.type !== "meal") return d;
+      const detail = d.detail as MealDetail;
+      if (detail.totals || !detail.items?.length) return d;
+      const totals = detail.items.reduce<MacroTotals>(
+        (t, i) => ({
+          kcal: t.kcal + (i.kcal ?? 0),
+          proteinG: (t.proteinG ?? 0) + (i.proteinG ?? 0),
+          carbsG: (t.carbsG ?? 0) + (i.carbsG ?? 0),
+          fatG: (t.fatG ?? 0) + (i.fatG ?? 0),
+        }),
+        { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 },
+      );
+      return { ...d, detail: { ...detail, totals } };
+    }),
+  };
+}
+
 export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
   async function request<T>(
     method: string,
@@ -147,14 +179,15 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     oidc: (body) => request("POST", "/auth/oidc", { body }),
     refresh: (refreshToken) => request("POST", "/auth/refresh", { body: { refreshToken } }),
     signOut: (refreshToken) => request("POST", "/auth/sign-out", { body: { refreshToken } }),
-    parseText: (body) => request("POST", "/parse/text", { body }),
+    parseText: (body) =>
+      request<ParseResult>("POST", "/parse/text", { body }).then(fillDraftTotals),
     parsePhoto: ({ image, caption, capturedAt }) => {
       const form = new FormData();
       // React Native FormData file part — { uri, name, type }.
       form.append("image", { uri: image.uri, name: "photo.jpg", type: "image/jpeg" } as never);
       if (caption) form.append("caption", caption);
       if (capturedAt) form.append("capturedAt", capturedAt);
-      return request("POST", "/parse/photo", { body: form });
+      return request<ParseResult>("POST", "/parse/photo", { body: form }).then(fillDraftTotals);
     },
     parseEatingPlan: (body) => request("POST", "/parse/eating-plan", { body }),
     parseTrainingProgram: (body) => request("POST", "/parse/training-program", { body }),
@@ -205,5 +238,11 @@ export async function putPresignedFile(
     headers: { "Content-Type": contentType },
     body: blob,
   });
-  if (!res.ok) throw new Error(`upload PUT failed: ${res.status}`);
+  if (!res.ok) {
+    // Include S3's error body — it names the real cause (e.g. a 403 when the
+    // task role can't KMS-encrypt the bucket). Without it, PDF import fails as a
+    // blank "upload error" with nothing to act on (APP-060).
+    const body = await res.text().catch(() => "");
+    throw new Error(`upload PUT failed: ${res.status} ${body.slice(0, 300)}`);
+  }
 }

@@ -11,6 +11,8 @@
  * device either way — only the final text does, via the APP-011 parse flow.
  */
 
+import Constants, { ExecutionEnvironment } from "expo-constants";
+
 export type PermissionStatus = "granted" | "denied" | "unavailable";
 
 export type RecognizerHandlers = {
@@ -80,10 +82,43 @@ export function stubRecognizer(phrase: string = DEMO_PHRASE): SpeechRecognizer {
   };
 }
 
-let active: SpeechRecognizer = stubRecognizer();
+/**
+ * Honest absence — a real standalone/CNG build has NO speech engine wired yet
+ * (no STT native module is a dependency), so the mic must decline gracefully and
+ * point to typing rather than pretend. Mirrors stubHealthReader / the notifier
+ * stub. `holdStart` reads isAvailable()=false → the "voice isn't available,
+ * type instead" state (APP-058).
+ */
+export function unavailableRecognizer(): SpeechRecognizer {
+  return {
+    isAvailable: () => false,
+    requestPermission: async () => "unavailable",
+    start: () => {},
+    stop: () => {},
+    abort: () => {},
+  };
+}
+
+/**
+ * Default recognizer by runtime:
+ * - Expo Go / jest (StoreClient) → the streaming demo stub, so the voice UI is
+ *   walkable in the store client.
+ * - Any real build → `unavailableRecognizer`. The stub streams a CANNED phrase
+ *   ("Had a banana…") and would log a fabricated meal on device regardless of
+ *   what the user said (the "voice dead on device" report, APP-058). A real STT
+ *   engine drops in behind this same seam via setRecognizer once it exists.
+ */
+function defaultRecognizer(): SpeechRecognizer {
+  return Constants.executionEnvironment === ExecutionEnvironment.StoreClient
+    ? stubRecognizer()
+    : unavailableRecognizer();
+}
+
+let active: SpeechRecognizer | null = null;
 
 /** The recognizer the app uses. */
 export function getRecognizer(): SpeechRecognizer {
+  if (!active) active = defaultRecognizer();
   return active;
 }
 

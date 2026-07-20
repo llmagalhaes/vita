@@ -35,7 +35,11 @@ export async function importPlanPdf(deps: ImportDeps): Promise<ImportOutcome> {
     const { fileRef, uploadUrl } = await deps.requestUpload();
     await deps.putBytes(uploadUrl, picked.uri);
     return { status: "ready", fileRef, name: picked.name };
-  } catch {
+  } catch (err) {
+    // Keep the UI calm, but never swallow the cause: log it so a device run
+    // (adb logcat) names the real failure — POST /uploads vs the S3 PUT, and its
+    // status/body (APP-060). The S3 403 for a KMS-encrypted bucket lands here.
+    console.warn(`[planImport] upload failed: ${(err as Error)?.message ?? err}`);
     return { status: "upload-error" };
   }
 }

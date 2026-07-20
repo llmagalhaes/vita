@@ -507,7 +507,9 @@
       "gym": "Gym app"
     },
     "healthConnectOn": "Reading steps, active energy & workouts on this device",
-    "healthConnectOff": "Connect to read steps, active energy & workouts"
+    "healthConnectOff": "Connect to read steps, active energy & workouts",
+    "healthConnectUnavailable": "Health Connect isn't set up on this phone. Install it, then in Samsung Health turn on sync to Health Connect.",
+    "healthConnectNoData": "Connected. No data yet today — open Samsung Health and enable syncing to Health Connect."
   },
   "vacation": {
     "title": "Vacation mode",
