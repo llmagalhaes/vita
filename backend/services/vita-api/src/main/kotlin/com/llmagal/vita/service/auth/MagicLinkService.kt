@@ -55,7 +55,10 @@ class MagicLinkService(
                 crypto.encryptWithServiceKey(email.toByteArray()),
                 Timestamp.from(Instant.now().plus(TOKEN_TTL)),
             )
-            mailer.sendMagicLink(email, "${props.magicLinkBaseUrl}?token=$token")
+            // Email carries an https link to the /v1/auth/link redirect (BE-035) — email clients
+            // only auto-link/allow http(s); the redirect then 302s to vita://auth. SesMailer embeds
+            // this link in the text part, the HTML anchor, and the QR alike.
+            mailer.sendMagicLink(email, "${props.publicBaseUrl}/v1/auth/link?token=$token")
         }
         return retryAfter
     }

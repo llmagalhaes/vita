@@ -38,8 +38,12 @@ vita:
     refresh-ttl-days: 60
     rate-limit-per-email: 3 # magic-link requests per 15-min window
     rate-limit-per-ip: 10
-    # v1 links open the app scheme directly; becomes an https redirect once a domain exists.
+    # magic-link-base-url is the app-scheme target the /v1/auth/link redirect sends the browser to.
     magic-link-base-url: ${VITA_MAGIC_LINK_BASE_URL:vita://auth}
+    # BE-035: the email carries an https link to /v1/auth/link (email clients only trust http(s);
+    # a raw vita:// link is dead text). That endpoint 302s to magic-link-base-url. Devops can later
+    # move PUBLIC_BASE_URL to SSM; the API Gateway URL is the default for now.
+    public-base-url: ${PUBLIC_BASE_URL:https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com}
   ai:
     # Product AI — Claude parse endpoint (BE-013, ADR-0005). base-url points at a
     # WireMock stub in tests. Key comes from keys.anthropic (env/secrets.yaml only).

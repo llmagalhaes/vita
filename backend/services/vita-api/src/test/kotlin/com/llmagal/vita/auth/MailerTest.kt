@@ -61,13 +61,15 @@ class MailerTest {
 
     @Test
     fun `qrPng renders a QR that decodes back to the link`() {
-        val link = "vita://auth?token=abc123"
+        // BE-035: the email now carries the https redirect link (not the raw vita:// scheme).
+        val link = "https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1/auth/link?token=abc123"
         assertThat(decodeQr(qrPng(link))).isEqualTo(link)
     }
 
     @Test
     fun `SesMailer sends a multipart-related MIME with text, html and an inline QR that decodes to the link`() {
-        val link = "vita://auth?token=abc123"
+        // BE-035: the email now carries the https redirect link (not the raw vita:// scheme).
+        val link = "https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1/auth/link?token=abc123"
         val req = slot<SendRawEmailRequest>()
         every { ses.sendRawEmail(capture(req)) } returns SendRawEmailResponse.builder().messageId("m-1").build()
 

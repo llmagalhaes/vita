@@ -1,0 +1,17 @@
+# BE-033 temp: runtime-only image over a host-built bootJar (the full in-container gradle build
+# times out here). Mirrors the runtime stage of ./Dockerfile exactly. Not committed.
+FROM eclipse-temurin:21-jre-noble AS runtime
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system vita \
+    && useradd --system --gid vita --home-dir /app --shell /usr/sbin/nologin vita \
+    && mkdir -p /app && chown vita:vita /app
+WORKDIR /app
+COPY build/libs/vita-api-0.1.0-SNAPSHOT.jar app.jar
+USER vita
+EXPOSE 8080
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75.0"
+HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
+    CMD curl -fsS http://localhost:8080/health || exit 1
+ENTRYPOINT ["java", "-jar", "app.jar"]

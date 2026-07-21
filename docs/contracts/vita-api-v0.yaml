@@ -99,6 +99,41 @@ paths:
               schema: { $ref: "#/components/schemas/Problem" }
         default: { $ref: "#/components/responses/Problem" }
 
+  /auth/link:
+    get:
+      tags: [auth]
+      summary: Magic-link redirect (email entry door)
+      description: |
+        The https URL the magic-link email points at — email clients only
+        auto-link/allow http(s), so a raw `vita://auth` link is dead text.
+        Redirects (302) to `vita://auth?token=<token>` so the phone opens the
+        app, and serves a minimal HTML body with a tappable `vita://` anchor as
+        a fallback for clients that don't follow custom-scheme redirects. The
+        token is opaque and passed through untouched — it is verified only by
+        POST /auth/magic-link/verify. Not called by the app; the browser follows
+        it from the email.
+      security: []
+      parameters:
+        - name: token
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Opaque single-use token from the email.
+      responses:
+        "302":
+          description: Redirect to the app scheme.
+          headers:
+            Location:
+              schema:
+                type: string
+              description: "`vita://auth?token=<token>`"
+          content:
+            text/html:
+              schema:
+                type: string
+        default: { $ref: "#/components/responses/Problem" }
+
   /auth/oidc:
     post:
       tags: [auth]

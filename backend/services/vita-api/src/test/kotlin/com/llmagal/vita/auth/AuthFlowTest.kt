@@ -18,6 +18,10 @@ import org.springframework.http.MediaType
 import org.springframework.jdbc.core.JdbcTemplate
 import org.springframework.security.oauth2.jwt.JwtDecoder
 import org.springframework.test.web.servlet.client.RestTestClient
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
 import java.util.UUID
 import java.util.concurrent.ConcurrentLinkedQueue
 
@@ -121,6 +125,28 @@ class AuthFlowTest {
         assertThat(String(emailEnc!!, Charsets.ISO_8859_1)).doesNotContain("flow@test.dev")
         val rawTokenRows = jdbc.queryForList("SELECT email_enc FROM magic_link_token", ByteArray::class.java)
         rawTokenRows.forEach { assertThat(String(it, Charsets.ISO_8859_1)).doesNotContain("flow@test.dev") }
+    }
+
+    @Test
+    fun `magic-link email carries an https link to the redirect endpoint`() {
+        val link = requestLink("httpslink@test.dev")
+        assertThat(link).startsWith("https://")
+        assertThat(link).contains("/v1/auth/link?token=")
+    }
+
+    @Test
+    fun `link redirect bounces to the app scheme, serves html fallback, and passes the token through untouched`() {
+        // A JDK client that does NOT follow redirects (the Location is a custom scheme the browser,
+        // not this client, resolves). Token carries +,/,= so URL-encoding round-trips are exercised.
+        val http = HttpClient.newBuilder().followRedirects(HttpClient.Redirect.NEVER).build()
+        val uri = URI.create("http://localhost:$port/v1/auth/link?token=a%2Bb%2Fc%3Dd")
+        val res = http.send(HttpRequest.newBuilder(uri).GET().build(), HttpResponse.BodyHandlers.ofString())
+
+        assertThat(res.statusCode()).isEqualTo(302)
+        // Token decoded to a+b/c=d, re-encoded into the app-scheme query untouched.
+        assertThat(res.headers().firstValue("Location")).hasValue("vita://auth?token=a%2Bb%2Fc%3Dd")
+        assertThat(res.body()).contains("<a href=\"vita://auth?token=a%2Bb%2Fc%3Dd\"")
+        assertThat(res.body()).contains("Open this on the phone with Vita installed")
     }
 
     @Test

@@ -1,5 +1,40 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 16b, 2026-07-21) — BE-035: clickable magic-link email via https redirect (LIVE)
+
+CEO couldn't click the magic link — email clients only auto-link/allow `http(s)`; a raw `vita://auth`
+link is dead text (Gmail neuters custom-scheme anchors). Implements the old OPS-016 idea (magic-link
+redirect). Ledger: `Progress/BE-035-clickable-link-Progress.md`. Asana `1216766487530093` — In progress
+pending the CEO's click test.
+
+- **Code (ponytail, shortest diff):** new public `GET /v1/auth/link?token=...` in
+  `controller/auth/AuthController.kt` → **302 `Location: vita://auth?token=<token>`** + a minimal
+  `text/html` fallback (tappable `vita://` anchor + "Open this on the phone with Vita installed") for
+  clients that don't follow custom-scheme redirects. Token is **opaque pass-through** (not verified/
+  consumed/logged; `URLEncoder`-re-encoded into the query). No auth (covered by the existing
+  `/v1/auth/**` permitAll). `MagicLinkService` now builds the email link as
+  `"${publicBaseUrl}/v1/auth/link?token=$token"` — **one line**; `SesMailer`/`Qr.kt` untouched (they
+  embed `link` verbatim, so plain text, HTML button, and QR all now carry the https URL, and the
+  redirect lands both the click and the scan in the same place). New `vita.auth.public-base-url` ←
+  `PUBLIC_BASE_URL` (default the API-GW URL; devops can later move it to SSM — not a blocker).
+  `magic-link-base-url` stays `vita://auth` (now the redirect *target*). No migration, no new dep.
+- **Contract:** additive public `GET /auth/link` in `docs/contracts/vita-api-v0.yaml` (302 + text/html,
+  opaque `token` query). Not called by the app — the browser follows it from the email. redocly valid.
+- **Gates:** `./gradlew check` green — **157 tests, 0 failures** (+2 AuthFlowTest: 302/Location/HTML/
+  token-encoding round-trip + the email carrying an https link), detekt+ktlint clean. **detekt gotcha:**
+  a URL path with `/*` (`/v1/auth/**`) inside a KDoc opens a Kotlin *nested* block comment → detekt's
+  parser swallows the rest of the file and mis-reports "unused property". Reword KDocs to avoid `/*`.
+- **Deploy:** arm64 image → ECR `vita-api:be035`, digest
+  `sha256:8142675bbc8aa7b314cccf9aa73da9ceecaf1bda60fb229a31d19e675b591f85`; task-def **`vita:7`**
+  (clone of `vita:6` + new image by digest); service `vita` rolled out — **COMPLETED, 1/1**, `vita:6`
+  drained. Live: `/health` 200; `GET /v1/auth/link?token=TEST123` → 302 `vita://auth?token=TEST123` +
+  HTML fallback; token URL-encoding passes through untouched; fresh `POST /v1/auth/magic-link` 202 with
+  **no fallback WARN** → SES path taken (email now carries the https link). **CEO to confirm the click
+  opens Vita on the phone → then BE-035 Done.**
+- **Docker credStore gotcha (save time):** host `~/.docker/config.json` uses `credsStore: "desktop"`,
+  whose helper **hangs** non-interactively. Use a scoped `DOCKER_CONFIG` dir with the ECR token inline
+  (no credStore) + `docker --config <dir> …`.
+
 ## Current state (Phase 2 session 16, 2026-07-21) — BE-034: QR of the sign-in link in the email (LIVE)
 
 CEO ask executed: the magic-link email now embeds a scannable QR of the `vita://auth` link (CEO reads

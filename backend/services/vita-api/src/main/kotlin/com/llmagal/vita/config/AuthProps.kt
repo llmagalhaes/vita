@@ -9,6 +9,7 @@ data class AuthProps(
     val accessTtlSeconds: Long,
     val refreshTtlDays: Long,
     val magicLinkBaseUrl: String,
+    val publicBaseUrl: String,
     val rateLimitPerEmail: Int,
     val rateLimitPerIp: Int,
 )
