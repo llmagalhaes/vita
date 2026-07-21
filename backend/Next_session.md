@@ -1,5 +1,35 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 16, 2026-07-21) — BE-034: QR of the sign-in link in the email (LIVE)
+
+CEO ask executed: the magic-link email now embeds a scannable QR of the `vita://auth` link (CEO reads
+mail on desktop, scans with the phone). Ledger: `Progress/BE-034-qr-email-Progress.md`. Asana
+`1216754230436881` — In progress pending the CEO's device scan.
+
+- **Code (ponytail, over BE-033):** new `service/auth/Qr.kt` (`qrPng` — zxing-core `BitMatrix` +
+  JDK `ImageIO`, **no zxing `javase` module**); `service/auth/SesMailer.kt` switched from `SendEmail`
+  to **`SendRawEmail`** with a **multipart/related** MIME (jakarta.mail / angus-mail): `text/plain`
+  (quiet copy + raw link, fallback + accessibility) + `text/html` (`<img src="cid:qr">`) + inline
+  360px PNG QR (`Content-ID: qr`). `MailerConfig`/`Mailer`/`LogMailer`/`AwsClientsConfig` untouched.
+  **BE-033 fail-safe unchanged:** blank/sentinel `MAIL_FROM` → `LogMailer`; any build/send throw →
+  WARN + `LogMailer`, `/auth` never 500s.
+- **Deps added:** `com.google.zxing:core:3.5.3`, `org.eclipse.angus:angus-mail:2.0.3` (no
+  `spring-boot-starter-mail`). No contract change, no migration. IAM already allows `ses:SendRawEmail`
+  (OPS-023) — no devops dependency.
+- **Gates:** `./gradlew check` green — **155 tests, 0 failures** (+1 net in `MailerTest`: the sent
+  raw MIME parses back to text+html+inline-CID and the embedded QR decodes to the link), detekt+ktlint
+  clean. (`PhotoParseFlowTest` 413 test is a pre-existing racy transport flake — passes on rerun,
+  unrelated to the mailer.)
+- **Deploy:** arm64 image → ECR `vita-api:be034`, digest
+  `sha256:b7c52fee78e55228a66f5ddf853d0d2e1bcb30d0428fd452d2d290556df1d0aa`; task-def **`vita:6`**
+  (clone of `vita:5` + new image by digest); service `vita` rolled out — **rollout COMPLETED, 1/1**,
+  `vita:5` drained. `/health` 200, `POST /v1/auth/magic-link` 202, **no fallback "Magic link" log**
+  → SES path taken. **CEO to confirm the QR scans on device.**
+- **Build gotcha (save time):** `.dockerignore` excludes `build/`, so the host-jar fast path must
+  build from a **staged minimal context** (copy the jar + `Dockerfile.runtime` into a temp dir and
+  `docker build` there) — a plain `docker build .` from the service dir fails on a missing-jar
+  checksum. Full in-container gradle build still times out here (BE-033 note).
+
 ## Current state (Phase 2 session 15, 2026-07-21) — BE-033: real magic-link email via SES (LIVE)
 
 CEO decision executed: the magic-link email now actually arrives (was CloudWatch-only LogMailer).

@@ -42,6 +42,12 @@ dependencies {
     implementation("software.amazon.awssdk:ses") // BE-033: magic-link email send (aws profile)
     implementation("software.amazon.awssdk:url-connection-client") // one sync HTTP impl (SDK auto-discovers it)
 
+    // BE-034: QR of the vita://auth link in the magic-link email.
+    // zxing `core` gives the BitMatrix; the JDK's ImageIO makes the PNG (skip the `javase` helper module).
+    // angus-mail assembles the multipart/related MIME for SES SendRawEmail (no spring-boot-starter-mail).
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("org.eclipse.angus:angus-mail:2.0.3")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
     testImplementation("org.springframework.security:spring-security-test")
