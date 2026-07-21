@@ -7,15 +7,12 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import type { Muscle, Units, WorkoutDetail } from "../api/client";
+import type { Muscle, WorkoutDetail } from "../api/client";
 import type { LocalEntry } from "../db/entries";
-import { getSettings } from "../db/settings";
 import { Chip, SheetOverlay, Text, colors, fonts, spacing } from "../ui";
 
-const KG_PER_LB = 0.453592;
-
-function formatLoad(kg: number, units: Units, t: (k: string) => string): string {
-  return units === "imperial" ? `${Math.round(kg / KG_PER_LB)} ${t("workoutDetail.lb")}` : `${kg}${t("workoutDetail.kg")}`;
+function formatLoad(kg: number, t: (k: string) => string): string {
+  return `${kg}${t("workoutDetail.kg")}`;
 }
 
 /** Short source name for the "via …" meta line (IMG-3), from how the entry was logged. */
@@ -58,7 +55,6 @@ export function WorkoutPreviewSheet({
 }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const units = getSettings()?.units ?? "metric";
   const d = entry?.detail as WorkoutDetail | undefined;
   const muscles = (d?.muscles ?? []) as Muscle[];
   const exercises = d?.exercises ?? [];
@@ -109,7 +105,7 @@ export function WorkoutPreviewSheet({
                   </Text>
                   <Text variant="caption" style={{ fontSize: 12 }} color={colors.muted}>
                     {ex.sets != null && ex.reps != null ? `${ex.sets}×${ex.reps}` : ""}
-                    {ex.loadKg != null ? `·${formatLoad(ex.loadKg, units, t)}` : ""}
+                    {ex.loadKg != null ? `·${formatLoad(ex.loadKg, t)}` : ""}
                   </Text>
                 </View>
               ))}

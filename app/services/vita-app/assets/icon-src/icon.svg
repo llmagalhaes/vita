@@ -1,0 +1,10 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1024" height="1024" fill="#F2E9D8"/>
+  <!-- droplet: a quiet log of water/meals -->
+  <path d="M512 268 C 604 410 678 506 678 596 A 166 166 0 1 1 346 596 C 346 506 420 410 512 268 Z" fill="#C4704E"/>
+  <!-- soft-green leaf: calm, growth, movement -->
+  <g transform="translate(560,352) rotate(34)">
+    <path d="M0 -104 C 46 -52 46 52 0 104 C -46 52 -46 -52 0 -104 Z" fill="#8CA58A"/>
+    <path d="M0 -92 L 0 92" stroke="#6E8A6B" stroke-width="8" stroke-linecap="round"/>
+  </g>
+</svg>

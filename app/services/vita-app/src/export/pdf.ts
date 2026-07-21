@@ -8,7 +8,7 @@
  * unit-tested; `exportPdf` is the thin IO wrapper that reads the DB and drives
  * the native modules (lazy-required so Jest never loads them).
  */
-import type { MealDetail, Units, WorkoutDetail } from "../api/client";
+import type { MealDetail, WorkoutDetail } from "../api/client";
 import type { LocalEntry } from "../db/entries";
 import { entriesInRange } from "../db/entries";
 import { aggregateDays } from "../trends/aggregate";
@@ -63,15 +63,15 @@ function workoutsSection(entries: LocalEntry[]): string {
   return rows ? section("Workouts", `<table>${rows}</table>`) : "";
 }
 
-function dailySection(entries: LocalEntry[], units: Units, today: Date, kind: "water" | "energy" | "macros", t?: (k: string) => string): string {
-  const tr = t ?? ((k: string) => (k === "common.ml" ? "ml" : k === "common.l" ? "L" : k === "common.oz" ? "oz" : k));
+function dailySection(entries: LocalEntry[], today: Date, kind: "water" | "energy" | "macros", t?: (k: string) => string): string {
+  const tr = t ?? ((k: string) => (k === "common.ml" ? "ml" : k === "common.l" ? "L" : k));
   // 30-day buckets; only days with data print.
   const buckets = aggregateDays(entries, "M", today).filter((b) => b.consumedKcal || b.waterMl || b.spentKcal);
   if (buckets.length === 0) return "";
   const rows = buckets
     .map((b) => {
       const day = esc(b.date.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
-      if (kind === "water") return `<tr><td>${day}</td><td class="num">${esc(formatVolume(b.waterMl, units, tr))}</td></tr>`;
+      if (kind === "water") return `<tr><td>${day}</td><td class="num">${esc(formatVolume(b.waterMl, tr))}</td></tr>`;
       if (kind === "macros")
         return `<tr><td>${day}</td><td class="num">P ${Math.round(b.protein)} · C ${Math.round(b.carbs)} · F ${Math.round(b.fat)} g ${est}</td></tr>`;
       return `<tr><td>${day}</td><td class="num">${Math.round(b.consumedKcal)} in · ${Math.round(b.spentKcal)} out kcal ${est}</td></tr>`;
@@ -86,7 +86,6 @@ const section = (title: string, body: string) => `<h2>${title}</h2>${body}`;
 export type ExportOpts = {
   audienceLabel: string;
   sections: Section[];
-  units: Units;
   today?: Date;
   t?: (k: string) => string;
 };
@@ -98,9 +97,9 @@ export function buildExportHtml(entries: LocalEntry[], opts: ExportOpts): string
   const parts = [
     inc("meals") ? mealsSection(entries) : "",
     inc("workouts") ? workoutsSection(entries) : "",
-    inc("water") ? dailySection(entries, opts.units, today, "water", opts.t) : "",
-    inc("macros") ? dailySection(entries, opts.units, today, "macros", opts.t) : "",
-    inc("energy") ? dailySection(entries, opts.units, today, "energy", opts.t) : "",
+    inc("water") ? dailySection(entries, today, "water", opts.t) : "",
+    inc("macros") ? dailySection(entries, today, "macros", opts.t) : "",
+    inc("energy") ? dailySection(entries, today, "energy", opts.t) : "",
   ].filter(Boolean);
   const body = parts.length ? parts.join("") : `<p class="empty">No entries in the last ${EXPORT_DAYS} days.</p>`;
   const generated = esc(today.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }));

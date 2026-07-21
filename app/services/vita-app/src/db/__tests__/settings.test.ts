@@ -8,28 +8,18 @@ import {
   setIntegrationEnabled,
   setName,
   setNotificationsEnabled,
-  setUnits,
   type Settings,
 } from "../settings";
 
 const base: Settings = {
   name: "Sam",
-  units: "metric",
   keepTrack: { meals: true, water: true, workouts: true, habits: true, cycle: false },
-  connected: { appleHealth: false, healthConnect: false },
 };
 
 beforeEach(() => {
   resetDbForTests();
   saveSettings(base);
   jest.restoreAllMocks();
-});
-
-test("setUnits persists locally AND mirrors to the server via PATCH /me", () => {
-  const spy = jest.spyOn(api, "patchMe");
-  setUnits("imperial");
-  expect(getSettings()!.units).toBe("imperial"); // applied everywhere (local read)
-  expect(spy).toHaveBeenCalledWith({ units: "imperial" }); // mirrored to backend
 });
 
 test("setName persists locally AND mirrors to the server", () => {

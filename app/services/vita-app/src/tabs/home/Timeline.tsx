@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import Svg, { Circle, Path, Rect } from "react-native-svg";
-import type { Units, MealDetail, WaterDetail, WorkoutDetail } from "../../api";
+import type { MealDetail, WaterDetail, WorkoutDetail } from "../../api";
 import type { LocalEntry } from "../../db/entries";
 import { formatVolume } from "../../lib/units";
 import { Chevron, PressScale, Text, colors, entryPalette, fonts, shadowRow } from "../../ui";
@@ -117,9 +117,9 @@ function Spine({ color }: { color: string }) {
 }
 
 /** Passive water marker — a drop + amount + method. No card, not tappable. */
-function WaterRow({ entry, units }: { entry: LocalEntry; units: Units }) {
+function WaterRow({ entry }: { entry: LocalEntry }) {
   const { t } = useTranslation();
-  const amount = formatVolume((entry.detail as WaterDetail).amountMl, units, t);
+  const amount = formatVolume((entry.detail as WaterDetail).amountMl, t);
   return (
     <View style={{ flexDirection: "row", gap: 11 }}>
       <Text style={{ width: GUTTER_W, textAlign: "right", fontFamily: fonts.bold, fontSize: 10.5, paddingTop: 16 }} color={colors.labelMuted}>
@@ -144,14 +144,12 @@ function WaterRow({ entry, units }: { entry: LocalEntry; units: Units }) {
 /** Meal or workout — a tappable card that expands in place (multi-open). */
 function EntryRow({
   entry,
-  units,
   expanded,
   onToggle,
   onDismiss,
   showFullDetails,
 }: {
   entry: LocalEntry;
-  units: Units;
   expanded: boolean;
   onToggle: () => void;
   onDismiss: (id: string) => void;
@@ -304,7 +302,6 @@ function EntryRow({
  */
 export function Timeline({
   entries,
-  units,
   selectedOffset,
   goDay,
   expandedKeys,
@@ -312,7 +309,6 @@ export function Timeline({
   onDismiss,
 }: {
   entries: LocalEntry[];
-  units: Units;
   selectedOffset: number;
   goDay: (offset: number) => void;
   expandedKeys: Set<string>;
@@ -326,7 +322,7 @@ export function Timeline({
   const summary = t("home.tlSummary", {
     meals: t(s.meals === 1 ? "home.tlMealOne" : "home.tlMealMany", { count: s.meals }),
     workouts: t(s.workouts === 1 ? "home.tlWorkoutOne" : "home.tlWorkoutMany", { count: s.workouts }),
-    water: t("home.tlWater", { amount: formatVolume(s.waterMl, units, t) }),
+    water: t("home.tlWater", { amount: formatVolume(s.waterMl, t) }),
   });
 
   // Day-swipe: dragX follows the finger (UI thread); enterX plays the slide-in
@@ -391,12 +387,11 @@ export function Timeline({
           <View>
             {entries.map((e) =>
               e.type === "water" ? (
-                <WaterRow key={e.id} entry={e} units={units} />
+                <WaterRow key={e.id} entry={e} />
               ) : (
                 <EntryRow
                   key={e.id}
                   entry={e}
-                  units={units}
                   showFullDetails={showFullDetails}
                   onDismiss={onDismiss}
                   expanded={expandedKeys.has(`e_${selectedOffset}_${e.id}`)}

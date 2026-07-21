@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { entriesInRange } from "../db/entries";
-import { getSettings } from "../db/settings";
 import { useLogVersion } from "../db/notify";
 import { formatVolume } from "../lib/units";
 import { Text, colors, fonts, useStartOnLayout } from "../ui";
@@ -185,7 +184,6 @@ function Legend({ items }: { items: Array<[string, string]> }) {
 export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExcluded?: ExcludeDay }) {
   const { t } = useTranslation();
   const version = useLogVersion();
-  const units = getSettings()?.units ?? "metric";
   const [calCurve, setCalCurve] = useState(false);
 
   const days = useMemo(() => {
@@ -280,9 +278,9 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
       {/* Water */}
       <TrendCard
         title={t("trends.water")}
-        unitNote={waterDays > 0 ? formatVolume(round(totalWater / waterDays), units, t) + " " + t("trends.avgSuffix") : ""}
+        unitNote={waterDays > 0 ? formatVolume(round(totalWater / waterDays), t) + " " + t("trends.avgSuffix") : ""}
         count={days.length}
-        readout={(i) => ({ value: formatVolume(days[i]!.waterMl, units, t), detail: dateLabel(days[i]!.date) })}
+        readout={(i) => ({ value: formatVolume(days[i]!.waterMl, t), detail: dateLabel(days[i]!.date) })}
         dragHint={t("trends.dragChart")}
         delay={180}
       >

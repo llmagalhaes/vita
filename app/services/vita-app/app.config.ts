@@ -35,9 +35,10 @@ const config: ExpoConfig = {
     // voice capture (APP-012) + camera photo source (CEO #6)
     permissions: ["android.permission.RECORD_AUDIO", "android.permission.CAMERA"],
     adaptiveIcon: {
-      backgroundColor: "#EDE5D6",
+      // Flat cream background (matches the icon), terracotta-droplet foreground,
+      // ink silhouette for Android 13+ themed icons (APP-073).
+      backgroundColor: "#F2E9D8",
       foregroundImage: "./assets/android-icon-foreground.png",
-      backgroundImage: "./assets/android-icon-background.png",
       monochromeImage: "./assets/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,

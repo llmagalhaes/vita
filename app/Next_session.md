@@ -1,5 +1,37 @@
 # App Team — Next Session
 
+## Session 16 (2026-07-21) — CEO feedback round APP-070..073 SHIPPED ✅
+Four CEO tickets, all app-side. Ledger: `Progress/APP-070-073-ceo-feedback-Progress.md`.
+Gates: **tsc 0 · Jest 223/223 (44 suites) · expo export iOS OK**. No backend change, no new deps.
+Fresh prod-baked release APK rebuilt (`android/app/build/outputs/apk/release/app-release.apk`).
+Tickets left **In progress** (DoD = store).
+- **APP-070 (P0) HC false "not available"** — root cause: the check treated only
+  `getSdkStatus()===SDK_AVAILABLE(3)` as usable and collapsed everything else to false. On
+  Android 14+/recent One UI, HC is a platform module and returns
+  `SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED(2)` (present-but-needs-setup). Fix
+  (`src/health/healthConnect.ts`): `HealthAvailability` 3-state + pure `mapSdkStatus` (unit-tested);
+  `isAvailable()→availability()`; `connectHealthConnect()` returns a discriminated `ConnectResult`;
+  new `openHealthConnectStore()` deep-link. `integrations.tsx` maps each state to an honest toast
+  (denied / install / update / no-data-sync-off) and reverts the toggle on failure. Provider
+  package `com.google.android.apps.healthdata` is correct on 14+ (unchanged). **Detection +
+  permission + Samsung data are CEO-device-only** (emulator has no HC provider; branches unit-tested).
+- **APP-071 metric only** — dropped the imperial branch + `units` param from `formatVolume`/
+  `formatLoad`; removed `Settings.units`/`setUnits`, the onboarding + account unit pickers, all
+  `getSettings().units` reads, and the dead i18n (oz/lb/metric/imperial/unitsLabel/recapUnits).
+  Metric is the only path; any persisted `units` is ignored.
+- **APP-072 integrations cleanup** — Integrations shows Health Connect ONLY and only on Android
+  (`Platform.OS`); removed the appleHealth/strava/garmin/flo/gym stubs; non-Android → "none yet".
+  Onboarding's fake "connect apps" step removed entirely (TOTAL_STEPS 6→5; `Settings.connected`
+  gone). **CEO Q:** iOS Integrations is empty until a real HealthKit reader exists — OK?
+- **APP-073 app icon** — replaced the blue Expo placeholder with a calm terracotta droplet + soft-
+  green leaf on cream (token palette). SVG sources `assets/icon-src/*.svg` → rsvg-convert →
+  `icon.png` (opaque), `android-icon-foreground.png`, `android-icon-monochrome.png`, `favicon.png`.
+  `app.config.ts` adaptiveIcon `backgroundColor:#F2E9D8` + foreground + monochrome (dropped the flat
+  backgroundImage). Prebuild regen confirmed adaptive xml has all 3 layers; icon lands in the APK.
+- **CEO on device:** install the rebuilt APK clean (`adb uninstall com.llmagal.vita` first) — check
+  (1) the new droplet icon in the launcher, (2) Health Connect now offers connect/guidance on your
+  Samsung (not a flat "not available"), (3) no unit choice anywhere, (4) Integrations shows only HC.
+
 ## Session 15 (2026-07-20) — REAL on-device voice STT SHIPPED (APP-069, CEO option A) ✅
 CEO chose option A: build real sound→text on device (interpretation stays Claude via
 `/parse/text`; audio never leaves the device). Ledger: `Progress/APP-069-voice-stt-Progress.md`.

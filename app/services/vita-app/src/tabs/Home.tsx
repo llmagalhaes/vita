@@ -247,7 +247,6 @@ export default function Home() {
   }, []);
 
   const settings = useMemo(() => getSettings(), []);
-  const units = settings?.units ?? "metric";
   const entries = useMemo(() => entriesForDay(new Date()).filter(isTimelineEntry), [version]); // eslint-disable-line react-hooks/exhaustive-deps
   // The selected day's entries drive the timeline (same SQLite query, offset date).
   const dayEntries = useMemo(() => {
@@ -488,7 +487,7 @@ export default function Home() {
                   adjustsFontSizeToFit
                   minimumFontScale={0.6}
                 >
-                  {formatVolume(waterMl, units, t)}
+                  {formatVolume(waterMl, t)}
                 </Text>
                 <PressScale
                   accessibilityRole="button"
@@ -532,7 +531,7 @@ export default function Home() {
                         Text beside a flex:1 amount, starving it to ~0px so "250 ml" wrapped
                         one char per line (APP-066). minWidth:0 lets it actually shrink. */}
                     <Text variant="caption" numberOfLines={1} style={{ fontFamily: fonts.semiBold, flex: 1, minWidth: 0 }} color="#6E6355">
-                      {formatVolume((w.detail as WaterDetail).amountMl, units, t)} · {inputMethodLabel(w, t)}
+                      {formatVolume((w.detail as WaterDetail).amountMl, t)} · {inputMethodLabel(w, t)}
                     </Text>
                     <Text variant="caption" style={{ flexShrink: 0 }} color={colors.labelMuted}>
                       {timeOf(w.occurredAt)}
@@ -724,7 +723,6 @@ export default function Home() {
       </View>
       <Timeline
         entries={dayEntries}
-        units={units}
         selectedOffset={selectedDayOffset}
         goDay={goDay}
         expandedKeys={expandedKeys}

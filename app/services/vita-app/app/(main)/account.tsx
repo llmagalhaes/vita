@@ -1,5 +1,5 @@
 /**
- * Account & settings (APP-029). Profile (name + units, applied everywhere via
+ * Account & settings (APP-029). Profile (name, applied everywhere via
  * PATCH /me), "Your setup" deep links, the master notification switch (drives the
  * APP-026 Notifier), vacation card, on-device export, and sign out.
  */
@@ -9,7 +9,7 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, shadowCta, showToast, spacing } from "../../src/ui";
-import { getSettings, notificationsEnabled, setName, setNotificationsEnabled, setUnits } from "../../src/db/settings";
+import { getSettings, notificationsEnabled, setName, setNotificationsEnabled } from "../../src/db/settings";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
 import { refreshNotifications } from "../../src/habits/notifier";
@@ -18,7 +18,6 @@ import { listHabits } from "../../src/db/habits";
 import { VacationSheet } from "../../src/vacation/VacationSheet";
 import { ExportSheet } from "../../src/export/ExportSheet";
 import { signOut } from "../../src/auth/session";
-import type { Units } from "../../src/api";
 
 const Label = ({ children }: { children: string }) => (
   <Text style={{ fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: "uppercase", paddingHorizontal: 4, paddingTop: 6 }} color={colors.labelMuted}>
@@ -58,7 +57,6 @@ export default function Account() {
   const [exportOpen, setExportOpen] = useState(false);
   const [endConfirmOpen, setEndConfirmOpen] = useState(false);
 
-  const units = settings?.units ?? "metric";
   const plan = getCachedPlan();
   const program = getCachedProgram();
   const habitCount = listHabits().length;
@@ -88,9 +86,6 @@ export default function Account() {
             <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: colors.accent }} />
             <View style={{ flex: 1 }}>
               <Text variant="title" style={{ fontSize: 18 }}>{settings?.name || t("account.you")}</Text>
-              <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
-                {units === "metric" ? t("onboarding.welcome.metric") : t("onboarding.welcome.imperial")}
-              </Text>
             </View>
             <Chevron open={profileOpen} size={12} />
           </View>
@@ -106,27 +101,6 @@ export default function Account() {
                   accessibilityLabel={t("onboarding.welcome.nameLabel")}
                   style={{ borderWidth: 1, borderColor: "rgba(120,100,75,0.16)", backgroundColor: colors.sheet, borderRadius: 16, paddingVertical: 13, paddingHorizontal: 16, fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink }}
                 />
-              </View>
-              <View style={{ gap: 7 }}>
-                <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.muted}>{t("onboarding.welcome.unitsLabel")}</Text>
-                <View style={{ flexDirection: "row", gap: 10 }}>
-                  {(["metric", "imperial"] as Units[]).map((u) => {
-                    const on = units === u;
-                    return (
-                      <Pressable
-                        key={u}
-                        accessibilityRole="button"
-                        accessibilityState={{ selected: on }}
-                        onPress={() => setUnits(u)}
-                        style={{ flex: 1, paddingVertical: 12, borderRadius: 16, borderWidth: 1.5, borderColor: on ? colors.accent : "rgba(120,100,75,0.16)", backgroundColor: on ? colors.estimateBg : "transparent", alignItems: "center" }}
-                      >
-                        <Text variant="label" style={{ fontSize: 14 }} color={on ? colors.estimateInk : colors.ink}>
-                          {u === "metric" ? t("onboarding.welcome.metric") : t("onboarding.welcome.imperial")}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
               </View>
               <Text variant="caption" color={colors.labelMuted}>{t("account.applyEverywhere")}</Text>
             </Animated.View>

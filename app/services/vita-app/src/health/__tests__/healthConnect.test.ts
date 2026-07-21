@@ -9,6 +9,7 @@ import {
   getHealthSnapshot,
   healthActiveKcalToday,
   mapHealthToday,
+  mapSdkStatus,
   refreshHealthConnect,
   setHealthReader,
   stubHealthReader,
@@ -19,9 +20,7 @@ import {
 
 const base: Settings = {
   name: "Sam",
-  units: "metric",
   keepTrack: { meals: true, water: true, workouts: true, habits: true, cycle: false },
-  connected: { appleHealth: false, healthConnect: false },
 };
 
 beforeEach(() => {
@@ -57,33 +56,39 @@ test("healthActiveKcalToday counts a today snapshot but ignores a stale one", ()
   expect(todaysHealthSnapshot()).toBeNull();
 });
 
-test("stub reader reports unavailable and reads nothing (Expo Go / iOS / jest)", async () => {
+test("mapSdkStatus honors the platform-module case: 3→available, 2→update_required (APP-070)", () => {
+  expect(mapSdkStatus(3)).toBe("available"); // SDK_AVAILABLE
+  expect(mapSdkStatus(2)).toBe("update_required"); // present but needs setup/update (Android 14+ false negative)
+  expect(mapSdkStatus(1)).toBe("not_installed"); // genuinely absent (old Android)
+  expect(mapSdkStatus(0)).toBe("not_installed");
+});
+
+test("stub reader reports absent and reads nothing (Expo Go / iOS / jest)", async () => {
   const r = stubHealthReader();
-  expect(await r.isAvailable()).toBe(false);
+  expect(await r.availability()).toBe("not_installed");
   expect(await r.requestPermissions()).toBe(false);
   expect(await r.readToday()).toBeNull();
 });
 
 test("refreshHealthConnect no-ops when the source is disconnected (never touches HC)", async () => {
-  const isAvailable = jest.fn().mockResolvedValue(true);
-  setHealthReader({ isAvailable, requestPermissions: jest.fn(), readToday: jest.fn() } as HealthReader);
+  const availability = jest.fn().mockResolvedValue("available");
+  setHealthReader({ availability, requestPermissions: jest.fn(), readToday: jest.fn() } as HealthReader);
   await refreshHealthConnect(); // healthConnect not enabled
-  expect(isAvailable).not.toHaveBeenCalled();
+  expect(availability).not.toHaveBeenCalled();
   expect(getHealthSnapshot()).toBeNull();
 });
 
 test("connect + refresh caches a snapshot when granted; disconnect clears it", async () => {
   const snap: HealthSnapshot = { date: dayKey(new Date()), activeKcal: 300, steps: 8000, sessions: 2, readAt: "x" };
   const reader: HealthReader = {
-    isAvailable: jest.fn().mockResolvedValue(true),
+    availability: jest.fn().mockResolvedValue("available"),
     requestPermissions: jest.fn().mockResolvedValue(true),
     readToday: jest.fn().mockResolvedValue(snap),
   };
   setHealthReader(reader);
 
   setIntegrationEnabled("healthConnect", true);
-  const ok = await connectHealthConnect();
-  expect(ok).toBe(true);
+  expect(await connectHealthConnect()).toEqual({ ok: true, hasData: true });
   expect(getHealthSnapshot()).toEqual(snap);
   expect(healthActiveKcalToday()).toBe(300);
 
@@ -91,9 +96,40 @@ test("connect + refresh caches a snapshot when granted; disconnect clears it", a
   expect(getHealthSnapshot()).toBeNull();
 });
 
-test("connect returns false (no data) when Health Connect is unavailable", async () => {
+test("connect surfaces update_required so the screen can guide instead of failing silently (APP-070)", async () => {
+  setHealthReader({
+    availability: jest.fn().mockResolvedValue("update_required"),
+    requestPermissions: jest.fn(),
+    readToday: jest.fn(),
+  } as HealthReader);
+  setIntegrationEnabled("healthConnect", true);
+  expect(await connectHealthConnect()).toEqual({ ok: false, reason: "update_required" });
+  expect(getHealthSnapshot()).toBeNull();
+});
+
+test("connect reports denied when permission is refused (present but not granted)", async () => {
+  setHealthReader({
+    availability: jest.fn().mockResolvedValue("available"),
+    requestPermissions: jest.fn().mockResolvedValue(false),
+    readToday: jest.fn(),
+  } as HealthReader);
+  setIntegrationEnabled("healthConnect", true);
+  expect(await connectHealthConnect()).toEqual({ ok: false, reason: "denied" });
+});
+
+test("connect reports connected-but-no-data (Samsung Health sync off)", async () => {
+  setHealthReader({
+    availability: jest.fn().mockResolvedValue("available"),
+    requestPermissions: jest.fn().mockResolvedValue(true),
+    readToday: jest.fn().mockResolvedValue(null),
+  } as HealthReader);
+  setIntegrationEnabled("healthConnect", true);
+  expect(await connectHealthConnect()).toEqual({ ok: true, hasData: false });
+});
+
+test("connect reports not_installed on a genuinely absent provider", async () => {
   setHealthReader(stubHealthReader());
   setIntegrationEnabled("healthConnect", true);
-  expect(await connectHealthConnect()).toBe(false);
+  expect(await connectHealthConnect()).toEqual({ ok: false, reason: "not_installed" });
   expect(getHealthSnapshot()).toBeNull();
 });

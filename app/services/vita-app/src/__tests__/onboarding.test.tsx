@@ -20,10 +20,9 @@ const next = () => fireEvent.press(screen.getByText("Next"));
 test("full onboarding: name → keep-track → plan → program → connect → all set", async () => {
   await render(<Onboarding />);
 
-  // Step 1 — name & units; Next disabled until a name is given
+  // Step 1 — name; Next disabled until a name is given
   expect(screen.getByText("What should we call you?")).toBeOnTheScreen();
   await fireEvent.changeText(screen.getByLabelText("Your name"), "Ana");
-  await fireEvent.press(screen.getByText("Imperial"));
   await next();
 
   // Step 2 — keep track chips, factual copy (no goals/scores)
@@ -52,13 +51,8 @@ test("full onboarding: name → keep-track → plan → program → connect → 
   expect(screen.getByText("No program — noted")).toBeOnTheScreen();
   await next();
 
-  // Step 5 — connect apps (UI-only toggles in M1)
-  expect(screen.getByText("Bring what you already use")).toBeOnTheScreen();
-  await fireEvent.press(screen.getAllByText("Connect")[0]!); // Apple Health (Health Connect shows the same label)
-  expect(screen.getByText("Connected")).toBeOnTheScreen();
-  await next();
-
-  // Step 6 — all set recap + philosophy, then Start
+  // Step 5 — all set recap + philosophy, then Start (the fake "connect apps"
+  // step was removed in APP-072 — health sources connect for real in Integrations)
   expect(screen.getByText("All set, Ana.")).toBeOnTheScreen();
   expect(
     screen.getByText("Vita records what you tell it and shows it back — it never sets goals, grades your day, or gives advice."),
@@ -68,9 +62,7 @@ test("full onboarding: name → keep-track → plan → program → connect → 
   expect(isOnboarded()).toBe(true);
   const s = getSettings()!;
   expect(s.name).toBe("Ana");
-  expect(s.units).toBe("imperial");
   expect(s.keepTrack).toMatchObject({ meals: true, water: true, workouts: true, habits: false, cycle: false });
-  expect(s.connected.appleHealth).toBe(true);
   // Confirmed plan is POSTed and cached (kv is the offline display source);
   // program was declined → nothing persisted.
   expect(getCachedPlan()!.meals.length).toBeGreaterThan(0);
@@ -84,7 +76,6 @@ test("skippable paths: plan and program left unanswered land cleanly on Home", a
   await next(); // → keep track
   await next(); // → plan (skip)
   await next(); // → program (skip)
-  await next(); // → connect (skip)
   await next(); // → all set
   await fireEvent.press(screen.getByText("Start"));
   expect(isOnboarded()).toBe(true);

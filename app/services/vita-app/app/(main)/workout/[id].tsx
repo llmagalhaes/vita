@@ -3,11 +3,10 @@ import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
-import type { Muscle, Units, WorkoutDetail } from "../../../src/api";
+import type { Muscle, WorkoutDetail } from "../../../src/api";
 import { entriesInRange, getEntry, type LocalEntry } from "../../../src/db/entries";
 import { WorkoutPreviewSheet } from "../../../src/workout/PreviewSheet";
 import { exercisesForMuscle, overallRole } from "../../../src/workout/muscleExercises";
-import { getSettings } from "../../../src/db/settings";
 import {
   BackButton,
   BodyMap,
@@ -21,10 +20,7 @@ import {
   spacing,
 } from "../../../src/ui";
 
-const KG_PER_LB = 0.453592;
-
-function formatLoad(kg: number, units: Units, t: (k: string) => string): string {
-  if (units === "imperial") return `${Math.round(kg / KG_PER_LB)} ${t("workoutDetail.lb")}`;
+function formatLoad(kg: number, t: (k: string) => string): string {
   return `${kg} ${t("workoutDetail.kg")}`;
 }
 
@@ -78,7 +74,6 @@ export default function WorkoutDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const entry = useMemo(() => (id ? getEntry(id) : null), [id]);
-  const units = getSettings()?.units ?? "metric";
   const [preview, setPreview] = useState<LocalEntry | null>(null);
   const [selectedMuscle, setSelectedMuscle] = useState<Muscle | null>(null);
 
@@ -277,7 +272,7 @@ export default function WorkoutDetailScreen() {
                 </Text>
                 <Text variant="caption" style={{ fontSize: 13 }} color={colors.muted}>
                   {ex.sets != null && ex.reps != null ? `${ex.sets} × ${ex.reps}` : ex.sets != null ? `${ex.sets} ${t("workoutDetail.sets")}` : ""}
-                  {ex.loadKg != null ? `  ·  ${formatLoad(ex.loadKg, units, t)}` : ""}
+                  {ex.loadKg != null ? `  ·  ${formatLoad(ex.loadKg, t)}` : ""}
                 </Text>
               </View>
             );

@@ -10,7 +10,6 @@
     "kcal": "kcal",
     "ml": "ml",
     "l": "L",
-    "oz": "oz",
     "min": "min",
     "tryAgain": "Try again",
     "cancel": "Cancel"
@@ -82,10 +81,7 @@
     "welcome": {
       "eyebrow": "Welcome to Vita",
       "title": "What should we call you?",
-      "nameLabel": "Your name",
-      "unitsLabel": "Units",
-      "metric": "Metric",
-      "imperial": "Imperial"
+      "nameLabel": "Your name"
     },
     "keepTrack": {
       "title": "What would you like to keep an eye on?",
@@ -136,33 +132,14 @@
       "answeredByTap": "answered by tap",
       "dictate": "Dictate"
     },
-    "connect": {
-      "title": "Bring what you already use",
-      "subtitle": "Vita reads workouts, activity and cycle data from apps you approve.",
-      "privacy": "Vita reads only what you approve.",
-      "connect": "Connect",
-      "connected": "Connected",
-      "comingLater": "Arrives in v2",
-      "appleHealth": "Apple Health",
-      "appleHealthSub": "workouts · activity · cycle",
-      "healthConnect": "Health Connect",
-      "healthConnectSub": "workouts · activity · cycle",
-      "garmin": "Garmin",
-      "strava": "Strava",
-      "flo": "Flo",
-      "gymApp": "Gym app"
-    },
     "allSet": {
       "title": "All set, {{name}}.",
       "recapName": "Name",
-      "recapUnits": "Units",
       "recapKeepTrack": "Keeping an eye on",
       "recapPlan": "Eating plan",
       "recapProgram": "Training program",
-      "recapConnected": "Connected",
       "planYes": "Saved",
       "planNo": "None",
-      "connectedNone": "Nothing yet",
       "philosophy": "Vita records what you tell it and shows it back — it never sets goals, grades your day, or gives advice.",
       "tryIt": "Try it — say what you ate today."
     }
@@ -303,7 +280,6 @@
     "tapMuscleHint": "Tap a muscle or a chip — related exercises light up below.",
     "sets": "sets",
     "kg": "kg",
-    "lb": "lb",
     "recent": "Last 30 days",
     "openThis": "Open this workout",
     "footer": "A quiet log of how you moved.",
@@ -494,21 +470,18 @@
   },
   "integrations": {
     "title": "Integrations",
-    "intro": "Vita reads only what you approve. Turn any source off at any time.",
-    "notConnected": "Connect a health source",
-    "connectPrompt": "Arrives with the full app",
-    "honestNote": "Health Connect reads your device data when you connect it (steps, active energy, workouts). The other sources just remember your choice for now — Vita never shows synced data it doesn't have.",
+    "intro": "Vita reads only what you approve. Turn it off at any time.",
+    "noneYet": "No health integrations on this device yet.",
+    "honestNote": "Health Connect reads your device data when you connect it (steps, active energy, workouts). Vita never shows synced data it doesn't have.",
     "source": {
-      "appleHealth": "Apple Health",
-      "healthConnect": "Health Connect",
-      "strava": "Strava",
-      "garmin": "Garmin",
-      "flo": "Flo",
-      "gym": "Gym app"
+      "healthConnect": "Health Connect"
     },
     "healthConnectOn": "Reading steps, active energy & workouts on this device",
     "healthConnectOff": "Connect to read steps, active energy & workouts",
-    "healthConnectUnavailable": "Health Connect isn't set up on this phone. Install it, then in Samsung Health turn on sync to Health Connect.",
+    "healthConnectUnavailable": "Something went wrong reaching Health Connect. Try again.",
+    "healthConnectDenied": "Permission was declined. Turn it on again and allow steps, active energy & workouts.",
+    "healthConnectInstall": "Health Connect isn't installed. Opening its store page — install it, then in Samsung Health turn on sync.",
+    "healthConnectUpdate": "Health Connect needs setup. Opening its store page — then in Samsung Health turn on sync to Health Connect.",
     "healthConnectNoData": "Connected. No data yet today — open Samsung Health and enable syncing to Health Connect."
   },
   "vacation": {

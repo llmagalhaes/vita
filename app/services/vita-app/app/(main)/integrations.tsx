@@ -1,57 +1,52 @@
 /**
- * Integrations (APP-029). Honest UI-only toggles: Vita has no real health-source
- * sync yet (that needs a dev build + platform accounts — blocked appendix / APP-007).
- * The toggles persist a local preference and never fabricate synced data; the copy
- * says so ("connect a health source", "arrives with the full app").
+ * Integrations (APP-029 · cleaned up APP-072). Health Connect is the only real
+ * health-source integration Vita has, and it is Android-only — so this screen
+ * shows ONLY Health Connect, and only on Android. Apple Health / Strava / Garmin
+ * / Flo / a gym app were UI-only stubs that never synced anything; per the "no
+ * fake affordances" philosophy they are gone (they return when actually built).
  */
 import { useMemo } from "react";
-import { ScrollView, View } from "react-native";
+import { Platform, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { BackButton, Card, Text, Toggle, colors, fonts } from "../../src/ui";
 import { integrationEnabled, setIntegrationEnabled } from "../../src/db/settings";
 import { logChanged, useLogVersion } from "../../src/db/notify";
-import { clearHealthSnapshot, connectHealthConnect, todaysHealthSnapshot } from "../../src/health/healthConnect";
+import { clearHealthSnapshot, connectHealthConnect, openHealthConnectStore } from "../../src/health/healthConnect";
 import { showToast } from "../../src/ui/toast";
-
-// id → mono badge palette; all are honest UI-only sources (no real sync in v1).
-const SOURCES = [
-  { id: "appleHealth", mono: "He", bg: "#EAEDE3", ink: "#5F7A61" },
-  { id: "healthConnect", mono: "HC", bg: "#E7EDE1", ink: "#5F7A61" },
-  { id: "strava", mono: "St", bg: "#F7E7D4", ink: "#A66A3F" },
-  { id: "garmin", mono: "Ga", bg: "#E7EDE1", ink: "#5F7A61" },
-  { id: "flo", mono: "Fl", bg: "#F3DFCB", ink: "#A66A3F" },
-  { id: "gym", mono: "FZ", bg: "#E7EDE1", ink: "#5F7A61" },
-] as const;
 
 export default function Integrations() {
   const { t } = useTranslation();
   const router = useRouter();
   const version = useLogVersion();
-  // Re-read toggle state after each change.
-  const enabled = useMemo(() => Object.fromEntries(SOURCES.map((s) => [s.id, integrationEnabled(s.id)])), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const isAndroid = Platform.OS === "android";
+  const on = useMemo(() => integrationEnabled("healthConnect"), [version]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Health Connect is the ONE real integration (APP-038): toggling it on asks for
-  // read permission and pulls today's data; off clears the cached snapshot. Every
-  // other source stays an honest UI-only preference. In Expo Go / iOS the connect
-  // call is a no-op stub (returns false) — no fabricated data.
-  const toggle = (id: string, next: boolean) => {
-    setIntegrationEnabled(id, next);
-    if (id !== "healthConnect") return;
+  // Health Connect is the ONE real integration (APP-038/070): toggling on checks
+  // the provider, requests read permission, and pulls today's data; off clears the
+  // cached snapshot. The connect flow is honest about every failure — absent /
+  // needs-setup (→ store) / permission denied / connected-but-no-data (sync off).
+  const toggle = (next: boolean) => {
+    setIntegrationEnabled("healthConnect", next);
     if (!next) {
       clearHealthSnapshot();
       return;
     }
-    // Don't leave the switch "on" while nothing happened. If Health Connect
-    // isn't usable (not installed, permission declined, Expo Go/iOS stub), revert
-    // and tell the user the actual next step — Samsung Health → HC sync (APP-059).
-    void connectHealthConnect().then((granted) => {
-      if (!granted) {
-        setIntegrationEnabled("healthConnect", false);
-        logChanged();
+    void connectHealthConnect().then((res) => {
+      if (res.ok) {
+        if (!res.hasData) showToast(t("integrations.healthConnectNoData"));
+        return;
+      }
+      // Nothing actually connected — revert the switch and guide the next step.
+      setIntegrationEnabled("healthConnect", false);
+      logChanged();
+      if (res.reason === "denied") {
+        showToast(t("integrations.healthConnectDenied"));
+      } else if (res.reason === "not_installed" || res.reason === "update_required") {
+        showToast(t(res.reason === "not_installed" ? "integrations.healthConnectInstall" : "integrations.healthConnectUpdate"));
+        openHealthConnectStore();
+      } else {
         showToast(t("integrations.healthConnectUnavailable"));
-      } else if (!todaysHealthSnapshot()) {
-        showToast(t("integrations.healthConnectNoData"));
       }
     });
   };
@@ -66,25 +61,24 @@ export default function Integrations() {
       </View>
       <Text variant="caption" style={{ fontSize: 13, paddingHorizontal: 2 }} color={colors.muted}>{t("integrations.intro")}</Text>
 
-      {SOURCES.map((s) => {
-        const on = enabled[s.id];
-        return (
-          <Card key={s.id} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 }}>
-            <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: s.bg, alignItems: "center", justifyContent: "center" }}>
-              <Text style={{ fontFamily: fonts.extraBold, fontSize: 12.5 }} color={s.ink}>{s.mono}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text variant="label" style={{ fontSize: 14.5 }}>{t(`integrations.source.${s.id}`)}</Text>
-              <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
-                {s.id === "healthConnect"
-                  ? on ? t("integrations.healthConnectOn") : t("integrations.healthConnectOff")
-                  : on ? t("integrations.connectPrompt") : t("integrations.notConnected")}
-              </Text>
-            </View>
-            <Toggle on={on} onToggle={() => toggle(s.id, !on)} accessibilityLabel={t(`integrations.source.${s.id}`)} />
-          </Card>
-        );
-      })}
+      {isAndroid ? (
+        <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 13 }}>
+          <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#E7EDE1", alignItems: "center", justifyContent: "center" }}>
+            <Text style={{ fontFamily: fonts.extraBold, fontSize: 12.5 }} color="#5F7A61">HC</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="label" style={{ fontSize: 14.5 }}>{t("integrations.source.healthConnect")}</Text>
+            <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>
+              {on ? t("integrations.healthConnectOn") : t("integrations.healthConnectOff")}
+            </Text>
+          </View>
+          <Toggle on={on} onToggle={() => toggle(!on)} accessibilityLabel={t("integrations.source.healthConnect")} />
+        </Card>
+      ) : (
+        <Text variant="caption" style={{ paddingHorizontal: 2, paddingTop: 4 }} color={colors.muted}>
+          {t("integrations.noneYet")}
+        </Text>
+      )}
 
       <Text variant="caption" style={{ textAlign: "center", paddingHorizontal: 16, paddingTop: 6, lineHeight: 17 }} color={colors.labelMuted}>
         {t("integrations.honestNote")}

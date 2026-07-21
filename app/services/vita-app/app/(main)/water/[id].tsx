@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import type { WaterDetail } from "../../../src/api";
 import { entriesForDay, getEntry, type LocalEntry } from "../../../src/db/entries";
-import { getSettings } from "../../../src/db/settings";
 import { formatVolume } from "../../../src/lib/units";
 import { BackButton, Card, Text, WaveIllustration, colors, fonts, spacing } from "../../../src/ui";
 
@@ -39,7 +38,6 @@ export default function WaterDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const entry = useMemo(() => (id ? getEntry(id) : null), [id]);
-  const units = getSettings()?.units ?? "metric";
 
   const back = () => (router.canGoBack() ? router.back() : router.replace("/home"));
 
@@ -86,7 +84,7 @@ export default function WaterDetailScreen() {
           </Text>
           <View style={{ flexDirection: "row", alignItems: "baseline", gap: spacing.sm, paddingTop: 4 }}>
             <Text style={{ fontFamily: fonts.extraLight, fontSize: 52, letterSpacing: -1.5 }}>
-              {formatVolume(detail.amountMl, units, t)}
+              {formatVolume(detail.amountMl, t)}
             </Text>
           </View>
         </View>
@@ -100,7 +98,7 @@ export default function WaterDetailScreen() {
         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", paddingBottom: 4 }}>
           <SectionLabel>{t("waterDetail.dayLog")}</SectionLabel>
           <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
-            {formatVolume(dayTotal, units, t)}
+            {formatVolume(dayTotal, t)}
           </Text>
         </View>
         {dayWaters.map((w, i) => {
@@ -131,7 +129,7 @@ export default function WaterDetailScreen() {
                   style={{ fontSize: 14, fontFamily: current ? fonts.bold : fonts.semiBold }}
                   color={colors.ink}
                 >
-                  {formatVolume((w.detail as WaterDetail).amountMl, units, t)}
+                  {formatVolume((w.detail as WaterDetail).amountMl, t)}
                 </Text>
                 <Text variant="caption" style={{ fontSize: 11.5, marginTop: 1 }} color={colors.labelMuted}>
                   {t(inputMethodKey(w.inputMethod))}

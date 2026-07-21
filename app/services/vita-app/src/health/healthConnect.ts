@@ -15,7 +15,7 @@
  * data never syncs to the backend. It feeds the Energy card "spent" as a labeled
  * estimate. Read happens on app open / connect — no background sync (CEO can ask).
  */
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { dayKey } from "../trends/aggregate";
 import { integrationEnabled } from "../db/settings";
@@ -31,13 +31,43 @@ export type HealthSnapshot = {
   readAt: string; // ISO read time
 };
 
+/**
+ * Health Connect presence on this device (APP-070). The CEO's recent Samsung
+ * reported a false "not available": on Android 14+ / recent One UI, Health Connect
+ * is a platform module reached via Settings, not the standalone Play Store app —
+ * `getSdkStatus()` can return SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED (2) rather
+ * than SDK_AVAILABLE (3), and the old check collapsed everything non-3 to "no".
+ *  - "available"        (3) → provider present & usable → run the permission flow.
+ *  - "update_required"  (2) → provider present but needs a setup/update → guidance
+ *                              + open its store page (also the plain "needs setup").
+ *  - "not_installed"    (1) → genuinely absent (old Android) → install deep-link.
+ * A present-but-sync-off Samsung shows as "available" + granted + empty data (the
+ * Energy card's "no data yet" is that state), because getSdkStatus can't see sync.
+ */
+export type HealthAvailability = "available" | "update_required" | "not_installed";
+
+/** Result of the Integrations connect flow — drives the honest toast/deep-link. */
+export type ConnectResult =
+  | { ok: true; hasData: boolean }
+  | { ok: false; reason: "denied" | "update_required" | "not_installed" | "error" };
+
 export interface HealthReader {
-  /** Is Health Connect installed and usable on this device right now? */
-  isAvailable(): Promise<boolean>;
+  /** Provider presence right now (SDK_AVAILABLE / update-required / absent). */
+  availability(): Promise<HealthAvailability>;
   /** Ask (once) for the read permissions; true if any were granted. */
   requestPermissions(): Promise<boolean>;
   /** Read today's active energy / steps / sessions, or null if unavailable. */
   readToday(today?: Date): Promise<HealthSnapshot | null>;
+}
+
+/**
+ * Map react-native-health-connect's numeric SdkAvailabilityStatus to our states.
+ * 3 = SDK_AVAILABLE, 2 = SDK_UNAVAILABLE_PROVIDER_UPDATE_REQUIRED, else unavailable.
+ */
+export function mapSdkStatus(status: number): HealthAvailability {
+  if (status === 3) return "available";
+  if (status === 2) return "update_required";
+  return "not_installed";
 }
 
 // ---- pure mapping (unit-tested with plain objects; no native module) ----------
@@ -73,8 +103,8 @@ export function dayBounds(day: Date): { start: string; end: string } {
 /** Honest absence: Expo Go, iOS, jest, or any device without the native module. */
 export function stubHealthReader(): HealthReader {
   return {
-    async isAvailable() {
-      return false;
+    async availability() {
+      return "not_installed";
     },
     async requestPermissions() {
       return false;
@@ -96,10 +126,12 @@ function createHealthConnectReader(): HealthReader {
   ];
 
   return {
-    async isAvailable() {
-      // 3 == SdkAvailabilityStatus.SDK_AVAILABLE (installed & usable).
+    async availability() {
+      // Default provider package (com.google.android.apps.healthdata) is correct
+      // on Android 14+ too — the platform ships HC under that same package — so we
+      // read getSdkStatus() and honestly map 3/2/other instead of forcing a boolean.
       const status = await HC().getSdkStatus();
-      return status === (HC().SdkAvailabilityStatus?.SDK_AVAILABLE ?? 3);
+      return mapSdkStatus(status);
     },
     async requestPermissions() {
       await HC().initialize();
@@ -162,7 +194,7 @@ export async function refreshHealthConnect(today: Date = new Date()): Promise<vo
   if (!integrationEnabled("healthConnect")) return;
   try {
     const r = getHealthReader();
-    if (!(await r.isAvailable())) return;
+    if ((await r.availability()) !== "available") return;
     const snap = await r.readToday(today);
     if (snap) {
       kvSet(SNAP_KEY, snap);
@@ -174,17 +206,33 @@ export async function refreshHealthConnect(today: Date = new Date()): Promise<vo
 }
 
 /**
- * Connect flow from the Integrations toggle: request permission, then read.
- * Returns whether permission was granted so the screen can stay honest.
+ * Connect flow from the Integrations toggle: check presence, request permission,
+ * then read. Returns a discriminated result so the screen can stay honest — the
+ * provider may be absent, need setup/update, deny permission, or connect with no
+ * synced data yet (Samsung Health sync off).
  */
-export async function connectHealthConnect(): Promise<boolean> {
+export async function connectHealthConnect(): Promise<ConnectResult> {
   try {
     const r = getHealthReader();
-    if (!(await r.isAvailable())) return false;
-    const ok = await r.requestPermissions();
-    if (ok) await refreshHealthConnect();
-    return ok;
+    const avail = await r.availability();
+    if (avail !== "available") return { ok: false, reason: avail };
+    const granted = await r.requestPermissions();
+    if (!granted) return { ok: false, reason: "denied" };
+    await refreshHealthConnect();
+    return { ok: true, hasData: !!todaysHealthSnapshot() };
   } catch {
-    return false;
+    return { ok: false, reason: "error" };
   }
+}
+
+/**
+ * Open Health Connect's store page to install/update it (the remedy for
+ * "not_installed" and "update_required"). market:// deep-link with an https
+ * fallback for devices without the Play Store client.
+ */
+export function openHealthConnectStore(): void {
+  const id = "com.google.android.apps.healthdata";
+  void Linking.openURL(`market://details?id=${id}`).catch(() =>
+    Linking.openURL(`https://play.google.com/store/apps/details?id=${id}`),
+  );
 }

@@ -11,7 +11,7 @@ import { PlanStep, unanswered, type ImportResult, type PlanAnswer } from "../src
 import { importPdf } from "../src/onboarding/planImport";
 import { Button, Card, Chip, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
 
-const TOTAL_STEPS = 6;
+const TOTAL_STEPS = 5;
 
 function BlobIllustration({ height = 150 }: { height?: number }) {
   // Container silhouette morphs organically like the prototype hero (vtBlob 9s).
@@ -43,22 +43,12 @@ const SectionLabel = ({ children }: { children: string }) => (
 type KeepTrackKey = keyof Settings["keepTrack"];
 const KEEP_TRACK_KEYS: KeepTrackKey[] = ["meals", "water", "workouts", "habits", "cycle"];
 
-type ConnectItem = { key: "appleHealth" | "healthConnect" | "garmin" | "strava" | "flo" | "gymApp"; v1: boolean };
-const CONNECT_ITEMS: ConnectItem[] = [
-  { key: "appleHealth", v1: true },
-  { key: "healthConnect", v1: true },
-  { key: "garmin", v1: false },
-  { key: "strava", v1: false },
-  { key: "flo", v1: false },
-  { key: "gymApp", v1: false },
-];
 
 export default function Onboarding() {
   const { t } = useTranslation();
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
-  const [units, setUnits] = useState<Settings["units"]>("metric");
   const [keepTrack, setKeepTrack] = useState<Settings["keepTrack"]>({
     meals: true,
     water: false,
@@ -68,10 +58,6 @@ export default function Onboarding() {
   });
   const [plan, setPlan] = useState<PlanAnswer<EatingPlanDraft>>(unanswered);
   const [program, setProgram] = useState<PlanAnswer<TrainingProgramDraft>>(unanswered);
-  const [connected, setConnected] = useState<Settings["connected"]>({
-    appleHealth: false,
-    healthConnect: false,
-  });
 
   const confirmedDraft = <D,>(a: PlanAnswer<D>): D | null =>
     a.kind === "answered" && a.confirmed ? a.draft : null;
@@ -92,10 +78,10 @@ export default function Onboarding() {
   };
 
   function finish() {
-    saveSettings({ name: name.trim(), units, keepTrack, connected });
+    saveSettings({ name: name.trim(), keepTrack });
     setOnboarded();
     // Offline-tolerant: profile sync is fire-and-forget; kv is the local truth.
-    void api.patchMe({ name: name.trim(), units }).catch(() => {});
+    void api.patchMe({ name: name.trim() }).catch(() => {});
     // Persist the confirmed plan/program (POST → new version; cache is local truth).
     const planDoc = confirmedDraft(plan);
     if (planDoc) void savePlan(planDoc);
@@ -105,14 +91,9 @@ export default function Onboarding() {
   }
 
   const nextDisabled = step === 0 && name.trim() === "";
-  const connectedList = [
-    connected.appleHealth ? t("onboarding.connect.appleHealth") : null,
-    connected.healthConnect ? t("onboarding.connect.healthConnect") : null,
-  ].filter(Boolean);
 
   const recapRows: Array<[string, string]> = [
     [t("onboarding.allSet.recapName"), name.trim()],
-    [t("onboarding.allSet.recapUnits"), t(`onboarding.welcome.${units}`)],
     [
       t("onboarding.allSet.recapKeepTrack"),
       KEEP_TRACK_KEYS.filter((k) => keepTrack[k])
@@ -121,7 +102,6 @@ export default function Onboarding() {
     ],
     [t("onboarding.allSet.recapPlan"), confirmedDraft(plan) ? t("onboarding.allSet.planYes") : t("onboarding.allSet.planNo")],
     [t("onboarding.allSet.recapProgram"), confirmedDraft(program) ? t("onboarding.allSet.planYes") : t("onboarding.allSet.planNo")],
-    [t("onboarding.allSet.recapConnected"), connectedList.length > 0 ? connectedList.join(" · ") : t("onboarding.allSet.connectedNone")],
   ];
 
   return (
@@ -212,30 +192,6 @@ export default function Onboarding() {
                   }}
                 />
               </View>
-              <View style={{ gap: spacing.sm }}>
-                <SectionLabel>{t("onboarding.welcome.unitsLabel")}</SectionLabel>
-                <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
-                  {(["metric", "imperial"] as const).map((u) => (
-                    <Pressable
-                      key={u}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: units === u }}
-                      onPress={() => setUnits(u)}
-                      style={{
-                        flex: 1,
-                        padding: 14,
-                        borderRadius: 18,
-                        borderWidth: 1.5,
-                        borderColor: units === u ? colors.accent : "rgba(120,100,75,0.14)",
-                        backgroundColor: units === u ? colors.estimateBg : colors.card,
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text variant="label">{t(`onboarding.welcome.${u}`)}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </View>
             </View>
           )}
 
@@ -281,64 +237,6 @@ export default function Onboarding() {
           )}
 
           {step === 4 && (
-            <View style={{ gap: spacing.lg }}>
-              <Text variant="display">{t("onboarding.connect.title")}</Text>
-              <Text variant="body" color={colors.muted}>
-                {t("onboarding.connect.subtitle")}
-              </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: spacing.sm + 2 }}>
-                {CONNECT_ITEMS.map((item) => {
-                  const isOn = item.v1 && connected[item.key as "appleHealth" | "healthConnect"];
-                  return (
-                    <Card key={item.key} style={{ width: "47%", gap: spacing.sm + 2, padding: 14 }}>
-                      <Text variant="label" numberOfLines={1}>
-                        {t(`onboarding.connect.${item.key}`)}
-                      </Text>
-                      <Text variant="caption" numberOfLines={1} color={colors.labelMuted}>
-                        {item.v1 ? t(`onboarding.connect.${item.key}Sub`) : t("onboarding.connect.comingLater")}
-                      </Text>
-                      {item.v1 ? (
-                        <Pressable
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: isOn }}
-                          onPress={() =>
-                            setConnected((c) => ({
-                              ...c,
-                              [item.key]: !c[item.key as "appleHealth" | "healthConnect"],
-                            }))
-                          }
-                          style={{
-                            height: 36,
-                            borderRadius: 18,
-                            backgroundColor: isOn ? "#E7EDE1" : colors.surface,
-                            borderWidth: isOn ? 0 : 1,
-                            borderColor: "rgba(120,100,75,0.16)",
-                            alignItems: "center",
-                            justifyContent: "center",
-                          }}
-                        >
-                          <Text variant="caption" style={{ fontFamily: fonts.bold }} color={isOn ? "#5F7A61" : colors.muted}>
-                            {isOn ? t("onboarding.connect.connected") : t("onboarding.connect.connect")}
-                          </Text>
-                        </Pressable>
-                      ) : (
-                        <View style={{ height: 36, justifyContent: "center" }}>
-                          <Text variant="caption" color={colors.labelMuted}>
-                            v2
-                          </Text>
-                        </View>
-                      )}
-                    </Card>
-                  );
-                })}
-              </View>
-              <Text variant="caption" color={colors.labelMuted}>
-                {t("onboarding.connect.privacy")}
-              </Text>
-            </View>
-          )}
-
-          {step === 5 && (
             <View style={{ gap: spacing.lg }}>
               <Text variant="display">{t("onboarding.allSet.title", { name: name.trim() })}</Text>
               <BlobIllustration height={140} />

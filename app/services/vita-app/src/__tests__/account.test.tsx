@@ -3,7 +3,7 @@ import "../i18n";
 import i18n from "../i18n";
 import Account from "../../app/(main)/account";
 import { resetDbForTests } from "../db/db";
-import { getSettings, saveSettings, type Settings } from "../db/settings";
+import { saveSettings, type Settings } from "../db/settings";
 import { isVacationActive, saveVacation } from "../db/vacation";
 import { setNotifier, stubNotifier } from "../habits/notifier";
 
@@ -14,9 +14,7 @@ jest.mock("expo-router", () => ({
 
 const base: Settings = {
   name: "Sam",
-  units: "metric",
   keepTrack: { meals: true, water: true, workouts: true, habits: true, cycle: false },
-  connected: { appleHealth: false, healthConnect: false },
 };
 
 beforeEach(() => {
@@ -34,13 +32,6 @@ test("renders the account sections, name and export entry", async () => {
   expect(screen.getByText(t("account.exportTo"))).toBeOnTheScreen();
   expect(screen.getByText(t("account.signOut"))).toBeOnTheScreen();
   expect(screen.getByText(t("account.vacationMode"))).toBeOnTheScreen();
-});
-
-test("changing units in the profile applies everywhere (local settings updated)", async () => {
-  await render(<Account />);
-  await fireEvent.press(screen.getByText("Sam")); // expand profile
-  await fireEvent.press(screen.getByText(t("onboarding.welcome.imperial")));
-  expect(getSettings()!.units).toBe("imperial");
 });
 
 test("ending vacation asks for confirmation before actually ending it (APP-046)", async () => {

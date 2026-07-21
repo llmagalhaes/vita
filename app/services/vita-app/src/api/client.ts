@@ -78,7 +78,7 @@ export interface Api {
     limit?: number;
   }): Promise<EntriesPage>;
   getMe(): Promise<User>;
-  patchMe(patch: { name?: string; units?: Units }): Promise<User>;
+  patchMe(patch: { name?: string }): Promise<User>;
   /** Vacation ranges (D1): device-owned, opaque to the server. Replace-on-write. */
   getVacations(): Promise<VacationRange[]>;
   putVacations(ranges: VacationRange[]): Promise<VacationRange[]>;

@@ -17,10 +17,9 @@ beforeEach(() => resetDbForTests());
 
 const t = (k: string) => i18n.t(k);
 
-test("formatVolume: metric ml/L and imperial oz", () => {
-  expect(formatVolume(250, "metric", t)).toBe("250 ml");
-  expect(formatVolume(1250, "metric", t)).toBe("1.25 L");
-  expect(formatVolume(250, "imperial", t)).toBe("8 oz"); // 250 / 29.5735 ≈ 8.5 → 8 rounded? 8.45 → 8
+test("formatVolume: metric ml under 1 L, else L (APP-071 metric-only)", () => {
+  expect(formatVolume(250, t)).toBe("250 ml");
+  expect(formatVolume(1250, t)).toBe("1.25 L");
 });
 
 test("Water detail shows the entry and that day's water log with method", async () => {

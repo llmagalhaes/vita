@@ -7,7 +7,6 @@ import { useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Chevron, SheetOverlay, Text, colors, fonts, shadowCta } from "../ui";
-import { getSettings } from "../db/settings";
 import { AUDIENCES, exportPdf, type Section } from "./pdf";
 
 const ALL_SECTIONS: Section[] = ["meals", "water", "workouts", "energy", "macros"];
@@ -37,7 +36,6 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
       await exportPdf({
         audienceLabel: t(`export.audience.${audienceId}`),
         sections,
-        units: getSettings()?.units ?? "metric",
         t,
       });
       onClose();
