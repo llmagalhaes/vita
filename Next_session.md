@@ -2,6 +2,19 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-21, session 16 — CEO feedback round: QR email + HC fix + metric-only + integrations cleanup + app icon)
+
+**5 tickets from CEO feedback, 2 parallel Opus 4.8 leads.** Commits `0d296f4` (backend) + `a1f5519` (app), pushed. Gates orchestrator-verified: backend `check` 155 green · app tsc 0 · Jest 223/223 (44 suites) · icon + prod URL verified inside the APK via aapt2 badging.
+
+- **BE-034 — QR code in the magic-link email, DEPLOYED (task-def vita:6, image `be034`).** SesMailer → SendRawEmail, multipart/related MIME: text/plain (raw link fallback) + text/html (`<img src="cid:qr">`) + inline 360px PNG. QR via zxing-core + JDK ImageIO (`Qr.kt`); +angus-mail for MIME. Test decodes the embedded QR back to the link. BE-033 fail-safe unchanged. Live: /health 200, magic-link 202, SES path confirmed via logs. **CEO to confirm: scan the QR from a desktop email → opens vita://auth on the phone → BE-034 Done.** Known pre-existing flake noted: PhotoParseFlowTest 413-over-5MB (racy transport RST, unrelated).
+- **APP-070 — HC false "not available" on recent Samsung fixed**: detection now handles Health Connect as an Android 14+/One UI SYSTEM MODULE (was only finding the standalone Play Store app); states: available→permissions, sync-off→"Samsung Health → Settings → Health Connect → sync ON" guidance (Galaxy Watch path), absent→install link. Device verification = CEO-only (emulator has no HC provider).
+- **APP-071 — metric only**: unit choice removed from onboarding + account, persisted prefs default to metric, dead code/i18n pruned (touched units.ts, pdf export, trends, water/workout detail).
+- **APP-072 — integrations platform-gated**: Android shows Health Connect only; Apple Health iOS-only; stubs removed (integrations screen + onboarding).
+- **APP-073 — app icon**: new mark in token palette, source SVG in `assets/icon-src/`, wired icon + adaptiveIcon (foreground/monochrome) in app.config.ts; confirmed in APK badging at all densities.
+- **Fresh prod APK built** (108 MB, 2026-07-21 16:02, prod URL verified inside). Install clean: `adb uninstall com.llmagal.vita` first.
+- **Agent-ops note (recurring):** the app lead's completion-wait pattern ended turns while gradle ran; poller didn't wake it — orchestrator verified the build + gates directly and committed. Same watchdog theme as session 15; keep long builds in background WITH the orchestrator watching the artifact path as backup.
+- **CEO next:** install APK clean → check new icon, Integrations (only Health Connect visible), no unit choice, HC toggle now working with Samsung Health sync guidance (Galaxy Watch data lands after Samsung Health→HC sync ON); scan the email QR → BE-034 Done. Standing: SES production access + domain/DKIM before real users.
+
 ## Where we are (2026-07-20, session 15 — REAL VOICE (on-device STT) + REAL EMAIL (SES) shipped)
 
 **Two CEO decisions executed in one parallel round (3 Opus 4.8 leads): voice option A (on-device STT, audio never leaves the device) and real magic-link email via SES.** Claude API accepts no audio — interpretation was already Claude via `/parse/text`; STT is sound→text only, on device.
