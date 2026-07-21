@@ -13,6 +13,7 @@ import software.amazon.awssdk.services.kms.KmsClient
 import software.amazon.awssdk.services.s3.S3Client
 import software.amazon.awssdk.services.s3.S3Configuration
 import software.amazon.awssdk.services.s3.presigner.S3Presigner
+import software.amazon.awssdk.services.ses.SesClient
 import java.net.URI
 
 /**
@@ -65,6 +66,15 @@ class AwsClientsConfig(
                         .serviceConfiguration(S3Configuration.builder().pathStyleAccessEnabled(true).build())
                 }
             }.build()
+
+    @Bean
+    fun sesClient(): SesClient =
+        SesClient
+            .builder()
+            .region(region)
+            .credentialsProvider(credentials)
+            .also { b -> endpoint?.let { b.endpointOverride(it) } }
+            .build()
 
     @Bean
     fun kmsClient(): KmsClient =

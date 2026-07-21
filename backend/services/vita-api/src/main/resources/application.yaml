@@ -74,6 +74,11 @@ vita:
     # local-vs-prod switch — set to http://localhost:4566 for LocalStack, blank for real AWS.
     region: ${VITA_AWS_REGION:eu-west-1}
     endpoint-override: ${VITA_AWS_ENDPOINT_OVERRIDE:}
+  mail:
+    # BE-033: magic-link sender. blank or the SSM placeholder REPLACE_ME_IN_CONSOLE → email
+    # disabled → LogMailer (link to CloudWatch, the escape hatch). A real address under the
+    # `aws` profile → SesMailer. Devops maps SSM /vita/prod/mail-from → MAIL_FROM_ADDRESS.
+    from: ${MAIL_FROM_ADDRESS:}
   plans:
     # BE-019/BE-020 (ADR-0011 ext): how many past versions of the eating plan /
     # training program to keep. POST beyond this drops the oldest (D5).

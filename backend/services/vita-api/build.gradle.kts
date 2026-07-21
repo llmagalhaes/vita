@@ -39,6 +39,7 @@ dependencies {
     implementation(platform("software.amazon.awssdk:bom:2.30.0"))
     implementation("software.amazon.awssdk:s3") // includes the S3 presigner
     implementation("software.amazon.awssdk:kms")
+    implementation("software.amazon.awssdk:ses") // BE-033: magic-link email send (aws profile)
     implementation("software.amazon.awssdk:url-connection-client") // one sync HTTP impl (SDK auto-discovers it)
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

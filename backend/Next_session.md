@@ -1,5 +1,39 @@
 # Backend — Next session
 
+## Current state (Phase 2 session 15, 2026-07-21) — BE-033: real magic-link email via SES (LIVE)
+
+CEO decision executed: the magic-link email now actually arrives (was CloudWatch-only LogMailer).
+Ledger: `Progress/BE-033-real-email-Progress.md`. In progress on Asana (`1216730310385675`) until
+the live inbox verify is confirmed this session.
+
+- **Code (ponytail, behind the existing Mailer seam):** `service/auth/SesMailer.kt` (AWS SDK v2
+  `software.amazon.awssdk:ses`, reuses the 2.30.0 BOM; plain-text quiet email, no template engine),
+  `config/MailerConfig.kt` (single `@Bean mailer()` selecting `SesMailer` vs `LogMailer`),
+  `sesClient()` bean added to `config/AwsClientsConfig.kt`, `vita.mail.from: ${MAIL_FROM_ADDRESS:}`
+  in `application.yaml`, `LogMailer` de-`@Component`'d (now local/dev default + prod fail-safe),
+  `+MailerTest` (6 tests). No contract change, no migration.
+- **Selection contract (agreed with devops):** `MAIL_FROM_ADDRESS` → `vita.mail.from`. Blank or the
+  SSM placeholder `REPLACE_ME_IN_CONSOLE` → email disabled → `LogMailer` (BE-030 sentinel lesson).
+  Real address (aws profile, SES client bean present) → `SesMailer`. **Fail-safe:** an SES send that
+  throws logs the link at the LogMailer format and does NOT fail `/auth` — the CloudWatch escape
+  hatch stays intact.
+- **Devops OPS-023 already applied:** task-def `vita:4` maps secret `MAIL_FROM_ADDRESS` ← SSM
+  `/vita/prod/mail-from` = `lucasmagalhaes2007@gmail.com`. SES identity **verified (Success)**,
+  sandbox 200/day → CEO→CEO send works.
+- **Gates:** `./gradlew check` green — **154 tests, 0 failures** (+6 MailerTest), detekt+ktlint clean.
+- **Deploy:** arm64 image → ECR `vita-api:be033` (digest `sha256:fe41e069dcfef84286870af06c914c34223f81aaa6f828c0724b36191183d5b8`),
+  task-def **`vita:5`** (clone of `vita:4` + new image), service `vita` updated. `/health` + live email
+  verify status recorded in the ledger. **Image built from working-tree state (subagent doesn't run
+  git); the orchestrator commits BE-033 — re-tag/rebuild at the committed SHA on the next deploy if
+  SHA-tagging is desired.**
+- **Retest command (CEO):**
+  `curl -sS -X POST https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1/auth/magic-link -H 'content-type: application/json' -d '{"email":"lucasmagalhaes2007@gmail.com"}' -i`
+  → email in inbox. Escape hatch unchanged:
+  `aws logs tail /ecs/vita --region eu-west-1 --filter-pattern "Magic link" --follow`.
+- **Build gotcha (save time):** the full in-container `./gradlew bootJar` Docker build TIMES OUT here;
+  and `# syntax=docker/dockerfile:1` stalls resolving the frontend from Docker Hub. Fast path used:
+  host `./gradlew bootJar` → tiny build context (jar only) → plain `docker build` (no syntax line).
+
 ## Current state (Phase 2 session 17, 2026-07-15) — BE-032: live-verified Claude model ids for PDF/photo import
 
 CEO shipping PDF + photo import against PROD Claude. Re-checked the flagged risk that

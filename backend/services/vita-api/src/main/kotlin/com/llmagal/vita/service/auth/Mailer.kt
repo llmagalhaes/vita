@@ -1,12 +1,12 @@
 package com.llmagal.vita.service.auth
 
 import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
 
 /**
- * Sends the magic-link email. The SES implementation lands once devops
- * provisions sandbox identities (devops ticket); until then local dev logs
- * the link so you can click it.
+ * Sends the magic-link email. [SesMailer] does the real send under the `aws` profile with a
+ * real MAIL_FROM_ADDRESS; [LogMailer] is the local/dev default and the prod fail-safe (blank
+ * MAIL_FROM, or an SES send that throws). The bean is chosen by
+ * [com.llmagal.vita.config.MailerConfig].
  */
 interface Mailer {
     fun sendMagicLink(
@@ -16,11 +16,11 @@ interface Mailer {
 }
 
 /**
- * ponytail: local-only fake — logging an email address violates the no-PII-in-logs
- * rule (ADR-0003), which is why this class never ships to production: the SES
- * implementation replaces this bean and logs nothing personal.
+ * Logs the magic link. Used locally/dev and as the prod fail-safe escape hatch (the CloudWatch
+ * recipe). Logging the email address is PII in logs (ADR-0003) — an accepted trade-off only for
+ * the fallback path; when SES is active nothing personal is logged. Bean wiring is in MailerConfig
+ * (no @Component — a single Mailer bean is selected there).
  */
-@Component
 class LogMailer : Mailer {
     private val log = LoggerFactory.getLogger(LogMailer::class.java)
 
