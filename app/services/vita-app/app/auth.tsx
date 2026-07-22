@@ -460,10 +460,10 @@ function SentCard({
         </Text>
         <Text variant="caption" color={colors.muted} style={{ textAlign: "center", fontSize: 12.5 }}>
           {t("auth.sentBody")}
-          {"\n"}
-          <Text variant="caption" color={colors.ink} style={{ fontFamily: fonts.bold, fontSize: 12.5 }}>
-            {email}
-          </Text>
+        </Text>
+        {/* APP-074: the address is the typo-check surface — keep it big and alone on its line */}
+        <Text variant="body" color={colors.ink} style={{ fontFamily: fonts.bold, textAlign: "center" }}>
+          {email}
         </Text>
         {showDemo ? (
           <View style={{ width: "100%" }}>
