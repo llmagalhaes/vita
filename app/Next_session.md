@@ -1,5 +1,32 @@
 # App Team — Next Session
 
+## Session 18 (2026-07-22) — Meal-plan/workout-plan SPEC phase (no code) ✅
+CEO-approved architecture (`docs/meal-plan-handover/DESIGN-SPEC.md`, BINDING) turned into the
+build-ready app spec **`docs/meal-plan-handover/app-spec.md`** + 7 Asana tickets
+**APP-075..081** (Backlog, Model: lines, dependency-ordered). NO implementation this session —
+a cross-team consistency check + CEO ticket review gates the build.
+- **Chain:** backend contract v0.6.0 merge → APP-075 (types regen + `putPlanPortions` client +
+  mock seeded with handoff §1.2 data, Sonnet) → APP-076 (portions overlay kv + coalescing outbox
+  op `portions` — no payload, sentinel entryId, map read at drain time; poison 400/403/404/409/422
+  w/ 422→resync; hydrate rules; reset on POST /plan; Opus) + APP-077 (pure math: `qtyOf`/overlay
+  totals, `barPct` = round(g/(max(P,C,F)*1.1)*100), all-or-null `planMicroTotals`, `qtyLabel`,
+  `kcalLabel` "~1,880", `boundsOf`, `tint()` sRGB color-mix equivalent; Sonnet) → APP-078 (plan.tsx
+  fidelity: 44px/Nunito-200 kcal, headroom bars, live micros chips, always-tappable qty pill,
+  source badge from new kv `plan.meta`, Opus) → APP-079 (PortionPop on existing PopOverlay,
+  immediate-commit, old-doc fallback = doc-quantity + one PUT on close; Opus). Parallel:
+  APP-080 (muscleRoles→opacity rule p:≥3→.92/.78 s:≥2→.62/.30, BodyMap `absolute`+`selected`
+  props, vtBreath AnimatedG center-scale, `sideOf` auto-flip, accent-9% rows; Opus) → APP-081
+  (history rows real sources: capture + NEW `HealthReader.readSessions` — device-local, never
+  outbox; preview sheet value tuning; honest source card; Opus).
+- **Engineering choices recorded in the spec** (not CEO questions): micros chips all-or-nothing
+  live; overlay is a read-time lens (digest/check-ins keep doc defaults); no HC/capture de-dupe;
+  `tint()` sRGB lerp ceiling; plan source badge is device-local kv metadata.
+- **CEO Qs (app-spec §11):** (1) keep the numeric "exact" field in the portion modal (dual-input
+  philosophy) vs slider-only handoff? (2) keep the shipped Edit mode on the Eating Plan screen
+  (handoff shows none)? (3) iOS history = captures only until HealthKit (ties to APP-072 Q)?
+- **Fragile-path notes are IN the tickets** (onLayout tweens, worklet directives, memoized SVG).
+  Do not start implementation until the CEO reviews the tickets (process gate in DESIGN-SPEC).
+
 ## Session 17 (2026-07-22) — APP-074 sent-state address prominence ✅
 Tiny orchestrator-direct fix (Sonnet-rated ticket, no lead spawned). Finding: trim + address
 display + "Use another address" already existed in `app/auth.tsx` pre-incident; gap was

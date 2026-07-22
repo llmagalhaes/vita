@@ -1,5 +1,32 @@
 # Backend — Next session
 
+## Current state (session 18, 2026-07-22) — meal-plan/workout-plan round SPECIFIED (no code yet)
+
+Spec phase for the CEO-approved meal-plan feature (docs/meal-plan-handover/DESIGN-SPEC.md — binding).
+Deliverable: **`docs/meal-plan-handover/backend-spec.md`** — build-ready: exact contract v0.6.0 YAML
+fragments, `it-N` item-id scheme + legacy read-derivation backfill, deterministic portion-bounds
+heuristic (countable → 0..max(2q,q+2) step 1; g → step 10; ml → step 50, half-up rounding),
+`plan_portions` table (V008, per-user DEK, AAD `plan_portions.portions`), PUT /plan/portions flow
+(422 unknown id / clamp+snap in-range), parse extensions (microsPerUnit + muscleRoles, prompt deltas,
+eval fixtures), full test plan. **No implementation this session — CEO reviews tickets first.**
+
+- **Tickets filed (Backlog, dependency order):** BE-036 contract+ADR-0017 (`1216780755098294`, Sonnet)
+  → BE-037 ids+heuristic (`1216780754823617`, Opus) → BE-038 overlay+V008 (`1216780754977731`, Opus);
+  BE-039 micros parse (`1216780941788174`, Opus) and BE-040 muscleRoles (`1216780941323178`, Opus)
+  parallel after BE-036/037 → BE-041 ship (`1216780941707846`, Sonnet).
+- **Engineering decisions D-1..D-11 recorded in the spec** (ids stored in doc blob, derived pure on
+  read for legacy docs; overlay survives PUT doc edits with prune+re-clamp, resets on POST import;
+  no GET /plan/portions; POST/PUT plan echoes carry no portions; muscles derived from muscleRoles
+  never the reverse).
+- **Found while speccing:** (1) the handoff prose "~1,880 kcal" is inconsistent with its own item
+  table — Σ(per-unit×qty)=**1,756.2 kcal** (computed; fixtures assert the math, spec §7); (2) the
+  `record_training_program` tool never extracted per-exercise `muscles` even though contract 0.5.0
+  has it — closed inside BE-040.
+- **CEO question outstanding (spec §10 Q1):** confirm portion overrides SURVIVE PUT /plan doc edits
+  (prune removed items) vs reset on any edit. BE-038 builds survive-with-prune unless overruled.
+- **Next backend action:** wait for cross-team consistency check + CEO ticket review, then execute
+  BE-036 → BE-041 in order. Next free migration V008; suite baseline 157 green.
+
 ## Current state (Phase 2 session 16b, 2026-07-21) — BE-035: clickable magic-link email via https redirect (LIVE)
 
 CEO couldn't click the magic link — email clients only auto-link/allow `http(s)`; a raw `vita://auth`

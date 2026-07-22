@@ -1,5 +1,21 @@
 # DevOps — Next session
 
+## 2026-07-22 — Meal-plan SPEC round done (OPS-024 filed, To do — do NOT start before CEO ticket review)
+Specification phase for the meal-plan/workout-plan feature (DESIGN-SPEC binding). Deliverable:
+`docs/meal-plan-handover/devops-spec.md` + Asana **OPS-024** (gid 1216780753421668, To do).
+Confirmed: **no new AWS resources / no structural Terraform** — V008 (portions overlay) rides the
+next backend image; probes + CloudWatch checks + rollback specced in full in the spec/ticket.
+**Recon finding (the real content): Terraform is 3 releases behind live.** Prod runs task-def
+`vita:7` image `be035` (CLI clones, sessions 15–16b) but TF holds `app_image_tag = "909262c"`
+(`envs/prod-eu/variables.tf:25`) and no `PUBLIC_BASE_URL` in `modules/ecs/main.tf` env — a naive
+`terraform apply` would ROLL PROD BACK. OPS-024 deploys via Terraform and re-converges (adds
+`PUBLIC_BASE_URL` from `trimsuffix(module.apigw.api_endpoint, "/")`, bumps the tag). Pre-deploy
+gate in the ticket: local rollback rehearsal (boot `be035` against a V008-applied DB — Flyway
+future-migration validation) + cross-team check that V008 is CREATE-only. Cross-team asks to
+backend (in spec §5/§6): one INFO token-usage log line for eating-plan parses (ParseMetrics is
+in-memory only — no exported cost metric until OPS-015); watch `plan-max-output-tokens 2048` /
+timeout 25s ceilings with the bigger prompt. No new CEO questions from devops.
+
 ## 2026-07-20 — OPS-023 IN PROGRESS (SES magic-link email; applied + verified, awaiting CEO click)
 Real email sending (CEO decision 2026-07-20). Implements old backlog **OPS-012** (closed as duplicate).
 Terraform applied in prod-eu: new `modules/ses` email-address identity for `lucasmagalhaes2007@gmail.com`
