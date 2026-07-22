@@ -93,6 +93,11 @@ variable "uploads_bucket" {
   type        = string
 }
 
+variable "public_base_url" {
+  description = "Public https base for clickable magic links (BE-035, GET /v1/auth/link). Wired from the API GW invoke URL; added live in vita:7, reconciled into TF by OPS-024."
+  type        = string
+}
+
 variable "aps_workspace_arn" {
   description = "AMP workspace for aps:RemoteWrite. '*' until the observability ticket creates it."
   type        = string
@@ -233,6 +238,7 @@ locals {
         { name = "DB_URL", value = var.db_url },
         { name = "DB_USERNAME", value = var.db_username },
         { name = "VITA_UPLOADS_BUCKET", value = var.uploads_bucket },
+        { name = "PUBLIC_BASE_URL", value = var.public_base_url },
       ]
       secrets = local.app_secrets
       # curl is present in the image (slim JRE has no wget); path/port confirmed

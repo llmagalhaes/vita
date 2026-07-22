@@ -77,8 +77,9 @@ module "ecs" {
   ses_identity_arn              = module.ses.identity_arn
 
   # First deploy: pin the git-SHA image the backend pushed, wire prod env, run 1 task.
-  image_tag      = var.app_image_tag
-  db_url         = "jdbc:postgresql://${module.rds.endpoint}:${module.rds.port}/vita"
-  uploads_bucket = module.storage.bucket_names["uploads"]
-  desired_count  = 1
+  image_tag       = var.app_image_tag
+  db_url          = "jdbc:postgresql://${module.rds.endpoint}:${module.rds.port}/vita"
+  uploads_bucket  = module.storage.bucket_names["uploads"]
+  public_base_url = trimsuffix(module.apigw.api_endpoint, "/")
+  desired_count   = 1
 }
