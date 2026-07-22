@@ -1,5 +1,12 @@
 # App Team — Next Session
 
+## Session 17 (2026-07-22) — APP-074 sent-state address prominence ✅
+Tiny orchestrator-direct fix (Sonnet-rated ticket, no lead spawned). Finding: trim + address
+display + "Use another address" already existed in `app/auth.tsx` pre-incident; gap was
+prominence only. SentCard now renders the submitted address alone on its own line, body-size
+bold (was 12.5px caption inline — how `…@gmail.coml` slipped past). Gates: tsc 0 · Jest 223/223.
+Commit `60d0613`. Rides the next APK; ticket commented (DoD=store).
+
 ## Session 16 (2026-07-21) — CEO feedback round APP-070..073 SHIPPED ✅
 Four CEO tickets, all app-side. Ledger: `Progress/APP-070-073-ceo-feedback-Progress.md`.
 Gates: **tsc 0 · Jest 223/223 (44 suites) · expo export iOS OK**. No backend change, no new deps.

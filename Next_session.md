@@ -2,6 +2,10 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-22, session 17 — APP-074 built)
+
+**APP-074 (sent-state address visibility) built + committed (`60d0613`).** Investigation finding: trim-on-submit, the address display, and "Use another address" ALL pre-dated the gmail.coml incident — the actual gap was prominence (12.5px caption inline). Fix: submitted address alone on its own line, body-size + bold (`app/auth.tsx` SentCard, 4-line diff). Gates: tsc 0 · Jest 223/223. Rides the next APK build — the CEO's session-16 APK does NOT have it. Asana ticket commented. **All other session-16b CEO checks still pending** (click email link → BE-035 Done, scan QR → BE-034 Done, HC toggle, icon, metric-only). Standing: SES production access + domain/DKIM before real users.
+
 ## Where we are (2026-07-21, session 16 — CEO feedback round: QR email + HC fix + metric-only + integrations cleanup + app icon)
 
 **5 tickets from CEO feedback, 2 parallel Opus 4.8 leads.** Commits `0d296f4` (backend) + `a1f5519` (app), pushed. Gates orchestrator-verified: backend `check` 155 green · app tsc 0 · Jest 223/223 (44 suites) · icon + prod URL verified inside the APK via aapt2 badging.
