@@ -2,7 +2,17 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
-## Where we are (2026-07-22, session 18 — MEAL/WORKOUT PLAN: spec round DONE, build round READY-TO-LAUNCH)
+## Where we are (2026-07-22, session 18b — MEAL/WORKOUT PLAN: BUILD DONE, deploy round pending CEO go)
+
+**Build round EXECUTED and committed** (`b56e2f5` backend, `689058e` app): 2 Opus builders per amended specs + Fable lead adversarial reviews + 1 critical fixed (Home plan-row kcal ignored the portion overlay — spec-named call site, caught by the app lead). Gates orchestrator-verified: **backend `check` 202 green (+45)** · **app tsc 0 · Jest 250/250 (47 suites, +9) · api:check clean vs v0.6.0 · expo export OK**. BE-037..040 + APP-075..081 all built; tickets commented, In progress (DoD=prod/store).
+
+**Review minors recorded as follow-ups (non-blocking, fold into a future round):**
+- BE: `{"it-1": null}` body → NPE→500 (contract says 400; one-line guard in PlanService.putPortions) · program docs get NO item ids (deliberate ponytail cut, D-8 overlay is eating-only) · parse-text-cases.json got pretty-printed (diff noise only).
+- APP: mock `updatePlan` doesn't assign ids/prune overlay like the real backend (mock-only drift) · `pushPlan` discards the PUT response so edit-added items stay id-less until next sync · BodyMap opacity changes snap instead of the 300ms tween · portions drain has a narrow lost-update race (setPortion between drain read and row delete) · 2 spec-required component tests skipped (muscle-map chip→banner wiring, history row render).
+
+**NEXT: deploy round (needs CEO go — prod-facing):** BE-041 (arm64 image build/push, hand tag+digest to devops) → OPS-024 (⚠ **Terraform reconcile**: TF is 3 releases behind prod — vita:7/be035 via CLI clones, TF holds `909262c` and lacks `PUBLIC_BASE_URL`; OPS-024 re-converges via `terraform apply -var app_image_tag=…`, CLI clones forbidden; V008 migration rides the image, destructive OK per A2) → live probes (GET /plan portions, PUT /plan/portions, parse INFO line in CloudWatch) → **fresh APK** (bake `VITA_API_BASE_URL`, install clean) — carries session-17 APP-074 too.
+
+## Where we were (2026-07-22, session 18 — spec round; superseded by 18b above)
 
 **The meal-plan/workout-plan feature (CEO: central feature, backend-persisted) is fully specified, amended, and ticketed; the build was launched and then intentionally halted (CEO token budget) with partial code REVERTED — the tree is clean, specs are the truth, next session starts the build.**
 
