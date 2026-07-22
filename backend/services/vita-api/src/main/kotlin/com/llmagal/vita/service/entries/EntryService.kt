@@ -1,6 +1,7 @@
 package com.llmagal.vita.service.entries
 
 import com.llmagal.vita.model.MacroTotals
+import com.llmagal.vita.model.Muscles
 import com.llmagal.vita.model.entries.CheckinDetail
 import com.llmagal.vita.model.entries.EntryPage
 import com.llmagal.vita.model.entries.EntryType
@@ -248,11 +249,16 @@ class EntryService(
                 workout.durationMin?.let { if (it < 1) badRequest("durationMin must be >= 1.") }
                 nonNegative("workout kcal", workout.kcal)
                 workout.exercises?.forEach(::validateExercise)
-                // Closed-vocabulary muscle map: model output onto the 11 silhouettes,
-                // known aliases folded in, anything unmappable dropped. Applied to the
-                // workout-level list AND each exercise's list (same vocabulary).
-                val exercises = workout.exercises?.map { it.copy(muscles = mapMuscles(it.muscles)) }
-                mapper.valueToTree(workout.copy(muscles = mapMuscles(workout.muscles), exercises = exercises))
+                // Closed-vocabulary muscle map (shared Muscles object): model output onto
+                // the 11 silhouettes, aliases folded, unmappable dropped. Per exercise the
+                // roles are normalized too (primary wins on dup) and derive `muscles` when
+                // that is absent; the workout-level list has no roles (DESIGN scope).
+                val exercises =
+                    workout.exercises?.map { ex ->
+                        val n = Muscles.normalize(ex.muscles, ex.muscleRoles)
+                        ex.copy(muscles = n.muscles, muscleRoles = n.muscleRoles)
+                    }
+                mapper.valueToTree(workout.copy(muscles = Muscles.mapAll(workout.muscles), exercises = exercises))
             }
             EntryType.checkin -> {
                 // Server-opaque: validate the fields are present, then store verbatim.
@@ -285,18 +291,6 @@ class EntryService(
         value: Double?,
     ) {
         if (value != null && value < 0) badRequest("$field must be >= 0.")
-    }
-
-    /** One muscle string → contract vocabulary, or null if unmappable (dropped). */
-    private fun mapMuscle(raw: String): String? {
-        val m = raw.trim().lowercase()
-        return if (m in MUSCLES) m else MUSCLE_ALIASES[m]
-    }
-
-    /** A raw muscle list → distinct contract-vocabulary list, or null if none survive. */
-    private fun mapMuscles(raw: List<String>?): List<String>? {
-        val mapped = raw?.mapNotNull(::mapMuscle)?.distinct()
-        return mapped?.takeIf { it.isNotEmpty() }
     }
 
     private fun denormalize(
@@ -388,24 +382,5 @@ class EntryService(
 
         // Contract InputMethod enum — the wire values a create may carry.
         val INPUT_METHODS = setOf("voice", "text", "photo", "tap", "checkin", "import")
-
-        // Contract WorkoutDetail.muscles closed vocabulary (11 body-map silhouettes)…
-        val MUSCLES =
-            setOf(
-                "chest",
-                "back",
-                "shoulders",
-                "biceps",
-                "triceps",
-                "forearms",
-                "core",
-                "glutes",
-                "quads",
-                "hamstrings",
-                "calves",
-            )
-
-        // …plus the aliases the contract folds in; anything else is dropped.
-        val MUSCLE_ALIASES = mapOf("lats" to "back", "traps" to "back", "abs" to "core", "obliques" to "core")
     }
 }

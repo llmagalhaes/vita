@@ -1,10 +1,14 @@
 package com.llmagal.vita.service.ai
 
+import com.llmagal.vita.model.Muscles
 import com.llmagal.vita.model.ai.EatingPlanDraft
+import com.llmagal.vita.model.ai.MicrosPerUnit
 import com.llmagal.vita.model.ai.PlanImportRequest
 import com.llmagal.vita.model.ai.TrainingProgramDraft
+import com.llmagal.vita.service.plans.PortionBoundsHeuristic
 import com.llmagal.vita.service.uploads.FileStore
 import com.llmagal.vita.service.uploads.UnknownFileRefException
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -27,31 +31,82 @@ class PlanParseService(
     @param:Value("\${vita.ai.plan-model:claude-haiku-4-5}") private val planModel: String,
     @param:Value("\${vita.ai.plan-pdf-model:claude-sonnet-4-6}") private val planPdfModel: String,
 ) {
+    private val log = LoggerFactory.getLogger(PlanParseService::class.java)
+
+    /**
+     * Decorates every item with server-authoritative portion bounds (never the model)
+     * and drops any negative micro estimate the model produced (garbage, not a clamp).
+     * Parse responses carry no ids — ids are assigned at save time (BE-037/A2).
+     */
     fun parseEatingPlan(request: PlanImportRequest): EatingPlanDraft =
-        parse(
-            request,
-            ParseSpec(
-                system = PlanPrompts.EATING_PLAN_SYSTEM,
-                tool = PlanPrompts.EATING_PLAN_TOOL,
-                toolName = PlanPrompts.EATING_PLAN_TOOL_NAME,
-                type = EatingPlanDraft::class.java,
-                label = "an eating plan",
-                usable = { it.meals.isNotEmpty() },
+        decoratePlan(
+            parse(
+                request,
+                ParseSpec(
+                    system = PlanPrompts.EATING_PLAN_SYSTEM,
+                    tool = PlanPrompts.EATING_PLAN_TOOL,
+                    toolName = PlanPrompts.EATING_PLAN_TOOL_NAME,
+                    type = EatingPlanDraft::class.java,
+                    label = "an eating plan",
+                    kind = "eating",
+                    usable = { it.meals.isNotEmpty() },
+                ),
             ),
         )
 
     fun parseTrainingProgram(request: PlanImportRequest): TrainingProgramDraft =
-        parse(
-            request,
-            ParseSpec(
-                system = PlanPrompts.TRAINING_PROGRAM_SYSTEM,
-                tool = PlanPrompts.TRAINING_PROGRAM_TOOL,
-                toolName = PlanPrompts.TRAINING_PROGRAM_TOOL_NAME,
-                type = TrainingProgramDraft::class.java,
-                label = "a training program",
-                usable = { it.days.isNotEmpty() },
+        decorateProgram(
+            parse(
+                request,
+                ParseSpec(
+                    system = PlanPrompts.TRAINING_PROGRAM_SYSTEM,
+                    tool = PlanPrompts.TRAINING_PROGRAM_TOOL,
+                    toolName = PlanPrompts.TRAINING_PROGRAM_TOOL_NAME,
+                    type = TrainingProgramDraft::class.java,
+                    label = "a training program",
+                    kind = "training",
+                    usable = { it.days.isNotEmpty() },
+                ),
             ),
         )
+
+    /** Normalize every exercise's muscles + roles onto the shared vocabulary (BE-040). */
+    private fun decorateProgram(draft: TrainingProgramDraft): TrainingProgramDraft =
+        draft.copy(
+            days =
+                draft.days.map { day ->
+                    day.copy(
+                        exercises =
+                            day.exercises?.map { ex ->
+                                val n = Muscles.normalize(ex.muscles, ex.muscleRoles)
+                                ex.copy(muscles = n.muscles, muscleRoles = n.muscleRoles)
+                            },
+                    )
+                },
+        )
+
+    private fun decoratePlan(draft: EatingPlanDraft): EatingPlanDraft =
+        draft.copy(
+            meals =
+                draft.meals.map { meal ->
+                    meal.copy(
+                        items =
+                            meal.items.map { item ->
+                                item.copy(
+                                    portion = PortionBoundsHeuristic.of(item.quantity, item.unit),
+                                    microsPerUnit = item.microsPerUnit?.let(::sanitizeMicros),
+                                )
+                            },
+                    )
+                },
+        )
+
+    /** Coerce negative per-unit micros to null (drop); return null when nothing survives. */
+    private fun sanitizeMicros(m: MicrosPerUnit): MicrosPerUnit? {
+        fun nonNeg(v: Double?) = v?.takeIf { it >= 0 }
+        val s = MicrosPerUnit(nonNeg(m.fiberG), nonNeg(m.sodiumMg), nonNeg(m.ironMg), nonNeg(m.calciumMg))
+        return s.takeIf { it.fiberG != null || it.sodiumMg != null || it.ironMg != null || it.calciumMg != null }
+    }
 
     private data class ParseSpec<T : Any>(
         val system: String,
@@ -59,6 +114,7 @@ class PlanParseService(
         val toolName: String,
         val type: Class<T>,
         val label: String,
+        val kind: String,
         val usable: (T) -> Boolean,
     )
 
@@ -72,6 +128,7 @@ class PlanParseService(
                 client.callTool(model, spec.system, spec.tool, spec.toolName, content, spec.type)
             } catch (e: RestClientException) {
                 metrics.record("error", 0, 0)
+                log.info("parse plan={} outcome=error inputTokens=0 outputTokens=0", spec.kind)
                 throw e
             }
         val draft = result.value?.takeIf(spec.usable)
@@ -80,6 +137,15 @@ class PlanParseService(
             outcome = if (draft == null) "uninterpretable" else "success",
             inputTokens = result.usage.inputTokens,
             outputTokens = result.usage.outputTokens,
+        )
+        // One INFO line per parse: the token counters are otherwise trapped in the in-memory
+        // SimpleMeterRegistry — this is what makes parse cost observable in CloudWatch (devops §5).
+        log.info(
+            "parse plan={} outcome={} inputTokens={} outputTokens={}",
+            spec.kind,
+            if (draft == null) "error" else "ok",
+            result.usage.inputTokens,
+            result.usage.outputTokens,
         )
         return draft ?: unprocessable("The input could not be interpreted as ${spec.label}.")
     }

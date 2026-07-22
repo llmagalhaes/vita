@@ -25,6 +25,7 @@ object ParseEvalCases {
         val expect422: Boolean = false,
         val kcalTotalMin: Int? = null,
         val kcalTotalMax: Int? = null,
+        val expectExerciseMuscleRoles: Boolean = false,
         val golden: JsonNode? = null,
     ) {
         /** The golden Anthropic Messages response as a string, for stubbing WireMock in the CI eval. */
@@ -59,6 +60,22 @@ object ParseEvalCases {
             case.kcalTotalMin?.let { assertThat(kcal).describedAs("${case.name} kcal").isGreaterThanOrEqualTo(it) }
             case.kcalTotalMax?.let { assertThat(kcal).describedAs("${case.name} kcal").isLessThanOrEqualTo(it) }
         }
+        if (case.expectExerciseMuscleRoles) assertExerciseMuscleRoles(case, response)
+    }
+
+    /** A captured workout draft carries per-exercise muscleRoles through the parse (BE-040). */
+    private fun assertExerciseMuscleRoles(
+        case: Case,
+        response: ParseResponse,
+    ) {
+        val exercises =
+            response.drafts
+                .first { it.type == "workout" }
+                .detail["exercises"] as? List<*>
+        val roles =
+            exercises.orEmpty().filterIsInstance<Map<*, *>>().mapNotNull { it["muscleRoles"] as? List<*> }
+        assertThat(roles).describedAs("${case.name} muscleRoles").isNotEmpty()
+        assertThat(roles.flatten()).describedAs("${case.name} role entries").isNotEmpty()
     }
 
     private fun mealKcalTotal(response: ParseResponse): Int =

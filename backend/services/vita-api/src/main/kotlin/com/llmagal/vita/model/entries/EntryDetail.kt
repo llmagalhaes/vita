@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.llmagal.vita.model.MacroTotals
 import com.llmagal.vita.model.Micro
+import com.llmagal.vita.model.MuscleRole
 
 /**
  * Typed views of the contract EntryDetail oneOf, used only inside the service
@@ -59,6 +60,9 @@ data class Exercise(
     // Per-exercise muscles for the app's muscle tinting; same closed vocabulary
     // as WorkoutDetail.muscles, mapped/dropped by EntryService.
     val muscles: List<String>? = null,
+    // Each muscle's role in this exercise (primary/secondary); normalized by
+    // EntryService, derives `muscles` when that is absent (BE-040).
+    val muscleRoles: List<MuscleRole>? = null,
 )
 
 /**

@@ -39,7 +39,13 @@ class PlanController(
     @GetMapping("/v1/plan")
     fun currentPlan(
         @AuthenticationPrincipal jwt: Jwt,
-    ): JsonNode = plans.current(PlanTable.EATING_PLAN, uid(jwt)) ?: notFound()
+    ): JsonNode = plans.currentPlanWithPortions(uid(jwt)) ?: notFound()
+
+    @PutMapping("/v1/plan/portions")
+    fun putPortions(
+        @AuthenticationPrincipal jwt: Jwt,
+        @RequestBody body: Map<String, Double>,
+    ): Map<String, Double> = plans.putPortions(uid(jwt), body)
 
     @PostMapping("/v1/plan")
     fun importPlan(
@@ -49,7 +55,7 @@ class PlanController(
         validatePlan(body)
         return ResponseEntity
             .status(HttpStatus.CREATED)
-            .body(plans.importVersion(PlanTable.EATING_PLAN, uid(jwt), body))
+            .body(plans.importPlan(uid(jwt), body))
     }
 
     @PutMapping("/v1/plan")
@@ -58,7 +64,7 @@ class PlanController(
         @RequestBody body: EatingPlanDraft,
     ): JsonNode {
         validatePlan(body)
-        return plans.edit(PlanTable.EATING_PLAN, uid(jwt), body) ?: notFound()
+        return plans.editPlan(uid(jwt), body) ?: notFound()
     }
 
     @GetMapping("/v1/plan/history")

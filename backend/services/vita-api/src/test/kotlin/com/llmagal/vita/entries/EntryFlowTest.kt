@@ -247,6 +247,50 @@ class EntryFlowTest {
         assertThat(exMuscles).containsExactlyInAnyOrder("chest", "triceps")
     }
 
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `per-exercise muscleRoles are normalized and derive muscles when muscles is absent`() {
+        val entry =
+            post(
+                mapOf(
+                    "type" to "workout",
+                    "occurredAt" to "2026-07-13T18:00:00Z",
+                    "inputMethod" to "text",
+                    "detail" to
+                        mapOf(
+                            "title" to "Pull day",
+                            "exercises" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Pull-up",
+                                        // lats→back (alias), dup primary+secondary back → one primary,
+                                        // banana dropped; no `muscles` field → derived from roles.
+                                        "muscleRoles" to
+                                            listOf(
+                                                mapOf("name" to "lats", "role" to "primary"),
+                                                mapOf("name" to "back", "role" to "secondary"),
+                                                mapOf("name" to "biceps", "role" to "secondary"),
+                                                mapOf("name" to "banana", "role" to "primary"),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                ),
+                key(),
+            ).expectStatus()
+                .isCreated
+                .expectBody(MAP)
+                .returnResult()
+                .responseBody!!
+
+        val exercises = (entry["detail"] as Map<String, Any>)["exercises"] as List<Map<String, Any>>
+        val roles = exercises[0]["muscleRoles"] as List<Map<String, Any>>
+        assertThat(roles.map { it["name"] to it["role"] })
+            .containsExactly("back" to "primary", "biceps" to "secondary")
+        // muscles derived from the normalized role names (banana dropped).
+        assertThat(exercises[0]["muscles"] as List<String>).containsExactly("back", "biceps")
+    }
+
     @Test
     fun `rejects a negative-kcal meal item`() {
         post(

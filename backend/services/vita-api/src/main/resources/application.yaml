@@ -63,7 +63,9 @@ vita:
     plan-pdf-model: ${VITA_AI_PLAN_PDF_MODEL:claude-sonnet-4-6}
     # BE-018 photo parse (F3): Claude vision, Sonnet-class per ADR-0005 (vision only for photos/PDF).
     photo-model: ${VITA_AI_PHOTO_MODEL:claude-sonnet-4-6}
-    plan-max-output-tokens: 2048
+    # BE-039 bumped 2048→3072: per-item microsPerUnit + macros widen the tool output ~1.5-2×
+    # (11-item reference plan ~1.2k tokens). Only produced tokens are billed, so margin is free.
+    plan-max-output-tokens: 3072
     plan-timeout-seconds: 25 # a plan/PDF call is larger than capture parse; still inside API Gateway's 29 s ceiling
   uploads:
     # BE-015: presigned-upload seam (OPS-011). Local dev has no S3 — LocalFileStore vends a stub

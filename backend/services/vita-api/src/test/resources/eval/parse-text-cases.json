@@ -2,25 +2,44 @@
   {
     "name": "eggs and a latte -> one meal, kcal in range",
     "input": "two scrambled eggs and a latte",
-    "expectTypes": ["meal"],
+    "expectTypes": [
+      "meal"
+    ],
     "kcalTotalMin": 220,
     "kcalTotalMax": 520,
     "golden": {
-      "id": "msg_eval_meal", "type": "message", "role": "assistant", "model": "claude-haiku-4-5",
+      "id": "msg_eval_meal",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
       "stop_reason": "tool_use",
-      "usage": { "input_tokens": 340, "output_tokens": 96 },
+      "usage": {
+        "input_tokens": 340,
+        "output_tokens": 96
+      },
       "content": [
         {
-          "type": "tool_use", "id": "toolu_1", "name": "record_log_entries",
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_log_entries",
           "input": {
             "drafts": [
               {
-                "type": "meal", "occurredAt": "2026-07-13T09:30:00Z",
+                "type": "meal",
+                "occurredAt": "2026-07-13T09:30:00Z",
                 "detail": {
                   "title": "Eggs & latte",
                   "items": [
-                    { "name": "Scrambled eggs", "kcal": 180, "proteinG": 12 },
-                    { "name": "Latte", "kcal": 140, "carbsG": 13 }
+                    {
+                      "name": "Scrambled eggs",
+                      "kcal": 180,
+                      "proteinG": 12
+                    },
+                    {
+                      "name": "Latte",
+                      "kcal": 140,
+                      "carbsG": 13
+                    }
                   ]
                 }
               }
@@ -33,15 +52,35 @@
   {
     "name": "a glass of water -> one water entry",
     "input": "a big glass of water",
-    "expectTypes": ["water"],
+    "expectTypes": [
+      "water"
+    ],
     "golden": {
-      "id": "msg_eval_water", "type": "message", "role": "assistant", "model": "claude-haiku-4-5",
+      "id": "msg_eval_water",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
       "stop_reason": "tool_use",
-      "usage": { "input_tokens": 300, "output_tokens": 28 },
+      "usage": {
+        "input_tokens": 300,
+        "output_tokens": 28
+      },
       "content": [
         {
-          "type": "tool_use", "id": "toolu_1", "name": "record_log_entries",
-          "input": { "drafts": [ { "type": "water", "occurredAt": "2026-07-13T09:30:00Z", "detail": { "amountMl": 350 } } ] }
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_log_entries",
+          "input": {
+            "drafts": [
+              {
+                "type": "water",
+                "occurredAt": "2026-07-13T09:30:00Z",
+                "detail": {
+                  "amountMl": 350
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -49,15 +88,37 @@
   {
     "name": "a 30 minute run -> one workout",
     "input": "went for a 30 minute run",
-    "expectTypes": ["workout"],
+    "expectTypes": [
+      "workout"
+    ],
     "golden": {
-      "id": "msg_eval_workout", "type": "message", "role": "assistant", "model": "claude-haiku-4-5",
+      "id": "msg_eval_workout",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
       "stop_reason": "tool_use",
-      "usage": { "input_tokens": 310, "output_tokens": 40 },
+      "usage": {
+        "input_tokens": 310,
+        "output_tokens": 40
+      },
       "content": [
         {
-          "type": "tool_use", "id": "toolu_1", "name": "record_log_entries",
-          "input": { "drafts": [ { "type": "workout", "occurredAt": "2026-07-13T09:30:00Z", "detail": { "title": "Run", "durationMin": 30, "kcal": 300 } } ] }
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_log_entries",
+          "input": {
+            "drafts": [
+              {
+                "type": "workout",
+                "occurredAt": "2026-07-13T09:30:00Z",
+                "detail": {
+                  "title": "Run",
+                  "durationMin": 30,
+                  "kcal": 300
+                }
+              }
+            ]
+          }
         }
       ]
     }
@@ -68,11 +129,93 @@
     "expectTypes": [],
     "expect422": true,
     "golden": {
-      "id": "msg_eval_empty", "type": "message", "role": "assistant", "model": "claude-haiku-4-5",
+      "id": "msg_eval_empty",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
       "stop_reason": "tool_use",
-      "usage": { "input_tokens": 295, "output_tokens": 8 },
+      "usage": {
+        "input_tokens": 295,
+        "output_tokens": 8
+      },
       "content": [
-        { "type": "tool_use", "id": "toolu_1", "name": "record_log_entries", "input": { "drafts": [] } }
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_log_entries",
+          "input": {
+            "drafts": []
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "leg day workout -> per-exercise muscleRoles",
+    "input": "leg day: squats and RDLs",
+    "expectTypes": [
+      "workout"
+    ],
+    "expectExerciseMuscleRoles": true,
+    "golden": {
+      "id": "msg_eval_legs",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 320,
+        "output_tokens": 90
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_log_entries",
+          "input": {
+            "drafts": [
+              {
+                "type": "workout",
+                "occurredAt": "2026-07-13T09:30:00Z",
+                "detail": {
+                  "title": "Leg day",
+                  "exercises": [
+                    {
+                      "name": "Squat",
+                      "muscleRoles": [
+                        {
+                          "name": "quads",
+                          "role": "primary"
+                        },
+                        {
+                          "name": "glutes",
+                          "role": "primary"
+                        },
+                        {
+                          "name": "core",
+                          "role": "secondary"
+                        }
+                      ]
+                    },
+                    {
+                      "name": "RDL",
+                      "muscleRoles": [
+                        {
+                          "name": "hamstrings",
+                          "role": "primary"
+                        },
+                        {
+                          "name": "glutes",
+                          "role": "secondary"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        }
       ]
     }
   }

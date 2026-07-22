@@ -1,0 +1,635 @@
+[
+  {
+    "name": "reference-11-item-plan",
+    "kind": "eating",
+    "input": null,
+    "golden": {
+      "id": "msg_plan",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 600,
+        "output_tokens": 1100
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_eating_plan",
+          "input": {
+            "summary": "Low-carb weekdays reference plan",
+            "meals": [
+              {
+                "name": "Breakfast",
+                "time": "07:30",
+                "items": [
+                  {
+                    "name": "Scrambled eggs",
+                    "quantity": 2,
+                    "unit": "egg",
+                    "nutritionPerUnit": {
+                      "kcal": 95,
+                      "proteinG": 6.5,
+                      "carbsG": 0.8,
+                      "fatG": 7
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0,
+                      "sodiumMg": 95,
+                      "ironMg": 0.9,
+                      "calciumMg": 28
+                    }
+                  },
+                  {
+                    "name": "Grilled bread",
+                    "quantity": 1,
+                    "unit": "slice",
+                    "nutritionPerUnit": {
+                      "kcal": 145,
+                      "proteinG": 4,
+                      "carbsG": 27,
+                      "fatG": 2
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 1.4,
+                      "sodiumMg": 210,
+                      "ironMg": 1,
+                      "calciumMg": 20
+                    }
+                  },
+                  {
+                    "name": "Latte",
+                    "quantity": 200,
+                    "unit": "ml",
+                    "nutritionPerUnit": {
+                      "kcal": 0.55,
+                      "proteinG": 0.033,
+                      "carbsG": 0.05,
+                      "fatG": 0.018
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0,
+                      "sodiumMg": 0.4,
+                      "ironMg": 0,
+                      "calciumMg": 1.2
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Lunch",
+                "time": "13:00",
+                "items": [
+                  {
+                    "name": "Grilled chicken",
+                    "quantity": 180,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.65,
+                      "proteinG": 0.31,
+                      "carbsG": 0,
+                      "fatG": 0.036
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0,
+                      "sodiumMg": 0.74,
+                      "ironMg": 0.007,
+                      "calciumMg": 0.11
+                    }
+                  },
+                  {
+                    "name": "Rice & beans",
+                    "quantity": 200,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.05,
+                      "proteinG": 0.035,
+                      "carbsG": 0.21,
+                      "fatG": 0.006
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0.025,
+                      "sodiumMg": 1.9,
+                      "ironMg": 0.009,
+                      "calciumMg": 0.12
+                    }
+                  },
+                  {
+                    "name": "Salad + olive oil",
+                    "quantity": 100,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.1,
+                      "proteinG": 0.012,
+                      "carbsG": 0.05,
+                      "fatG": 0.09
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0.02,
+                      "sodiumMg": 0.5,
+                      "ironMg": 0.005,
+                      "calciumMg": 0.3
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Snack",
+                "time": "16:30",
+                "items": [
+                  {
+                    "name": "Yogurt",
+                    "quantity": 170,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 0.59,
+                      "proteinG": 0.059,
+                      "carbsG": 0.047,
+                      "fatG": 0.015
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0,
+                      "sodiumMg": 0.21,
+                      "ironMg": 0,
+                      "calciumMg": 0.65
+                    }
+                  },
+                  {
+                    "name": "Granola",
+                    "quantity": 30,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 2.33,
+                      "proteinG": 0.08,
+                      "carbsG": 0.42,
+                      "fatG": 0.07
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0.09,
+                      "sodiumMg": 0.5,
+                      "ironMg": 0.04,
+                      "calciumMg": 0.4
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Dinner",
+                "time": "20:00",
+                "items": [
+                  {
+                    "name": "Baked salmon",
+                    "quantity": 160,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.85,
+                      "proteinG": 0.25,
+                      "carbsG": 0,
+                      "fatG": 0.088
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0,
+                      "sodiumMg": 0.55,
+                      "ironMg": 0.005,
+                      "calciumMg": 0.09
+                    }
+                  },
+                  {
+                    "name": "Roasted vegetables",
+                    "quantity": 150,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 0.6,
+                      "proteinG": 0.02,
+                      "carbsG": 0.11,
+                      "fatG": 0.01
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0.03,
+                      "sodiumMg": 0.3,
+                      "ironMg": 0.007,
+                      "calciumMg": 0.25
+                    }
+                  },
+                  {
+                    "name": "Sweet potato",
+                    "quantity": 150,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 0.92,
+                      "proteinG": 0.016,
+                      "carbsG": 0.21,
+                      "fatG": 0.001
+                    },
+                    "microsPerUnit": {
+                      "fiberG": 0.03,
+                      "sodiumMg": 0.36,
+                      "ironMg": 0.006,
+                      "calciumMg": 0.3
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "plan-without-micros",
+    "kind": "eating",
+    "input": null,
+    "golden": {
+      "id": "msg_plan",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 600,
+        "output_tokens": 700
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_eating_plan",
+          "input": {
+            "summary": "Plan without per-item micros",
+            "meals": [
+              {
+                "name": "Breakfast",
+                "time": "07:30",
+                "items": [
+                  {
+                    "name": "Scrambled eggs",
+                    "quantity": 2,
+                    "unit": "egg",
+                    "nutritionPerUnit": {
+                      "kcal": 95,
+                      "proteinG": 6.5,
+                      "carbsG": 0.8,
+                      "fatG": 7
+                    }
+                  },
+                  {
+                    "name": "Grilled bread",
+                    "quantity": 1,
+                    "unit": "slice",
+                    "nutritionPerUnit": {
+                      "kcal": 145,
+                      "proteinG": 4,
+                      "carbsG": 27,
+                      "fatG": 2
+                    }
+                  },
+                  {
+                    "name": "Latte",
+                    "quantity": 200,
+                    "unit": "ml",
+                    "nutritionPerUnit": {
+                      "kcal": 0.55,
+                      "proteinG": 0.033,
+                      "carbsG": 0.05,
+                      "fatG": 0.018
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Lunch",
+                "time": "13:00",
+                "items": [
+                  {
+                    "name": "Grilled chicken",
+                    "quantity": 180,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.65,
+                      "proteinG": 0.31,
+                      "carbsG": 0,
+                      "fatG": 0.036
+                    }
+                  },
+                  {
+                    "name": "Rice & beans",
+                    "quantity": 200,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.05,
+                      "proteinG": 0.035,
+                      "carbsG": 0.21,
+                      "fatG": 0.006
+                    }
+                  },
+                  {
+                    "name": "Salad + olive oil",
+                    "quantity": 100,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.1,
+                      "proteinG": 0.012,
+                      "carbsG": 0.05,
+                      "fatG": 0.09
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Snack",
+                "time": "16:30",
+                "items": [
+                  {
+                    "name": "Yogurt",
+                    "quantity": 170,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 0.59,
+                      "proteinG": 0.059,
+                      "carbsG": 0.047,
+                      "fatG": 0.015
+                    }
+                  },
+                  {
+                    "name": "Granola",
+                    "quantity": 30,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 2.33,
+                      "proteinG": 0.08,
+                      "carbsG": 0.42,
+                      "fatG": 0.07
+                    }
+                  }
+                ]
+              },
+              {
+                "name": "Dinner",
+                "time": "20:00",
+                "items": [
+                  {
+                    "name": "Baked salmon",
+                    "quantity": 160,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.85,
+                      "proteinG": 0.25,
+                      "carbsG": 0,
+                      "fatG": 0.088
+                    }
+                  },
+                  {
+                    "name": "Roasted vegetables",
+                    "quantity": 150,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 0.6,
+                      "proteinG": 0.02,
+                      "carbsG": 0.11,
+                      "fatG": 0.01
+                    }
+                  },
+                  {
+                    "name": "Sweet potato",
+                    "quantity": 150,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 0.92,
+                      "proteinG": 0.016,
+                      "carbsG": 0.21,
+                      "fatG": 0.001
+                    }
+                  }
+                ]
+              }
+            ],
+            "micros": [
+              {
+                "name": "Iron",
+                "amount": 10.3,
+                "unit": "mg",
+                "percentDaily": 57
+              },
+              {
+                "name": "Calcium",
+                "amount": 609,
+                "unit": "mg",
+                "percentDaily": 47
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "per-100g-trap",
+    "kind": "eating",
+    "input": "150 g grilled chicken breast (165 kcal per 100 g)",
+    "golden": {
+      "id": "msg_plan",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 600,
+        "output_tokens": 120
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_eating_plan",
+          "input": {
+            "summary": "Single chicken item",
+            "meals": [
+              {
+                "name": "Lunch",
+                "items": [
+                  {
+                    "name": "Grilled chicken breast",
+                    "quantity": 150,
+                    "unit": "g",
+                    "nutritionPerUnit": {
+                      "kcal": 1.65,
+                      "proteinG": 0.31
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "program-with-roles",
+    "kind": "program",
+    "input": null,
+    "golden": {
+      "id": "msg_prog",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 500,
+        "output_tokens": 500
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_training_program",
+          "input": {
+            "summary": "Leg day",
+            "days": [
+              {
+                "name": "Legs",
+                "exercises": [
+                  {
+                    "name": "Back squat",
+                    "muscleRoles": [
+                      {
+                        "name": "quads",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "glutes",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "core",
+                        "role": "secondary"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Romanian deadlift",
+                    "muscleRoles": [
+                      {
+                        "name": "hamstrings",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "glutes",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "lowback",
+                        "role": "secondary"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Leg press",
+                    "muscleRoles": [
+                      {
+                        "name": "quads",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "glutes",
+                        "role": "secondary"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Leg curl",
+                    "muscleRoles": [
+                      {
+                        "name": "hamstrings",
+                        "role": "primary"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Calf raise",
+                    "muscleRoles": [
+                      {
+                        "name": "calves",
+                        "role": "primary"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "Walking lunge",
+                    "muscleRoles": [
+                      {
+                        "name": "quads",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "glutes",
+                        "role": "secondary"
+                      },
+                      {
+                        "name": "calves",
+                        "role": "tertiary"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  },
+  {
+    "name": "program-alias-fold",
+    "kind": "program",
+    "input": null,
+    "golden": {
+      "id": "msg_prog",
+      "type": "message",
+      "role": "assistant",
+      "model": "claude-haiku-4-5",
+      "stop_reason": "tool_use",
+      "usage": {
+        "input_tokens": 500,
+        "output_tokens": 200
+      },
+      "content": [
+        {
+          "type": "tool_use",
+          "id": "toolu_1",
+          "name": "record_training_program",
+          "input": {
+            "summary": "Leg day",
+            "days": [
+              {
+                "name": "Pull",
+                "exercises": [
+                  {
+                    "name": "Pull-up",
+                    "muscleRoles": [
+                      {
+                        "name": "lats",
+                        "role": "primary"
+                      },
+                      {
+                        "name": "back",
+                        "role": "secondary"
+                      },
+                      {
+                        "name": "biceps",
+                        "role": "secondary"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+]
