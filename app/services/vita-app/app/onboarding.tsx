@@ -84,7 +84,7 @@ export default function Onboarding() {
     void api.patchMe({ name: name.trim() }).catch(() => {});
     // Persist the confirmed plan/program (POST → new version; cache is local truth).
     const planDoc = confirmedDraft(plan);
-    if (planDoc) void savePlan(planDoc);
+    if (planDoc) void savePlan(planDoc, plan.kind === "answered" ? (plan.source ?? "manual") : "manual");
     const programDoc = confirmedDraft(program);
     if (programDoc) void saveProgram(programDoc);
     router.replace("/home");

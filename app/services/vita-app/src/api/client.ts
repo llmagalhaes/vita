@@ -15,8 +15,12 @@ export type WaterDetail = Schemas["WaterDetail"];
 export type WorkoutDetail = Schemas["WorkoutDetail"];
 export type MacroTotals = Schemas["MacroTotals"];
 export type EatingPlanDraft = Schemas["EatingPlanDraft"];
+export type EatingPlanWithPortions = Schemas["EatingPlanWithPortions"];
 export type PlanMeal = Schemas["PlanMeal"];
 export type PlanItem = Schemas["PlanItem"];
+export type MicrosPerUnit = Schemas["MicrosPerUnit"];
+export type PortionBounds = Schemas["PortionBounds"];
+export type PortionsMap = Schemas["PortionsMap"];
 export type TrainingProgramDraft = Schemas["TrainingProgramDraft"];
 export type ProgramDay = Schemas["ProgramDay"];
 export type Exercise = Schemas["Exercise"];
@@ -62,9 +66,11 @@ export interface Api {
   /** Phase 1 of PDF import: get a presigned S3 PUT target; then PUT bytes (putPresignedFile), then parse({ fileRef }). */
   requestUpload(body: { purpose: "plan_document"; contentType: "application/pdf" }): Promise<UploadTarget>;
   // Persisted eating plan (versioned server-side; PUT is full-doc replace, no patch).
-  getPlan(): Promise<EatingPlanDraft>; // 404 if never set
+  getPlan(): Promise<EatingPlanWithPortions>; // 404 if never set; may carry the portion overlay
   createPlan(doc: EatingPlanDraft): Promise<EatingPlanDraft>; // POST — new version
   updatePlan(doc: EatingPlanDraft): Promise<EatingPlanDraft>; // PUT — replace current
+  /** Replace the sparse portion overlay for the current plan version (bare map body). */
+  putPlanPortions(portions: PortionsMap): Promise<void>;
   getProgram(): Promise<TrainingProgramDraft>; // 404 if never set
   createProgram(doc: TrainingProgramDraft): Promise<TrainingProgramDraft>;
   updateProgram(doc: TrainingProgramDraft): Promise<TrainingProgramDraft>;
@@ -195,6 +201,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     getPlan: () => request("GET", "/plan"),
     createPlan: (doc) => request("POST", "/plan", { body: doc }),
     updatePlan: (doc) => request("PUT", "/plan", { body: doc }),
+    putPlanPortions: (portions) => request("PUT", "/plan/portions", { body: portions }),
     getProgram: () => request("GET", "/program"),
     createProgram: (doc) => request("POST", "/program", { body: doc }),
     updateProgram: (doc) => request("PUT", "/program", { body: doc }),

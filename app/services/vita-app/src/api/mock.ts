@@ -12,9 +12,12 @@ import {
   ApiError,
   type Api,
   type EatingPlanDraft,
+  type Exercise,
   type LogEntry,
   type NewEntry,
   type ParseResult,
+  type PlanItem,
+  type PortionsMap,
   type TokenPair,
   type TrainingProgramDraft,
   type User,
@@ -47,9 +50,24 @@ const FOODS: Record<string, { kcal: number; p: number; c: number; f: number }> =
   soup: { kcal: 170, p: 8, c: 20, f: 6 },
 };
 
-const WORKOUTS: Record<string, { title: string; muscles: NonNullable<import("./client").WorkoutDetail["muscles"]> }> = {
-  "leg day": { title: "Leg day", muscles: ["quads", "hamstrings", "glutes", "calves"] },
-  legs: { title: "Leg day", muscles: ["quads", "hamstrings", "glutes", "calves"] },
+/**
+ * Leg-day exercises with per-exercise `muscleRoles` (handoff §2.2) so the mock
+ * workout demonstrates the body-map opacity + PRIMARY/SECONDARY banner. The
+ * muscleRoles opacity rule (DESIGN-SPEC §6.1) reproduces quads/glutes .92,
+ * hams .78; calves/core deviate from the handoff's hand-tuned values (A9).
+ */
+const LEG_DAY_EXERCISES: Exercise[] = [
+  { name: "Back squat", sets: 4, reps: 8, loadKg: 80, muscleRoles: [{ name: "quads", role: "primary" }, { name: "glutes", role: "primary" }, { name: "core", role: "secondary" }] },
+  { name: "Leg press", sets: 3, reps: 12, muscleRoles: [{ name: "quads", role: "primary" }] },
+  { name: "Romanian deadlift", sets: 3, reps: 10, loadKg: 60, muscleRoles: [{ name: "glutes", role: "primary" }, { name: "hamstrings", role: "primary" }] },
+  { name: "Walking lunges", sets: 2, reps: 20, muscleRoles: [{ name: "quads", role: "primary" }, { name: "glutes", role: "primary" }, { name: "core", role: "secondary" }] },
+  { name: "Seated calf raise", sets: 4, reps: 15, muscleRoles: [{ name: "calves", role: "secondary" }] },
+  { name: "Leg curl", sets: 3, reps: 12, muscleRoles: [{ name: "hamstrings", role: "primary" }] },
+];
+
+const WORKOUTS: Record<string, { title: string; muscles: NonNullable<import("./client").WorkoutDetail["muscles"]>; exercises?: Exercise[] }> = {
+  "leg day": { title: "Leg day", muscles: ["quads", "glutes", "hamstrings", "calves", "core"], exercises: LEG_DAY_EXERCISES },
+  legs: { title: "Leg day", muscles: ["quads", "glutes", "hamstrings", "calves", "core"], exercises: LEG_DAY_EXERCISES },
   push: { title: "Push day", muscles: ["chest", "shoulders", "triceps"] },
   pull: { title: "Pull day", muscles: ["back", "biceps", "forearms"] },
   run: { title: "Run", muscles: ["quads", "hamstrings", "calves"] },
@@ -134,7 +152,7 @@ export function mockParse(text: string, capturedAt?: string): ParseResult {
         durationMin: dur ? parseInt(dur[1]!, 10) : 45,
         kcal: dur ? parseInt(dur[1]!, 10) * 7 : 315,
         muscles: w.muscles,
-        exercises: [],
+        exercises: w.exercises ?? [],
       },
     });
   }
@@ -302,6 +320,88 @@ export function mockParsePlan(text?: string): EatingPlanDraft {
   };
 }
 
+/**
+ * Seeded stored eating plan — the handoff §1.2 reference (11 items, 4 meals) in
+ * contract shape, so a fresh mock session opens the Eating Plan screen walkable
+ * with portions/micros/bounds. Items carry stable ids (as a saved server plan
+ * always does — A2) so the portion overlay keys them. **A4: EXAMPLE data** — real
+ * plans get all nutrition from Claude parse estimates; no product/test code treats
+ * any number below as a constant.
+ */
+const seedItem = (
+  id: string,
+  name: string,
+  unit: string,
+  quantity: number,
+  min: number,
+  max: number,
+  step: number,
+  k: number,
+  P: number,
+  C: number,
+  F: number,
+  fb: number,
+  na: number,
+  fe: number,
+  ca: number,
+): PlanItem => ({
+  id,
+  name,
+  unit,
+  quantity,
+  nutritionPerUnit: { kcal: k, proteinG: P, carbsG: C, fatG: F },
+  microsPerUnit: { fiberG: fb, sodiumMg: na, ironMg: fe, calciumMg: ca },
+  portion: { min, max, step },
+});
+
+export function handoffPlan(): EatingPlanDraft {
+  return {
+    summary: "Low-carb weekdays",
+    micros: [
+      { name: "Fiber", amount: 28, unit: "g", percentDaily: 100 },
+      { name: "Iron", amount: 14, unit: "mg", percentDaily: 78 },
+      { name: "Calcium", amount: 900, unit: "mg", percentDaily: 90 },
+    ],
+    meals: [
+      {
+        name: "Breakfast",
+        time: "07:30",
+        items: [
+          seedItem("eggs", "Scrambled eggs", "egg", 2, 0, 4, 1, 95, 6.5, 0.8, 7, 0, 95, 0.9, 28),
+          seedItem("bread", "Grilled bread", "slice", 1, 0, 3, 1, 145, 4, 27, 2, 1.4, 210, 1, 20),
+          seedItem("latte", "Latte", "ml", 200, 0, 400, 50, 0.55, 0.033, 0.05, 0.018, 0, 0.4, 0, 1.2),
+        ],
+      },
+      {
+        name: "Lunch",
+        time: "13:00",
+        items: [
+          seedItem("chicken", "Grilled chicken", "g", 180, 0, 300, 10, 1.65, 0.31, 0, 0.036, 0, 0.74, 0.007, 0.11),
+          seedItem("rice", "Rice & beans", "g", 200, 0, 350, 10, 1.05, 0.035, 0.21, 0.006, 0.025, 1.9, 0.009, 0.12),
+          seedItem("salad", "Salad + olive oil", "g", 100, 0, 200, 10, 1.1, 0.012, 0.05, 0.09, 0.02, 0.5, 0.005, 0.3),
+        ],
+      },
+      {
+        name: "Snack",
+        time: "16:30",
+        items: [
+          seedItem("yog", "Yogurt", "g", 170, 0, 300, 10, 0.59, 0.059, 0.047, 0.015, 0, 0.21, 0, 0.65),
+          seedItem("gran", "Granola", "g", 30, 0, 80, 5, 2.33, 0.08, 0.42, 0.07, 0.09, 0.5, 0.04, 0.4),
+        ],
+      },
+      {
+        name: "Dinner",
+        time: "20:00",
+        items: [
+          seedItem("salmon", "Baked salmon", "g", 160, 0, 300, 10, 1.85, 0.25, 0, 0.088, 0, 0.55, 0.005, 0.09),
+          seedItem("veg", "Roasted vegetables", "g", 150, 0, 300, 10, 0.6, 0.02, 0.11, 0.01, 0.03, 0.3, 0.007, 0.25),
+          seedItem("spot", "Sweet potato", "g", 150, 0, 300, 10, 0.92, 0.016, 0.21, 0.001, 0.03, 0.36, 0.006, 0.3),
+        ],
+      },
+    ],
+  };
+}
+
 export function mockParseProgram(text?: string): TrainingProgramDraft {
   return {
     summary:
@@ -347,8 +447,11 @@ export function createMockApi(): Api {
   };
   const byIdempotencyKey = new Map<string, LogEntry>();
   // Persisted plan/program (in-memory for the session; POST/PUT store, GET reads).
-  let storedPlan: EatingPlanDraft | null = null;
+  // Seed the handoff plan so the Eating Plan screen is walkable in the mock build.
+  let storedPlan: EatingPlanDraft | null = handoffPlan();
   let storedProgram: TrainingProgramDraft | null = null;
+  // Sparse portion overlay for the current plan version (PUT /plan/portions).
+  let storedPortions: PortionsMap = {};
   // Vacation ranges — opaque blob to the server (D1); the mock just echoes them.
   let storedVacations: VacationRange[] = [];
   const notFound = () =>
@@ -410,12 +513,36 @@ export function createMockApi(): Api {
     async getPlan() {
       await delay(120);
       if (!storedPlan) throw notFound();
-      return storedPlan;
+      // GET /plan additively carries the overlay (EatingPlanWithPortions).
+      return { ...storedPlan, portions: storedPortions };
     },
     async createPlan(doc) {
       await delay(150);
-      storedPlan = doc;
-      return doc;
+      // A2: saving assigns stable ids to items lacking them (document order),
+      // exactly like the server — a saved plan always has per-item ids.
+      let n = 0;
+      const withIds: EatingPlanDraft = {
+        ...doc,
+        meals: doc.meals.map((m) => ({
+          ...m,
+          items: m.items.map((it) => ({ ...it, id: it.id ?? `it-${++n}` })),
+        })),
+      };
+      storedPlan = withIds;
+      storedPortions = {}; // new version resets the overlay (DESIGN-SPEC)
+      return withIds;
+    },
+    async putPlanPortions(portions) {
+      await delay(120);
+      if (!storedPlan) throw notFound();
+      // Reject unknown ids like the server (422 → app resyncs).
+      const ids = new Set(storedPlan.meals.flatMap((m) => m.items.map((it) => it.id)));
+      for (const key of Object.keys(portions)) {
+        if (!ids.has(key)) {
+          throw new ApiError(422, { type: "about:blank", title: "Unknown plan item id", status: 422 });
+        }
+      }
+      storedPortions = { ...portions };
     },
     async updatePlan(doc) {
       await delay(150);

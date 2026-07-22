@@ -1,6 +1,8 @@
 import { ApiError, type Api, type LogEntry, type NewEntry } from "../api/client";
 import { getDb } from "./db";
 import { addLocalEntry, deletePending, getEntry, getPending, markFailed, markSynced, type LocalEntry } from "./entries";
+import { clearDirty } from "./kv";
+import { PORTIONS_KEY, getPortions, syncPlan } from "./plan";
 
 type OutboxRow = { seq: number; entryId: string; op: string; attempts: number; nextAttemptAt: number };
 
@@ -27,7 +29,9 @@ function isPoison(err: unknown, op?: string): boolean {
   if (err instanceof PoisonError) return true;
   if (!(err instanceof ApiError)) return false;
   if ([400, 409, 422].includes(err.status)) return true;
-  return op === "update" && [403, 404].includes(err.status);
+  // `update` (PATCH) and `portions` (full-map PUT) treat 403/404 as poison too:
+  // a forbidden/absent target never recovers, so backing off would stall the drain.
+  return [403, 404].includes(err.status) && (op === "update" || op === "portions");
 }
 
 /** A deterministic check-in id is `${habitId}:${dateKey}` (BE-024); plain entry ids are bare uuids. */
@@ -107,6 +111,14 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
           progressed = true;
           continue;
         }
+        if (item.op === "portions") {
+          // Coalesced overlay push — read the map FRESH so the last write wins.
+          await api.putPlanPortions(getPortions());
+          clearDirty(PORTIONS_KEY);
+          db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
+          progressed = true;
+          continue;
+        }
         const entry = getEntry(item.entryId);
         if (!entry) {
           db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]); // entry gone — drop
@@ -155,6 +167,19 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
               }
               // reconcile is itself hopeless → fall through to the poison drop
             }
+          }
+        }
+        // Portions op: a rejected overlay push has no local entry to fail. Poison
+        // (403/404/422/400/409) drops the op; a 422 (stale plan version) also
+        // resyncs to re-hydrate the doc + server overlay (pruning the stale keys).
+        // Network/5xx falls through to the shared backoff below (ordered).
+        if (item.op === "portions") {
+          if (isPoison(err, item.op)) {
+            clearDirty(PORTIONS_KEY);
+            if (err instanceof ApiError && err.status === 422) void syncPlan();
+            db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
+            progressed = true;
+            continue;
           }
         }
         // Non-retryable: drop the poison pill (and its parked input) and keep draining.

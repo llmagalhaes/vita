@@ -1,9 +1,12 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
-import Svg, { Circle, Ellipse, Rect } from "react-native-svg";
+import Svg, { Circle, Ellipse, G, Rect } from "react-native-svg";
+import Animated, { Easing, useAnimatedProps, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import type { Muscle } from "../api/client";
 import { Text } from "./Text";
 import { colors, fonts, radii } from "./tokens";
+
+const AnimatedG = Animated.createAnimatedComponent(G);
 
 /**
  * Interactive front/back muscle silhouette. Hand-built SVG (ponytail: no charting
@@ -106,23 +109,68 @@ export type BodySide = "front" | "back";
 export const bodyRegions = (side: BodySide): Partial<Record<Muscle, Shape[]>> =>
   side === "front" ? FRONT : BACK;
 
+export const otherSide = (s: BodySide): BodySide => (s === "front" ? "back" : "front");
+
+/** The side to show a picked muscle on: stay if it exists here, else flip (§6.2). */
+export const sideOf = (m: Muscle, current: BodySide): BodySide =>
+  bodyRegions(current)[m] ? current : otherSide(current);
+
+/** Combined bbox center of a muscle's shapes — the transform origin for the breath pulse. */
+export function shapesCenter(shapes: Shape[]): { cx: number; cy: number } {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const s of shapes) {
+    const [x0, y0, x1, y1] = s.k === "e" ? [s.cx - s.rx, s.cy - s.ry, s.cx + s.rx, s.cy + s.ry] : [s.x, s.y, s.x + s.w, s.y + s.h];
+    minX = Math.min(minX, x0);
+    minY = Math.min(minY, y0);
+    maxX = Math.max(maxX, x1);
+    maxY = Math.max(maxY, y1);
+  }
+  return { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2 };
+}
+
 /**
  * Pure highlight resolution (unit-tested): for each muscle drawn on `side`, its
- * shapes and the fill opacity from `highlighted`. Muscles not on this side are
- * skipped; a muscle with no/zero intensity renders as a faint base region.
+ * shapes and the fill opacity.
+ *  - default (Trends heatmap): `highlighted` is 0..1 intensity, remapped to
+ *    `0.25 + i*0.65`; idle → 0.14.
+ *  - `absolute` (workout detail): `highlighted` values are the fill opacity AS-IS;
+ *    a muscle absent from the map renders at the idle 0.14.
+ *  - `selected`: the picked muscle boosts to 1, every other dims to `base * 0.3`.
  */
 export function resolveHighlights(
   side: BodySide,
   highlighted: Partial<Record<Muscle, number>>,
+  absolute = false,
+  selected: Muscle | null = null,
 ): Array<{ muscle: Muscle; shapes: Shape[]; opacity: number }> {
   const regions = bodyRegions(side);
   return (Object.keys(regions) as Muscle[]).map((muscle) => {
-    const raw = highlighted[muscle] ?? 0;
-    const intensity = Math.max(0, Math.min(1, raw));
-    // Base tint keeps the muscle visible when idle; active muscles ramp to full accent.
-    const opacity = intensity > 0 ? 0.25 + intensity * 0.65 : 0.14;
+    const raw = highlighted[muscle];
+    const clamped = Math.max(0, Math.min(1, raw ?? 0));
+    const base = absolute ? (raw != null ? clamped : 0.14) : clamped > 0 ? 0.25 + clamped * 0.65 : 0.14;
+    const opacity = selected ? (selected === muscle ? 1 : base * 0.3) : base;
     return { muscle, shapes: regions[muscle]!, opacity };
   });
+}
+
+const drawShape = (muscle: Muscle, s: Shape, i: number, accent: string, opacity: number, onPress?: (m: Muscle) => void) =>
+  s.k === "e" ? (
+    <Ellipse key={`${muscle}-${i}`} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={accent} opacity={opacity} onPress={onPress ? () => onPress(muscle) : undefined} />
+  ) : (
+    <Rect key={`${muscle}-${i}`} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} fill={accent} opacity={opacity} onPress={onPress ? () => onPress(muscle) : undefined} />
+  );
+
+/** The selected muscle's shapes, breathing (scale 1→1.07→1, 1.5s) about their center. */
+function BreathGroup({ shapes, accent, muscle, onPress }: { shapes: Shape[]; accent: string; muscle: Muscle; onPress?: (m: Muscle) => void }) {
+  const scale = useSharedValue(1);
+  const { cx, cy } = useMemo(() => shapesCenter(shapes), [shapes]);
+  useEffect(() => {
+    scale.value = withRepeat(withTiming(1.07, { duration: 750, easing: Easing.inOut(Easing.ease) }), -1, true);
+  }, [scale]);
+  const animatedProps = useAnimatedProps(() => ({
+    transform: `translate(${cx} ${cy}) scale(${scale.value}) translate(${-cx} ${-cy})`,
+  }));
+  return <AnimatedG animatedProps={animatedProps}>{shapes.map((s, i) => drawShape(muscle, s, i, accent, 1, onPress))}</AnimatedG>;
 }
 
 function Figure({
@@ -130,15 +178,19 @@ function Figure({
   highlighted,
   accent,
   size,
+  absolute,
+  selected,
   onMusclePress,
 }: {
   side: BodySide;
   highlighted: Partial<Record<Muscle, number>>;
   accent: string;
   size: number;
+  absolute?: boolean;
+  selected?: Muscle | null;
   onMusclePress?: (m: Muscle) => void;
 }) {
-  const resolved = resolveHighlights(side, highlighted);
+  const resolved = resolveHighlights(side, highlighted, absolute, selected ?? null);
   return (
     <Svg width={size} height={size * 2} viewBox="0 0 200 400">
       {/* neutral base body: head, torso, arms, legs — muscles overlay on top */}
@@ -149,31 +201,10 @@ function Figure({
       <Rect x={72} y={196} width={26} height={188} rx={13} fill={colors.track} />
       <Rect x={102} y={196} width={26} height={188} rx={13} fill={colors.track} />
       {resolved.flatMap(({ muscle, shapes, opacity }) =>
-        shapes.map((s, i) =>
-          s.k === "e" ? (
-            <Ellipse
-              key={`${muscle}-${i}`}
-              cx={s.cx}
-              cy={s.cy}
-              rx={s.rx}
-              ry={s.ry}
-              fill={accent}
-              opacity={opacity}
-              onPress={onMusclePress ? () => onMusclePress(muscle) : undefined}
-            />
-          ) : (
-            <Rect
-              key={`${muscle}-${i}`}
-              x={s.x}
-              y={s.y}
-              width={s.w}
-              height={s.h}
-              rx={s.rx}
-              fill={accent}
-              opacity={opacity}
-              onPress={onMusclePress ? () => onMusclePress(muscle) : undefined}
-            />
-          ),
+        selected === muscle && side === sideOf(muscle, side) ? (
+          <BreathGroup key={`${muscle}-breath`} shapes={shapes} accent={accent} muscle={muscle} onPress={onMusclePress} />
+        ) : (
+          shapes.map((s, i) => drawShape(muscle, s, i, accent, opacity, onMusclePress))
         ),
       )}
     </Svg>
@@ -187,6 +218,10 @@ export type BodyMapProps = {
   showToggle?: boolean;
   accent?: string;
   size?: number;
+  /** Treat `highlighted` values as literal fill opacity (workout detail), not intensity. */
+  absolute?: boolean;
+  /** Picked muscle — boosts to full + breathes, dims the rest to 30%. */
+  selected?: Muscle | null;
   /** View label shown under the figure ("Front"/"Back"; rendered uppercase). */
   frontLabel?: string;
   backLabel?: string;
@@ -203,6 +238,8 @@ export function BodyMap({
   showToggle = true,
   accent = colors.accent,
   size = 150,
+  absolute = false,
+  selected = null,
   frontLabel = "Front",
   backLabel = "Back",
   seeFrontLabel,
@@ -245,7 +282,7 @@ export function BodyMap({
           </Text>
         </Pressable>
       )}
-      <Figure side={side} highlighted={highlighted} accent={accent} size={size} onMusclePress={onMusclePress} />
+      <Figure side={side} highlighted={highlighted} accent={accent} size={size} absolute={absolute} selected={selected} onMusclePress={onMusclePress} />
       {showToggle && (
         <Text
           variant="caption"

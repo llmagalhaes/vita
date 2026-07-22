@@ -30,8 +30,10 @@ test("leg day → workout draft with contract-enum muscles", () => {
   const { drafts } = mockParse("leg day at the gym, 60 min");
   const workout = drafts.find((d) => d.type === "workout")!;
   const detail = workout.detail as WorkoutDetail;
-  expect(detail.muscles).toEqual(["quads", "hamstrings", "glutes", "calves"]);
+  expect(detail.muscles).toEqual(["quads", "glutes", "hamstrings", "calves", "core"]);
   expect(detail.durationMin).toBe(60);
+  // v0.6.0: leg-day exercises carry per-exercise muscleRoles for the body map.
+  expect(detail.exercises?.[0]?.muscleRoles).toContainEqual({ name: "quads", role: "primary" });
 });
 
 test("unrecognized text still yields a labeled meal estimate (never empty)", () => {

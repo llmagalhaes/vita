@@ -30,6 +30,27 @@ export const colors = {
   dotIdle: "#D9CFBD", // Home v2 dock date-picker idle (unmagnified) dot
 } as const;
 
+/**
+ * `color-mix(in oklab, accent N%, base)` equivalent — a per-channel sRGB lerp
+ * (hex in/hex out). At N ≤ 35% the delta vs true oklab is < 2 RGB steps on this
+ * palette. Always call `tint(useAccent(), N)` so vacation mode swaps every tint
+ * at once — never hardcode the mixed color.
+ * ponytail: sRGB lerp, not oklab — upgrade to a ~20-line oklab converter only if a
+ * device pass flags a tint.
+ */
+export function tint(accent: string, pct: number, base = "#FFFDF7"): string {
+  const parse = (h: string): [number, number, number] => {
+    const s = h.replace("#", "");
+    return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)];
+  };
+  const [ar, ag, ab] = parse(accent);
+  const [br, bg, bb] = parse(base);
+  const f = pct / 100;
+  const mix = (a: number, b: number) => Math.round(a * f + b * (1 - f));
+  const hex = (n: number) => n.toString(16).padStart(2, "0");
+  return `#${hex(mix(ar, br))}${hex(mix(ag, bg))}${hex(mix(ab, bb))}`.toUpperCase();
+}
+
 /** Soft card shadow lifted from the prototype (`0 10px 26px rgba(105,84,60,.08)`). */
 export const shadow = {
   shadowColor: "#69543C",

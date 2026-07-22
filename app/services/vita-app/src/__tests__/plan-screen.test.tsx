@@ -28,20 +28,20 @@ test("Edit mode recomputes totals live and Save PUTs the whole doc", async () =>
 
   await render(<EatingPlanScreen />);
 
-  // View mode: daily total is one serving (137). 411 (×3) is nowhere yet.
-  expect(screen.getAllByText("137").length).toBeGreaterThan(0);
-  expect(screen.queryByText("411")).toBeNull();
+  // View mode: daily total is one serving (~137). ~411 (×3) is nowhere yet.
+  expect(screen.getAllByText("~137").length).toBeGreaterThan(0);
+  expect(screen.queryByText("~411")).toBeNull();
 
   // Enter edit, open the portion sheet on the item, type an exact quantity of 3.
   await fireEvent.press(screen.getByText("Edit"));
-  await fireEvent.press(screen.getByText("1 bowl")); // quantity chip → portion sheet
+  await fireEvent.press(screen.getByText("1 × bowl")); // quantity pill → portion sheet
   await fireEvent.changeText(screen.getByLabelText("Exact"), "3");
 
   // Live local recompute — 137 × 3 = 411 now shows, before any save.
-  expect(screen.getAllByText("411").length).toBeGreaterThan(0);
+  expect(screen.getAllByText("~411").length).toBeGreaterThan(0);
 
-  // Close the sheet and Save → single whole-doc PUT with the edited quantity.
-  await fireEvent.press(screen.getByText("Confirm"));
+  // Close the sheet (Done) and Save → single whole-doc PUT with the edited quantity.
+  await fireEvent.press(screen.getByText("Done"));
   await fireEvent.press(screen.getByText("Save"));
 
   expect(putSpy).toHaveBeenCalledTimes(1);
@@ -60,12 +60,29 @@ test("Cancel discards edits (no PUT, cache unchanged)", async () => {
   await render(<EatingPlanScreen />);
 
   await fireEvent.press(screen.getByText("Edit"));
-  await fireEvent.press(screen.getByText("1 bowl"));
-  await fireEvent.changeText(screen.getByLabelText("Exact"), "9");
-  await fireEvent.press(screen.getByText("Confirm"));
+  await fireEvent.press(screen.getByText("1 × bowl"));
+  await fireEvent.changeText(screen.getByLabelText("Exact"), "4");
+  await fireEvent.press(screen.getByText("Done"));
   await fireEvent.press(screen.getByText("Cancel"));
 
   expect(putSpy).not.toHaveBeenCalled();
   expect(getCachedPlan()!.meals[0]!.items[0]!.quantity).toBe(1);
   putSpy.mockRestore();
+});
+
+test("View mode: tapping an item opens the portion modal and a slider drag persists via the overlay", async () => {
+  await savePlan(structuredClone(basePlan)); // items get server ids assigned (mock createPlan)
+  const portionSpy = jest.spyOn(api, "putPlanPortions").mockResolvedValue(undefined);
+  await render(<EatingPlanScreen />);
+
+  // Open the modal in VIEW mode (no Edit press) on the item pill.
+  await fireEvent.press(screen.getByText("1 × bowl"));
+  // Numeric exact field commits immediately via the overlay (no Save needed).
+  await fireEvent.changeText(screen.getByLabelText("Exact"), "3");
+
+  expect(screen.getAllByText("~411").length).toBeGreaterThan(0); // live update, view mode
+  const { getPortions } = require("../db/plan") as typeof import("../db/plan");
+  const key = Object.keys(getPortions())[0]!;
+  expect(getPortions()[key]).toBe(3); // overlay carries the new qty, keyed by the item id
+  portionSpy.mockRestore();
 });

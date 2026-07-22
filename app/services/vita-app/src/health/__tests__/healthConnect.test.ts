@@ -72,7 +72,7 @@ test("stub reader reports absent and reads nothing (Expo Go / iOS / jest)", asyn
 
 test("refreshHealthConnect no-ops when the source is disconnected (never touches HC)", async () => {
   const availability = jest.fn().mockResolvedValue("available");
-  setHealthReader({ availability, requestPermissions: jest.fn(), readToday: jest.fn() } as HealthReader);
+  setHealthReader({ availability, requestPermissions: jest.fn(), readToday: jest.fn(), readSessions: jest.fn().mockResolvedValue([]) } as HealthReader);
   await refreshHealthConnect(); // healthConnect not enabled
   expect(availability).not.toHaveBeenCalled();
   expect(getHealthSnapshot()).toBeNull();
@@ -84,6 +84,7 @@ test("connect + refresh caches a snapshot when granted; disconnect clears it", a
     availability: jest.fn().mockResolvedValue("available"),
     requestPermissions: jest.fn().mockResolvedValue(true),
     readToday: jest.fn().mockResolvedValue(snap),
+    readSessions: jest.fn().mockResolvedValue([]),
   };
   setHealthReader(reader);
 
@@ -100,8 +101,7 @@ test("connect surfaces update_required so the screen can guide instead of failin
   setHealthReader({
     availability: jest.fn().mockResolvedValue("update_required"),
     requestPermissions: jest.fn(),
-    readToday: jest.fn(),
-  } as HealthReader);
+    readToday: jest.fn(), readSessions: jest.fn().mockResolvedValue([]) } as HealthReader);
   setIntegrationEnabled("healthConnect", true);
   expect(await connectHealthConnect()).toEqual({ ok: false, reason: "update_required" });
   expect(getHealthSnapshot()).toBeNull();
@@ -111,8 +111,7 @@ test("connect reports denied when permission is refused (present but not granted
   setHealthReader({
     availability: jest.fn().mockResolvedValue("available"),
     requestPermissions: jest.fn().mockResolvedValue(false),
-    readToday: jest.fn(),
-  } as HealthReader);
+    readToday: jest.fn(), readSessions: jest.fn().mockResolvedValue([]) } as HealthReader);
   setIntegrationEnabled("healthConnect", true);
   expect(await connectHealthConnect()).toEqual({ ok: false, reason: "denied" });
 });
@@ -122,6 +121,7 @@ test("connect reports connected-but-no-data (Samsung Health sync off)", async ()
     availability: jest.fn().mockResolvedValue("available"),
     requestPermissions: jest.fn().mockResolvedValue(true),
     readToday: jest.fn().mockResolvedValue(null),
+    readSessions: jest.fn().mockResolvedValue([]),
   } as HealthReader);
   setIntegrationEnabled("healthConnect", true);
   expect(await connectHealthConnect()).toEqual({ ok: true, hasData: false });

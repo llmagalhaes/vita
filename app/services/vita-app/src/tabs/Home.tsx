@@ -10,7 +10,7 @@ import { logChanged, useLogVersion } from "../db/notify";
 import { openReview } from "../review/ReviewSheet";
 import { drainOutbox } from "../db/outbox";
 import { getSettings } from "../db/settings";
-import { getCachedPlan, getCachedProgram, syncPlan, syncProgram } from "../db/plan";
+import { getCachedPlan, getCachedProgram, getPortions, syncPlan, syncProgram } from "../db/plan";
 import { endVacation, isVacationActive, getVacation, syncVacation } from "../db/vacation";
 import { listHabits } from "../db/habits";
 import { openCheckins, pendingCheckins } from "../habits/checkins";
@@ -703,7 +703,7 @@ export default function Home() {
         <SetupRow
           glyph="❧"
           title={t("home.eatingPlan")}
-          sub={`${Math.round(planDailyTotals(plan).kcal)} ${t("home.kcalPerDay")}`}
+          sub={`${Math.round(planDailyTotals(plan, getPortions()).kcal)} ${t("home.kcalPerDay")}`}
           onPress={() => router.push("/plan")}
         />
       )}

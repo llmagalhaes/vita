@@ -111,6 +111,58 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Magic-link redirect (email entry door)
+         * @description The https URL the magic-link email points at — email clients only
+         *     auto-link/allow http(s), so a raw `vita://auth` link is dead text.
+         *     Redirects (302) to `vita://auth?token=<token>` so the phone opens the
+         *     app, and serves a minimal HTML body with a tappable `vita://` anchor as
+         *     a fallback for clients that don't follow custom-scheme redirects. The
+         *     token is opaque and passed through untouched — it is verified only by
+         *     POST /auth/magic-link/verify. Not called by the app; the browser follows
+         *     it from the email.
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Opaque single-use token from the email. */
+                    token: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Redirect to the app scheme. */
+                302: {
+                    headers: {
+                        /** @description `vita://auth?token=<token>` */
+                        Location?: string;
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/html": string;
+                    };
+                };
+                default: components["responses"]["Problem"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/oidc": {
         parameters: {
             query?: never;
@@ -1050,7 +1102,7 @@ export interface paths {
         };
         /**
          * Get the current eating plan
-         * @description The newest stored version, for the Home plan row and the Eating Plan screen.
+         * @description The newest stored version, for the Home plan row and the Eating Plan screen. Since 0.6.0 the response may additionally carry the sparse `portions` override map (see PortionsMap) — additive, old clients ignore it. POST/PUT echoes and history versions never carry it.
          */
         get: {
             parameters: {
@@ -1061,13 +1113,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description The current eating plan. */
+                /** @description The current eating plan (plus optional portion overlay). */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["EatingPlanDraft"];
+                        "application/json": components["schemas"]["EatingPlanWithPortions"];
                     };
                 };
                 401: components["responses"]["Unauthorized"];
@@ -1141,6 +1193,78 @@ export interface paths {
                 default: components["responses"]["Problem"];
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/plan/portions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the eating-plan portion overlay
+         * @description Full replace of the sparse portion-override map for the CURRENT
+         *     eating-plan version. Idempotent — the map is small, there is no
+         *     incremental PATCH; offline clients drain last-write-wins. Values are
+         *     clamped server-side to the item's `portion` bounds and snapped to its
+         *     step; the response echoes the map as stored. Every key must be an item
+         *     id of the current plan version — any unknown id rejects the whole
+         *     request with 422 (the app should refetch GET /plan and resubmit). An
+         *     empty map clears the overlay. Portion changes never create plan
+         *     versions; the overlay resets when a new version is imported.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PortionsMap"];
+                };
+            };
+            responses: {
+                /** @description The overlay as stored (after clamping). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["PortionsMap"];
+                    };
+                };
+                400: components["responses"]["Problem"];
+                401: components["responses"]["Unauthorized"];
+                /** @description No current eating plan exists. */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                /** @description One or more keys are not item ids of the current plan version. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                default: components["responses"]["Problem"];
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1486,6 +1610,13 @@ export interface components {
             loadKg?: number;
             /** @description Same closed vocabulary as WorkoutDetail.muscles, but per exercise — drives per-exercise muscle tinting in the app (0.5.0). Optional; the backend maps model output onto this list and drops anything unmappable. The workout-level `muscles` stays for back-compat. */
             muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves")[];
+            /** @description Same closed 11-silhouette vocabulary as `muscles`, with each muscle's role in THIS exercise. Feeds the body-map opacities and the PRIMARY/SECONDARY banner tag (design handoff §2.2). Optional. When present and `muscles` is absent, the backend derives `muscles` from the role names; roles are never derived from a bare `muscles` list. Backend maps model output onto the vocabulary (lats/traps → back, abs/obliques → core) and drops unmappables. */
+            muscleRoles?: {
+                /** @enum {string} */
+                name: "chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves";
+                /** @enum {string} */
+                role: "primary" | "secondary";
+            }[];
         };
         /** @description A single habit check-in result (BE-024). Rides the /entries write path as a `checkin` entry and is encrypted at rest like every other detail; the server stores it verbatim and never interprets it. The Idempotency-Key is deterministic — `habitId:date` — so there is one check-in per habit per day; change the answer by PATCHing the entry (same key + a different answer is a 409). No scores, no streaks. */
         CheckinDetail: {
@@ -1527,11 +1658,36 @@ export interface components {
             items: components["schemas"]["PlanItem"][];
         };
         PlanItem: {
+            /** @description Server-generated stable item id ("it-1"…"it-N" in document order), assigned when a plan version is saved; the key of the portions overlay. Clients MUST round-trip it unchanged on PUT /plan. Absent on parse responses and on docs saved before 0.6.0 (no backfill — such docs have no usable overlay until their next save assigns ids). */
+            id?: string;
             name: string;
             quantity?: number;
             /** @description Free-form ("g", "ml", "slice"). Display verbatim. */
             unit?: string;
             nutritionPerUnit?: components["schemas"]["MacroTotals"];
+            microsPerUnit?: components["schemas"]["MicrosPerUnit"];
+            portion?: components["schemas"]["PortionBounds"];
+        };
+        /** @description Per-1-unit micronutrient estimates for a plan item — per single egg / slice / g / ml, exactly like nutritionPerUnit. All fields optional: omitted when the source doesn't state them and the model can't estimate them; the app then falls back to the daily `micros` array (CEO 2026-07-22 #2). The shared MacroTotals is NOT extended. */
+        MicrosPerUnit: {
+            fiberG?: number;
+            sodiumMg?: number;
+            ironMg?: number;
+            calciumMg?: number;
+        };
+        /** @description Slider bounds for the portion-adjust modal, derived by a deterministic backend heuristic at parse/save time — never by the model: countable units → 0..max(2·qty, qty+2) step 1; g → 0..2·qty rounded to step 10; ml → 0..2·qty rounded to step 50. Server-authoritative (client-sent values are ignored and recomputed on save). Absent when no usable quantity exists — the app keeps its portionRange fallback. */
+        PortionBounds: {
+            min: number;
+            max: number;
+            step: number;
+        };
+        /** @description Sparse portion-override map for the CURRENT eating-plan version: PlanItem.id → chosen quantity in the item's own unit. A missing id means the item's default `quantity` (the design's planQty fallback). Bound to the current version; resets when a new version is imported. A document edit (PUT /plan) touches only the edited item: untouched items keep their overrides, an edited item's override resets (quantity/unit changed), removed items are pruned. Portion changes NEVER create plan versions (CEO 2026-07-22 #1). */
+        PortionsMap: {
+            [key: string]: number;
+        };
+        /** @description GET /plan response only — the same wire object as EatingPlanDraft plus an optional `portions` key (additive; NOT a {doc, portions} wrapper). Parse responses, POST/PUT echoes, and history versions never carry `portions`. */
+        EatingPlanWithPortions: components["schemas"]["EatingPlanDraft"] & {
+            portions?: components["schemas"]["PortionsMap"];
         };
         /** @description Never persisted server-side — response only (ADR-0005). */
         TrainingProgramDraft: {

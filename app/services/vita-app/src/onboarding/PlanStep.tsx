@@ -21,7 +21,7 @@ export type PlanAnswer<D = unknown> =
   | { kind: "describing"; via: "describe" | "import"; text: string }
   | { kind: "parsing" }
   | { kind: "error" }
-  | { kind: "answered"; phrase: string; draft: D; confirmed: boolean }
+  | { kind: "answered"; phrase: string; draft: D; confirmed: boolean; source?: "pdf" | "text" }
   | { kind: "none" };
 
 export const unanswered = { kind: "unanswered" } as const;
@@ -115,7 +115,7 @@ export function PlanStep<D extends { summary: string }>({
     setDraft("");
     try {
       const parsed = await parse(phrase);
-      onChange({ kind: "answered", phrase, draft: parsed, confirmed: false });
+      onChange({ kind: "answered", phrase, draft: parsed, confirmed: false, source: "text" });
     } catch {
       onChange({ kind: "error" });
     }
@@ -128,7 +128,7 @@ export function PlanStep<D extends { summary: string }>({
     const r = await importPdf();
     if (r.status === "cancelled") return onChange({ kind: "unanswered" });
     if (r.status === "error") return onChange({ kind: "error" });
-    onChange({ kind: "answered", phrase: r.label, draft: r.draft, confirmed: false });
+    onChange({ kind: "answered", phrase: r.label, draft: r.draft, confirmed: false, source: "pdf" });
   }
 
   // Dual input (APP-041): the mic fills the describe field via the app recognizer;

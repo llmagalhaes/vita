@@ -1,12 +1,24 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import type { EatingPlanDraft, PlanItem } from "../../src/api";
-import { getCachedPlan, updatePlan } from "../../src/db/plan";
+import Animated, { FadeInUp } from "react-native-reanimated";
+import { isMockApi } from "../../src/api";
+import type { EatingPlanDraft } from "../../src/api";
+import { getCachedPlan, getPlanMeta, getPortions, setPlanMeta, setPortion, updatePlan } from "../../src/db/plan";
 import { logChanged, useLogVersion } from "../../src/db/notify";
-import { itemTotals, mealTotals, planDailyTotals, portionRange } from "../../src/plan/compute";
+import {
+  barPct,
+  itemTotals,
+  kcalLabel,
+  mealTotals,
+  planDailyTotals,
+  planMicroTotals,
+  qtyLabel,
+  qtyOf,
+} from "../../src/plan/compute";
 import { EditHeader } from "../../src/plan/editor";
+import { PortionPop } from "../../src/plan/PortionPop";
 import {
   Button,
   Card,
@@ -14,18 +26,16 @@ import {
   EstimateTag,
   KeyboardAvoider,
   PopOverlay,
-  Slider,
   Text,
   colors,
   fonts,
-  shadowPop,
-  spacing,
+  tint,
+  useAccent,
 } from "../../src/ui";
 
 const clone = (p: EatingPlanDraft): EatingPlanDraft => JSON.parse(JSON.stringify(p));
-
 const round = (n: number) => Math.round(n);
-const qtyLabel = (it: PlanItem) => `${it.quantity ?? 1}${it.unit ? ` ${it.unit}` : ""}`;
+const dateShort = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
 const MACROS = [
   { key: "proteinG", color: colors.macro.protein, tKey: "plan.protein" },
@@ -33,9 +43,9 @@ const MACROS = [
   { key: "fatG", color: colors.macro.fat, tKey: "plan.fat" },
 ] as const;
 
+/** 3 macro bars normalized to the largest macro with 10% headroom (never 100%). */
 function MacroBars({ totals }: { totals: { proteinG: number; carbsG: number; fatG: number } }) {
   const { t } = useTranslation();
-  const max = Math.max(totals.proteinG, totals.carbsG, totals.fatG, 1);
   return (
     <View style={{ gap: 6 }}>
       {MACROS.map((m) => {
@@ -43,15 +53,15 @@ function MacroBars({ totals }: { totals: { proteinG: number; carbsG: number; fat
         return (
           <View key={m.key} style={{ gap: 4 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text variant="caption" style={{ fontFamily: fonts.bold }} color="#6E6355">
+              <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#6E6355">
                 {t(m.tKey)}
               </Text>
-              <Text variant="caption" color={colors.muted}>
+              <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
                 {round(g)} g
               </Text>
             </View>
-            <View style={{ height: 7, borderRadius: 4, backgroundColor: "#F0E9DA", overflow: "hidden" }}>
-              <View style={{ height: "100%", width: `${(g / max) * 100}%`, borderRadius: 4, backgroundColor: m.color }} />
+            <View style={{ height: 7, borderRadius: 4, backgroundColor: colors.track, overflow: "hidden" }}>
+              <View style={{ height: "100%", width: `${barPct(g, totals.proteinG, totals.carbsG, totals.fatG)}%`, borderRadius: 4, backgroundColor: m.color }} />
             </View>
           </View>
         );
@@ -63,8 +73,20 @@ function MacroBars({ totals }: { totals: { proteinG: number; carbsG: number; fat
 export default function EatingPlanScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const accent = useAccent();
   const version = useLogVersion();
   const saved = useMemo(() => getCachedPlan(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const portions = useMemo(() => getPortions(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  const meta = useMemo(() => getPlanMeta(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Demo affordance: the seeded mock plan has no import metadata — badge it as a
+  // nutritionist PDF so the mock build matches the handoff. No-op in real mode.
+  useEffect(() => {
+    if (isMockApi && saved && !getPlanMeta()) {
+      setPlanMeta("pdf");
+      logChanged();
+    }
+  }, [saved]);
 
   const [editing, setEditing] = useState(false);
   const [working, setWorking] = useState<EatingPlanDraft | null>(null);
@@ -72,6 +94,7 @@ export default function EatingPlanScreen() {
 
   const back = () => (router.canGoBack() ? router.back() : router.replace("/home"));
   const view = editing && working ? working : saved;
+  const activePortions = editing ? {} : portions; // edit mode edits doc quantities directly
 
   const mutate = (fn: (d: EatingPlanDraft) => void) =>
     setWorking((w) => {
@@ -92,9 +115,7 @@ export default function EatingPlanScreen() {
     setSel(null);
   };
   const save = () => {
-    if (working) {
-      void updatePlan(working).then(logChanged); // whole-doc PUT — backend re-encrypts the blob
-    }
+    if (working) void updatePlan(working).then(logChanged); // whole-doc PUT; overlay pruned per A5
     setEditing(false);
     setWorking(null);
     setSel(null);
@@ -111,275 +132,225 @@ export default function EatingPlanScreen() {
     );
   }
 
-  const totals = planDailyTotals(view);
+  const totals = planDailyTotals(view, activePortions);
+  const liveMicros = planMicroTotals(view, activePortions);
   const selItem = sel && view.meals[sel.mi]?.items[sel.ii];
+  const selMeal = sel && view.meals[sel.mi];
+
+  // source badge label
+  const sourceLabel = meta && t(`plan.source${meta.source === "pdf" ? "Pdf" : meta.source === "text" ? "Text" : "Manual"}`);
 
   return (
     <KeyboardAvoider>
-    <ScrollView
-      style={{ flex: 1 }}
-      contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}
-      keyboardShouldPersistTaps="handled"
-    >
-      <EditHeader
-        eyebrow={t("plan.eyebrow")}
-        editing={editing}
-        back={back}
-        onEdit={startEdit}
-        onCancel={cancel}
-        onSave={save}
-      />
-
-      {/* title */}
-      <View>
-        <EditableText
-          value={view.summary}
-          editing={editing}
-          onChangeText={(text) => mutate((d) => (d.summary = text))}
-          placeholder={t("plan.titlePlaceholder")}
-          textStyle={{ fontSize: 22, fontFamily: fonts.bold, color: colors.ink }}
-          multiline
-          accessibilityLabel={t("plan.titlePlaceholder")}
-        />
-        <Text variant="caption" color={colors.muted} style={{ marginTop: 4 }}>
-          {t("plan.yourReference")}
-        </Text>
-      </View>
-
-      {/* daily totals */}
-      <Card style={{ gap: 12 }}>
-        <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
-          <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
-            <Text style={{ fontSize: 42, fontFamily: fonts.light, letterSpacing: -1 }}>
-              {round(totals.kcal)}
-            </Text>
-            <Text variant="caption" color={colors.muted}>
-              {t("plan.kcalPlanned")}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {/* header + source badge */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flex: 1 }}>
+            <EditHeader eyebrow={t("plan.eyebrow")} editing={editing} back={back} onEdit={startEdit} onCancel={cancel} onSave={save} />
+          </View>
+        </View>
+        {sourceLabel && !editing ? (
+          <View style={{ alignSelf: "flex-end", backgroundColor: colors.estimateBg, borderRadius: 8, paddingVertical: 3, paddingHorizontal: 7, marginTop: -6 }}>
+            <Text style={{ fontFamily: fonts.extraBold, fontSize: 9.5, letterSpacing: 0.8, textTransform: "uppercase" }} color={colors.estimateInk}>
+              {sourceLabel}
             </Text>
           </View>
-          <EstimateTag label={t("common.estimate")} />
+        ) : null}
+
+        {/* title */}
+        <View>
+          <EditableText
+            value={view.summary}
+            editing={editing}
+            onChangeText={(text) => mutate((d) => (d.summary = text))}
+            placeholder={t("plan.titlePlaceholder")}
+            textStyle={{ fontSize: 24, fontFamily: fonts.bold, color: colors.ink }}
+            multiline
+            accessibilityLabel={t("plan.titlePlaceholder")}
+          />
+          <Text variant="caption" style={{ fontSize: 13, marginTop: 2 }} color={colors.muted}>
+            {meta ? t("plan.importedMeta", { date: dateShort(meta.importedAt) }) : t("plan.yourReference")}
+          </Text>
         </View>
-        <MacroBars totals={totals} />
-        {view.micros && view.micros.length > 0 && (
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {view.micros.map((m) => (
-              <View key={m.name} style={{ backgroundColor: "#F0EDE2", borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
-                <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 11 }} color="#6E6355">
-                  {m.name}
-                  {m.percentDaily != null ? ` ${m.percentDaily}%` : ""}
+
+        {/* daily totals */}
+        <Animated.View entering={FadeInUp.duration(450)}>
+          <Card style={{ gap: 12 }}>
+            <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8 }}>
+                <Text style={{ fontSize: 44, fontFamily: fonts.extraLight, letterSpacing: -1.2, lineHeight: 44 }}>{kcalLabel(totals.kcal)}</Text>
+                <Text variant="caption" style={{ fontSize: 13 }} color={colors.muted}>
+                  {t("plan.kcalPlanned")}
                 </Text>
               </View>
-            ))}
-          </View>
-        )}
-      </Card>
-
-      {/* meals */}
-      {view.meals.map((meal, mi) => {
-        const mTotals = mealTotals(meal);
-        return (
-          <Card key={mi} style={{ gap: 4, paddingVertical: 12 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, flex: 1 }}>
-                <EditableText
-                  value={meal.name}
-                  editing={editing}
-                  onChangeText={(text) => mutate((d) => (d.meals[mi]!.name = text))}
-                  placeholder={t("plan.mealNamePlaceholder")}
-                  textStyle={{ fontSize: 15, fontFamily: fonts.bold }}
-                />
-                <EditableText
-                  value={meal.time ?? ""}
-                  editing={editing}
-                  onChangeText={(text) => mutate((d) => (d.meals[mi]!.time = text || undefined))}
-                  placeholder={t("plan.timePlaceholder")}
-                  textStyle={{ fontSize: 11.5, color: colors.labelMuted }}
-                />
-              </View>
-              <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.muted}>
-                {round(mTotals.kcal)} {t("common.kcal")}
-              </Text>
+              <EstimateTag label={t("common.estimate")} />
             </View>
+            <MacroBars totals={totals} />
+            {liveMicros ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 2 }}>
+                {[
+                  t("plan.microFiber", { v: liveMicros.fiberG.toFixed(1) }),
+                  t("plan.microSodium", { v: round(liveMicros.sodiumMg) }),
+                  t("plan.microIron", { v: liveMicros.ironMg.toFixed(1) }),
+                  t("plan.microCalcium", { v: round(liveMicros.calciumMg) }),
+                ].map((label) => (
+                  <View key={label} style={{ backgroundColor: "#F0EDE2", borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
+                    <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 11 }} color="#6E6355">
+                      {label}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : view.micros && view.micros.length > 0 ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, paddingTop: 2 }}>
+                {view.micros.map((m) => (
+                  <View key={m.name} style={{ backgroundColor: "#F0EDE2", borderRadius: 12, paddingVertical: 5, paddingHorizontal: 10 }}>
+                    <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 11 }} color="#6E6355">
+                      {m.name}
+                      {m.percentDaily != null ? ` ${m.percentDaily}%` : ""}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </Card>
+        </Animated.View>
 
-            {meal.items.map((it, ii) => (
-              <View
-                key={ii}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  paddingVertical: 9,
-                  borderBottomWidth: ii === meal.items.length - 1 ? 0 : 1,
-                  borderBottomColor: "rgba(120,100,75,0.07)",
-                }}
-              >
-                <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#E8B48C" }} />
-                <View style={{ flex: 1 }}>
+        {/* meals */}
+        {view.meals.map((meal, mi) => {
+          const mTotals = mealTotals(meal, activePortions);
+          return (
+            <Card key={mi} style={{ gap: 4, paddingHorizontal: 18, paddingTop: 8, paddingBottom: 10 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, paddingTop: 10, paddingBottom: 2 }}>
+                <View style={{ flexDirection: "row", alignItems: "baseline", gap: 8, flex: 1 }}>
                   <EditableText
-                    value={it.name}
+                    value={meal.name}
                     editing={editing}
-                    onChangeText={(text) => mutate((d) => (d.meals[mi]!.items[ii]!.name = text))}
-                    placeholder={t("plan.itemNamePlaceholder")}
-                    textStyle={{ fontSize: 14 }}
+                    onChangeText={(text) => mutate((d) => (d.meals[mi]!.name = text))}
+                    placeholder={t("plan.mealNamePlaceholder")}
+                    textStyle={{ fontSize: 15, fontFamily: fonts.bold }}
+                  />
+                  <EditableText
+                    value={meal.time ?? ""}
+                    editing={editing}
+                    onChangeText={(text) => mutate((d) => (d.meals[mi]!.time = text || undefined))}
+                    placeholder={t("plan.timePlaceholder")}
+                    textStyle={{ fontSize: 11.5, color: colors.labelMuted }}
                   />
                 </View>
-                {/* quantity chip — tap opens the portion sheet (slider + numeric) in edit mode */}
-                <Pressable
-                  accessibilityRole={editing ? "button" : "text"}
-                  disabled={!editing}
-                  onPress={() => editing && setSel({ mi, ii })}
-                  style={{
-                    backgroundColor: editing ? "rgba(196,112,78,0.12)" : "transparent",
-                    borderRadius: 11,
-                    paddingVertical: 4,
-                    paddingHorizontal: 9,
-                  }}
-                >
-                  <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.accent}>
-                    {qtyLabel(it)}
-                  </Text>
-                </Pressable>
-                <Text variant="caption" color={colors.muted} style={{ minWidth: 42, textAlign: "right" }}>
-                  {round(itemTotals(it).kcal)}
+                <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12 }} color={colors.muted}>
+                  ~{round(mTotals.kcal)} {t("common.kcal")}
                 </Text>
-                {editing && (
+              </View>
+
+              {meal.items.map((it, ii) => {
+                const q = qtyOf(it, activePortions);
+                const openModal = () => {
+                  // View mode: only items with a stable id carry an overlay (A2 guard).
+                  if (!editing && it.id == null) return;
+                  setSel({ mi, ii });
+                };
+                return (
+                  <Pressable
+                    key={ii}
+                    accessibilityRole="button"
+                    onPress={openModal}
+                    style={({ pressed }) => ({
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 10,
+                      paddingVertical: 11,
+                      opacity: pressed ? 0.6 : 1,
+                      borderBottomWidth: ii === meal.items.length - 1 ? 0 : 1,
+                      borderBottomColor: "rgba(120,100,75,0.07)",
+                    })}
+                  >
+                    <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: "#E8B48C" }} />
+                    <View style={{ flex: 1 }}>
+                      <EditableText
+                        value={it.name}
+                        editing={editing}
+                        onChangeText={(text) => mutate((d) => (d.meals[mi]!.items[ii]!.name = text))}
+                        placeholder={t("plan.itemNamePlaceholder")}
+                        textStyle={{ fontSize: 14, fontFamily: fonts.semiBold, color: "#4A4238" }}
+                      />
+                    </View>
+                    {/* qty pill — always rendered + tappable (view + edit) */}
+                    <View style={{ backgroundColor: tint(accent, 10), borderRadius: 11, paddingVertical: 4, paddingHorizontal: 9 }}>
+                      <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={accent}>
+                        {qtyLabel(it.unit, q)}
+                      </Text>
+                    </View>
+                    <Text variant="caption" style={{ fontSize: 12.5, minWidth: 44, textAlign: "right" }} color={colors.muted}>
+                      ~{round(itemTotals(it, q).kcal)}
+                    </Text>
+                    {editing && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t("plan.removeItem")}
+                        onPress={() => mutate((d) => d.meals[mi]!.items.splice(ii, 1))}
+                        hitSlop={8}
+                      >
+                        <Text style={{ fontFamily: fonts.bold, fontSize: 16 }} color={colors.labelMuted}>
+                          ×
+                        </Text>
+                      </Pressable>
+                    )}
+                  </Pressable>
+                );
+              })}
+
+              {editing && (
+                <View style={{ flexDirection: "row", gap: 10, paddingTop: 6 }}>
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={t("plan.removeItem")}
-                    onPress={() => mutate((d) => d.meals[mi]!.items.splice(ii, 1))}
-                    hitSlop={8}
+                    onPress={() => mutate((d) => d.meals[mi]!.items.push({ name: "", quantity: 1, unit: "", nutritionPerUnit: { kcal: 0 } }))}
                   >
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 16 }} color={colors.labelMuted}>
-                      ×
+                    <Text variant="caption" style={{ fontFamily: fonts.bold }} color={accent}>
+                      + {t("plan.addItem")}
                     </Text>
                   </Pressable>
-                )}
-              </View>
-            ))}
-
-            {editing && (
-              <View style={{ flexDirection: "row", gap: 10, paddingTop: 6 }}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() =>
-                    mutate((d) =>
-                      d.meals[mi]!.items.push({ name: "", quantity: 1, unit: "", nutritionPerUnit: { kcal: 0 } }),
-                    )
-                  }
-                >
-                  <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.accent}>
-                    + {t("plan.addItem")}
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={() => mutate((d) => d.meals.splice(mi, 1))}
-                >
-                  <Text variant="caption" color={colors.labelMuted}>
-                    {t("plan.removeMeal")}
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </Card>
-        );
-      })}
-
-      {editing ? (
-        <Button
-          label={t("plan.addMeal")}
-          variant="ghost"
-          onPress={() => mutate((d) => d.meals.push({ name: "", items: [] }))}
-        />
-      ) : (
-        <Text variant="caption" color={colors.labelMuted} style={{ textAlign: "center", paddingHorizontal: 16 }}>
-          {t("plan.tapHint")}
-        </Text>
-      )}
-
-      {/* portion adjust pop-up — centered, blurred backdrop (APP-051 PopOverlay) */}
-      <PopOverlay visible={sel != null} onClose={() => setSel(null)} closeLabel={t("common.cancel")}>
-        {selItem && sel && (
-          <View style={{ gap: spacing.md }}>
-            {/* live plan totals floating above the slider card — updates as you drag (prototype) */}
-            <Card style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 13, ...shadowPop }}>
-              <Text variant="caption" style={{ fontFamily: fonts.bold }} color={colors.muted}>
-                {t("plan.dailyTotals")}
-              </Text>
-              <Text style={{ fontFamily: fonts.light, fontSize: 19 }}>
-                {round(totals.kcal)}{" "}
-                <Text variant="caption" color={colors.muted}>
-                  {t("common.kcal")}
-                </Text>
-              </Text>
-            </Card>
-            <View
-              style={{ backgroundColor: colors.card, borderRadius: 26, padding: 20, gap: 13, borderWidth: 1.5, borderColor: "rgba(196,112,78,0.25)", ...shadowPop }}
-            >
-              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                <View style={{ flex: 1 }}>
-                  <Text variant="title" style={{ fontSize: 17 }}>
-                    {selItem.name || t("plan.itemNamePlaceholder")}
-                  </Text>
-                  <Text variant="caption" color={colors.muted}>
-                    {view.meals[sel.mi]!.name}
-                  </Text>
+                  <Pressable accessibilityRole="button" onPress={() => mutate((d) => d.meals.splice(mi, 1))}>
+                    <Text variant="caption" color={colors.labelMuted}>
+                      {t("plan.removeMeal")}
+                    </Text>
+                  </Pressable>
                 </View>
-                <Text style={{ fontSize: 22, fontFamily: fonts.light }}>
-                  {round(itemTotals(selItem).kcal)}{" "}
-                  <Text variant="caption" color={colors.muted}>
-                    {t("common.kcal")}
-                  </Text>
-                </Text>
-              </View>
+              )}
+            </Card>
+          );
+        })}
 
-              <Text style={{ textAlign: "center", fontSize: 28, fontFamily: fonts.bold }} color={colors.accent}>
-                {qtyLabel(selItem)}
-              </Text>
-
-              {(() => {
-                const r = portionRange(selItem.quantity);
-                return (
-                  <Slider
-                    value={selItem.quantity ?? 1}
-                    min={r.min}
-                    max={r.max}
-                    step={r.step}
-                    accessibilityLabel={t("plan.portionFor", { name: selItem.name })}
-                    onChange={(q) => mutate((d) => (d.meals[sel.mi]!.items[sel.ii]!.quantity = q))}
-                  />
-                );
-              })()}
-
-              {/* numeric field — dual input alongside the slider */}
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, alignSelf: "center" }}>
-                <Text variant="caption" color={colors.muted}>
-                  {t("plan.exact")}
-                </Text>
-                <EditableText
-                  value={String(selItem.quantity ?? 1)}
-                  editing
-                  numeric
-                  onChangeText={(text) => {
-                    const n = parseFloat(text);
-                    mutate((d) => (d.meals[sel.mi]!.items[sel.ii]!.quantity = Number.isFinite(n) ? n : 0));
-                  }}
-                  textStyle={{ fontSize: 15, minWidth: 60, textAlign: "center" }}
-                  accessibilityLabel={t("plan.exact")}
-                />
-                {selItem.unit ? (
-                  <Text variant="caption" color={colors.muted}>
-                    {selItem.unit}
-                  </Text>
-                ) : null}
-              </View>
-
-              <Button label={t("common.confirm")} onPress={() => setSel(null)} />
-            </View>
-          </View>
+        {editing ? (
+          <Button label={t("plan.addMeal")} variant="ghost" onPress={() => mutate((d) => d.meals.push({ name: "", items: [] }))} />
+        ) : (
+          <Text variant="caption" style={{ fontSize: 11.5, textAlign: "center", paddingHorizontal: 16 }} color={colors.labelMuted}>
+            {t("plan.tapHint")}
+          </Text>
         )}
-      </PopOverlay>
-    </ScrollView>
+
+        {/* portion adjust pop-up — centered, blurred backdrop (PopOverlay) */}
+        <PopOverlay visible={sel != null} onClose={() => setSel(null)} closeLabel={t("common.cancel")}>
+          {selItem && selMeal && sel && (
+            <PortionPop
+              item={selItem}
+              qty={qtyOf(selItem, activePortions)}
+              mealName={selMeal.name}
+              mealTime={selMeal.time}
+              dailyTotals={totals}
+              onClose={() => setSel(null)}
+              onChangeQty={(next) => {
+                if (editing) mutate((d) => (d.meals[sel.mi]!.items[sel.ii]!.quantity = next));
+                else if (selItem.id != null) setPortion(selItem.id, next, selItem.quantity);
+              }}
+            />
+          )}
+        </PopOverlay>
+      </ScrollView>
     </KeyboardAvoider>
   );
 }

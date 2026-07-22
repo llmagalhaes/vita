@@ -9,13 +9,13 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import type { Muscle, WorkoutDetail } from "../api/client";
 import type { LocalEntry } from "../db/entries";
-import { Chip, SheetOverlay, Text, colors, fonts, spacing } from "../ui";
+import { SheetOverlay, Text, colors, fonts, spacing, tint, useAccent } from "../ui";
 
 function formatLoad(kg: number, t: (k: string) => string): string {
   return `${kg}${t("workoutDetail.kg")}`;
 }
 
-/** Short source name for the "via …" meta line (IMG-3), from how the entry was logged. */
+/** Short source name for the "via …" meta line, from how the entry was logged. */
 function sourceKey(m: string): string {
   switch (m) {
     case "voice":
@@ -29,14 +29,14 @@ function sourceKey(m: string): string {
   }
 }
 
-/** Calendar-style date chip: big day over short upper-case month (IMG-3 "11 JUL"). */
-function DateBadge({ date }: { date: Date }) {
+/** Calendar-style date chip: big day over short upper-case month, accent-tinted (§7.2). */
+function DateBadge({ date, accent }: { date: Date; accent: string }) {
   return (
-    <View style={{ alignItems: "center", backgroundColor: colors.surface, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, minWidth: 52 }}>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 20, lineHeight: 22 }} color={colors.ink}>
+    <View style={{ alignItems: "center", justifyContent: "center", backgroundColor: tint(accent, 13), borderRadius: 14, width: 48, height: 48 }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 18, lineHeight: 20 }} color={accent}>
         {date.getDate()}
       </Text>
-      <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 10, letterSpacing: 1 }} color={colors.labelMuted}>
+      <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 9, letterSpacing: 1, opacity: 0.7 }} color={accent}>
         {date.toLocaleDateString(undefined, { month: "short" }).toUpperCase()}
       </Text>
     </View>
@@ -47,44 +47,53 @@ export function WorkoutPreviewSheet({
   entry,
   onClose,
   hideOpenFor,
+  sourceOverride,
 }: {
   entry: LocalEntry | null;
   onClose: () => void;
   /** Suppress the "open this workout" link when previewing this entry id (already on its page). */
   hideOpenFor?: string;
+  /** SRC label override (Health Connect rows have no inputMethod). */
+  sourceOverride?: string;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
+  const accent = useAccent();
   const d = entry?.detail as WorkoutDetail | undefined;
   const muscles = (d?.muscles ?? []) as Muscle[];
   const exercises = d?.exercises ?? [];
+  const src = sourceOverride ?? t(sourceKey(entry?.inputMethod ?? "text")).toUpperCase();
 
   return (
     <SheetOverlay visible={entry != null} onClose={onClose} closeLabel={t("common.cancel")}>
       {entry != null && d != null && (
         <View style={{ gap: spacing.md }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-            <DateBadge date={new Date(entry.occurredAt)} />
+            <DateBadge date={new Date(entry.occurredAt)} accent={accent} />
             <View style={{ flexShrink: 1, gap: 3 }}>
               <Text variant="title" style={{ fontSize: 19 }}>
                 {d.title}
               </Text>
-              <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
+              <Text variant="caption" style={{ fontSize: 12 }} color={colors.muted}>
                 {d.durationMin != null ? `${d.durationMin} ${t("common.min")} · ` : ""}
                 {d.kcal != null ? `~${Math.round(d.kcal)} ${t("common.kcal")} · ` : ""}
-                {t("workoutDetail.via")} {t(sourceKey(entry.inputMethod)).toUpperCase()}
+                {t("workoutDetail.via")} {src}
               </Text>
             </View>
           </View>
           {muscles.length > 0 && (
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
               {muscles.map((m) => (
-                <Chip key={m} label={t(`muscles.${m}`)} />
+                <View key={m} style={{ backgroundColor: tint(accent, 12), borderRadius: 12, paddingVertical: 5, paddingHorizontal: 11 }}>
+                  <Text style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={accent}>
+                    {t(`muscles.${m}`)}
+                  </Text>
+                </View>
               ))}
             </View>
           )}
           {exercises.length > 0 && (
-            <View style={{ backgroundColor: colors.card, borderRadius: 18, paddingHorizontal: 14 }}>
+            <View style={{ backgroundColor: colors.card, borderRadius: 20, paddingHorizontal: 14 }}>
               {exercises.map((ex, i) => (
                 <View
                   key={`${ex.name}-${i}`}
@@ -97,10 +106,12 @@ export function WorkoutPreviewSheet({
                     borderBottomColor: "rgba(120,100,75,0.07)",
                   }}
                 >
-                  <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 12, width: 15 }} color={colors.labelMuted}>
-                    {i + 1}
-                  </Text>
-                  <Text variant="label" style={{ flex: 1, fontSize: 13.5 }} color={colors.ink}>
+                  <View style={{ width: 24, height: 24, borderRadius: 9, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center" }}>
+                    <Text variant="caption" style={{ fontFamily: fonts.extraBold, fontSize: 11 }} color={colors.labelMuted}>
+                      {i + 1}
+                    </Text>
+                  </View>
+                  <Text variant="label" style={{ flex: 1, fontSize: 13.5, fontFamily: fonts.semiBold }} color={colors.ink}>
                     {ex.name}
                   </Text>
                   <Text variant="caption" style={{ fontSize: 12 }} color={colors.muted}>
@@ -114,7 +125,7 @@ export function WorkoutPreviewSheet({
           <Text variant="caption" style={{ fontSize: 11, textAlign: "center" }} color={colors.labelMuted}>
             {t("workoutDetail.previewHint")}
           </Text>
-          {entry.id !== hideOpenFor && (
+          {entry.id !== hideOpenFor && !sourceOverride && (
             <Pressable
               accessibilityRole="button"
               onPress={() => {

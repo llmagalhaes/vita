@@ -51,6 +51,15 @@ export type ConnectResult =
   | { ok: true; hasData: boolean }
   | { ok: false; reason: "denied" | "update_required" | "not_installed" | "error" };
 
+/** One Health Connect ExerciseSession, mapped for the workout history list (APP-081). */
+export type HcSession = {
+  id: string;
+  start: string; // ISO
+  end: string; // ISO
+  title: string | null;
+  exerciseType: number | null;
+};
+
 export interface HealthReader {
   /** Provider presence right now (SDK_AVAILABLE / update-required / absent). */
   availability(): Promise<HealthAvailability>;
@@ -58,6 +67,8 @@ export interface HealthReader {
   requestPermissions(): Promise<boolean>;
   /** Read today's active energy / steps / sessions, or null if unavailable. */
   readToday(today?: Date): Promise<HealthSnapshot | null>;
+  /** Exercise sessions in a range, for the workout history list. Stub → []. */
+  readSessions(start: Date, end: Date): Promise<HcSession[]>;
 }
 
 /**
@@ -112,6 +123,9 @@ export function stubHealthReader(): HealthReader {
     async readToday() {
       return null;
     },
+    async readSessions() {
+      return []; // honest absence (Expo Go / iOS / jest) — captured workouts only (A8)
+    },
   };
 }
 
@@ -148,6 +162,20 @@ function createHealthConnectReader(): HealthReader {
         HC().readRecords("ExerciseSession", filter),
       ]);
       return mapHealthToday(dayKey(today), active.records ?? [], steps.records ?? [], sessions.records ?? []);
+    },
+    async readSessions(start, end) {
+      await HC().initialize();
+      const filter = { timeRangeFilter: { operator: "between", startTime: start.toISOString(), endTime: end.toISOString() } };
+      const res = await HC().readRecords("ExerciseSession", filter);
+      return (res.records ?? []).map(
+        (r: { metadata?: { id?: string }; startTime: string; endTime: string; title?: string; exerciseType?: number }): HcSession => ({
+          id: r.metadata?.id ?? `${r.startTime}-${r.exerciseType ?? "x"}`,
+          start: r.startTime,
+          end: r.endTime,
+          title: r.title ?? null,
+          exerciseType: r.exerciseType ?? null,
+        }),
+      );
     },
   };
 }

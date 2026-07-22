@@ -35,7 +35,18 @@
     "addMeal": "Add a meal",
     "exact": "Exact",
     "portionFor": "Portion for {{name}}",
-    "tapHint": "Tap Edit to adjust meals, items and portions — totals update as you go."
+    "tapHint": "Tap an item to adjust portions — totals update as you drag.",
+    "sourcePdf": "via nutritionist PDF",
+    "sourceText": "via description",
+    "sourceManual": "your own entry",
+    "importedMeta": "imported {{date}} · your own reference · estimates",
+    "updatesLive": "kcal planned · updates live",
+    "mealAt": "{{name}} · {{time}}",
+    "done": "Done",
+    "microFiber": "Fiber {{v}} g",
+    "microSodium": "Sodium {{v}} mg",
+    "microIron": "Iron {{v}} mg",
+    "microCalcium": "Calcium {{v}} mg"
   },
   "program": {
     "eyebrow": "Training program",
@@ -287,7 +298,27 @@
     "byText": "logged by text",
     "byPhoto": "logged by photo",
     "byTap": "quick add",
-    "notFound": "This entry isn't available."
+    "notFound": "This entry isn't available.",
+    "history": "History",
+    "last30": "last 30 days · as logged",
+    "viaCapture": "capture",
+    "viaHealthConnect": "Health Connect",
+    "loggedBy": "Logged by {{method}}",
+    "tapChipHint": "Tap a muscle or a chip — related exercises light up below."
+  },
+  "health": {
+    "exerciseType": {
+      "running": "Run",
+      "walking": "Walk",
+      "strength": "Strength training",
+      "cycling": "Cycling",
+      "swimming": "Swim",
+      "yoga": "Yoga",
+      "hiit": "HIIT",
+      "rowing": "Rowing",
+      "elliptical": "Elliptical",
+      "other": "Workout"
+    }
   },
   "capture": {
     "placeholder": "Tell Vita what you had…",
