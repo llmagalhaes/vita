@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vita API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     Contract v0 — auth, user profile, log entries, AI parse. App-team review
     complete 2026-07-13 (`app/Doc/contract-review-v0.md`): approved, with two
@@ -14,6 +14,10 @@ info:
     land in later 0.4.0 tickets. No 0.3.0 consumer breaks.
     0.5.0 adds `Exercise.muscles` (per-exercise muscle tinting) — additive,
     optional; the workout-level `WorkoutDetail.muscles` is unchanged.
+    0.6.0 (meal-plan/workout-plan round — all additive): PlanItem gains
+    id/microsPerUnit/portion; GET /plan may return the sparse `portions`
+    overlay; PUT /plan/portions replaces it; Exercise gains muscleRoles.
+    Old clients ignore every new field; no 0.5.0 consumer breaks.
     Governed by ADR-0006 (contract-first REST, RFC 7807, cursor pagination)
     and ADR-0005 (AI drafts are never persisted server-side).
 
@@ -750,13 +754,17 @@ paths:
     get:
       tags: [plans]
       summary: Get the current eating plan
-      description: The newest stored version, for the Home plan row and the Eating Plan screen.
+      description: >-
+        The newest stored version, for the Home plan row and the Eating Plan
+        screen. Since 0.6.0 the response may additionally carry the sparse
+        `portions` override map (see PortionsMap) — additive, old clients
+        ignore it. POST/PUT echoes and history versions never carry it.
       responses:
         "200":
-          description: The current eating plan.
+          description: The current eating plan (plus optional portion overlay).
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+              schema: { $ref: "#/components/schemas/EatingPlanWithPortions" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
         default: { $ref: "#/components/responses/Problem" }
@@ -801,6 +809,45 @@ paths:
         "400": { $ref: "#/components/responses/Problem" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /plan/portions:
+    put:
+      tags: [plans]
+      summary: Replace the eating-plan portion overlay
+      description: |
+        Full replace of the sparse portion-override map for the CURRENT
+        eating-plan version. Idempotent — the map is small, there is no
+        incremental PATCH; offline clients drain last-write-wins. Values are
+        clamped server-side to the item's `portion` bounds and snapped to its
+        step; the response echoes the map as stored. Every key must be an item
+        id of the current plan version — any unknown id rejects the whole
+        request with 422 (the app should refetch GET /plan and resubmit). An
+        empty map clears the overlay. Portion changes never create plan
+        versions; the overlay resets when a new version is imported.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PortionsMap" }
+      responses:
+        "200":
+          description: The overlay as stored (after clamping).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PortionsMap" }
+        "400": { $ref: "#/components/responses/Problem" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404":
+          description: No current eating plan exists.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "422":
+          description: One or more keys are not item ids of the current plan version.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         default: { $ref: "#/components/responses/Problem" }
 
   /plan/history:
@@ -1253,6 +1300,37 @@ components:
             drives per-exercise muscle tinting in the app (0.5.0). Optional; the
             backend maps model output onto this list and drops anything
             unmappable. The workout-level `muscles` stays for back-compat.
+        muscleRoles:
+          type: array
+          items:
+            type: object
+            required: [name, role]
+            properties:
+              name:
+                type: string
+                enum:
+                  - chest
+                  - back
+                  - shoulders
+                  - biceps
+                  - triceps
+                  - forearms
+                  - core
+                  - glutes
+                  - quads
+                  - hamstrings
+                  - calves
+              role:
+                type: string
+                enum: [primary, secondary]
+          description: >-
+            Same closed 11-silhouette vocabulary as `muscles`, with each
+            muscle's role in THIS exercise. Feeds the body-map opacities and
+            the PRIMARY/SECONDARY banner tag (design handoff §2.2). Optional.
+            When present and `muscles` is absent, the backend derives `muscles`
+            from the role names; roles are never derived from a bare
+            `muscles` list. Backend maps model output onto the vocabulary
+            (lats/traps → back, abs/obliques → core) and drops unmappables.
 
     CheckinDetail:
       type: object
@@ -1367,6 +1445,15 @@ components:
       type: object
       required: [name]
       properties:
+        id:
+          type: string
+          maxLength: 40
+          description: >-
+            Server-generated stable item id ("it-1"…"it-N" in document order),
+            assigned when a plan version is saved; the key of the portions
+            overlay. Clients MUST round-trip it unchanged on PUT /plan. Absent
+            on parse responses and on docs saved before 0.6.0 (no backfill —
+            such docs have no usable overlay until their next save assigns ids).
         name:
           type: string
           maxLength: 100
@@ -1378,6 +1465,68 @@ components:
           description: Free-form ("g", "ml", "slice"). Display verbatim.
         nutritionPerUnit:
           $ref: "#/components/schemas/MacroTotals"
+        microsPerUnit:
+          $ref: "#/components/schemas/MicrosPerUnit"
+        portion:
+          $ref: "#/components/schemas/PortionBounds"
+
+    MicrosPerUnit:
+      type: object
+      description: >-
+        Per-1-unit micronutrient estimates for a plan item — per single egg /
+        slice / g / ml, exactly like nutritionPerUnit. All fields optional:
+        omitted when the source doesn't state them and the model can't
+        estimate them; the app then falls back to the daily `micros` array
+        (CEO 2026-07-22 #2). The shared MacroTotals is NOT extended.
+      properties:
+        fiberG: { type: number, minimum: 0 }
+        sodiumMg: { type: number, minimum: 0 }
+        ironMg: { type: number, minimum: 0 }
+        calciumMg: { type: number, minimum: 0 }
+
+    PortionBounds:
+      type: object
+      description: >-
+        Slider bounds for the portion-adjust modal, derived by a deterministic
+        backend heuristic at parse/save time — never by the model: countable
+        units → 0..max(2·qty, qty+2) step 1; g → 0..2·qty rounded to step 10;
+        ml → 0..2·qty rounded to step 50. Server-authoritative (client-sent
+        values are ignored and recomputed on save). Absent when no usable
+        quantity exists — the app keeps its portionRange fallback.
+      required: [min, max, step]
+      properties:
+        min: { type: number, minimum: 0 }
+        max: { type: number, minimum: 0 }
+        step: { type: number, exclusiveMinimum: 0 }
+
+    PortionsMap:
+      type: object
+      description: >-
+        Sparse portion-override map for the CURRENT eating-plan version:
+        PlanItem.id → chosen quantity in the item's own unit. A missing id
+        means the item's default `quantity` (the design's planQty fallback).
+        Bound to the current version; resets when a new version is imported.
+        A document edit (PUT /plan) touches only the edited item: untouched
+        items keep their overrides, an edited item's override resets
+        (quantity/unit changed), removed items are pruned. Portion changes
+        NEVER create plan versions (CEO 2026-07-22 #1).
+      maxProperties: 200
+      additionalProperties:
+        type: number
+        minimum: 0
+
+    EatingPlanWithPortions:
+      description: >-
+        GET /plan response only — the same wire object as EatingPlanDraft plus
+        an optional `portions` key (additive; NOT a {doc, portions} wrapper).
+        Parse responses, POST/PUT echoes, and history versions never carry
+        `portions`.
+      allOf:
+        - $ref: "#/components/schemas/EatingPlanDraft"
+        - type: object
+          properties:
+            portions:
+              $ref: "#/components/schemas/PortionsMap"
 
     TrainingProgramDraft:
       type: object

@@ -1,6 +1,36 @@
 # Backend — Next session
 
-## Current state (session 18, 2026-07-22) — meal-plan/workout-plan round SPECIFIED (no code yet)
+## Current state (session 19, 2026-07-22) — CEO amendments baked in + BE-036 EXECUTED (contract v0.6.0 live in repo)
+
+CEO amendments A1–A9 (2026-07-22, binding) folded into the round, then BE-036 executed.
+Ledger: `Progress/BE-036-contract-v0.6.0-Progress.md`.
+
+- **Amendments baked into `docs/meal-plan-handover/backend-spec.md`** (header lists them; the
+  spec is now the only truth): **A1** portions overlay = **plaintext jsonb** (`plan_portions.portions`,
+  no per-user DEK/AAD/crypto-shred/SmokeTest C3; deletion = plain FK cascade) — simplifies BE-038;
+  **A2** **no backfill** — ids assigned at save/parse-save time only, NO on-read derivation
+  (§2 rewritten; id-less pre-0.6.0 docs read back id-less, 422 on portions, path out = re-import
+  or PUT re-save; destructive dev-DB resets allowed); **A4** handoff §1.2 table = EXAMPLE data,
+  golden test input only, asserts computed from the fixture (§5.3/§7); **A5** PUT /plan doc edits:
+  untouched item keeps override, edited item (qty/unit changed) resets, removed pruned — no
+  re-clamp step exists (§4.4/D-2). **§10 has NO open CEO questions** (old Q1 = A5).
+- **BE-036 EXECUTED:** `docs/contracts/vita-api-v0.yaml` **0.5.0 → 0.6.0 additive**
+  (PlanItem id/microsPerUnit/portion; MicrosPerUnit/PortionBounds/PortionsMap/
+  EatingPlanWithPortions; GET /plan → EatingPlanWithPortions; new PUT /plan/portions;
+  Exercise.muscleRoles). redocly valid, 0 errors (pre-existing operationId warnings only).
+  **ADR-0017** created (`Doc/ADRs/ADR-0017-contract-v0.6.0-portions-micros-muscle-roles.md`).
+  Asana BE-036 commented + notes updated.
+- **Asana tickets rewritten to the simplified truth:** BE-037 (renamed "…at plan save (no
+  backfill)"; reads return stored bytes verbatim), BE-038 (renamed "…plaintext jsonb…"; V008 =
+  `portions jsonb NOT NULL`, CREATE TABLE only; A5 prune/reset rules; no crypto asserts),
+  BE-039 (A4 fixture rule; §5.4 observability INFO line + output-budget review). BE-040/041
+  checked — already clean.
+- **Next backend action:** Opus builder executes BE-037 → BE-038 ∥ BE-039 ∥ BE-040 → BE-041
+  (image only; task-def/rollout = OPS-024 Terraform, hard gate in spec §6). Suite baseline 157
+  green; next migration V008. Uncommitted work this session: contract YAML, ADR-0017, spec,
+  BE-036 ledger, this file — orchestrator commits.
+
+## Previous state (session 18, 2026-07-22) — meal-plan/workout-plan round SPECIFIED (no code yet)
 
 Spec phase for the CEO-approved meal-plan feature (docs/meal-plan-handover/DESIGN-SPEC.md — binding).
 Deliverable: **`docs/meal-plan-handover/backend-spec.md`** — build-ready: exact contract v0.6.0 YAML

@@ -3,6 +3,17 @@
 Team: **backend** (Kotlin/Spring, `backend/services/vita-api`). Spec phase 2026-07-22.
 Tickets: **BE-036 … BE-041** (Asana board `1216519867368580`, Backlog).
 
+> **CEO AMENDMENTS 2026-07-22 — BAKED IN BELOW (this version is the only truth):**
+> **A1** portions overlay is **plaintext** (not sensitive) — no per-user DEK, no AAD, no
+> crypto-shred wiring; deletion = plain FK cascade. **A2** **no legacy/backfill work** — ids are
+> assigned at save/parse time only; no on-read derivation; pre-0.6.0 rows may be invalidated;
+> destructive migrations acceptable. **A3** program/workout persistence touched by this round
+> needs no encryption (keep existing code where that's the shortest path; no repo-wide decrypt
+> sweep). **A4** the handoff §1.2 nutrition table is EXAMPLE data — golden TEST input only; no
+> product code or constant uses its numbers. **A5** PUT /plan doc-edit semantics: untouched item
+> keeps its override; edited item's override resets; removed item's override pruned; re-import
+> (POST) resets all. §10 Q1 is thereby ANSWERED — no open CEO questions.
+
 Binding sources, in precedence order:
 
 1. `docs/meal-plan-handover/DESIGN-SPEC.md` — CEO-approved architecture (2026-07-22). Do not relitigate.
@@ -11,8 +22,9 @@ Binding sources, in precedence order:
 
 Existing code this touches: `model/ai/PlanDtos.kt`, `service/ai/{PlanPrompts,PlanParseService,ParseService,ClaudeClient}.kt`,
 `service/plans/PlanService.kt`, `repository/plans/PlanRepository.kt`, `controller/plans/PlanController.kt`,
-`service/entries/EntryService.kt`, `model/entries/EntryDetail.kt`, `service/crypto/CryptoService.kt` (AadContext),
-migrations `V001..V007` (next free: **V008**).
+`service/entries/EntryService.kt`, `model/entries/EntryDetail.kt`,
+migrations `V001..V007` (next free: **V008**). (`CryptoService` is NOT touched — A1: the
+portions table is plaintext; the doc blob keeps its existing envelope untouched.)
 
 ---
 
@@ -20,15 +32,15 @@ migrations `V001..V007` (next free: **V008**).
 
 | # | Decision | Why / ceiling |
 |---|---|---|
-| D-1 | Item ids `it-1…it-N` flat in document order, assigned at write time, **stored inside the doc blob**; legacy docs get the same ids **derived on read** (pure function, never persisted by GET). | Deterministic backfill for free; see §2. Ceiling: content-hash ids if positional identity ever proves too weak. |
-| D-2 | Overlay **survives PUT /plan doc edits** (removed ids pruned, surviving values re-clamped); **resets only on POST /plan** (new version). | Matches DESIGN-SPEC's binding sentence ("RESETS when a new version is created"; PUT does not create versions per contract v0.4.0/D5). CEO confirm question filed (§10 Q1). |
+| D-1 | Item ids `it-1…it-N` flat in document order, assigned at **save/parse-save time only**, **stored inside the doc blob**. NO on-read derivation, NO backfill (CEO A2): a stored doc without ids simply has no ids (and no usable overlay) until its next save re-assigns them. | Zero legacy code; we are pre-real-users. Ceiling: content-hash ids if positional identity ever proves too weak. |
+| D-2 | Overlay **survives PUT /plan doc edits per-item** (CEO A5): untouched item keeps its override verbatim; **edited item** (its `quantity` or `unit` changed vs the previous doc) → **override deleted**; removed item → override pruned. **Resets fully only on POST /plan** (new version). No re-clamping needed — untouched items' bounds are unchanged by construction. | CEO A5 2026-07-22 (answers old §10 Q1). |
 | D-3 | `PUT /plan/portions`: **unknown itemId → 422 whole-request reject** (orchestrator-fixed); known item with out-of-range/off-step qty → **clamp + snap**, echo stored map. Non-numeric/NaN/Infinity/negative → 400. | A stale-version client gets a clear "refetch /plan" signal; minor numeric drift never fails an offline sync. |
-| D-4 | `PlanItem.portion` is **server-authoritative**: recomputed by the heuristic at parse AND at every save; client-sent `portion` is ignored/overwritten. Derived on read for legacy docs when computable (§3.3). | Determinism; no drift between parse-time and save-time bounds. |
+| D-4 | `PlanItem.portion` is **server-authoritative**: recomputed by the heuristic at parse AND at every save; client-sent `portion` is ignored/overwritten. No read-time derivation (A2 — reads return what's stored). | Determinism; no drift between parse-time and save-time bounds. |
 | D-5 | When `muscleRoles` present and `muscles` absent, server derives `muscles` = role names (deduped). Roles are **never invented** from a bare `muscles` list. | Back-compat for old clients; no fake data. |
 | D-6 | No `GET /plan/portions` endpoint — the overlay rides `GET /plan`. No PATCH — full-map PUT only (map is ≤ a few dozen keys). | Ponytail. |
 | D-7 | `POST /plan` / `PUT /plan` responses stay plain `EatingPlanDraft` (no `portions` key). Only `GET /plan` carries the overlay. | POST just reset it (empty); PUT caller already holds it; GET is the sync point. |
 | D-8 | Overlay is eating-plan-only (`plan_portions` table). No program overlay. | YAGNI — nothing in the design adjusts program quantities. |
-| D-9 | The handoff prose "Defaults yield ~1,880 kcal/day" is **inconsistent with its own item table**: Σ(per.k × qty) over the 11 reference items = **1,756.2 kcal** (verified by computation, §7). The formula is binding; fixtures assert the computed sums. Not a CEO question — arithmetic, not product. |
+| D-9 | The handoff §1.2 table is **EXAMPLE data, not product truth** (CEO A4): all nutrition values come from Claude parse estimates at import; totals are ALWAYS computed from per-item data. The table survives only as deterministic golden TEST input — fixtures assert values *computed from the fixture itself* (e.g. Σ(per.k × qty) over the 11 rows = 1,756.2, §7); no product code or ticket treats any table number as a constant. (The handoff prose "~1,880" is inconsistent with its own table — moot, both are just sample data.) |
 | D-10 | Empty portions map on PUT = clear: delete the row. GET then omits the `portions` key entirely (never emits `{}`). | One representation for "no overrides". |
 | D-11 | Program-parse per-exercise `muscles` (in contract since 0.5.0 but never extracted by the program tool) is added together with `muscleRoles` in BE-040. | The tool schema currently stops at name/sets/reps/loadKg — closing a real gap, not scope creep. |
 
@@ -58,9 +70,9 @@ Old clients ignore every new field; no 0.5.0 consumer breaks.
           description: >-
             Server-generated stable item id ("it-1"…"it-N" in document order),
             assigned when a plan version is saved; the key of the portions
-            overlay. Clients MUST round-trip it unchanged on PUT /plan. Plans
-            stored before 0.6.0 get the same ids derived deterministically on
-            read (document order); they are persisted on the next write.
+            overlay. Clients MUST round-trip it unchanged on PUT /plan. Absent
+            on parse responses and on docs saved before 0.6.0 (no backfill —
+            such docs have no usable overlay until their next save assigns ids).
         name:
           type: string
           maxLength: 100
@@ -119,7 +131,10 @@ Old clients ignore every new field; no 0.5.0 consumer breaks.
         PlanItem.id → chosen quantity in the item's own unit. A missing id
         means the item's default `quantity` (the design's planQty fallback).
         Bound to the current version; resets when a new version is imported.
-        Portion changes NEVER create plan versions (CEO 2026-07-22 #1).
+        A document edit (PUT /plan) touches only the edited item: untouched
+        items keep their overrides, an edited item's override resets
+        (quantity/unit changed), removed items are pruned. Portion changes
+        NEVER create plan versions (CEO 2026-07-22 #1).
       maxProperties: 200
       additionalProperties:
         type: number
@@ -234,9 +249,9 @@ Add to the existing `Exercise` schema (alongside `muscles`, which is unchanged):
 
 ---
 
-## 2 · Item id scheme + legacy backfill (the required edge case)
+## 2 · Item id scheme (save-time only — NO backfill, CEO A2)
 
-**Scheme.** Ids are `it-N`, N = 1-based position in **flat document order** (meals in order, items within each meal in order). Assigned server-side; stored inside the encrypted doc blob (the doc is one JSON blob — no schema change).
+**Scheme.** Ids are `it-N`, N = 1-based position in **flat document order** (meals in order, items within each meal in order). Assigned server-side **at save time only**; stored inside the doc blob (the doc is one JSON blob — no schema change). Reads return exactly what's stored — no derivation, no decoration, GET is trivially side-effect free.
 
 **On POST /plan (new version):** ignore any client-sent ids; assign `it-1…it-N` fresh in document order. (New version = new identity space; the overlay was just reset anyway.)
 
@@ -244,16 +259,13 @@ Add to the existing `Exercise` schema (alongside `muscles`, which is unchanged):
 - Client-sent ids that are non-blank, ≤ 40 chars, and unique within the doc are **preserved verbatim**.
 - Duplicate ids in the request → **400** ("duplicate item id: …").
 - Items without an id get fresh ids `it-{max+1}…`, where max = the highest numeric suffix among incoming `it-N`-shaped ids (non-matching ids ignored for max; no matches → max = 0). Deterministic.
-- After save, prune the portions overlay of ids no longer present (§4.4).
+- After save, apply the A5 overlay rules (§4.4): prune removed ids, reset edited items' overrides, keep the rest.
 
-**Legacy backfill (docs stored in prod before v0.6.0 — no ids).** On any read (GET /plan, GET /plan/history, and the internal read inside PUT /plan/portions validation): if an item lacks an id, derive it as `it-N` in flat document order — a **pure function, nothing persisted by reads** (GET stays side-effect free; two reads of the same frozen doc always yield identical ids). Ids become persisted on the next write via the PUT preservation rule (the app round-trips them).
+**Pre-0.6.0 stored docs (no ids): no special handling.** We are not in production for real users (CEO A2) — such a doc reads back id-less, `PUT /plan/portions` against it 422s on every key (no effective ids), and the app's path out is re-import (POST) or an edit save (PUT assigns fresh ids via the rule above). Existing rows may be invalidated; dropping/recreating the dev DB is explicitly allowed. No derivation code exists.
 
-**Failure modes, named:**
-1. *Pre-0.6.0 app PUT-edits after portions exist.* An old client that strips ids AND reorders/inserts/removes items shifts flat-order reassignment → an overlay entry can attach to the wrong item (value still clamped to that item's bounds, so never out-of-range). Window closes when the 0.6.0 app ships (same round); named and accepted. Note: an old client that edits **without** reordering is safe — reassignment order equals derivation order.
-2. *History versions never get persisted ids* (frozen, read-only). Fine: derived ids are stable per read and the overlay never applies to history.
-3. *Same derived ids across users/versions* (`it-1` everywhere). Not a collision: the overlay row is keyed by (user, current plan version) — ids only need uniqueness within one doc.
+**Same ids across users/versions** (`it-1` everywhere) is not a collision: the overlay row is keyed by (user, current plan version) — ids only need uniqueness within one doc.
 
-Program docs (`/program`) also get ids assigned/derived by the same code path (they flow through the same `PlanService`) — harmless, uniform, and the muscle-map screen may key by them later. The overlay itself remains eating-plan-only (D-8).
+Program docs (`/program`) also get ids assigned by the same save-time code path (they flow through the same `PlanService`) — harmless, uniform, and the muscle-map screen may key by them later. The overlay itself remains eating-plan-only (D-8).
 
 ---
 
@@ -293,7 +305,7 @@ Rounding is **half-up** (`Math.round` on non-negative doubles). All outputs are 
 
 - COUNTABLE → always emitted (missing quantity defaults q = 1 → `0..3 step 1`).
 - G/ML with `quantity == null || quantity <= 0` → **omit `portion`** (a degenerate 0..step slider is worse than the app's `portionRange` fallback).
-- Computed at: parse response (both text and PDF), POST /plan save, PUT /plan save, and read-decoration of legacy docs missing `portion`. Always recomputed from `quantity`+`unit`; client-sent `portion` is discarded (D-4).
+- Computed at: parse response (both text and PDF), POST /plan save, PUT /plan save. Never at read time (A2 — reads return what's stored). Always recomputed from `quantity`+`unit`; client-sent `portion` is discarded (D-4).
 
 ### 3.4 Reference table (heuristic over the handoff's 11 items — table-driven test rows)
 
@@ -317,57 +329,64 @@ Edge rows for the same test: `(null, "egg") → 0..3 step 1` · `(1.5, "scoop") 
 
 ---
 
-## 4 · Portions overlay — storage, crypto, endpoints, semantics
+## 4 · Portions overlay — storage, endpoints, semantics
 
 ### 4.1 Migration `V008__plan_portions.sql` (expand-only, ADR-0002)
 
 ```sql
 -- V008 — eating-plan portion overlay (meal-plan round, CEO 2026-07-22 #1).
 -- One row per user: the sparse {PlanItem.id: qty} map for the CURRENT
--- eating_plan version, as a single encrypted blob (per-user DEK, C3,
--- ADR-0003). plan_id pins the version the overlay belongs to; a new import
--- resets it (row deleted). Portion changes never create plan versions.
--- ON DELETE CASCADE + crypto-shred make it unreadable then gone on account
--- deletion (ADR-0004), exactly like eating_plan itself. Expand-only.
+-- eating_plan version, PLAINTEXT jsonb (CEO amendment A1 2026-07-22:
+-- portions are not sensitive — no per-user DEK, no AAD). plan_id pins the
+-- version the overlay belongs to; a new import resets it (row deleted).
+-- Portion changes never create plan versions. ON DELETE CASCADE cleans it
+-- on account deletion — plain FK cascade, no crypto-shred involvement.
+-- Expand-only (CREATE TABLE only — rollback gate, spec §6).
 
 CREATE TABLE plan_portions (
-    user_id      uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,      -- C1
-    plan_id      uuid NOT NULL REFERENCES eating_plan (id) ON DELETE CASCADE,   -- C1: the version this overlay is bound to
-    portions_enc bytea NOT NULL,                                                -- C3: per-user DEK, encrypted {itemId: qty}
-    updated_at   timestamptz NOT NULL DEFAULT now()                             -- C1
+    user_id    uuid PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,      -- C1
+    plan_id    uuid NOT NULL REFERENCES eating_plan (id) ON DELETE CASCADE,   -- C1: the version this overlay is bound to
+    portions   jsonb NOT NULL,                                                -- C1: plaintext {itemId: qty} (CEO A1)
+    updated_at timestamptz NOT NULL DEFAULT now()                             -- C1
 );
 ```
 
-One row per user (PRIMARY KEY user_id) — replace-on-write upsert, the `vacation` pattern. Plaintext inside the blob: the JSON object `{"it-3": 3, "it-7": 250}` exactly as on the wire.
+One row per user (PRIMARY KEY user_id) — replace-on-write upsert, the `vacation` pattern. `portions` holds the JSON object `{"it-3": 3, "it-7": 250}` exactly as on the wire.
 
-### 4.2 Crypto envelope
+### 4.2 No crypto (CEO amendment A1)
 
-- `AadContext` gains `const val PLAN_PORTIONS = "plan_portions.portions"`; encrypt/decrypt via the existing `CryptoService.encryptForUser/decryptForUser(userId, AadContext.PLAN_PORTIONS, bytes)` — AAD binds to `"$userId:plan_portions.portions"` (ADR-0003 hardened form).
-- Quantities reveal eating behaviour → C3, same envelope as the doc. No plaintext numbers in this table.
-- Crypto-shred (`CryptoService.shred`) + `ON DELETE CASCADE` cover account deletion; add `plan_portions.portions_enc` to `SmokeTest`'s C3 bytea column list.
+Portion overrides are **not sensitive** — plaintext jsonb. Explicitly NOT done: no `AadContext`
+entry, no `CryptoService` calls on this table, no `SmokeTest` C3 listing, no crypto-shred wiring.
+Account deletion cleans the row via the plain `ON DELETE CASCADE` FK (ADR-0004's cascade half —
+the shred half doesn't apply here). The eating-plan **doc blob itself keeps its existing
+encryption** — this round doesn't touch it (A3: no repo-wide decrypt sweep).
 
 ### 4.3 `PUT /v1/plan/portions` — server flow
 
 1. Load current eating-plan version; none → **404**.
-2. Decrypt doc; compute effective item ids (stored or derived, §2) and portion bounds (§3).
+2. Decrypt doc (doc blob keeps its existing encryption, A3); read the **stored** item ids and portion bounds (no derivation, §2/A2).
 3. Request map validation:
    - \> 200 keys, or any value non-numeric / NaN / ±Infinity / negative → **400** (problem+json says which key).
-   - Any key not an effective item id of the current version → **422**, detail lists the offending ids, whole request rejected (no partial apply).
+   - Any key not a stored item id of the current version → **422**, detail lists the offending ids, whole request rejected (no partial apply). (A pre-0.6.0 id-less doc 422s on every key — re-import is the path out, §2.)
 4. Clamp every value: `snap = round(q / step) · step` (half-up), then `coerceIn(min, max)`. Items without `portion` bounds (§3.3 omitted): accept qty ≥ 0 as-is, only floor at 0.
-5. Empty map after validation → delete the row (**200** `{}`). Else upsert `(user_id, plan_id = current.id, portions_enc = encrypt(map))`.
+5. Empty map after validation → delete the row (**200** `{}`). Else upsert `(user_id, plan_id = current.id, portions = map)` — plaintext jsonb (A1).
 6. Respond **200** with the map as stored. Idempotent by construction; no Idempotency-Key. Last-write-wins under concurrency (matches the app's offline outbox design).
 
-### 4.4 Reset / prune semantics
+### 4.4 Reset / prune semantics (CEO A5)
 
 - **POST /plan (new version):** delete the user's `plan_portions` row in the same transaction (`@Transactional` on the import path; eating-plan table only). → Overlay RESETS on new version; every item shows its default qty.
-- **PUT /plan (doc edit, same version):** after saving, decrypt the overlay (if any), drop keys not among the new effective ids, re-clamp survivors against recomputed bounds, re-encrypt (delete row if empty). Overlay survives edits for surviving items (D-2).
+- **PUT /plan (doc edit, same version):** after saving, for each overlay key (if a row exists):
+  - id no longer present in the new doc → **prune** the key (removed item);
+  - id present but the item's `quantity` **or** `unit` differs from the previous doc → **delete** the key (edited item — its bounds changed, override resets; name-only edits keep it);
+  - otherwise → **keep verbatim** (untouched item; bounds unchanged by construction, so no re-clamping exists).
+  Delete the row if the map ends empty. Plain jsonb read/write — no crypto (A1).
 - **GET /plan:** attach `portions` only when the row exists AND `row.plan_id == current.id`; on mismatch (any path that changed the version without cleanup) treat as absent and lazily delete the row. History responses never touch the overlay.
 - **Trim/cascade:** `plan_id … ON DELETE CASCADE` is the backstop if a version row is ever deleted out from under the overlay (trim only deletes old versions, never the current one — the explicit POST-reset is the real mechanism).
 
 ### 4.5 Files
 
-`repository/plans/PlanPortionsRepository.kt` (get/upsert/delete, blob-only like `PlanRepository`),
-overlay logic inside `service/plans/PlanService.kt` (it owns crypto + doc typing already — no new service),
+`repository/plans/PlanPortionsRepository.kt` (get/upsert/delete — plain jsonb, no crypto),
+overlay logic inside `service/plans/PlanService.kt` (it owns doc typing already — no new service),
 endpoint on `controller/plans/PlanController.kt`.
 
 ---
@@ -455,6 +474,12 @@ Stored docs: the program doc blob stores whatever the normalized draft contains 
 
 ### 5.3 Eval fixtures (mirror the BE-014 pattern: golden WireMock + optional live tag)
 
+**A4 rule (binding):** the handoff §1.2 table is EXAMPLE data. It may serve as deterministic
+golden TEST input, and every assert is **computed from the fixture's own per-item data** —
+no fixture, test, or product code hard-codes 1,756.2 or any other table number as product truth.
+In production, all nutrition values come from Claude parse estimates at import; totals are
+always computed from per-item data.
+
 New `src/test/resources/eval/plan-parse-cases.json` + `PlanParseEvalTest` (dynamic tests over golden Claude responses, exactly the `ParseEvalTest`/`ParseEvalCases` structure). Live twin rides the existing `liveEval` gradle task via a `@Tag("live")` test, same cases, looser asserts.
 
 Concrete cases:
@@ -500,13 +525,14 @@ Corollary for BE-038: **V008 must be CREATE TABLE only** (no ALTER of `eating_pl
 
 ---
 
-## 7 · Reference-data expected totals (computed 2026-07-22; D-9)
+## 7 · Reference-fixture expected totals (computed 2026-07-22; D-9/A4)
 
-Σ(per-unit × default qty) over the handoff's 11 items:
+**Test-cross-check values only** (A4): these are Σ(per-unit × default qty) computed over the
+handoff's 11 example rows — useful to sanity-check the fixture asserts, never a product constant.
 
 | figure | value |
 |---|---|
-| kcal | **1,756.2** (handoff prose claims "~1,880" — inconsistent with its own table; the formula is binding) |
+| kcal | **1,756.2** (the handoff prose "~1,880" disagrees with its own table — both are sample data; the formula is what's binding) |
 | protein | 145.4 g |
 | carbs | 154.2 g |
 | fat | 56.7 g |
@@ -525,9 +551,9 @@ Display formulas (app-side, listed for fixture cross-checks): `planKcal = '~' + 
 
 **PlanFlowTest extensions** (Testcontainers, existing file):
 - POST /plan assigns `it-1…it-N` in document order; response carries ids + recomputed `portion`; client-sent ids/portion on POST are ignored.
-- Legacy backfill: insert a doc blob WITHOUT ids via the service (pre-0.6.0 shape), GET twice → identical derived ids both times, nothing persisted (blob unchanged in DB); PUT round-trip then persists them.
+- Id-less stored doc (pre-0.6.0 shape, inserted via the service): GET returns it without ids (no derivation, A2); a subsequent PUT save assigns fresh ids.
 - PUT /plan preserves round-tripped ids; new item gets `it-{max+1}`; duplicate ids → 400.
-- History: responses carry derived ids, never a `portions` key; frozen bytes untouched by reads.
+- History: responses carry whatever ids were stored at save time, never a `portions` key; frozen bytes untouched by reads.
 
 **PlanPortionsFlowTest** (new, Testcontainers):
 - PUT stores; GET /plan returns the map; PUT again with the same body → same 200 body (idempotent); PUT with changed body replaces fully (keys absent from the new body are gone).
@@ -535,8 +561,8 @@ Display formulas (app-side, listed for fixture cross-checks): `planKcal = '~' + 
 - Clamp: qty above max → max; off-step (e.g. 187 on step 10) → snapped; negative value → 400; > 200 keys → 400.
 - No current plan → 404. Empty map → row deleted, GET omits `portions`.
 - **Reset-on-new-version:** PUT portions → POST /plan (new version) → GET has no `portions`; DB row gone.
-- **Prune-on-edit:** PUT portions for it-2/it-5 → PUT /plan removing item it-5 → GET shows only it-2, re-clamped to the recomputed bounds.
-- **Crypto envelope:** stored `portions_enc` bytes ≠ plaintext JSON; decrypt with wrong AAD context fails (CryptoServiceTest pattern); account purge shreds + cascades the row (AccountFlowTest extension); SmokeTest lists `plan_portions.portions_enc` as C3.
+- **A5 edit semantics:** PUT portions for it-2/it-3/it-5 → PUT /plan that removes it-5, changes it-2's quantity, and leaves it-3 untouched → GET shows ONLY it-3's override, verbatim (it-5 pruned, it-2 reset).
+- **Cascade:** account purge deletes the row via plain FK cascade (AccountFlowTest extension). No crypto asserts — the column is plaintext jsonb by design (A1); no SmokeTest C3 entry.
 
 **Parse (golden/WireMock):** the six §5.3 cases; PlanParseFlowTest existing cases stay green (tool-schema change must not break old goldens — additive properties only).
 
@@ -551,7 +577,7 @@ Display formulas (app-side, listed for fixture cross-checks): `planKcal = '~' + 
 | Ticket | Title | Model | Depends on |
 |---|---|---|---|
 | BE-036 | Contract v0.6.0 additive diff + ADR-0017 | Sonnet (simple) | — |
-| BE-037 | PlanItem ids + portion-bounds heuristic in plan save/read | Opus 4.8 (complex) | BE-036 |
+| BE-037 | PlanItem ids + portion-bounds heuristic at plan save (no backfill — A2) | Opus 4.8 (complex) | BE-036 |
 | BE-038 | Portions overlay: V008 + PUT /plan/portions + GET /plan decoration | Opus 4.8 (complex) | BE-037 |
 | BE-039 | Eating-plan parse: microsPerUnit + portion decoration + eval fixtures | Opus 4.8 (complex) | BE-037 (heuristic), BE-036 |
 | BE-040 | muscleRoles: program parse + capture parse + shared vocabulary | Opus 4.8 (complex) | BE-036 (parallel with 037-039) |
@@ -563,4 +589,7 @@ Done = in production (`./gradlew check` green, deployed image, live probes green
 
 ## 10 · Questions for the CEO
 
-1. **Portion overrides across plan edits.** When the user edits the plan document itself (PUT /plan — rename, add or remove items — same version), we KEEP portion overrides for items that survive the edit (removed items are pruned, kept values re-clamped to fresh bounds); overrides reset only when a whole new plan is imported. Confirm — or should any document edit reset all portion adjustments? (Your decision #1 says the doc "versions on real edits (import / item edits)"; the shipped API edits the current version in place without creating a version, so we read "reset on new version" literally. Changing PUT to version-on-edit would also silently fill the 5-slot history with micro-edits.)
+None. The former Q1 (portion overrides across plan edits) was answered by CEO amendment **A5**
+(2026-07-22): an edit touches only the edited item — untouched items keep their overrides,
+the edited item's override resets, removed items are pruned; re-import still resets all. Baked
+into §4.4/D-2.

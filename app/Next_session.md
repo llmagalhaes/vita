@@ -1,5 +1,23 @@
 # App Team — Next Session
 
+## Session 18b (2026-07-22) — CEO amendments baked into the meal-plan spec + tickets ✅
+CEO answered everything; the build is UN-GATED once the backend merges contract v0.6.0 into
+`docs/contracts/vita-api-v0.yaml` (backend lead writing it in parallel). Amendments A1–A9
+folded into `docs/meal-plan-handover/app-spec.md` AND all 7 ticket descriptions (binding
+`CEO AMENDMENTS 2026-07-22` blocks). **app-spec §11 is now EMPTY — no open CEO questions.**
+Ledger: `Progress/APP-075-081-meal-plan-Progress.md`. Key deltas for the builder:
+- **A2:** old-doc portion fallback DELETED (APP-079 shrinks; APP-078 gains a 1-line id guard;
+  mock createPlan assigns ids). No legacy/backfill work anywhere; destructive migrations OK.
+- **A5:** NEW `pruneOverlayAfterEdit` in APP-076 — doc edit resets ONLY the edited item's
+  override (qty/unit changed → reset; removed → pruned; others survive). Re-import still
+  resets all.
+- **A4:** handoff §1.2 table = example data / golden TEST fixture only; asserts computed from
+  the in-test fixture, never hand-copied constants (the old "binding 1,756.2" framing is void).
+- **A6/A7 confirmed** (numeric field + Edit mode stay) · **A8/A9 approved** (iOS captures-only;
+  muscleRoles opacity rule stands). **A1/A3:** backend plaintext — no app impact.
+- NOTE: the session-18 line below saying `kcalLabel "~1,880"` is stale — kcalLabel takes the
+  computed Σ; no constant.
+
 ## Session 18 (2026-07-22) — Meal-plan/workout-plan SPEC phase (no code) ✅
 CEO-approved architecture (`docs/meal-plan-handover/DESIGN-SPEC.md`, BINDING) turned into the
 build-ready app spec **`docs/meal-plan-handover/app-spec.md`** + 7 Asana tickets

@@ -6,6 +6,21 @@ App-team spec for the CEO-approved architecture in `docs/meal-plan-handover/DESI
 (all px/colors/formulas below are lifted from it; on any conflict the handoff wins for visuals,
 DESIGN-SPEC wins for architecture). This is an EVOLUTION of the existing screens, not a rewrite.
 
+> **CEO AMENDMENTS 2026-07-22 (binding, baked in below — they OVERRIDE older spec text and
+> DESIGN-SPEC where they conflict):** A1 portions are NOT sensitive — plaintext on the backend,
+> no crypto wiring (backend-side; nothing app-visible). A2 NO legacy/backfill work — we are not
+> in production; item ids are assigned at save/parse time only, old DB rows may be invalidated,
+> destructive migrations allowed → the app-side old-doc portion fallback is DELETED (§5). A3 no
+> encryption expectations for workout/program data touched this round (backend-side). A4 the
+> handoff §1.2 nutrition table is an EXAMPLE, not product truth — all nutrition comes from
+> Claude parse estimates; fixtures may use the table as deterministic golden TEST input with
+> asserts computed from the fixture; no product code or ticket treats any table number as a
+> constant. A5 document edits touch ONLY the edited item's override (§2.5). A6 numeric exact
+> field stays in the portion modal. A7 Edit button/mode stays on the Eating Plan screen.
+> A8 iOS history = captured workouts only this round. A9 the deterministic muscleRoles opacity
+> rule stands; deviation from the handoff's hand-tuned calves/core values approved.
+> §11 is now empty — every former CEO question is answered inline.
+
 Repo paths in this doc are relative to `app/services/vita-app/` unless rooted.
 
 Tickets: APP-075..APP-081 on the Vita frontend board (`1216519867368576`). Dependency order:
@@ -59,6 +74,10 @@ Fragile paths (session-13/14 lessons — respect, do not touch):
 Backend owns the contract change (all additive; see DESIGN-SPEC "Contract v0.6.0"):
 
 - `PlanItem.id?: string` — stable server-generated per saved plan version. Overlay key.
+  **A2:** ids are assigned at save/parse time ONLY — there is NO on-read backfill for old rows
+  (BE-037's backfill is dropped; legacy server rows may be invalidated/destructively migrated).
+  Consequence for the app: every item of a saved plan hydrated from the v0.6.0 server carries
+  an id; the app builds NO legacy handling (§5).
 - `PlanItem.microsPerUnit?: { fiberG?: number; sodiumMg?: number; ironMg?: number; calciumMg?: number }`
   — typed object, NOT an extension of `MacroTotals`.
 - `PlanItem.portion?: { min: number; max: number; step: number }` — backend deterministic bounds.
@@ -83,11 +102,16 @@ App work:
    contract shape (11 items, 4 meals, ids `eggs|bread|latte|chicken|rice|salad|yog|gran|salmon|veg|spot`,
    `per.k→nutritionPerUnit.kcal, P→proteinG, C→carbsG, F→fatG`,
    `fb→microsPerUnit.fiberG, na→sodiumMg, fe→ironMg, ca→calciumMg`,
-   `min/max/step→portion`). Mock `getPlan` returns `{...doc, portions: storedPortions}`;
+   `min/max/step→portion`). **A4:** this table is EXAMPLE data used as a deterministic golden
+   fixture — real plans get all nutrition from Claude parse estimates at import; no product
+   code treats any table number as a constant, and tests assert values COMPUTED from the
+   fixture. Mock `getPlan` returns `{...doc, portions: storedPortions}`;
    mock `putPlanPortions` stores the map; mock `createPlan` resets `storedPortions = {}`
-   (mirrors the server's reset-on-new-version). Mock parse (`mockParsePlan`) items gain
-   `microsPerUnit` + `portion` but NO `id` (parse drafts are pre-save → no server ids), so the
-   old-doc fallback path (§3.4) is exercisable in mock.
+   (mirrors the server's reset-on-new-version). Mock id behavior mirrors the merged contract
+   (A2: ids assigned at save/parse time): mock `createPlan` assigns ids to any items lacking
+   them, exactly like the server, so a saved mock plan ALWAYS has per-item ids. `mockParsePlan`
+   follows whatever the merged contract says about ids on parse drafts — regen and match, don't
+   assume.
 4. Mock workout data: give the seeded "Leg day" exercises `muscleRoles` per handoff §2.2
    (`Back squat: [{quads,primary},{glutes,primary},{core,secondary}]` etc. — copy the `muscles`
    table in handoff §2.2 faithfully).
@@ -161,11 +185,19 @@ poison. The 422 → resync side effect lives in the drain's poison branch (like 
    (defensive; stale keys are also harmless at read time because display always goes through
    `qtyOf` which falls back to the item default).
 
-### 2.5 Reset on new version
+### 2.5 Reset on new version · edit touches only the edited item (A5)
 
-- `savePlan()` (POST /plan — new import) → `clearPortions()` locally; server resets its overlay
-  (DESIGN-SPEC). One line after the kvSet.
-- `updatePlan()` (PUT /plan — edit current, NOT a new version) → do NOT clear; prune per §2.4.
+- `savePlan()` (POST /plan — new import = new plan version) → `clearPortions()` locally; server
+  resets its overlay (DESIGN-SPEC). One line after the kvSet.
+- `updatePlan()` (PUT /plan — edit current, NOT a new version) → **A5 (binding):** an edit
+  touches ONLY the edited item's override; every other override survives. Concretely, diff the
+  new doc against the previously cached doc (by item id) before the kvSet:
+  - item id no longer present → override PRUNED (same as §2.4 rule 4);
+  - item present but its `quantity` or `unit` changed → its override RESET (dropped — its
+    default/bounds changed and the old override is meaningless against them);
+  - everything else → override kept untouched.
+  Pure helper `pruneOverlayAfterEdit(oldDoc, newDoc, portions): Record<string, number>` in
+  `src/db/plan.ts` (or compute.ts), unit-tested; `updatePlan` applies it, never `clearPortions()`.
 
 ### 2.6 Offline-first invariants (test these)
 
@@ -253,7 +285,8 @@ export const kcalLabel = (tK: number): string => "~" + Math.round(tK).toLocaleSt
 
 ```ts
 export const boundsOf = (item: PlanItem): { min: number; max: number; step: number } =>
-  item.portion ?? portionRange(item.quantity);  // server heuristic, app fallback for old docs
+  item.portion ?? portionRange(item.quantity);  // server heuristic; portionRange covers items
+                                                // without server bounds (e.g. edit-mode adds)
 ```
 
 `portionRange` stays exactly as is.
@@ -276,11 +309,14 @@ Sweep the two screens' existing hardcodes (`rgba(196,112,78,0.12)` qty pill,
 `rgba(196,112,78,0.3)` banner border, `entryPalette.workout.badgeBg` row highlight) onto it.
 
 Unit tests: `tint("#C4704E", 100) === "#C4704E"`, `tint(x, 0) === "#FFFDF7"`, a known midpoint,
-and every formula above against the handoff reference data (defaults → `~1,756` kcal — the
-handoff PROSE claims "~1,880" but its own §1.2 item table sums to **1,756.2**; the table is
-binding per backend-spec.md D-9/§7, whose eval fixtures pin the same 1,756.2 — e.g. protein
-bar = round(145.4 / (154.2 × 1.1) × 100) = 86% over that fixture (P=145.4 C=154.2 F=56.7,
-pMax=169.6) — compute the fixtures from §1.2 in the test, don't hand-copy magic numbers).
+and every formula above against the handoff §1.2 data used as a deterministic golden TEST
+fixture (**A4:** the table is EXAMPLE data, not product truth — real nutrition always comes
+from Claude parse estimates; neither product code nor any ticket treats a table number as a
+constant). Build the 11-item fixture IN the test from the table, COMPUTE every expected value
+from it (Σ kcal, barPct, chip labels…), and assert against the computed values — never
+hand-copied literals. Ignore the handoff's prose "~1,880" (it contradicts its own table; both
+are just example numbers). The backend eval fixtures use the same table the same way, so the
+two teams' goldens stay in lockstep without either pinning a magic constant.
 
 ---
 
@@ -290,8 +326,9 @@ Element-by-element vs handoff §1.1. Column gap 13 (already). Everything reads
 `portions = getPortions()` re-fetched on `useLogVersion()` bumps + a local bump after each
 `setPortion` (add a `logChanged()` call in `setPortion` — the existing notify seam).
 
-1. **Header row** — keep `EditHeader` (back + eyebrow + Edit affordance; deviation from the
-   handoff recorded as CEO Q2). ADD the right-aligned source badge: text per source kind,
+1. **Header row** — keep `EditHeader` (back + eyebrow + Edit affordance). **A7 (CEO-confirmed
+   2026-07-22): the Edit button/mode STAYS alongside the always-available portion taps** — the
+   handoff header shows no Edit affordance, deviation approved; no ambiguity, do not remove it. ADD the right-aligned source badge: text per source kind,
    9.5px/800, ls .8, uppercase, bg `colors.estimateBg` `#F7E7D4`, ink `colors.estimateInk`
    `#A66A3F`, radius 8, padding 3px 7px. Source kind: new kv key `plan.meta` written at import
    time (`{ source: "pdf" | "text" | "manual", importedAt: ISO }`) — set in
@@ -366,31 +403,27 @@ already prototype-exact per APP-063).
   10.5px `colors.labelMuted` at the two ends of a spread row.
 - Macro line, centered, `colors.surface` radius-12 pill, padding 8px 12px, 12px `#6E6355`:
   `P {n} g · C {n} g · F {n} g`, each `Math.round(per.X * q)`.
-- **Numeric "exact" field kept** (dual-input philosophy — deviation from the slider-only
-  handoff, CEO Q1). Same row style as today, clamped to `[min, max]`, quantized to `step`.
+- **Numeric "exact" field kept — A6 (CEO-confirmed 2026-07-22)**: dual-input philosophy wins
+  over the slider-only handoff. Same row style as today, clamped to `[min, max]`, quantized
+  to `step`.
 - **Done** button: height 46, radius 23, bg accent, ink `#FFF9F1`, 14.5px/700,
   `shadowCta(accent)`. `onPress` ONLY closes — no commit action.
 
 **Commit semantics (BINDING — DESIGN-SPEC):** every slider/numeric change commits immediately:
 
-- New-style item (`item.id` present): `setPortion(item.id, q)` → kv + enqueue coalesced op
-  (§2.2). Closing the modal (Done, backdrop, back) does nothing further. There is NO
-  cancel/revert — edits are already persistent, exactly like the prototype.
-- **Old-doc fallback** (`item.id` absent — plans imported before v0.6.0, or parse drafts):
-  portions are NOT persistable as an overlay. Honest behavior: the modal works identically
-  in-session, writing `quantity` into the CACHED DOC (`mutate`-style clone → `kvSet(PLAN_KEY)`)
-  and on modal CLOSE (once, not per tick) fires the existing `updatePlan(doc)` full-doc PUT
-  (dirty-flag path — contract PUT edits current version, creates no new version, so the
-  no-version-on-portion-change rule holds). Totals/chips work identically since they read the
-  doc. No banner, no nag: the difference is invisible to the user; re-import upgrades the doc.
-  **Accepted ceiling (bounds walk):** because the fallback writes `quantity` into the doc, the
-  backend re-derives `portion.max = 2×qty` from the NEW quantity on the next read — lowering
-  chicken 180 g → 90 g shrinks the post-hydrate slider range to 0..180. Within one modal
-  session the app keeps the original `boundsOf(item)` (bounds captured on open, not per tick);
-  the post-hydrate shrink is transition-window-only for legacy docs and re-import fixes it.
-- Mixed docs (some items with ids): per-item decision by the same rule.
+- View-mode item tap: `setPortion(item.id, q)` on every slider/numeric change → kv + enqueue
+  coalesced op (§2.2). Closing the modal (Done, backdrop, back) does nothing further. There is
+  NO cancel/revert — edits are already persistent, exactly like the prototype.
+- **No old-doc fallback — A2 (CEO 2026-07-22).** Ids are assigned at save/parse time and every
+  saved plan hydrated from the v0.6.0 server carries per-item ids; legacy pre-v0.6.0 rows may
+  be invalidated (we are not in production — destructive migration is fine). The previous
+  doc-quantity-write fallback, its close-time `updatePlan` PUT, and its bounds-walk ceiling are
+  all DELETED from scope. One defensive line only: in view mode, an item without an id (a stale
+  cached doc that predates v0.6.0) simply doesn't open the modal — the next `syncPlan()` or
+  re-import resolves it. No banner, no migration UX, no per-item mixed-doc logic.
 
-Edit-mode taps keep current behavior (mutating the working copy; Save does the doc PUT).
+Edit-mode taps keep current behavior (mutating the working copy; Save does the doc PUT, and the
+overlay survives per §2.5/A5 — only the edited item's override resets, removed items are pruned).
 
 ---
 
@@ -406,7 +439,9 @@ export function muscleIntensities(exercises: Exercise[]): Partial<Record<Muscle,
 ```
 
 Rule (deterministic, testable — DESIGN-SPEC gives "≈" latitude; the handoff's §2.2 table is
-hand-authored and not exactly derivable, this rule reproduces its primary tier and is monotone):
+hand-authored and not exactly derivable, this rule reproduces its primary tier and is monotone).
+**A9 (CEO-approved 2026-07-22): this rule stands; the deviation from the handoff's hand-tuned
+calves/core values is accepted. No per-muscle override table.**
 
 ```
 For each muscle m across the workout's exercises:
@@ -511,7 +546,9 @@ Replace the horizontal strip in `workout/[id].tsx` with vertical rows per handof
      record title ?? a small exerciseType→label table (walking/running/strength/cycling/other —
      ~10 common codes, fall back "Workout"); duration = end−start; NO kcal (HC active-energy is
      day-aggregated in our reader — don't fake per-session kcal); `SRC` = "HEALTH CONNECT".
-     Stub reader returns `[]` (Expo Go/iOS/jest — honest absence). **SQLite/display only,
+     Stub reader returns `[]` (Expo Go/iOS/jest — honest absence). **A8 (CEO-approved
+     2026-07-22): iOS history shows captured workouts only this round** (no HealthKit reader
+     yet — the stub's empty list IS the approved iOS behavior). **SQLite/display only,
      NEVER the outbox** (ADR-0016: HC data is device-local; backend builds nothing).
   3. De-dupe rule: none in v1 — a workout both captured and HC-recorded shows twice, honestly
      credited. (ponytail ceiling: overlap heuristics only if the CEO flags noise.)
@@ -591,9 +628,9 @@ health.exerciseType.*         (~10 keys: running, walking, strength, cycling, sw
 | Area | Tests |
 |---|---|
 | compute (APP-077) | overlay qtyOf fallback chain (portions → quantity → 1); planDailyTotals with overlay vs without; planMicroTotals all-or-null rule + toFixed/round label rules; barPct headroom (never 100; `|| 1` zero-macros guard); qtyLabel g/ml/countable; kcalLabel thousands + `~`; boundsOf server-vs-fallback; tint endpoints + midpoint |
-| overlay store (APP-076) | sparse delete-on-default; coalescing (3 enqueues → 1 row); drain reads map at send time (enqueue, mutate map, drain → PUT sees final map); 422 poison drops + triggers resync; 404/403 poison; network backoff preserves order; savePlan clears overlay; syncPlan portions-dirty keeps local map; prune on doc write |
-| plan screen (APP-078) | totals card renders `~1,756` from the §1.2 fixture (assert the value COMPUTED from the in-test fixture per §3.7 — 1,756.2 kcal, binding per backend-spec D-9/§7; the handoff prose "~1,880" contradicts its own table); chips live vs static fallback (item missing micros → static); qty pill label + tap opens modal in view mode; meal kcal `~` prefix |
-| portion modal (APP-079) | slider tick updates Card A kcal + screen totals (shared state); Done only closes (no extra writes); old-doc fallback: qty lands in doc + single updatePlan on close; numeric field clamps/quantizes |
+| overlay store (APP-076) | sparse delete-on-default; coalescing (3 enqueues → 1 row); drain reads map at send time (enqueue, mutate map, drain → PUT sees final map); 422 poison drops + triggers resync; 404/403 poison; network backoff preserves order; savePlan clears overlay; syncPlan portions-dirty keeps local map; prune on doc write; **A5 `pruneOverlayAfterEdit`: removed item → pruned, quantity/unit-changed item → its override reset, untouched items → overrides survive** |
+| plan screen (APP-078) | totals card kcal text asserted as `kcalLabel(Σ computed from the in-test §1.2 fixture)` (A4: golden test input, no hand-copied constant anywhere); chips live vs static fallback (item missing micros → static); qty pill label + tap opens modal in view mode; meal kcal `~` prefix |
+| portion modal (APP-079) | slider tick updates Card A kcal + screen totals (shared state); Done only closes (no extra writes); with-id item never calls updatePlan; id-less item in view mode does NOT open the modal (A2 guard); numeric field clamps/quantizes |
 | muscle map (APP-080) | §6.4 list |
 | history (APP-081) | §7.4 list |
 | E2E (Maestro, existing suite) | plan: open plan → tap item → drag slider → close → totals changed persists after relaunch (add to `.maestro/`) |
@@ -617,18 +654,8 @@ Blur/gesture feel = CEO device pass.
 
 ## 11 · Questions for the CEO
 
-1. **Portion modal dual input**: the handoff shows a slider only; we KEEP the numeric "exact"
-   field below it (product philosophy: any answer can be typed). Confirm — or drop for pixel
-   fidelity?
-2. **Eating Plan Edit mode**: the handoff header has no Edit affordance; the shipped app has
-   full plan editing (add/remove meals/items, rename). We keep Edit alongside the new
-   always-available portion taps. Confirm?
-3. **iOS history sources**: "via Health Connect" rows are Android-only; iOS shows captured
-   workouts only until a HealthKit reader exists (same open question as APP-072 Integrations).
-   OK for this round?
-4. **Muscle-map opacity deviation (calves/core)**: the handoff §2.2 reference table is provably
-   not derivable from any exercise-count rule (calves .62 with 1 exercise vs core .30 with 2 —
-   fewer exercises, HIGHER opacity). Our deterministic rule from `muscleRoles` inverts those
-   two on the reference session (calves → secondary-low, core → secondary-high). We ship the
-   rule (honest, derived from real data) and accept the deviation from the handoff's hand-tuned
-   values. Confirm?
+None — all answered by the CEO amendments of 2026-07-22 and recorded inline:
+numeric exact field stays (A6, §5) · Edit mode stays (A7, §4.1) · iOS history = captures only
+this round (A8, §7.1) · muscle-map opacity rule stands, calves/core deviation accepted (A9,
+§6.1) · no legacy/old-doc portion fallback (A2, §5) · handoff §1.2 table is example/test-fixture
+data only (A4, §1/§3.7).
