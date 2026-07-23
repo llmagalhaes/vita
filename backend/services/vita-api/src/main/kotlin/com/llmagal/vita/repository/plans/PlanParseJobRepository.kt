@@ -53,13 +53,20 @@ class PlanParseJobRepository(
             .query("SELECT $COLS FROM plan_parse_job WHERE id = ? AND user_id = ?", ROW, id, userId)
             .firstOrNull()
 
+    /**
+     * Move a job out of `running` to a terminal state. Conditional on the row still being running
+     * (every caller transitions FROM running), so a late worker can't flip a failed row back to
+     * done and the poll's stale-flip can't clobber a just-written terminal state — last writer
+     * from `running` wins, no un-terminalizing. A no-op UPDATE (0 rows) means someone already won.
+     */
     fun markState(
         id: UUID,
         state: JobState,
         failure: String? = null,
     ) {
         jdbc.update(
-            "UPDATE plan_parse_job SET state = ?::text, failure = ?, updated_at = now() WHERE id = ?",
+            "UPDATE plan_parse_job SET state = ?::text, failure = ?, updated_at = now() " +
+                "WHERE id = ? AND state = 'running'",
             state.name,
             failure,
             id,

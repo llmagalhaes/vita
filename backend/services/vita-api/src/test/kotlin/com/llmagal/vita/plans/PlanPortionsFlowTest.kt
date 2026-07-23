@@ -223,6 +223,78 @@ class PlanPortionsFlowTest {
         assertThat(portions!!["it-2"]).isEqualTo(100.0)
     }
 
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `an à vontade usual swap gets no portion slider`() {
+        // Item whose chosen usual is an unbounded "à vontade" swap (no quantity, no grams) → no slider.
+        val plan =
+            mapOf(
+                "summary" to "usual",
+                "meals" to
+                    listOf(
+                        mapOf(
+                            "name" to "Lunch",
+                            "items" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Milho verde",
+                                        "quantity" to 100,
+                                        "unit" to "g",
+                                        "swaps" to listOf(mapOf("name" to "Alface", "unit" to "à vontade")),
+                                        "usualSwapIndex" to 0, // usual = the à vontade swap
+                                    ),
+                                    mapOf("name" to "Rice", "quantity" to 200, "unit" to "g"), // bounded control
+                                ),
+                        ),
+                    ),
+            )
+        postPlan(plan).expectStatus().isCreated
+
+        val items = ((currentDoc()["meals"] as List<Map<String, Any>>)[0]["items"] as List<Map<String, Any>>)
+        assertThat(items[0]).doesNotContainKey("portion") // à vontade → omitted, not a bogus 0..3
+        assertThat(items[1]).containsKey("portion") // a normal g item still gets bounds
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `a grams-only doc edit keeps the portion override`() {
+        // it-1 states a count plus a gram-equivalent; only the grams change on edit → override kept.
+        val plan =
+            mapOf(
+                "summary" to "grams",
+                "meals" to
+                    listOf(
+                        mapOf(
+                            "name" to "Lunch",
+                            "items" to listOf(mapOf("name" to "Egg", "quantity" to 2, "unit" to "unidade", "grams" to 100)),
+                        ),
+                    ),
+            )
+        postPlan(plan).expectStatus().isCreated
+        putPortions(mapOf("it-1" to 3)).expectStatus().isOk
+
+        val edited =
+            mapOf(
+                "summary" to "grams-fixed",
+                "meals" to
+                    listOf(
+                        mapOf(
+                            "name" to "Lunch",
+                            // same quantity/unit, grams corrected 100 → 110 — cosmetic to the slider.
+                            "items" to
+                                listOf(
+                                    mapOf("name" to "Egg", "id" to "it-1", "quantity" to 2, "unit" to "unidade", "grams" to 110),
+                                ),
+                        ),
+                    ),
+            )
+        putPlan(edited).expectStatus().isOk
+
+        val portions = portionsOf()
+        assertThat(portions).containsOnlyKeys("it-1") // grams-only change → override survives
+        assertThat(portions!!["it-1"]).isEqualTo(3.0)
+    }
+
     @Test
     fun `account purge cascades the overlay row via the plain FK`() {
         postPlan(seedPlan()).expectStatus().isCreated

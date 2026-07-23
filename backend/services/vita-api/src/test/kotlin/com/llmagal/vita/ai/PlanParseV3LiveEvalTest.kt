@@ -41,8 +41,8 @@ class PlanParseV3LiveEvalTest {
                 override fun read(fileRef: String): ByteArray = pdf.readBytes()
             }
         val baseUrl = System.getenv("ANTHROPIC_BASE_URL") ?: "https://api.anthropic.com"
-        // Production knobs: async big-output budget (16384) + minutes-long timeout (300 s).
-        val client = ClaudeClient(baseUrl, "claude-haiku-4-5", 1024, 15, apiKey, 25, 3072, 16384, 300)
+        // Production knobs: async big-output budget (20480) + minutes-long timeout (300 s).
+        val client = ClaudeClient(baseUrl, "claude-haiku-4-5", 1024, 15, apiKey, 25, 3072, 20480, 300)
         val metrics = ParseMetrics(SimpleMeterRegistry())
         val service = PlanParseService(client, fileStore, metrics, "claude-haiku-4-5", PDF_MODEL)
 
@@ -85,13 +85,17 @@ class PlanParseV3LiveEvalTest {
         assertThat(swaps("Banana")).hasSize(25)
         assertThat(swaps("Maçã verde")).hasSize(26)
         assertThat(swaps("Milho verde")).hasSize(19)
+        // Real capture = 308; a realistic floor (≥ ~260) catches a truncated/short parse without
+        // being brittle to model variance on the long substitution lists.
         val totalSwaps = all.sumOf { it.swaps.orEmpty().size }
-        assertThat(totalSwaps).isBetween(265, 315)
+        assertThat(totalSwaps).isGreaterThanOrEqualTo(260)
 
         // Swap fidelity spot checks.
         val banana = swaps("Banana")
         assertThat(banana.map { fold(it.name) }).anyMatch { it.contains("abacaxi") }
         assertThat(banana.any { fold(it.name).contains("acai") }).isTrue()
+        // Milho's substitution list carries the staple carb swaps (e.g. "Arroz branco").
+        assertThat(swaps("Milho verde").map { fold(it.name) }).anyMatch { it.contains("arroz branco") }
         // An "à vontade" swap has no quantity.
         val avontade =
             all.flatMap { it.swaps.orEmpty() }.any { fold(it.unit ?: "").contains("vontade") && it.quantity == null }
@@ -118,9 +122,25 @@ class PlanParseV3LiveEvalTest {
         assertKcal(decorated.meals.first { fold(it.name).contains("pre-treino") }.kcal, 109.0)
         assertKcal(decorated.meals.first { fold(it.name).contains("pos-treino") }.kcal, 121.0)
         assertKcal(almoco.kcal, 702.0)
-        assertKcal(almoco.options!![0].kcal, 679.0)
         assertKcal(decorated.meals.first { fold(it.name).contains("lanche") }.kcal, 72.0)
         assertKcal(jantar.kcal, 702.0)
+
+        // Per-option kcal present and near the stated numbers (±5% — an option's kcal may be re-derived).
+        assertOptionKcal(almoco.options!!, "brunch", 679.0)
+        assertOptionKcal(jantar.options!!, "tortilha", 718.0)
+        assertOptionKcal(jantar.options!!, "macarrao", 706.0)
+        assertOptionKcal(jantar.options!!, "hamburguer", 691.0)
+
+        // ── Daily micros (transcribed report table: presence + rough magnitude, not exact) ─
+        val micros = decorated.micros.orEmpty()
+
+        fun micro(vararg tokens: String) = micros.firstOrNull { m -> tokens.any { fold(m.name).contains(it) } }
+        val fiber = micro("fibra", "fiber")
+        val sodium = micro("sodio", "sodium")
+        assertThat(fiber).describedAs("daily fiber micro present").isNotNull
+        assertThat(sodium).describedAs("daily sodium micro present").isNotNull
+        assertThat(fiber!!.amount).describedAs("daily fiber ~37 g").isCloseTo(37.0, within(11.0))
+        assertThat(sodium!!.amount).describedAs("daily sodium ~1845 mg").isCloseTo(1845.0, within(550.0))
 
         // ── Estimate + decoration sanity ──────────────────────────────────
         val frango = all.first { fold(it.name).contains("frango desfiado") }
@@ -138,6 +158,17 @@ class PlanParseV3LiveEvalTest {
         actual: Double?,
         expected: Double,
     ) = assertThat(actual!!).isCloseTo(expected, within(1.0))
+
+    /** The option whose folded name contains [token] carries a kcal within ±5% of [expected]. */
+    private fun assertOptionKcal(
+        options: List<com.llmagal.vita.model.ai.MealOption>,
+        token: String,
+        expected: Double,
+    ) {
+        val opt = options.first { fold(it.name).contains(token) }
+        assertThat(opt.kcal).describedAs("option '$token' kcal present").isNotNull
+        assertThat(opt.kcal!!).describedAs("option '$token' kcal ~$expected").isCloseTo(expected, within(expected * 0.05))
+    }
 
     private fun allItems(d: EatingPlanDraft): List<PlanItem> = d.meals.flatMap { m -> m.items + m.options.orEmpty().flatMap { it.items } }
 

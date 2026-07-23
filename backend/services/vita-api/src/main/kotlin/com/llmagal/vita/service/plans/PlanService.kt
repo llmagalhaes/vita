@@ -199,7 +199,10 @@ class PlanService(
 
         fun stamp(item: PlanItem): PlanItem {
             val (q, u, g) = effective(item)
-            return item.copy(id = nextId(item), portion = PortionBoundsHeuristic.of(q, u, g))
+            // An "à vontade" usual swap (chosen swap with no quantity AND no grams) is unbounded →
+            // no slider (spec §3.1). Without this it falls through to countable() = a bogus 0..3.
+            val portion = if (item.usualSwapIndex != null && q == null && g == null) null else PortionBoundsHeuristic.of(q, u, g)
+            return item.copy(id = nextId(item), portion = portion)
         }
         return draft.copy(
             meals =
@@ -267,11 +270,18 @@ class PlanService(
         }
     }
 
-    /** itemId → EFFECTIVE (quantity, unit, grams) for every item that has an id (V3-D9: usual-aware). */
-    private fun qtyUnitById(draft: EatingPlanDraft): Map<String, Triple<Double?, String?, Double?>> =
+    /**
+     * itemId → EFFECTIVE (quantity, unit) for every item that has an id (V3-D9: usual-aware).
+     * Grams is deliberately excluded: the prune resets an override only when the amount the slider
+     * acts on changed, and a cosmetic grams-only doc edit (same quantity/unit) must keep the override.
+     */
+    private fun qtyUnitById(draft: EatingPlanDraft): Map<String, Pair<Double?, String?>> =
         allItems(draft)
-            .mapNotNull { item -> item.id?.let { it to effective(item) } }
-            .toMap()
+            .mapNotNull { item ->
+                val id = item.id ?: return@mapNotNull null
+                val (q, u, _) = effective(item)
+                id to (q to u)
+            }.toMap()
 
     /** itemId → stored portion bounds (null when the item has no usable bounds) for the current doc. */
     private fun itemBounds(doc: JsonNode): Map<String, PortionBounds?> =

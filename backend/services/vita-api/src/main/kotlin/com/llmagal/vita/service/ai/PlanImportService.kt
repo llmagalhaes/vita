@@ -31,7 +31,7 @@ data class JobStatusResponse(
 class PlanImportService(
     private val jobs: PlanParseJobRepository,
     private val worker: PlanImportWorker,
-    @param:Value("\${vita.ai.plan-job-stale-minutes:10}") private val staleMinutes: Long,
+    @param:Value("\${vita.ai.plan-job-stale-minutes:15}") private val staleMinutes: Long,
 ) {
     /** Insert a running job and kick off the background parse. 409 if one is already running. */
     fun accept(
