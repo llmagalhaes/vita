@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Vita API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     Contract v0 — auth, user profile, log entries, AI parse. App-team review
     complete 2026-07-13 (`app/Doc/contract-review-v0.md`): approved, with two
@@ -18,6 +18,13 @@ info:
     id/microsPerUnit/portion; GET /plan may return the sparse `portions`
     overlay; PUT /plan/portions replaces it; Exercise gains muscleRoles.
     Old clients ignore every new field; no 0.5.0 consumer breaks.
+    0.7.0 (V3 plan round): the full v3 plan model — PlanMeal gains
+    kcal/note/options/usualOptionIndex, PlanItem gains grams/swaps/usualSwapIndex,
+    EatingPlanDraft gains status/hydration/supplements/note. ONE BREAKING CHANGE:
+    POST /parse/eating-plan is now asynchronous (202 + job id; on success the
+    parsed plan is SAVED as the current version with status "review") — poll
+    GET /parse/eating-plan/jobs/{jobId}, then GET /plan. Everything else is
+    additive; /parse/training-program is unchanged (sync).
     Governed by ADR-0006 (contract-first REST, RFC 7807, cursor pagination)
     and ADR-0005 (AI drafts are never persisted server-side).
 
@@ -628,37 +635,76 @@ paths:
   /parse/eating-plan:
     post:
       tags: [parse]
-      summary: Parse an eating plan (text or PDF) into a draft for confirmation
+      summary: Start an eating-plan import (async parse; saves as status "review")
       description: |
-        Onboarding step 3 ("eating plan"). Stateless like /parse/text: the
-        model reads the described plan or the uploaded nutritionist PDF and
-        returns a structured draft plus a human-readable summary the user
-        confirms before anything is saved (ADR-0005 — nothing is persisted
-        server-side on this call; the uploaded PDF is read and discarded). All
-        nutrition values are estimates. Single synchronous Claude call (native
-        PDF input, no OCR of our own) — supersedes the async import-job sketch;
-        on timeout/failure the app falls back to manual entry. On Confirm the
-        app POSTs the draft to the plan-create endpoint (a later ticket).
+        v3 (0.7.0, BREAKING vs 0.6.0): a full plan parse (options + complete
+        substitution lists) takes minutes — far beyond the API Gateway 29 s
+        ceiling — so this endpoint now ACCEPTS the import and parses in the
+        background. On success the parsed plan is SAVED as the user's current
+        eating-plan version with status "review" (new version: overlay resets,
+        ids assigned — the imported-but-unreviewed state is persistent, per
+        the v3 design). Poll GET /parse/eating-plan/jobs/{jobId}; when state
+        is "done", GET /plan. Body unchanged (exactly one of text | fileRef).
+        Nothing about the uploaded PDF is persisted beyond the parse
+        (ADR-0005); only the structured result is saved.
       requestBody:
         required: true
         content:
           application/json:
             schema: { $ref: "#/components/schemas/PlanImportRequest" }
       responses:
-        "200":
-          description: Draft eating plan.
+        "202":
+          description: Import accepted; parse running.
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/EatingPlanDraft" }
+              schema:
+                type: object
+                required: [jobId]
+                properties:
+                  jobId: { type: string, format: uuid }
+        "400":
+          description: Not exactly one of text/fileRef, or text over 8000 chars.
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/Problem" }
         "401": { $ref: "#/components/responses/Unauthorized" }
-        "422":
-          description: >-
-            The input could not be interpreted as an eating plan, or the
-            `fileRef` is unknown/expired.
+        "409":
+          description: An import is already running for this user (detail carries its jobId).
           content:
             application/problem+json:
               schema: { $ref: "#/components/schemas/Problem" }
         "429": { $ref: "#/components/responses/TooManyRequests" }
+        default: { $ref: "#/components/responses/Problem" }
+
+  /parse/eating-plan/jobs/{jobId}:
+    get:
+      tags: [parse]
+      summary: Poll an eating-plan import job
+      description: |
+        States: "running" → keep polling (suggested every 2–3 s; a job older
+        than 10 minutes is reported failed); "done" → the plan was saved with
+        status "review", fetch GET /plan; "failed" → failureReason is a short
+        human-safe sentence (unreadable document, not an eating plan, upstream
+        error) — the app offers retry / manual entry. Jobs are visible to
+        their owner only (404 otherwise) and are swept after 7 days.
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        "200":
+          description: Job state.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [state]
+                properties:
+                  state: { type: string, enum: [running, done, failed] }
+                  failureReason: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/Problem" }
         default: { $ref: "#/components/responses/Problem" }
 
   /parse/training-program:
@@ -1399,6 +1445,86 @@ components:
             `fileRef` from POST /uploads, pointing at an uploaded
             nutritionist/coach PDF.
 
+    Hydration:
+      type: object
+      required: [mlPerDay]
+      properties:
+        mlPerDay:
+          type: number
+          minimum: 0
+          description: Daily water target stated by the plan (e.g. 2500).
+        note:
+          type: string
+          maxLength: 500
+          description: How the plan says to spread it, transcribed.
+
+    Supplement:
+      type: object
+      required: [name]
+      description: >-
+        A supplement prescription transcribed from the plan ("SUPLEMENTAÇÃO").
+        Water is hydration, never a supplement. All fields are transcription
+        in the document's language; the app turns accepted ones into local
+        habits on "Finish setup" (device-side — the backend stores no habits).
+      properties:
+        name: { type: string, maxLength: 100 }
+        dose:
+          type: string
+          maxLength: 100
+          description: As stated, e.g. "1 dose (4g)", "1 cápsula 1g".
+        timing:
+          type: string
+          maxLength: 200
+          description: As stated, e.g. "ao dia, junto ao almoço ou jantar".
+        duration:
+          type: string
+          maxLength: 100
+          description: As stated, e.g. "5 meses". Absent when open-ended.
+
+    MealOption:
+      type: object
+      required: [name, items]
+      description: >-
+        An alternative complete composition for a meal ("Opção 2 – Brunch").
+        The meal's own `items` are the default composition; each option
+        replaces them wholesale when chosen. Option items are full PlanItems:
+        they get server ids, portion bounds and swap lists like base items.
+      properties:
+        name: { type: string, maxLength: 100 }
+        kcal:
+          type: number
+          minimum: 0
+          description: Stated per-option kcal from the report page when present, else estimate.
+        items:
+          type: array
+          minItems: 1
+          items: { $ref: "#/components/schemas/PlanItem" }
+
+    SwapOption:
+      type: object
+      required: [name]
+      description: >-
+        One entry of an item's substitution list ("Opções de substituição
+        para …"), transcribed with its stated quantity. Swaps carry NO
+        nutrition: a substitution at its stated quantity is treated as
+        equivalent to the original item's total (that is what a nutritionist
+        substitution list means) — the app derives a chosen swap's per-unit
+        macros as base.nutritionPerUnit × base.quantity / swap.quantity,
+        labeled an estimate. "À vontade" (as much as you like) entries have
+        no quantity and unit "à vontade"; portion adjust is unavailable for
+        them (no bounds).
+      properties:
+        name: { type: string, maxLength: 150 }
+        quantity: { type: number }
+        unit:
+          type: string
+          maxLength: 40
+          description: Free-form, display verbatim ("Fatia(s) média(s)", "à vontade").
+        grams:
+          type: number
+          minimum: 0
+          description: Gram/ml equivalent when stated in parentheses ("2 Fatias (150g)" → 150).
+
     EatingPlanDraft:
       type: object
       description: >-
@@ -1414,7 +1540,12 @@ components:
             Human-readable read-back shown for confirmation ("AI reads back a
             plan summary").
         dailyTotals:
-          $ref: "#/components/schemas/MacroTotals"
+          allOf: [ { $ref: "#/components/schemas/MacroTotals" } ]
+          description: >-
+            Daily totals. When the document contains a nutrient report page
+            (e.g. "Relatório de nutrientes"), these are its STATED totals
+            copied verbatim (transcription, not estimation); otherwise a model
+            estimate. Same rule applies to per-meal/option kcal and `micros`.
         micros:
           type: array
           items: { $ref: "#/components/schemas/Micro" }
@@ -1423,6 +1554,29 @@ components:
           type: array
           minItems: 1
           items: { $ref: "#/components/schemas/PlanMeal" }
+        status:
+          type: string
+          enum: [ready, review]
+          description: >-
+            Plan lifecycle (v3): "review" = imported but not yet reviewed (the
+            async parse saves with this; drives the Home "finish setup" banner
+            and Today's-plan review state); "ready" = reviewed/active. Absent
+            (docs saved before 0.7.0) reads as "ready". "none" is not a value —
+            it is GET /plan returning 404. The app flips review→ready by
+            PUTting the doc with status "ready" ("Finish setup").
+        note:
+          type: string
+          maxLength: 1000
+          description: >-
+            Plan-level nutritionist guidance transcribed from the document
+            (e.g. "up to 2 meals a week may go off-plan; plan valid for up to
+            6 months"). Display-only, in the document's own language.
+        hydration:
+          $ref: "#/components/schemas/Hydration"
+        supplements:
+          type: array
+          maxItems: 20
+          items: { $ref: "#/components/schemas/Supplement" }
 
     PlanMeal:
       type: object
@@ -1440,6 +1594,27 @@ components:
           type: array
           minItems: 1
           items: { $ref: "#/components/schemas/PlanItem" }
+        kcal:
+          type: number
+          minimum: 0
+          description: >-
+            Per-meal kcal for the DEFAULT composition — stated report-page
+            value when present ("Almoço … 702 Kcal"), else estimate.
+        note:
+          type: string
+          maxLength: 1000
+          description: The meal's "Observações", transcribed.
+        options:
+          type: array
+          maxItems: 8
+          items: { $ref: "#/components/schemas/MealOption" }
+        usualOptionIndex:
+          type: integer
+          minimum: 0
+          description: >-
+            The user's usual composition: absent/null = the meal's own
+            `items`; k = options[k]. Set by the app via PUT /plan (plan
+            setup / "pick your usual"). Out of range on PUT → 400.
 
     PlanItem:
       type: object
@@ -1469,6 +1644,33 @@ components:
           $ref: "#/components/schemas/MicrosPerUnit"
         portion:
           $ref: "#/components/schemas/PortionBounds"
+        grams:
+          type: number
+          minimum: 0
+          description: >-
+            Gram/ml equivalent when the plan states a count plus grams
+            ("1 unidade (100g)" → quantity 1, unit "unidade", grams 100).
+            Display + swap-equivalence aid; portion bounds still derive from
+            quantity/unit.
+        swaps:
+          type: array
+          maxItems: 40
+          items: { $ref: "#/components/schemas/SwapOption" }
+          description: >-
+            The item's full substitution list in document order (this real
+            plan runs up to 26 per item). The app shows a few + "+ N more"
+            (N derived — no moreCount field) and the searchable sheet.
+        usualSwapIndex:
+          type: integer
+          minimum: 0
+          description: >-
+            The user's usual for this item: absent/null = the original item;
+            k = swaps[k] (its name/quantity shown in place, "SWAPPED" badge,
+            first row of the open list becomes the ORIGINAL restore row). Set
+            via PUT /plan. Persisted into the plan — NOT a one-day change
+            (one-day changes remain the portions overlay). Changing it resets
+            the item's portion override and recomputes `portion` from the
+            swap's quantity/unit at save. Out of range on PUT → 400.
 
     MicrosPerUnit:
       type: object
@@ -1492,7 +1694,9 @@ components:
         units → 0..max(2·qty, qty+2) step 1; g → 0..2·qty rounded to step 10;
         ml → 0..2·qty rounded to step 50. Server-authoritative (client-sent
         values are ignored and recomputed on save). Absent when no usable
-        quantity exists — the app keeps its portionRange fallback.
+        quantity exists — the app keeps its portionRange fallback. Derived
+        from the item's EFFECTIVE quantity/unit (v3): the usual swap's
+        quantity/unit when `usualSwapIndex` is set, else the item's own.
       required: [min, max, step]
       properties:
         min: { type: number, minimum: 0 }
@@ -1503,13 +1707,16 @@ components:
       type: object
       description: >-
         Sparse portion-override map for the CURRENT eating-plan version:
-        PlanItem.id → chosen quantity in the item's own unit. A missing id
-        means the item's default `quantity` (the design's planQty fallback).
-        Bound to the current version; resets when a new version is imported.
-        A document edit (PUT /plan) touches only the edited item: untouched
-        items keep their overrides, an edited item's override resets
-        (quantity/unit changed), removed items are pruned. Portion changes
-        NEVER create plan versions (CEO 2026-07-22 #1).
+        PlanItem.id → chosen quantity in the item's own EFFECTIVE unit (v3:
+        the usual swap's unit when `usualSwapIndex` is set, else the item's
+        own). A missing id means the item's default `quantity` (the design's
+        planQty fallback). Bound to the current version; resets when a new
+        version is imported. A document edit (PUT /plan) touches only the
+        edited item: untouched items (same effective quantity/unit) keep
+        their overrides, an edited item's override resets (effective
+        quantity/unit changed — a direct edit OR a usual-swap change),
+        removed items are pruned. Portion changes NEVER create plan versions
+        (CEO 2026-07-22 #1).
       maxProperties: 200
       additionalProperties:
         type: number
@@ -1557,6 +1764,13 @@ components:
         exercises:
           type: array
           items: { $ref: "#/components/schemas/Exercise" }
+        kcalEstimate:
+          type: number
+          minimum: 0
+          description: >-
+            Optional per-day energy estimate (v3 reconciliation add) — powers
+            the Today workout tab's "~{kcal}" line. Absent → the app omits
+            the line (no client-side computation).
 
     PlanVersion:
       type: object
