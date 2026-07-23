@@ -1,10 +1,13 @@
-import type { EatingPlanDraft, PlanItem } from "../../api/client";
+import type { EatingPlanDraft, PlanItem, PlanMeal } from "../../api/client";
 import {
   barPct,
   boundsOf,
+  isAdLib,
   itemTotals,
   kcalLabel,
   mealTotals,
+  mealUsualTotals,
+  planBaseTotals,
   planDailyTotals,
   planMicroTotals,
   portionRange,
@@ -159,6 +162,75 @@ test("tint: endpoints and a midpoint (sRGB lerp)", () => {
   expect(tint("#C4704E", 0)).toBe("#FFFDF7");
   // 50% between C4/70/4E and FF/FD/F7 → round each channel
   expect(tint("#C4704E", 50)).toBe("#E2B7A3");
+});
+
+// ---- V3: effective (usual-swap) lens + usual composition ---------------------
+
+const bananaBase: PlanItem = {
+  id: "sw",
+  name: "Banana",
+  quantity: 100,
+  unit: "g",
+  nutritionPerUnit: { kcal: 0.9, proteinG: 0.011, carbsG: 0.23, fatG: 0.003 },
+  swaps: [
+    { name: "Apple", quantity: 150, unit: "g" }, // quantified swap
+    { name: "Lettuce", unit: "as much as you like" }, // à vontade (no quantity)
+  ],
+};
+
+test("usual swap prices in its OWN space: a quantified swap at its stated qty ≈ base total (#3)", () => {
+  const base = itemTotals(bananaBase); // 0.9 × 100 = 90
+  expect(base.kcal).toBeCloseTo(90, 6);
+  const apple: PlanItem = { ...bananaBase, usualSwapIndex: 0 };
+  // effectivePerUnit = base.perUnit × baseQty/swapQty; × swap default qty (150) = base total.
+  expect(itemTotals(apple).kcal).toBeCloseTo(90, 6);
+  expect(qtyOf(apple, {})).toBe(150); // qtyOf default = effective (swap) quantity
+});
+
+test("à vontade usual swap: no number, no slider, no estimate (#7)", () => {
+  const lettuce: PlanItem = { ...bananaBase, usualSwapIndex: 1 };
+  expect(isAdLib(lettuce)).toBe(true);
+  expect(boundsOf(lettuce)).toBeNull();
+  expect(itemTotals(lettuce)).toEqual({ kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 }); // no perUnit
+  expect(isAdLib(bananaBase)).toBe(false); // no swap chosen → adjustable
+});
+
+test("planDailyTotals uses the USUAL composition; planBaseTotals stays on base (#6)", () => {
+  const meal: PlanMeal = {
+    name: "Lunch",
+    items: [{ id: "b", name: "Base", quantity: 2, unit: "bowl", nutritionPerUnit: { kcal: 100 } }],
+    options: [{ name: "Opt", items: [{ id: "o", name: "Opt", quantity: 1, unit: "plate", nutritionPerUnit: { kcal: 250 } }] }],
+  };
+  expect(mealTotals(meal).kcal).toBe(200); // base only
+  expect(mealUsualTotals(meal).kcal).toBe(200); // usualOptionIndex unset → base
+  const withUsual: PlanMeal = { ...meal, usualOptionIndex: 0 };
+  expect(mealUsualTotals(withUsual).kcal).toBe(250); // the chosen option
+  const doc: EatingPlanDraft = { summary: "s", meals: [withUsual] };
+  expect(planDailyTotals(doc).kcal).toBe(250); // Today/Home: usual composition
+  expect(planBaseTotals(doc).kcal).toBe(200); // doc editor: base composition
+});
+
+test("pruneOverlayAfterEdit is options-aware: an option item's override survives (#1)", () => {
+  const mk = (o1Qty: number, dropO2: boolean): EatingPlanDraft => ({
+    summary: "s",
+    meals: [
+      {
+        name: "M",
+        items: [{ id: "a", name: "A", quantity: 2, unit: "egg" }],
+        options: [
+          {
+            name: "Opt",
+            items: [
+              { id: "o1", name: "O1", quantity: o1Qty, unit: "g" },
+              ...(dropO2 ? [] : [{ id: "o2", name: "O2", quantity: 1, unit: "slice" } as PlanItem]),
+            ],
+          },
+        ],
+      },
+    ],
+  });
+  const pruned = pruneOverlayAfterEdit(mk(100, false), mk(150, true), { a: 3, o1: 120, o2: 2 });
+  expect(pruned).toEqual({ a: 3 }); // a untouched survives; o1 qty changed → reset; o2 removed → dropped
 });
 
 test("pruneOverlayAfterEdit (A5): removed pruned, edited reset, untouched survive", () => {

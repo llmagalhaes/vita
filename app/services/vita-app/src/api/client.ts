@@ -155,6 +155,15 @@ export function fillDraftTotals(result: ParseResult): ParseResult {
   };
 }
 
+/** Pull a running jobId out of a 409's problem.detail (uuid, else the last token). */
+export function jobIdFromDetail(detail?: string): string | null {
+  if (!detail) return null;
+  const uuid = detail.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
+  if (uuid) return uuid[0];
+  const last = detail.trim().split(/\s+/).pop();
+  return last || null;
+}
+
 export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
   async function request<T>(
     method: string,
@@ -219,10 +228,30 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     startEatingPlanImport: (body) => request("POST", "/parse/eating-plan", { body }),
     getEatingPlanJob: (jobId) => request("GET", `/parse/eating-plan/jobs/${jobId}`),
     async parseEatingPlan(body) {
-      const { jobId } = await request<{ jobId: string }>("POST", "/parse/eating-plan", { body });
-      // Poll to completion (minutes-long on prod; a small plan resolves on the first poll).
+      let jobId: string;
+      try {
+        ({ jobId } = await request<{ jobId: string }>("POST", "/parse/eating-plan", { body }));
+      } catch (e) {
+        // 409 = an import is already running for this user (contract §parse/eating-plan);
+        // the running jobId is in problem.detail — adopt it rather than failing.
+        const running = e instanceof ApiError && e.status === 409 ? jobIdFromDetail(e.problem.detail) : null;
+        if (!running) throw e;
+        jobId = running;
+      }
+      // Poll to completion (minutes-long on prod; a small plan resolves on the first
+      // poll). Tolerate a few transient poll blips; a stuck `running` relies on the
+      // server's stale-fail (contract: a job older than ~10 min is reported failed).
+      let pollFails = 0;
       for (;;) {
-        const job = await request<{ state: string; failureReason?: string }>("GET", `/parse/eating-plan/jobs/${jobId}`);
+        let job: { state: string; failureReason?: string };
+        try {
+          job = await request("GET", `/parse/eating-plan/jobs/${jobId}`);
+          pollFails = 0;
+        } catch (e) {
+          if (++pollFails > 3) throw e;
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
         if (job.state === "done") break;
         if (job.state === "failed") throw new ApiError(422, { type: "about:blank", title: job.failureReason ?? "parse failed", status: 422 });
         await new Promise((r) => setTimeout(r, 3000));

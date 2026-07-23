@@ -1,4 +1,6 @@
 import type { EatingPlanDraft, MealDetail, WaterDetail, WorkoutDetail } from "../client";
+import { jobIdFromDetail } from "../client";
+import { allPlanItems } from "../../plan/compute";
 import { anchorTime, createMockApi, handoffPlanV3, mockParse } from "../mock";
 
 test("banana + peanuts phrase → one meal draft with items and totals", () => {
@@ -90,4 +92,33 @@ test("updatePlan assigns ids to new items and prunes the changed item's portion"
   expect(new Set(newIds).size).toBe(newIds.length); // unique
   const after = await api.getPlan();
   expect(after.portions).toEqual({}); // qty changed → its override pruned
+});
+
+test("putPlanPortions accepts an OPTION item's id, and updatePlan ids don't collide with option ids (#1)", async () => {
+  const api = createMockApi();
+  const plan = await api.getPlan();
+  // an option item id (Lunch's "Brunch" option) — must NOT be rejected as unknown
+  const optId = plan.meals[2]!.options![0]!.items[0]!.id!;
+  await api.putPlanPortions({ [optId]: 3 });
+  expect((await api.getPlan()).portions).toEqual({ [optId]: 3 });
+
+  // append a brand-new (id-less) item; its stamped id must be globally unique — the
+  // counter runs past the max ACROSS base + options, not just base (or it'd reuse an
+  // option id like "it-16" that already exists).
+  const edited: EatingPlanDraft = {
+    ...plan,
+    meals: plan.meals.map((m, i) => (i === 0 ? { ...m, items: [...m.items, { name: "New", quantity: 1, unit: "g" }] } : m)),
+  };
+  const res = await api.updatePlan(edited);
+  const ids = allPlanItems(res).map((it) => it.id);
+  expect(new Set(ids).size).toBe(ids.length);
+});
+
+test("jobIdFromDetail: pulls the running jobId out of a 409 detail (#4)", () => {
+  expect(jobIdFromDetail("An import is already running: 123e4567-e89b-12d3-a456-426614174000")).toBe(
+    "123e4567-e89b-12d3-a456-426614174000",
+  );
+  expect(jobIdFromDetail("already running job abc-123")).toBe("abc-123");
+  expect(jobIdFromDetail(undefined)).toBeNull();
+  expect(jobIdFromDetail("")).toBeNull();
 });

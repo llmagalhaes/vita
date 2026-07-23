@@ -34,7 +34,11 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
     setDraft(d);
     setPhase("confirm");
   };
-  const fail = () => setPhase("choose");
+  // A parse/upload failure used to drop silently back to the chooser — tell the user.
+  const fail = () => {
+    setPhase("choose");
+    showToast(t("today.programParseError"));
+  };
 
   const runPdf = async () => {
     setPhase("parsing");

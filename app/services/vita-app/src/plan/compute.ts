@@ -19,9 +19,10 @@ const add = (a: Required<MacroTotals>, b: MacroTotals): Required<MacroTotals> =>
   fatG: a.fatG + (b.fatG ?? 0),
 });
 
-/** Effective quantity for an item: portion override → default quantity → 1. */
+/** Effective quantity for an item: portion override → effective default → 1.
+ *  Default routes through the swap lens so a usual swap's stated quantity wins. */
 export const qtyOf = (item: PlanItem, portions: Record<string, number> = {}): number =>
-  (item.id != null ? portions[item.id] : undefined) ?? item.quantity ?? 1;
+  (item.id != null ? portions[item.id] : undefined) ?? effectiveQuantity(item);
 
 // ---- usual swap (persisted, plan-level) — §5.4 + reconciliation §2 -----------
 // A chosen usual (usualSwapIndex) shows the swap's name/quantity/unit IN PLACE.
@@ -51,6 +52,16 @@ export const effectiveUnit = (item: PlanItem): string | undefined => {
 };
 
 /**
+ * True when the effective composition is "as much as you like" — a usual swap with
+ * no stated quantity. Such an item has no number to adjust: the qty pill shows its
+ * raw unit text, the row does NOT open PortionPop, and `boundsOf` returns null.
+ */
+export const isAdLib = (item: PlanItem): boolean => {
+  const sw = effectiveSwap(item);
+  return sw != null && sw.quantity == null;
+};
+
+/**
  * Per-unit macros of the effective composition. Original item → its own perUnit.
  * A usual swap → the equivalence estimate (undefined when the swap has no usable
  * quantity, e.g. "as much as you like" — the app shows no number, `~` covers it).
@@ -66,17 +77,51 @@ export function effectivePerUnit(item: PlanItem): MacroTotals | undefined {
   return { kcal: (per.kcal ?? 0) * f, proteinG: (per.proteinG ?? 0) * f, carbsG: (per.carbsG ?? 0) * f, fatG: (per.fatG ?? 0) * f };
 }
 
-/** Nutrition for one item = per-unit × quantity (explicit qty, else default). */
-export function itemTotals(item: PlanItem, qty: number = item.quantity ?? 1): Required<MacroTotals> {
-  const per = item.nutritionPerUnit;
+/**
+ * Nutrition for one item through the EFFECTIVE lens: a chosen usual swap prices in
+ * its own space (effectivePerUnit × swap-space quantity), so the number agrees with
+ * ItemRow and PortionPop. No swap → the item's own per-unit × quantity. Default qty
+ * is the effective default quantity.
+ */
+export function itemTotals(item: PlanItem, qty: number = effectiveQuantity(item)): Required<MacroTotals> {
+  const per = effectivePerUnit(item);
   if (!per) return { ...ZERO };
   return { kcal: (per.kcal ?? 0) * qty, proteinG: (per.proteinG ?? 0) * qty, carbsG: (per.carbsG ?? 0) * qty, fatG: (per.fatG ?? 0) * qty };
 }
 
-export const mealTotals = (meal: PlanMeal, portions: Record<string, number> = {}): Required<MacroTotals> =>
-  meal.items.reduce((t, it) => add(t, itemTotals(it, qtyOf(it, portions))), { ...ZERO });
+/** Sum a list of items through the effective lens + portion overlay. */
+const itemsTotals = (items: PlanItem[], portions: Record<string, number>): Required<MacroTotals> =>
+  items.reduce((t, it) => add(t, itemTotals(it, qtyOf(it, portions))), { ...ZERO });
 
+/** A meal's BASE composition totals (its own items). */
+export const mealTotals = (meal: PlanMeal, portions: Record<string, number> = {}): Required<MacroTotals> =>
+  itemsTotals(meal.items, portions);
+
+/**
+ * The items of a meal's persisted-usual composition: the chosen option's items when
+ * usualOptionIndex is set, else the meal's own (base) items.
+ */
+export const usualItems = (meal: PlanMeal): PlanItem[] => {
+  const oi = meal.usualOptionIndex;
+  return oi != null && meal.options?.[oi] ? meal.options[oi]!.items : meal.items;
+};
+
+/** A meal's USUAL-composition totals (base or the chosen option), effective lens. */
+export const mealUsualTotals = (meal: PlanMeal, portions: Record<string, number> = {}): Required<MacroTotals> =>
+  itemsTotals(usualItems(meal), portions);
+
+/**
+ * Daily totals over each meal's USUAL composition — so Today's summary and Home's
+ * plan row agree with the per-meal cards (which render the usual composition).
+ * Always an estimate (the caller labels it). Session-local "switch for today" option
+ * changes are NOT reflected here (they don't persist — deliberate asymmetry).
+ */
 export const planDailyTotals = (plan: EatingPlanDraft, portions: Record<string, number> = {}): Required<MacroTotals> =>
+  plan.meals.reduce((t, m) => add(t, mealUsualTotals(m, portions)), { ...ZERO });
+
+/** Daily totals over each meal's BASE composition — the Eating Plan doc editor
+ *  renders base meals, so its header sums base (matches the per-meal cards there). */
+export const planBaseTotals = (plan: EatingPlanDraft, portions: Record<string, number> = {}): Required<MacroTotals> =>
   plan.meals.reduce((t, m) => add(t, mealTotals(m, portions)), { ...ZERO });
 
 // ---- micros (fiber/sodium/iron/calcium), overlay-aware -----------------------
@@ -123,9 +168,13 @@ export const qtyLabel = (unit: string | undefined, q: number): string =>
 /** "~1,756" — the "~" estimate marker is mandatory (product philosophy). */
 export const kcalLabel = (tK: number): string => "~" + Math.round(tK).toLocaleString("en-US");
 
-/** Portion slider bounds: server-authoritative when present, else the heuristic. */
-export const boundsOf = (item: PlanItem): { min: number; max: number; step: number } =>
-  item.portion ?? portionRange(item.quantity);
+/**
+ * Portion slider bounds: server-authoritative when present, else a heuristic from the
+ * effective default quantity. `null` for an "as much as you like" usual swap — there
+ * is no number to adjust (the backend omits bounds too; the row won't open the pop).
+ */
+export const boundsOf = (item: PlanItem): { min: number; max: number; step: number } | null =>
+  isAdLib(item) ? null : (item.portion ?? portionRange(effectiveQuantity(item)));
 
 /** Slider bounds fallback for items without server bounds (e.g. edit-mode adds). */
 export function portionRange(quantity: number | undefined): { min: number; max: number; step: number } {
@@ -134,11 +183,16 @@ export function portionRange(quantity: number | undefined): { min: number; max: 
   return { min: 0, max: Math.max(Math.ceil(q * 3), 4), step: 0.25 };
 }
 
+/** Every item across every meal — base items first, then each option's items,
+ *  matching the backend's base-then-options stable-id assignment order. */
+export const allPlanItems = (doc: EatingPlanDraft): PlanItem[] =>
+  doc.meals.flatMap((m) => [...m.items, ...(m.options ?? []).flatMap((o) => o.items)]);
+
 /**
  * Prune/reset overlay keys after a document edit (PUT /plan) — A5: an edit
  * touches ONLY the edited item's override. Removed item → key dropped; an item
  * whose quantity/unit changed → its override reset (default/bounds changed);
- * everything else survives.
+ * everything else survives. Options-aware: option items carry overrides too.
  */
 export function pruneOverlayAfterEdit(
   oldDoc: EatingPlanDraft,
@@ -146,9 +200,9 @@ export function pruneOverlayAfterEdit(
   portions: Record<string, number>,
 ): Record<string, number> {
   const oldById = new Map<string, PlanItem>();
-  for (const m of oldDoc.meals) for (const it of m.items) if (it.id != null) oldById.set(it.id, it);
+  for (const it of allPlanItems(oldDoc)) if (it.id != null) oldById.set(it.id, it);
   const newById = new Map<string, PlanItem>();
-  for (const m of newDoc.meals) for (const it of m.items) if (it.id != null) newById.set(it.id, it);
+  for (const it of allPlanItems(newDoc)) if (it.id != null) newById.set(it.id, it);
 
   const next: Record<string, number> = {};
   for (const [id, qty] of Object.entries(portions)) {

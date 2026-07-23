@@ -2,7 +2,8 @@ import { api } from "../../api";
 import { ApiError, type EatingPlanWithPortions } from "../../api/client";
 import { resetDbForTests } from "../db";
 import { drainOutbox, pendingCount } from "../outbox";
-import { clearPortions, getPortions, savePlan, setPortion, syncPlan } from "../plan";
+import { clearPortions, clearPortionsAndPush, getPortions, savePlan, setPortion, syncPlan } from "../plan";
+import { isDirty } from "../kv";
 
 const flush = () => new Promise((r) => setTimeout(r, 0));
 const server = (over: Partial<EatingPlanWithPortions> = {}): EatingPlanWithPortions => ({
@@ -60,6 +61,26 @@ test("404 poison: drop op but keep the local overlay for display", async () => {
   await drainOutbox(api);
   expect(pendingCount()).toBe(0);
   expect(getPortions()).toEqual({ a: 3 });
+});
+
+test("clearPortionsAndPush (Today Revert): empties locally AND pushes {} to the server (#2)", async () => {
+  const spy = jest.spyOn(api, "putPlanPortions").mockResolvedValue(undefined);
+  setPortion("a", 3);
+  await flush();
+  spy.mockClear();
+  clearPortionsAndPush();
+  expect(getPortions()).toEqual({}); // local overlay gone
+  await flush();
+  expect(spy).toHaveBeenCalledWith({}); // server overlay emptied → won't re-adopt on next sync
+  expect(isDirty("plan.portions")).toBe(false); // settled after the push
+});
+
+test("plain clearPortions does NOT push (new-version reset only)", () => {
+  const spy = jest.spyOn(api, "putPlanPortions").mockResolvedValue(undefined);
+  clearPortions();
+  spy.mockClear();
+  clearPortions();
+  expect(spy).not.toHaveBeenCalled();
 });
 
 test("savePlan (new version) clears the overlay", async () => {

@@ -119,7 +119,7 @@ export default function Account() {
       <Label>{t("account.yourSetup")}</Label>
       <SetupRow glyph="❧" bg="#E7EDE1" ink="#5F7A61" title={t("home.eatingPlan")} sub={plan ? (plan.summary ?? t("account.setupPlanSet")) : t("account.setupNone")} onPress={() => router.push("/plan")} delay={50} />
       <SetupRow glyph="⟐" bg={colors.estimateBg} ink={colors.accent} title={t("home.trainingProgram")} sub={program ? (program.splitDescription ?? t("account.setupProgramSet")) : t("account.setupNone")} onPress={() => router.push("/program")} delay={100} />
-      <SetupRow glyph="≋" bg="#F0EDE2" ink="#6E6355" title={t("account.integrations")} sub={t("account.integrationsSub")} onPress={() => router.push("/integrations")} delay={150} />
+      <SetupRow glyph="≋" bg="#F0EDE2" ink="#6E6355" title={t("account.integrations")} sub={t("account.integrationsSub")} onPress={() => router.replace("/integrations")} delay={150} />
       <SetupRow glyph="✓" bg={colors.estimateBg} ink={colors.accent} title={t("habits.title")} sub={t("account.habitsSub", { count: habitCount })} onPress={() => router.push("/habits")} delay={200} />
 
       {/* notifications */}

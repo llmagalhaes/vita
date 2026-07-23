@@ -18,7 +18,7 @@
 import { api } from "../api";
 import type { EatingPlanDraft, TrainingProgramDraft } from "../api/client";
 import { ApiError } from "../api/client";
-import { pruneOverlayAfterEdit } from "../plan/compute";
+import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
 import { getDb } from "./db";
 import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "./kv";
 import { logChanged } from "./notify";
@@ -103,6 +103,19 @@ export function clearPortions(): void {
 }
 
 /**
+ * Revert today's portion tweaks AND clear the server overlay. Unlike
+ * {@link clearPortions} (which drops dirty so nothing is pushed — right when a new
+ * plan version already reset the server), this marks the empty map dirty and pushes
+ * it, so a Today "Revert" doesn't get re-adopted from the server on the next sync.
+ */
+export function clearPortionsAndPush(): void {
+  kvSet(PORTIONS_KEY, {});
+  kvSet(PORTIONS_DATE_KEY, todayISO());
+  setDirty(PORTIONS_KEY);
+  enqueuePortionsPush();
+}
+
+/**
  * Enqueue exactly ONE `portions` outbox row ever (coalescing): many slider
  * sessions collapse to one op, and the drain reads the live map at send time so
  * the last map wins. Fires a best-effort drain right after.
@@ -116,10 +129,11 @@ export function enqueuePortionsPush(): void {
   void drainOutbox(api).catch(() => {});
 }
 
-/** Drop overlay keys whose itemId no longer appears in the doc (defensive prune). */
+/** Drop overlay keys whose itemId no longer appears in the doc (defensive prune).
+ *  Options-aware: option items carry portion overrides too, so they must survive. */
 function pruneOverlayToDoc(doc: EatingPlanDraft): void {
   const ids = new Set<string>();
-  for (const m of doc.meals) for (const it of m.items) if (it.id != null) ids.add(it.id);
+  for (const it of allPlanItems(doc)) if (it.id != null) ids.add(it.id);
   const map = getPortions();
   let changed = false;
   for (const key of Object.keys(map)) {
@@ -211,6 +225,21 @@ export async function savePlan(doc: EatingPlanDraft, source: PlanSource = "manua
     /* offline — stays dirty (id-less until sync), re-pushed on next sync */
   }
 }
+/**
+ * Adopt a plan the server ALREADY persisted at parse time (async import saves it as
+ * status "review" — contract 0.7.0). The parse call returned that saved doc (with
+ * ids), so we cache it locally as clean — NO extra POST. Using savePlan here would
+ * re-POST the same doc and churn a duplicate version (the describe/onboarding
+ * double-save bug). Offline-safe: reuses the already-fetched doc, no round-trip.
+ */
+export function adoptServerPlan(doc: EatingPlanDraft, source: PlanSource = "manual"): void {
+  kvSet(PLAN_KEY, doc);
+  setPlanMeta(source);
+  clearDirty(PLAN_KEY);
+  kvSet(SETUP_PROMPT_HIDDEN_KEY, false); // a fresh import re-shows the Home setup banner
+  clearPortions(); // new plan version → overlay resets (server already reset it)
+}
+
 export async function saveProgram(doc: TrainingProgramDraft): Promise<void> {
   kvSet(PROGRAM_KEY, doc);
   setDirty(PROGRAM_KEY);

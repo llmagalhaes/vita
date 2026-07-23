@@ -19,7 +19,7 @@ import { useTranslation } from "react-i18next";
 import Animated, { Easing, FadeInUp, ZoomIn, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { api } from "../../src/api";
-import type { EatingPlanDraft, PlanItem, PlanMeal } from "../../src/api/client";
+import { ApiError, jobIdFromDetail, type EatingPlanDraft, type PlanItem, type PlanMeal } from "../../src/api/client";
 import { getCachedPlan, syncPlan, updatePlan } from "../../src/db/plan";
 import { logChanged } from "../../src/db/notify";
 import { createHabit } from "../../src/db/habits";
@@ -117,10 +117,31 @@ export default function PlanSetupScreen() {
     (async () => {
       try {
         const body = params.fileRef ? { fileRef: params.fileRef } : { text: params.text ?? "" };
-        const { jobId } = await api.startEatingPlanImport(body);
+        let jobId: string;
+        try {
+          ({ jobId } = await api.startEatingPlanImport(body));
+        } catch (e) {
+          // 409 = an import is already running for this user (contract §parse/eating-plan);
+          // its jobId is in problem.detail — adopt it and poll that instead of erroring.
+          const running = e instanceof ApiError && e.status === 409 ? jobIdFromDetail(e.problem.detail) : null;
+          if (!running) throw e;
+          jobId = running;
+        }
+        let pollFails = 0;
         for (;;) {
           if (cancelled) return;
-          const job = await api.getEatingPlanJob(jobId);
+          let job: { state: "running" | "done" | "failed" };
+          try {
+            job = await api.getEatingPlanJob(jobId);
+            pollFails = 0;
+          } catch (e) {
+            // Tolerate a few transient poll blips before giving up. ponytail: a genuinely
+            // stuck `running` relies on the server's stale-fail (contract: a job older
+            // than ~10 min is reported failed) — no client-side timeout cap here.
+            if (++pollFails > 3) throw e;
+            await sleep(3000);
+            continue;
+          }
           if (job.state === "done") break;
           if (job.state === "failed") return void (!cancelled && setPhase("error"));
           await sleep(3000);
@@ -150,9 +171,15 @@ export default function PlanSetupScreen() {
     );
   }
   if (phase === "error" || !doc) {
+    // Retry re-runs the import ONLY in parse mode. In review mode with no cached doc
+    // there's nothing to parse (no fileRef/text) — routing to Today avoids POSTing a
+    // garbage `{ text: "" }` import; Today's none-state offers a real import path.
     return (
       <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 22 }}>
-        <ErrorCard onRetry={() => (setFindings([]), setPhase("parsing"))} onType={() => router.replace("/today")} />
+        <ErrorCard
+          onRetry={isParse ? () => (setFindings([]), setPhase("parsing")) : () => router.replace("/today")}
+          onType={() => router.replace("/today")}
+        />
       </View>
     );
   }
@@ -213,7 +240,10 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
     }
   };
 
+  const finishedRef = useRef(false);
   const finish = () => {
+    if (finishedRef.current) return; // double-tap guard — no duplicate habits / PUT
+    finishedRef.current = true;
     // 1. Habits for every ON toggle (daily). Water at 10:00, supplements by timing.
     let created = 0;
     if (doc.hydration && habToggles.water) {
@@ -227,14 +257,19 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
     });
     void refreshNotifications();
 
-    // 2. Apply usuals (indices) + status ready, one PUT.
-    const next = applyUsuals(doc, chosenOption, chosenSwap);
+    // 2. Apply usuals (indices) + status ready, one PUT. Re-read the CACHED doc first:
+    // "Fix something" may have edited the plan via /plan while this Review held a stale
+    // snapshot (§5.5) — applying usuals to the edited doc keeps that edit instead of
+    // the Finish PUT clobbering it back to the pre-edit version.
+    const latest = getCachedPlan() ?? doc;
+    const next = applyUsuals(latest, chosenOption, chosenSwap);
     void updatePlan(next).then(() => logChanged());
 
     // 3. Navigate + toast.
+    const n = next.meals.length;
     router.replace("/today");
-    if (created > 0) showToast(t("planSetup.planReady", { n: nMeals, m: created }));
-    else showToast(t("planSetup.planReadyKcal", { n: nMeals, kcal: Math.round(planDailyTotals(next).kcal) }));
+    if (created > 0) showToast(t("planSetup.planReady", { n, m: created }));
+    else showToast(t("planSetup.planReadyKcal", { n, kcal: Math.round(planDailyTotals(next).kcal) }));
   };
 
   const isNotes = step === nMeals;

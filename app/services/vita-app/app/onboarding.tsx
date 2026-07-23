@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api";
-import { savePlan, saveProgram } from "../src/db/plan";
+import { adoptServerPlan, saveProgram } from "../src/db/plan";
 import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
 import { PlanStep, unanswered, type ImportResult, type PlanAnswer } from "../src/onboarding/PlanStep";
 import { importPdf } from "../src/onboarding/planImport";
@@ -82,11 +82,12 @@ export default function Onboarding() {
     setOnboarded();
     // Offline-tolerant: profile sync is fire-and-forget; kv is the local truth.
     void api.patchMe({ name: name.trim() }).catch(() => {});
-    // Persist the confirmed plan/program (POST → new version; cache is local truth).
-    // §5.7: an imported plan lands in "review" — Home shows the "finish setup" banner
-    // and Today opens the meal-by-meal review; onboarding itself does NOT run setup.
+    // The eating-plan parse already saved the draft server-side as status "review"
+    // (async import, contract 0.7.0). Adopt that returned doc locally — do NOT re-POST
+    // (savePlan would churn a duplicate version). §5.7: Home shows the "finish setup"
+    // banner and Today opens the meal-by-meal review; onboarding itself does NOT run it.
     const planDoc = confirmedDraft(plan);
-    if (planDoc) void savePlan({ ...planDoc, status: "review" }, plan.kind === "answered" ? (plan.source ?? "manual") : "manual");
+    if (planDoc) adoptServerPlan(planDoc, plan.kind === "answered" ? (plan.source ?? "manual") : "manual");
     const programDoc = confirmedDraft(program);
     if (programDoc) void saveProgram(programDoc);
     router.replace("/home");

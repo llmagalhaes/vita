@@ -145,7 +145,8 @@ function createExpoNotifier(): Notifier {
       await Notifications.scheduleNotificationAsync({
         identifier: RECAP_ID,
         content: { title: "Evening recap", body: planned.body },
-        trigger: at,
+        // Typed DATE one-shot for tonight — SDK 56 may reject a bare Date trigger.
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
       });
     },
   };
@@ -192,6 +193,11 @@ export async function refreshNotifications(): Promise<void> {
   try {
     // Paused → cancel everything by syncing an empty set.
     await getNotifier().sync(notificationsPaused() ? [] : listHabits());
+    // sync() calls cancelAllScheduledNotificationsAsync(), which also wipes tonight's
+    // evening recap. Re-schedule it LAST so a habit change doesn't silently drop the
+    // recap (ordering race). Lazy require breaks the notifier↔recap import cycle.
+    const { syncRecapFromLog } = require("./recap") as typeof import("./recap");
+    await syncRecapFromLog();
   } catch {
     // Expo Go may warn on Android; scheduling is non-critical to the in-app flow.
   }

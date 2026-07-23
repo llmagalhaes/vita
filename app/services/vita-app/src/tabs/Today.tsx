@@ -13,22 +13,22 @@ import Animated, { FadeInUp } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import type { EatingPlanDraft, PlanItem, ProgramDay, TrainingProgramDraft } from "../api/client";
 import {
+  adoptServerPlan,
   clearDaySkips,
-  clearPortions,
+  clearPortionsAndPush,
   getCachedPlan,
   getCachedProgram,
   getDaySkips,
   getPortions,
   getSelectedDay,
   mealPlanStatus,
-  savePlan,
   setPortion,
   setSelectedDay,
   toggleDaySkip,
 } from "../db/plan";
 import { logChanged, useLogVersion } from "../db/notify";
 import { api } from "../api";
-import { effectiveQuantity, kcalLabel, planDailyTotals, qtyLabel } from "../plan/compute";
+import { effectiveName, effectiveQuantity, isAdLib, kcalLabel, planDailyTotals, qtyLabel } from "../plan/compute";
 import { changesToday, compItems, compKcal, compLabel, dayWorkoutKcal, usualChip } from "../plan/setup";
 import { MacroBars } from "../plan/MacroBars";
 import { ItemRow } from "../plan/ItemRow";
@@ -185,8 +185,10 @@ function MealTab() {
             onSubmit={async (text) => {
               setBusy(true);
               try {
+                // The async import already saved this server-side as status "review";
+                // adopt the returned doc locally — do NOT re-POST (would churn a dup).
                 const parsed = await api.parseEatingPlan({ text });
-                await savePlan({ ...parsed, status: "review" }, "text");
+                adoptServerPlan(parsed, "text");
                 setDescribe(false);
                 router.push("/plan-setup?mode=review");
               } catch {
@@ -221,6 +223,10 @@ function MealReady({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
   const totals = planDailyTotals(doc, portions);
 
   // Per-meal "switch composition for today" — display-only, session-local.
+  // ponytail: deliberate asymmetry vs portion tweaks — a day option-switch is NOT
+  // counted by changesToday, NOT cleared by Revert, and resets on restart (it never
+  // persists). Promote to a day-scoped overlay (like portions/skips) only if the CEO
+  // wants it to survive a restart or feed the changes banner.
   const [todayOpt, setTodayOpt] = useState<Record<number, number>>({});
   const chipOf = (mi: number) => todayOpt[mi] ?? usualChip(doc.meals[mi]!);
 
@@ -230,7 +236,8 @@ function MealReady({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
   const revert = () => {
     const snapPortions = { ...portions };
     const snapSkips = JSON.parse(JSON.stringify(skips)) as typeof skips;
-    clearPortions();
+    clearPortionsAndPush(); // clear locally AND push the empty map so the tweak
+    // doesn't get re-adopted from the server on the next sync (and survives restart).
     clearDaySkips();
     logChanged();
     showToast(t("today.reverted"), {
@@ -321,7 +328,8 @@ function MealReady({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
                 item={it}
                 qty={dayQty(it, portions)}
                 last={ii === items.length - 1}
-                onPress={it.id != null ? () => setSel({ mi, ii, openQty: dayQty(it, portions) }) : undefined}
+                // à vontade ("as much as you like") has no number to adjust → no pop.
+                onPress={it.id != null && !isAdLib(it) ? () => setSel({ mi, ii, openQty: dayQty(it, portions) }) : undefined}
               />
             ))}
           </View>
@@ -352,7 +360,7 @@ function MealReady({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
       if (now !== sel.openQty) {
         const openQty = sel.openQty;
         const id = selItem.id;
-        showToast(t("today.adjusted", { name: selItem.name }), { undo: () => setPortion(id, openQty) });
+        showToast(t("today.adjusted", { name: effectiveName(selItem) }), { undo: () => setPortion(id, openQty) });
       }
     }
     setSel(null);

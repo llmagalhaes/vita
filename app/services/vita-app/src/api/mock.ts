@@ -7,7 +7,7 @@
  * Parse is deterministic keyword-matching so the CEO can demo capture offline.
  * Every numeric value is an estimate and flagged isEstimate: true.
  */
-import { pruneOverlayAfterEdit } from "../plan/compute";
+import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
 import { uuid } from "../lib/uuid";
 import {
   ApiError,
@@ -533,6 +533,31 @@ export function mockParseProgram(text?: string): TrainingProgramDraft {
   };
 }
 
+/**
+ * Assign stable ids to any items lacking them, exactly like the server: base items
+ * first then each option's items (allPlanItems order), one shared "it-N" counter
+ * starting past `start`. Options-aware — an option item without an id would otherwise
+ * collide with a base id (the counter used to see only base items).
+ */
+function stampPlanIds(doc: EatingPlanDraft, start = 0): EatingPlanDraft {
+  let n = start;
+  const stamp = (it: PlanItem): PlanItem => ({ ...it, id: it.id ?? `it-${++n}` });
+  return {
+    ...doc,
+    meals: doc.meals.map((m) => ({
+      ...m,
+      items: m.items.map(stamp),
+      ...(m.options ? { options: m.options.map((o) => ({ ...o, items: o.items.map(stamp) })) } : {}),
+    })),
+  };
+}
+
+/** Highest numeric "it-N" id across base + option items (0 when none). */
+function maxItemId(doc: EatingPlanDraft): number {
+  const nums = allPlanItems(doc).map((it) => Number((it.id ?? "").replace("it-", ""))).filter((x) => Number.isFinite(x));
+  return nums.length ? Math.max(...nums) : 0;
+}
+
 export function createMockApi(): Api {
   let me: User = {
     id: uuid(),
@@ -599,8 +624,7 @@ export function createMockApi(): Api {
       // The server saves the parse result as the current version, status "review".
       const draft = { ...handoffPlanV3(), status: "review" as const };
       if (text?.trim()) draft.summary = mockParsePlan(text).summary;
-      let n = 0;
-      storedPlan = { ...draft, meals: draft.meals.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, id: it.id ?? `it-${++n}` })) })) };
+      storedPlan = stampPlanIds(draft);
       storedPortions = {};
       const jobId = uuid();
       parseJobs.set(jobId, { state: "done" });
@@ -613,9 +637,16 @@ export function createMockApi(): Api {
       return job;
     },
     async parseEatingPlan({ text }) {
-      // Convenience (onboarding describe path): the review-status draft directly.
+      // Convenience (onboarding / Today describe path). Mirror the real backend: the
+      // async import PERSISTS the parse as the current version (status "review") and
+      // the caller GETs it — so the mock saves storedPlan too (a later syncPlan then
+      // returns the same doc instead of clobbering it with the seed).
       await delay(LATENCY_MS);
-      return mockParsePlan(text);
+      const draft = { ...handoffPlanV3(), status: "review" as const };
+      if (text?.trim()) draft.summary = mockParsePlan(text).summary;
+      storedPlan = stampPlanIds(draft);
+      storedPortions = {};
+      return storedPlan;
     },
     async parseTrainingProgram({ text }) {
       await delay(LATENCY_MS);
@@ -635,16 +666,9 @@ export function createMockApi(): Api {
     },
     async createPlan(doc) {
       await delay(150);
-      // A2: saving assigns stable ids to items lacking them (document order),
-      // exactly like the server — a saved plan always has per-item ids.
-      let n = 0;
-      const withIds: EatingPlanDraft = {
-        ...doc,
-        meals: doc.meals.map((m) => ({
-          ...m,
-          items: m.items.map((it) => ({ ...it, id: it.id ?? `it-${++n}` })),
-        })),
-      };
+      // A2: saving assigns stable ids to items lacking them (base-then-options
+      // order), exactly like the server — a saved plan always has per-item ids.
+      const withIds = stampPlanIds(doc);
       storedPlan = withIds;
       storedPortions = {}; // new version resets the overlay (DESIGN-SPEC)
       return withIds;
@@ -652,8 +676,9 @@ export function createMockApi(): Api {
     async putPlanPortions(portions) {
       await delay(120);
       if (!storedPlan) throw notFound();
-      // Reject unknown ids like the server (422 → app resyncs).
-      const ids = new Set(storedPlan.meals.flatMap((m) => m.items.map((it) => it.id)));
+      // Reject unknown ids like the server (422 → app resyncs). Options-aware — an
+      // override on an option item is legitimate and must not be rejected.
+      const ids = new Set(allPlanItems(storedPlan).map((it) => it.id));
       for (const key of Object.keys(portions)) {
         if (!ids.has(key)) {
           throw new ApiError(422, { type: "about:blank", title: "Unknown plan item id", status: 422 });
@@ -665,14 +690,10 @@ export function createMockApi(): Api {
       await delay(150);
       if (!storedPlan) throw notFound();
       // APP-092 #1 — mirror the server: assign ids to items lacking them (continuing
-      // the "it-N" counter past the current max) and prune the overlay to the edit
+      // the "it-N" counter past the current max ACROSS base + options, so a new item
+      // can't collide with an existing option id) and prune the overlay to the edit
       // (removed items dropped, an item whose qty·unit changed loses its override).
-      const nums = storedPlan.meals.flatMap((m) => m.items.map((it) => Number((it.id ?? "").replace("it-", "")))).filter((x) => Number.isFinite(x));
-      let n = nums.length ? Math.max(...nums) : 0;
-      const withIds: EatingPlanDraft = {
-        ...doc,
-        meals: doc.meals.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, id: it.id ?? `it-${++n}` })) })),
-      };
+      const withIds = stampPlanIds(doc, maxItemId(storedPlan));
       storedPortions = pruneOverlayAfterEdit(storedPlan, withIds, storedPortions);
       storedPlan = withIds;
       return withIds;

@@ -6,7 +6,7 @@
  * Eating Plan doc screen.
  */
 import { Pressable, View } from "react-native";
-import { effectiveName, effectivePerUnit, effectiveUnit, qtyLabel } from "./compute";
+import { effectiveName, effectivePerUnit, effectiveUnit, isAdLib, qtyLabel } from "./compute";
 import type { PlanItem } from "../api/client";
 import { Text, colors, fonts, tint, useAccent } from "../ui";
 
@@ -23,6 +23,7 @@ export function ItemRow({
 }) {
   const accent = useAccent();
   const per = effectivePerUnit(item);
+  const adlib = isAdLib(item);
   const kcal = per?.kcal != null ? Math.round(per.kcal * qty) : null;
   return (
     <Pressable
@@ -45,7 +46,8 @@ export function ItemRow({
       </Text>
       <View style={{ backgroundColor: tint(accent, 10), borderRadius: 11, paddingVertical: 4, paddingHorizontal: 9 }}>
         <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={accent}>
-          {qtyLabel(effectiveUnit(item), qty)}
+          {/* à vontade: no number — show the raw unit phrase ("as much as you like"). */}
+          {adlib ? (effectiveUnit(item) ?? "") : qtyLabel(effectiveUnit(item), qty)}
         </Text>
       </View>
       {kcal != null ? (

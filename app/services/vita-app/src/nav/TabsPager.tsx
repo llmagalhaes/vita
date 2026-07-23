@@ -95,6 +95,15 @@ export function TabsPager() {
   const gestureDriven = useSharedValue(false);
   const idxRef = useRef(startIdx);
 
+  // JS-thread mirror of "a pan is active". Growing the mounted set mid-swipe recreates
+  // the pan and eats the gesture (session-6 dead-swipe). We defer neighbour mounts
+  // until no pan is active; `gesturing` re-arms the effect when the pan ends.
+  const [gesturing, setGesturing] = useState(false);
+  const gesturingRef = useRef(false);
+  useEffect(() => {
+    gesturingRef.current = gesturing;
+  }, [gesturing]);
+
   const settle = (to: number, viaGesture: boolean) => {
     idxRef.current = to;
     if (viaGesture) setNavSwiped(); // a real swipe retires the one-time SWIPE hint
@@ -109,12 +118,14 @@ export function TabsPager() {
       index.value = withSpring(active, SPRING);
     }
     const id = setTimeout(() => {
+      if (gesturingRef.current) return; // a pan started — the pan-end effect re-arms this
       ensure(active - 1);
       ensure(active + 1);
     }, 350);
     return () => clearTimeout(id);
+    // `gesturing` in deps so a settled pan re-runs the deferred neighbour mount.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
+  }, [active, gesturing]);
 
   const pan = Gesture.Pan()
     .withRef(tabsPagerRef)
@@ -123,6 +134,7 @@ export function TabsPager() {
     .onBegin(() => {
       start.value = index.value;
       gestureDriven.value = false;
+      runOnJS(setGesturing)(true);
     })
     .onUpdate((e) => {
       const raw = start.value - e.translationX / Math.max(width, 1);
@@ -133,6 +145,9 @@ export function TabsPager() {
       const to = snapTarget(start.value, e.translationX, e.velocityX, width);
       index.value = withSpring(to, SPRING);
       runOnJS(settle)(to, true);
+    })
+    .onFinalize(() => {
+      runOnJS(setGesturing)(false); // pan done → let the effect grow neighbours
     });
 
   const rowStyle = useAnimatedStyle(() => ({

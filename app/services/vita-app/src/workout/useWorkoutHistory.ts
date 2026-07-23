@@ -8,6 +8,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { entriesInRange, type LocalEntry } from "../db/entries";
+import { useLogVersion } from "../db/notify";
 import { getHealthReader, type HcSession } from "../health/healthConnect";
 import { exerciseTypeKey, mergeHistory, type HistoryRow } from "./history";
 
@@ -19,10 +20,14 @@ export function useWorkoutHistory(): {
   closePreview: () => void;
 } {
   const { t } = useTranslation();
+  const version = useLogVersion();
   const [preview, setPreview] = useState<LocalEntry | null>(null);
   const [previewSrc, setPreviewSrc] = useState<string | undefined>(undefined);
   const [hcSessions, setHcSessions] = useState<HcSession[]>([]);
 
+  // The Workout hub is permanently mounted (pager) — without the log-version dep the
+  // range anchors once and never re-reads, so a newly-logged workout and the day
+  // rollover both go stale. Re-anchor + re-query on every log change.
   const range = useMemo(() => {
     const end = new Date();
     end.setDate(end.getDate() + 1);
@@ -30,9 +35,10 @@ export function useWorkoutHistory(): {
     const start = new Date(end);
     start.setDate(start.getDate() - 30);
     return { start, end };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [version]);
 
-  const captured = useMemo(() => entriesInRange("workout", range.start, range.end), [range]);
+  const captured = useMemo(() => entriesInRange("workout", range.start, range.end), [range, version]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let alive = true;
     void getHealthReader()

@@ -30,7 +30,7 @@ import { listHabits } from "../db/habits";
 import { openCheckins, pendingCheckins } from "../habits/checkins";
 import { energyChartMax, last7EnergySeries, logManualEnergy } from "../energy/manual";
 import { healthActiveKcalToday, refreshHealthConnect, todaysHealthSnapshot } from "../health/healthConnect";
-import { mealTotals, planDailyTotals } from "../plan/compute";
+import { mealUsualTotals, planDailyTotals } from "../plan/compute";
 import { recapLine } from "../plan/setup";
 import { formatVolume } from "../lib/units";
 import { GrowBar } from "../trends/parts";
@@ -338,7 +338,7 @@ function PlanRow2({ plan, meals, portions, onOpen }: { plan: EatingPlanDraft; me
         {open && (
           <Animated.View entering={FadeIn.duration(250)} style={{ borderTopWidth: 1, borderStyle: "dashed", borderTopColor: "rgba(120,100,75,0.16)", paddingTop: 10, gap: 8 }}>
             {plan.meals.map((meal, i) => {
-              const k = Math.round(mealTotals(meal, portions).kcal) || meal.kcal || 0;
+              const k = Math.round(mealUsualTotals(meal, portions).kcal) || meal.kcal || 0;
               const logged = loggedNames.has(meal.name.toLowerCase());
               return (
                 <View key={`${meal.name}-${i}`} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>

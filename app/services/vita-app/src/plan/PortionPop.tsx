@@ -10,7 +10,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import type { MacroTotals, PlanItem } from "../api/client";
-import { barPct, boundsOf, itemTotals, kcalLabel, qtyLabel } from "./compute";
+import { barPct, boundsOf, effectiveName, effectivePerUnit, effectiveUnit, itemTotals, kcalLabel, portionRange, qtyLabel } from "./compute";
 import { Button, Card, EditableText, Slider, Text, colors, fonts, shadowPop, tint, useAccent } from "../ui";
 
 const MACROS = [
@@ -86,10 +86,15 @@ export function PortionPop({
 }) {
   const { t } = useTranslation();
   const accent = useAccent();
-  const bounds = boundsOf(item);
+  // Route through the effective lens so a usual swap prices/labels in its own space
+  // and agrees with ItemRow. bounds is null only for an "as much as you like" swap,
+  // which never opens this pop — the fallback keeps the slider math well-typed.
+  const bounds = boundsOf(item) ?? portionRange(qty);
+  const name = effectiveName(item);
+  const unit = effectiveUnit(item);
   const itemMacros = itemTotals(item, qty);
   const kcal = Math.round(itemMacros.kcal);
-  const perKcal = item.nutritionPerUnit?.kcal ?? 0;
+  const perKcal = effectivePerUnit(item)?.kcal ?? 0;
 
   return (
     <View style={{ gap: 12 }}>
@@ -112,7 +117,7 @@ export function PortionPop({
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text variant="title" style={{ fontSize: 17 }}>
-                {item.name || t("plan.itemNamePlaceholder")}
+                {name || t("plan.itemNamePlaceholder")}
               </Text>
               <Text variant="caption" style={{ fontSize: 11.5 }} color={colors.muted}>
                 {mealTime ? t("plan.mealAt", { name: mealName, time: mealTime }) : mealName}
@@ -137,7 +142,7 @@ export function PortionPop({
           </View>
 
           <Text style={{ textAlign: "center", fontSize: 30, fontFamily: fonts.semiBold, letterSpacing: -0.5 }} color={accent}>
-            {qtyLabel(item.unit, qty)}
+            {qtyLabel(unit, qty)}
           </Text>
 
           <Slider
@@ -145,7 +150,7 @@ export function PortionPop({
             min={bounds.min}
             max={bounds.max}
             step={bounds.step}
-            accessibilityLabel={t("plan.portionFor", { name: item.name })}
+            accessibilityLabel={t("plan.portionFor", { name })}
             onChange={onChangeQty}
           />
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
@@ -184,9 +189,9 @@ export function PortionPop({
               textStyle={{ fontSize: 15, minWidth: 60, textAlign: "center" }}
               accessibilityLabel={t("plan.exact")}
             />
-            {item.unit ? (
+            {unit ? (
               <Text variant="caption" color={colors.muted}>
-                {item.unit}
+                {unit}
               </Text>
             ) : null}
           </View>

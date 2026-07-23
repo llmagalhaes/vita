@@ -8,10 +8,11 @@ import type { EatingPlanDraft } from "../../src/api";
 import { getCachedPlan, getPlanMeta, getPortions, setPlanMeta, setPortion, updatePlan } from "../../src/db/plan";
 import { logChanged, useLogVersion } from "../../src/db/notify";
 import {
+  effectiveQuantity,
   itemTotals,
   kcalLabel,
   mealTotals,
-  planDailyTotals,
+  planBaseTotals,
   planMicroTotals,
   qtyLabel,
   qtyOf,
@@ -107,7 +108,10 @@ export default function EatingPlanScreen() {
     );
   }
 
-  const totals = planDailyTotals(view, activePortions);
+  // Base totals: the doc editor renders each meal's BASE items (options aren't
+  // shown/edited here), so the header must sum base — not the usual composition
+  // (which planDailyTotals uses for Today/Home) — or it wouldn't match the cards.
+  const totals = planBaseTotals(view, activePortions);
   const liveMicros = planMicroTotals(view, activePortions);
   const selItem = sel && view.meals[sel.mi]?.items[sel.ii];
   const selMeal = sel && view.meals[sel.mi];
@@ -320,7 +324,7 @@ export default function EatingPlanScreen() {
               onClose={() => setSel(null)}
               onChangeQty={(next) => {
                 if (editing) mutate((d) => (d.meals[sel.mi]!.items[sel.ii]!.quantity = next));
-                else if (selItem.id != null) setPortion(selItem.id, next, selItem.quantity);
+                else if (selItem.id != null) setPortion(selItem.id, next, effectiveQuantity(selItem));
               }}
             />
           )}

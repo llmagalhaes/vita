@@ -676,6 +676,7 @@
     "wkNoneTitle": "No training program yet",
     "wkNoneBody": "Log workouts freely — or bring your program and Vita lays it out day by day. You can keep more than one.",
     "programImported": "Program imported — {{n}} workouts found",
+    "programParseError": "That didn't parse — try again or type it instead.",
     "exercisesWord": "exercises",
     "saveProgram": "Save program"
   },
