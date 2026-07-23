@@ -1,5 +1,52 @@
 # App Team — Next Session
 
+## Session 19 (2026-07-23) — VITA V3 app BUILT + reviewed + fresh APK (rides prod backend vita:9) ✅
+
+Full V3 app shipped per `docs/v3/app-spec.md` (+ `docs/v3/reconciliation.md` = binding cross-team decisions).
+Built in waves by parallel Opus agents on disjoint file-owners, adversarially reviewed by the Fable lead,
+fixed, and gated. Contract v0.7.0 is live in prod. Commits: `ca2cd14` (foundation APP-082/083/085/092) ·
+`2ca6def` (screens APP-084/086/087/088/089/090/091) · `9d5f5ff` (review fixes).
+
+**Shipped:**
+- **Foundation:** types v0.7.0 + async-parse client/mock, toast-with-Undo + tokens/motion/i18n, plan status
+  (`ready|review|none`) + **day-scoped** portions overlay + setup math (`applyUsuals` writes **indices**
+  `usualSwapIndex`/`usualOptionIndex`, `effective*` helpers, `setupFindings`), 18b fold-ins.
+- **Nav v3:** 6-tab pager (Today←Home→Trends→Workout→Habits→Integrations) + NavDots ("TODAY" word + 5 dots,
+  one-time SWIPE hint), header simplified. `snapTarget` clamp intact; neighbor-mount gated on `isGesturing`.
+- **Plan Setup** (`app/(main)/plan-setup.tsx`): vtBreath parsing → **async poll** import (202 → poll jobs/{id}
+  every 3s → refetch GET /plan) → 6-step review (progress bar, option chips, expanding swap radios + ORIGINAL
+  restore + searchable **SwapSheet**, SWAPPED badge + toast/Undo) → Notes&habits → Finish (writes indices +
+  `status:"ready"` + creates habits). 409 recovery (jobId from `problem.detail`) + poll fault tolerance.
+- **Today's plan:** ready/review/none × meal+workout, summary through the **effective/usual lens**, day-scoped
+  PortionPop + "N changes today" + Revert (clears server overlay), multi-program chips, skip/OFF TODAY.
+- **Home v3:** recap card (`expo-linear-gradient`), banner slot order, morning empty, plan-pending banner.
+- **Trends** consistency line (ordinal, **never numeric**), **Workout hub**, **evening recap notification**.
+- **Fable review fixes (`9d5f5ff`) — the real bug was structural:** v3 items live in `options[].items` too, and
+  a usual swap has a different effective per-unit space. Fixed: options-aware overlay prune + id stamping (no
+  data loss on option items), effective-lens totals/PortionPop (**swapped-item math was ~50% off**),
+  usual-composition-aware `planDailyTotals`, Revert server-overlay clear, no double-save, à-vontade no slider,
+  nav/recap/history hardening.
+- **Gates (authoritative):** tsc 0 · **Jest 313/313 (56 suites)** · api:check clean · expo export OK. No emulator
+  verification this round (CEO device-tests).
+- **FRESH APK:** `app/services/vita-app/android/app/build/outputs/apk/release/app-release.apk` — 108 MB,
+  2026-07-23 19:00, **prod URL baked** (`apiBaseUrl:…/v1` verified inside → non-mock). **Re-prebuilt** because
+  `expo-linear-gradient` adds a native module (don't reuse a stale `android/` when a native dep changes).
+  Install clean: `adb uninstall com.llmagal.vita && adb install -r <apk>`.
+
+**Asana:** APP-082..092 commented + left **In progress** (DoD = in store; app is only a sideload APK). Not Done.
+
+**Open app follow-ups (non-blocking, `// ponytail:` noted where relevant):**
+- **Day option-switch is session-local** — portion tweaks persist across restart but a "switch composition for
+  today" resets and isn't counted by the changes banner (asymmetry). ~15 lines to make it a kv day-scoped map
+  like `daySkips` if the CEO wants it consistent (`Today.tsx`).
+- Base-composition chip label shows the meal's own name (e.g. "Lunch" beside "Brunch") — kept, CEO-confirmable.
+- `plan.tsx` doc-editor: a base item carrying a `usualSwapIndex` shows effective qty/kcal while `EditableText`
+  still labels the base name (rare post-setup edge; base qty persists correctly). Out of scope this round.
+- Recap `Date` trigger + notifier ordering were hardened but are **device-verify** items (emulator can't).
+
+**Next app action:** CEO installs the APK clean and drives Plan Setup with the real `meal-plan.pdf` end-to-end
+(the async import works against prod vita:9). Then decide the day option-switch persistence + any device-feel tweaks.
+
 ## Session 18b (2026-07-22) — CEO amendments baked into the meal-plan spec + tickets ✅
 CEO answered everything; the build is UN-GATED once the backend merges contract v0.6.0 into
 `docs/contracts/vita-api-v0.yaml` (backend lead writing it in parallel). Amendments A1–A9

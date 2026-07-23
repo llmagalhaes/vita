@@ -1,9 +1,30 @@
 # Backend — Next session
 
-## Current state (session 21, 2026-07-23) — V3 round BUILT (BE-043/044/045) + live eval GREEN
+## Current state (2026-07-23, session 19) — V3 round SHIPPED: built + review-fixed + DEPLOYED to prod (task-def vita:9) + probe GREEN
 
-Full v3 backend built per `docs/v3/backend-spec.md`. Ledger: `Progress/BE-043-044-045-v3-plan-Progress.md`.
-Tree left dirty for the orchestrator to gate + commit (subagents don't run git).
+Full v3 backend built per `docs/v3/backend-spec.md`, adversarially reviewed (Fable), fixed, and live in prod.
+Commits: `558517f` (BE-043/044/045) · `c3e3bcd` (review fixes) · `f585f95` (BE-046 deploy). Ledger:
+`Progress/BE-043-044-045-v3-plan-Progress.md` + `Progress/BE-046-v3-deploy-Progress.md`.
+
+- **Fable review fixes (`c3e3bcd`):** async output cap **16384→20480** (the live run hit 16.0k = ~2% headroom →
+  a capped run truncates → job fails on the exact acceptance PDF nondeterministically); **à-vontade usual
+  swap now gets NO portion slider** (`portion=null` when the chosen swap has no quantity/grams); **race-safe
+  job transitions** (conditional `UPDATE … WHERE state='running'` + stale window 10→15 min so a slow legit
+  run isn't false-failed into a duplicate parse); **overlay prune compares (qty,unit) only** (not grams);
+  strengthened the live-eval asserts (per-option kcal, micros presence, swap spot-check). `./gradlew check`
+  **227 green**; live eval re-confirmed **outputTokens=16019** under 20480.
+- **BE-046 DEPLOYED (`f585f95`):** image `vita-api:2ca6def` (arm64), Terraform `app_image_tag` bump →
+  **task-def vita:9**, V009 applied on boot (`plan_parse_job`, expand-only), `/health` 200. **PROD PROBE
+  GREEN** — real `meal-plan.pdf` end-to-end: POST /parse/eating-plan → **202** → poll → done ~3.2 min →
+  GET /plan **status:review** (5 meals/4 options/2500ml/3 supp/1716·188.6·153.4·47.9/42 items+bounds/308
+  swaps no-bounds); cost `outputTokens=16884` under cap. Asana BE-042..046 → **Done**.
+- **Next backend action:** none pending for V3. Standing follow-ups: the grams-fallback heuristic is slightly
+  broader than the committed `PortionBounds` description ("derive from quantity/unit") — a one-line additive
+  doc tweak in a future contract pass, not blocking. SES production access + domain/DKIM before real users.
+  Disposable probe accounts + a review plan left in prod DB (A2). OIDC placeholder client-ids · S3 30-day lifecycle.
+
+### Build detail (as committed)
+Tree was left dirty by the build subagents; orchestrator gated + committed.
 
 - **BE-043** v3 doc model + save semantics: DTOs (status/note/hydration/supplements/options/swaps/usuals/
   grams/kcalEstimate), `decorate()` ids it-1…it-42 over base+option items (V3-D8), portion bounds from
