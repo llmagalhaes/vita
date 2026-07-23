@@ -44,7 +44,7 @@ class PlanParseEvalTest {
     @BeforeEach
     fun setUp() {
         wm.resetAll()
-        val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 3072)
+        val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 3072, 16384, 300)
         val metrics = ParseMetrics(SimpleMeterRegistry())
         service = PlanParseService(client, fileStore, metrics, "claude-haiku-4-5", "claude-sonnet-4-6")
     }

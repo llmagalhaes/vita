@@ -37,7 +37,7 @@ class PlanParseLiveEvalTest {
         val baseUrl = System.getenv("ANTHROPIC_BASE_URL") ?: "https://api.anthropic.com"
         val model = System.getenv("VITA_AI_PLAN_MODEL") ?: "claude-haiku-4-5"
 
-        val client = ClaudeClient(baseUrl, model, 1024, 15, apiKey, 25, 3072)
+        val client = ClaudeClient(baseUrl, model, 1024, 15, apiKey, 25, 3072, 16384, 300)
         val metrics = ParseMetrics(SimpleMeterRegistry())
         val service = PlanParseService(client, fileStore, metrics, model, "claude-sonnet-4-6")
 

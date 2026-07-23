@@ -30,6 +30,33 @@ internal object PlanPrompts {
         fiberG (g), sodiumMg (mg), ironMg (mg), calciumMg (mg). Omit any value you
         cannot estimate — never invent micros. Keep filling the daily `micros` array
         as before; it is the fallback for items without microsPerUnit.
+
+        Transcribe in the document's own language — never translate names, notes,
+        doses or units.
+
+        A meal may define alternative complete compositions ("Opção 2 – Brunch",
+        "Opção 3 – …"): put the first/default composition in the meal's items and
+        each alternative in options with its own name, kcal and full items. Never
+        merge options into one item list.
+
+        Each item may have a substitution list ("Opções de substituição para …"):
+        record EVERY entry as a swap with its name and stated quantity — lists can
+        have 25+ entries and every one matters; never skip, merge or summarize.
+        When a quantity is a count plus grams ("2 Fatia(s) média(s) (150g)"), set
+        quantity to the count, unit to the measure words, and grams to the grams.
+        "À vontade" → omit quantity, set unit to "à vontade". Swaps carry no
+        nutrition fields.
+
+        When the document has a nutrient report page, copy its STATED numbers
+        verbatim: per-meal and per-option kcal onto each meal/option, the totals
+        into dailyTotals, minerals/vitamins into micros. Stated numbers are
+        transcription, not estimation — do not recompute or round them.
+
+        Record daily water ("HIDRATAÇÃO") as hydration.mlPerDay with its note.
+        Record "SUPLEMENTAÇÃO" entries as supplements with dose, timing and
+        duration as stated. Water is hydration, never a supplement. Put per-meal
+        "Observações" in the meal's note and plan-level guidance (validity,
+        off-plan allowance) in the top-level note, both shortened sensibly.
         """.trimIndent()
 
     val TRAINING_PROGRAM_SYSTEM =
@@ -47,6 +74,9 @@ internal object PlanPrompts {
         and muscleRoles marking each as primary (a main mover) or secondary
         (assisting/stabilizing). Only muscles the exercise genuinely works — omit
         both fields if you cannot tell.
+
+        For each day, set kcalEstimate to a rough total energy estimate for that
+        day's session when you can; omit it when you cannot estimate it.
         """.trimIndent()
 
     private val MACRO_TOTALS =
@@ -98,6 +128,63 @@ internal object PlanPrompts {
                 ),
         )
 
+    // One substitution-list entry (V3-D5): name + stated quantity/unit/grams; NO nutrition.
+    private val SWAP =
+        mapOf(
+            "type" to "object",
+            "required" to listOf("name"),
+            "properties" to
+                mapOf(
+                    "name" to mapOf("type" to "string"),
+                    "quantity" to mapOf("type" to "number"),
+                    "unit" to mapOf("type" to "string"),
+                    "grams" to mapOf("type" to "number"),
+                ),
+        )
+
+    // One plan item — defined once, referenced by both meals[].items and options[].items (V3-D8).
+    private val PLAN_ITEM =
+        mapOf(
+            "type" to "object",
+            "required" to listOf("name"),
+            "properties" to
+                mapOf(
+                    "name" to mapOf("type" to "string"),
+                    "quantity" to mapOf("type" to "number"),
+                    "unit" to mapOf("type" to "string"),
+                    "grams" to mapOf("type" to "number"),
+                    "nutritionPerUnit" to MACRO_TOTALS,
+                    "microsPerUnit" to MICROS_PER_UNIT,
+                    "swaps" to mapOf("type" to "array", "items" to SWAP),
+                ),
+        )
+
+    private val PLAN_ITEMS = mapOf("type" to "array", "items" to PLAN_ITEM)
+
+    private val HYDRATION =
+        mapOf(
+            "type" to "object",
+            "required" to listOf("mlPerDay"),
+            "properties" to
+                mapOf(
+                    "mlPerDay" to mapOf("type" to "number"),
+                    "note" to mapOf("type" to "string"),
+                ),
+        )
+
+    private val SUPPLEMENT =
+        mapOf(
+            "type" to "object",
+            "required" to listOf("name"),
+            "properties" to
+                mapOf(
+                    "name" to mapOf("type" to "string"),
+                    "dose" to mapOf("type" to "string"),
+                    "timing" to mapOf("type" to "string"),
+                    "duration" to mapOf("type" to "string"),
+                ),
+        )
+
     val EATING_PLAN_TOOL: Map<String, Any> =
         mapOf(
             "name" to EATING_PLAN_TOOL_NAME,
@@ -109,7 +196,10 @@ internal object PlanPrompts {
                     "properties" to
                         mapOf(
                             "summary" to mapOf("type" to "string"),
+                            "note" to mapOf("type" to "string"),
                             "dailyTotals" to MACRO_TOTALS,
+                            "hydration" to HYDRATION,
+                            "supplements" to mapOf("type" to "array", "items" to SUPPLEMENT),
                             "micros" to
                                 mapOf(
                                     "type" to "array",
@@ -137,20 +227,21 @@ internal object PlanPrompts {
                                                 mapOf(
                                                     "name" to mapOf("type" to "string"),
                                                     "time" to mapOf("type" to "string"),
-                                                    "items" to
+                                                    "kcal" to mapOf("type" to "number"),
+                                                    "note" to mapOf("type" to "string"),
+                                                    "items" to PLAN_ITEMS,
+                                                    "options" to
                                                         mapOf(
                                                             "type" to "array",
                                                             "items" to
                                                                 mapOf(
                                                                     "type" to "object",
-                                                                    "required" to listOf("name"),
+                                                                    "required" to listOf("name", "items"),
                                                                     "properties" to
                                                                         mapOf(
                                                                             "name" to mapOf("type" to "string"),
-                                                                            "quantity" to mapOf("type" to "number"),
-                                                                            "unit" to mapOf("type" to "string"),
-                                                                            "nutritionPerUnit" to MACRO_TOTALS,
-                                                                            "microsPerUnit" to MICROS_PER_UNIT,
+                                                                            "kcal" to mapOf("type" to "number"),
+                                                                            "items" to PLAN_ITEMS,
                                                                         ),
                                                                 ),
                                                         ),
@@ -183,6 +274,7 @@ internal object PlanPrompts {
                                             "properties" to
                                                 mapOf(
                                                     "name" to mapOf("type" to "string"),
+                                                    "kcalEstimate" to mapOf("type" to "number"),
                                                     "exercises" to
                                                         mapOf(
                                                             "type" to "array",

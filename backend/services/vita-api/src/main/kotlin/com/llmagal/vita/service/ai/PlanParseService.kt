@@ -4,6 +4,7 @@ import com.llmagal.vita.model.Muscles
 import com.llmagal.vita.model.ai.EatingPlanDraft
 import com.llmagal.vita.model.ai.MicrosPerUnit
 import com.llmagal.vita.model.ai.PlanImportRequest
+import com.llmagal.vita.model.ai.PlanItem
 import com.llmagal.vita.model.ai.TrainingProgramDraft
 import com.llmagal.vita.service.plans.PortionBoundsHeuristic
 import com.llmagal.vita.service.uploads.FileStore
@@ -50,6 +51,7 @@ class PlanParseService(
                     label = "an eating plan",
                     kind = "eating",
                     usable = { it.meals.isNotEmpty() },
+                    longRun = true, // async v3 parse: full model, minutes-long, 16k output budget (V3-D13)
                 ),
             ),
         )
@@ -90,15 +92,20 @@ class PlanParseService(
             meals =
                 draft.meals.map { meal ->
                     meal.copy(
-                        items =
-                            meal.items.map { item ->
-                                item.copy(
-                                    portion = PortionBoundsHeuristic.of(item.quantity, item.unit),
-                                    microsPerUnit = item.microsPerUnit?.let(::sanitizeMicros),
-                                )
-                            },
+                        items = meal.items.map(::decorateItem),
+                        options = meal.options?.map { opt -> opt.copy(items = opt.items.map(::decorateItem)) },
                     )
                 },
+        )
+
+    /**
+     * Portion bounds from the item's own qty/unit (the save path re-derives from the
+     * effective qty/unit once usuals are known) + drop negative per-unit micros.
+     */
+    private fun decorateItem(item: PlanItem): PlanItem =
+        item.copy(
+            portion = PortionBoundsHeuristic.of(item.quantity, item.unit, item.grams),
+            microsPerUnit = item.microsPerUnit?.let(::sanitizeMicros),
         )
 
     /** Coerce negative per-unit micros to null (drop); return null when nothing survives. */
@@ -116,6 +123,7 @@ class PlanParseService(
         val label: String,
         val kind: String,
         val usable: (T) -> Boolean,
+        val longRun: Boolean = false,
     )
 
     private fun <T : Any> parse(
@@ -125,7 +133,7 @@ class PlanParseService(
         val (model, content) = resolve(request)
         val result =
             try {
-                client.callTool(model, spec.system, spec.tool, spec.toolName, content, spec.type)
+                client.callTool(model, spec.system, spec.tool, spec.toolName, content, spec.type, spec.longRun)
             } catch (e: RestClientException) {
                 metrics.record("error", 0, 0)
                 log.info("parse plan={} outcome=error inputTokens=0 outputTokens=0", spec.kind)

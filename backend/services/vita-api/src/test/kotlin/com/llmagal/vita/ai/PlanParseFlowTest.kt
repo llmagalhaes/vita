@@ -47,7 +47,7 @@ class PlanParseFlowTest {
     fun setUp() {
         wm.resetAll()
         pdfBytes = null
-        val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048)
+        val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048, 16384, 300)
         service =
             PlanParseService(
                 client,

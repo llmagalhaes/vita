@@ -71,6 +71,9 @@ class ClaudeClient(
     @Value("\${keys.anthropic:}") private val apiKey: String,
     @Value("\${vita.ai.plan-timeout-seconds:25}") planTimeoutSeconds: Long,
     @Value("\${vita.ai.plan-max-output-tokens:2048}") private val planMaxTokens: Int,
+    // V3-D13: the async eating-plan parse needs minutes + a big output budget — its own knobs.
+    @Value("\${vita.ai.plan-async-max-output-tokens:16384}") private val planAsyncMaxTokens: Int,
+    @Value("\${vita.ai.plan-async-timeout-seconds:300}") planAsyncTimeoutSeconds: Long,
 ) {
     private val log = LoggerFactory.getLogger(ClaudeClient::class.java)
 
@@ -87,6 +90,10 @@ class ClaudeClient(
     // Plan/PDF imports run a single, larger tool-forced call (BE-015) — a longer read
     // timeout than capture parse, still well inside API Gateway's 29 s ceiling (ADR-0011).
     private val planRest: RestClient = restClient(baseUrl, planTimeoutSeconds)
+
+    // Async eating-plan parse (V3-D2/D13): runs in a background worker, no API GW in the
+    // path, so it gets a multi-minute read timeout for the full v3 model of a real plan.
+    private val planAsyncRest: RestClient = restClient(baseUrl, planAsyncTimeoutSeconds)
 
     private fun restClient(
         baseUrl: String,
@@ -144,9 +151,13 @@ class ClaudeClient(
         toolName: String,
         userContent: List<Map<String, Any?>>,
         type: Class<T>,
+        // longRun = the async eating-plan path: bigger output budget + minutes-long timeout (V3-D13).
+        longRun: Boolean = false,
     ): TypedToolCall<T> {
-        val body = toolRequestBody(model, systemPrompt, tool, toolName, userContent)
-        val response = post(planRest, body) ?: return TypedToolCall(null, ClaudeUsage(0, 0))
+        val maxTokens = if (longRun) planAsyncMaxTokens else planMaxTokens
+        val client = if (longRun) planAsyncRest else planRest
+        val body = toolRequestBody(model, systemPrompt, tool, toolName, userContent, maxTokens)
+        val response = post(client, body) ?: return TypedToolCall(null, ClaudeUsage(0, 0))
         return TypedToolCall(extractTyped(response, type), extractUsage(response))
     }
 
@@ -207,11 +218,12 @@ class ClaudeClient(
         tool: Map<String, Any>,
         toolName: String,
         userContent: List<Map<String, Any?>>,
+        maxTokens: Int,
     ): String {
         val payload =
             mapOf(
                 "model" to model,
-                "max_tokens" to planMaxTokens,
+                "max_tokens" to maxTokens,
                 "system" to
                     listOf(
                         mapOf(

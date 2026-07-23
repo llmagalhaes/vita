@@ -41,11 +41,18 @@ class PlanController(
         @AuthenticationPrincipal jwt: Jwt,
     ): JsonNode = plans.currentPlanWithPortions(uid(jwt)) ?: notFound()
 
+    // Binds nullable values so a JSON null ({"it-1": null}) is rejected with 400, not an
+    // NPE→500 (V3-D15). The contract already specifies 400 for bad portion values.
     @PutMapping("/v1/plan/portions")
     fun putPortions(
         @AuthenticationPrincipal jwt: Jwt,
-        @RequestBody body: Map<String, Double>,
-    ): Map<String, Double> = plans.putPortions(uid(jwt), body)
+        @RequestBody body: Map<String, Double?>,
+    ): Map<String, Double> {
+        val nulls = body.filterValues { it == null }.keys
+        if (nulls.isNotEmpty()) badRequest("Portion value for ${nulls.sorted()} must be a number.")
+        @Suppress("UNCHECKED_CAST")
+        return plans.putPortions(uid(jwt), body as Map<String, Double>)
+    }
 
     @PostMapping("/v1/plan")
     fun importPlan(

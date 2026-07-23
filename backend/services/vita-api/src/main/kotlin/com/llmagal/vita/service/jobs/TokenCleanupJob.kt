@@ -32,5 +32,7 @@ class TokenCleanupJob(
             "DELETE FROM refresh_token WHERE expires_at < now() - interval '1 day' " +
                 "OR (revoked_at IS NOT NULL AND revoked_at < now() - interval '1 day')",
         )
+        // Async import job rows (BE-044, V009): state-only, no PII — swept after 7 days.
+        jdbc.update("DELETE FROM plan_parse_job WHERE created_at < now() - interval '7 days'")
     }
 }

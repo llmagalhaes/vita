@@ -1,0 +1,7 @@
+# Minimal detekt overrides on top of the default config (buildUponDefaultConfig=true).
+# Only override: align MaxLineLength with ktlint's default (140) — detekt's default 120
+# conflicts with ktlint's function-expression-body rule (ktlint collapses <=140 expression
+# bodies onto one line, detekt then rejects the >120 line). One shared limit ends the fight.
+style:
+  MaxLineLength:
+    maxLineLength: 140

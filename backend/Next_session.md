@@ -1,6 +1,34 @@
 # Backend — Next session
 
-## Current state (session 20, 2026-07-23) — V3 round SPECIFIED (no code yet)
+## Current state (session 21, 2026-07-23) — V3 round BUILT (BE-043/044/045) + live eval GREEN
+
+Full v3 backend built per `docs/v3/backend-spec.md`. Ledger: `Progress/BE-043-044-045-v3-plan-Progress.md`.
+Tree left dirty for the orchestrator to gate + commit (subagents don't run git).
+
+- **BE-043** v3 doc model + save semantics: DTOs (status/note/hydration/supplements/options/swaps/usuals/
+  grams/kcalEstimate), `decorate()` ids it-1…it-42 over base+option items (V3-D8), portion bounds from
+  EFFECTIVE qty/unit (V3-D9), A5 overlay prune on effective (qty,unit,grams), validations (400), and the
+  `{"it-1":null}` portions null-guard (V3-D15). **Grams fallback in `PortionBoundsHeuristic`** — the v3
+  model routes a plain weight ("Frango 200 g") into `grams`/quantity=null, so g/ml bounds use
+  `quantity ?: grams` (else those items lost their slider).
+- **BE-044** async import: `V009__plan_parse_job.sql`, `PlanParseJobRepository`, `AsyncConfig`
+  (@EnableAsync + pool-of-2 `planParseExecutor`), `PlanImportService`/`PlanImportWorker` (202/409/poll/
+  stale>10min/save-as-review), controller POST→202 + GET jobs/{id}, 7-day sweep in `TokenCleanupJob`.
+- **BE-045** parse extensions: tool schema (options, per-item swaps {name,quantity?,unit?,grams?},
+  hydration, supplements, meal kcal/note, training kcalEstimate), prompt block (verbatim transcription,
+  doc language), async knobs (16384 tok / 300 s) + `callTool(longRun)`.
+- **Gates:** `./gradlew check` GREEN — **225 tests, 0 failures** (was 202; +23), detekt+ktlint clean
+  (added `config/detekt/detekt.yml` MaxLineLength 140 to match ktlint). `PhotoParseFlowTest` 413 = the
+  known pre-existing transport flake (photo path untouched; passes on rerun, verified).
+- **LIVE EVAL GREEN** (real meal-plan.pdf + real API): meals=5 · items=42 · swaps=**308** · options=4 ·
+  hydration=2500 · supplements=3 · dailyTotals **1716**/188.6/153.4/47.9 — the whole §6.1 table held.
+  ~$0.34, ~3.3 min. **The CEO bar ("garanta que vai funcionar") is met: importing THIS PDF works perfectly.**
+- **Next backend action:** orchestrator gates + commits → files/moves BE-043..045 Done-when-shipped →
+  **BE-046** (image build/push + prod probes: upload real PDF → 202 → poll → GET /plan review + portions
+  round-trip) + devops Terraform apply `vita:9` (V009 rides Flyway; no new AWS resources/SSM/env).
+  Relay contract v0.7.0 async import flow to the app team.
+
+## Previous state (session 20, 2026-07-23) — V3 round SPECIFIED (no code yet)
 
 Spec phase for the CEO-decided V3 round (full v3 plan model + real-PDF acceptance).
 Deliverable: **`docs/v3/backend-spec.md`** — build-ready. Tickets BE-042..046 listed in the

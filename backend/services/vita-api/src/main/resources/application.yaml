@@ -67,6 +67,13 @@ vita:
     # (11-item reference plan ~1.2k tokens). Only produced tokens are billed, so margin is free.
     plan-max-output-tokens: 3072
     plan-timeout-seconds: 25 # a plan/PDF call is larger than capture parse; still inside API Gateway's 29 s ceiling
+    # V3-D2/D13: async eating-plan parse. The full v3 model of a real plan (options + 300+ swaps) ≈
+    # 9-13k output tokens ≈ 2-4 min of Sonnet generation — runs in a background worker (no API GW in
+    # the path), so it gets its own big budget + minutes-long timeout. 16384 < the ~21k non-streaming ceiling.
+    plan-async-max-output-tokens: 16384
+    plan-async-timeout-seconds: 300
+    # V3-D12: how long a running import job may sit before it is reported failed (instance died mid-parse).
+    plan-job-stale-minutes: 10
   uploads:
     # BE-015: presigned-upload seam (OPS-011). Local dev has no S3 — LocalFileStore vends a stub
     # URL and reads fixtures from this dir. The `aws` profile swaps in S3FileStore (BE-026).

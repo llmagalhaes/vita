@@ -167,15 +167,19 @@ class PlanService(
         }
 
     /**
-     * Stamp every item with an id and recomputed portion bounds. On POST fresh ids
-     * it-1…it-N by flat document order; on PUT preserve valid round-tripped ids
-     * (non-blank, ≤40 chars, unique) and assign it-{max+1}… to the rest.
+     * Stamp every item with an id and recomputed portion bounds, over the FLAT document
+     * order — base `items` first, then each `options[k].items` in order, per meal (V3-D8).
+     * On POST fresh ids it-1…it-N; on PUT preserve valid round-tripped ids (non-blank,
+     * ≤40 chars, unique) and assign it-{max+1}… to the rest. Bounds derive from the
+     * EFFECTIVE quantity/unit — the usual swap's when `usualSwapIndex` is set (V3-D9).
+     * Validates the v3 constraints first (usual indices in range, list caps, status enum).
      */
     private fun decorate(
         draft: EatingPlanDraft,
         assignFreshIds: Boolean,
     ): EatingPlanDraft {
-        val items = draft.meals.flatMap { it.items }
+        validateV3(draft)
+        val items = allItems(draft)
         val nextId: (PlanItem) -> String =
             if (assignFreshIds) {
                 var n = 0
@@ -192,20 +196,55 @@ class PlanService(
                 var next = valid.mapNotNull { itN(it) }.maxOrNull() ?: 0
                 { item -> item.id?.takeIf(::validId) ?: "it-${++next}" }
             }
+
+        fun stamp(item: PlanItem): PlanItem {
+            val (q, u, g) = effective(item)
+            return item.copy(id = nextId(item), portion = PortionBoundsHeuristic.of(q, u, g))
+        }
         return draft.copy(
             meals =
                 draft.meals.map { meal ->
                     meal.copy(
-                        items =
-                            meal.items.map { item ->
-                                item.copy(
-                                    id = nextId(item),
-                                    portion = PortionBoundsHeuristic.of(item.quantity, item.unit),
-                                )
-                            },
+                        // base items are stamped before option items so ids follow flat order.
+                        items = meal.items.map(::stamp),
+                        options = meal.options?.map { opt -> opt.copy(items = opt.items.map(::stamp)) },
                     )
                 },
         )
+    }
+
+    /** Contract v3 constraints that map to 400 (mirror the schema so bad saves fail loud). */
+    private fun validateV3(draft: EatingPlanDraft) {
+        if (draft.status !in VALID_STATUS) badRequest("status must be one of $VALID_STATUS.")
+        draft.meals.forEach { meal ->
+            val options = meal.options.orEmpty()
+            if (options.size > MAX_OPTIONS) badRequest("A meal has more than $MAX_OPTIONS options.")
+            meal.usualOptionIndex?.let { k ->
+                if (k !in options.indices) badRequest("usualOptionIndex $k out of range for '${meal.name}'.")
+            }
+        }
+        allItems(draft).forEach { item ->
+            val swaps = item.swaps.orEmpty()
+            if (swaps.size > MAX_SWAPS) badRequest("An item has more than $MAX_SWAPS swaps.")
+            item.usualSwapIndex?.let { k ->
+                if (k !in swaps.indices) badRequest("usualSwapIndex $k out of range for '${item.name}'.")
+            }
+        }
+    }
+
+    /** Every item in flat document order: base items then option items, per meal (V3-D8). */
+    private fun allItems(draft: EatingPlanDraft): List<PlanItem> =
+        draft.meals.flatMap { meal -> meal.items + meal.options.orEmpty().flatMap { it.items } }
+
+    /** The item's effective (quantity, unit, grams): the usual swap's when chosen, else its own (V3-D9). */
+    private fun effective(item: PlanItem): Triple<Double?, String?, Double?> {
+        val k = item.usualSwapIndex
+        val swaps = item.swaps
+        return if (k != null && swaps != null && k in swaps.indices) {
+            Triple(swaps[k].quantity, swaps[k].unit, swaps[k].grams)
+        } else {
+            Triple(item.quantity, item.unit, item.grams)
+        }
     }
 
     /** CEO A5: drop overlay keys for removed items and for items whose quantity/unit changed. */
@@ -228,19 +267,15 @@ class PlanService(
         }
     }
 
-    /** itemId → (quantity, unit) for every item that has an id. */
-    private fun qtyUnitById(draft: EatingPlanDraft): Map<String, Pair<Double?, String?>> =
-        draft.meals
-            .flatMap { it.items }
-            .mapNotNull { item -> item.id?.let { it to (item.quantity to item.unit) } }
+    /** itemId → EFFECTIVE (quantity, unit, grams) for every item that has an id (V3-D9: usual-aware). */
+    private fun qtyUnitById(draft: EatingPlanDraft): Map<String, Triple<Double?, String?, Double?>> =
+        allItems(draft)
+            .mapNotNull { item -> item.id?.let { it to effective(item) } }
             .toMap()
 
     /** itemId → stored portion bounds (null when the item has no usable bounds) for the current doc. */
     private fun itemBounds(doc: JsonNode): Map<String, PortionBounds?> =
-        mapper
-            .treeToValue(doc, EatingPlanDraft::class.java)
-            .meals
-            .flatMap { it.items }
+        allItems(mapper.treeToValue(doc, EatingPlanDraft::class.java))
             .mapNotNull { item -> item.id?.let { it to item.portion } }
             .toMap()
 
@@ -284,6 +319,9 @@ class PlanService(
     private companion object {
         const val MAX_ID_LEN = 40
         const val MAX_PORTIONS = 200
+        const val MAX_SWAPS = 40
+        const val MAX_OPTIONS = 8
+        val VALID_STATUS = setOf("ready", "review")
         val IT_N = Regex("^it-(\\d+)$")
         val UNPROCESSABLE = HttpStatus.UNPROCESSABLE_ENTITY
     }

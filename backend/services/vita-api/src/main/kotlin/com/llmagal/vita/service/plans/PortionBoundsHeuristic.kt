@@ -10,6 +10,11 @@ import kotlin.math.max
  * every save from quantity+unit; a client-sent portion is discarded. Returns null when
  * no usable quantity exists (g/ml with quantity <= 0) so the app keeps its own fallback.
  * Rounding is half-up on non-negative doubles; every output is a whole number.
+ *
+ * ponytail: for a plain weight/volume ("Frango desfiado 200 g") the v3 model routes the
+ * number into `grams` and leaves `quantity` null — so for a g/ml unit we fall back to
+ * grams as the amount. Countable units ignore grams (a count's gram-equivalent, e.g.
+ * "1 unidade (100 g)", must not turn the slider into 0..200).
  */
 object PortionBoundsHeuristic {
     private val G_UNITS = setOf("g", "gram", "grams")
@@ -18,10 +23,11 @@ object PortionBoundsHeuristic {
     fun of(
         quantity: Double?,
         unit: String?,
+        grams: Double? = null,
     ): PortionBounds? =
         when (unit?.trim()?.lowercase() ?: "") {
-            in G_UNITS -> stepped(quantity, GRAM_STEP)
-            in ML_UNITS -> stepped(quantity, ML_STEP)
+            in G_UNITS -> stepped(quantity ?: grams, GRAM_STEP)
+            in ML_UNITS -> stepped(quantity ?: grams, ML_STEP)
             else -> countable(quantity)
         }
 

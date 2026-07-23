@@ -31,7 +31,7 @@ class ParseLiveEvalTest {
         return ParseEvalCases.load().map { case ->
             DynamicTest.dynamicTest(case.name) {
                 assumeTrue(apiKey.isNotBlank(), "ANTHROPIC_API_KEY not set — skipping live eval")
-                val client = ClaudeClient(baseUrl, model, 1024, 15, apiKey, 25, 2048)
+                val client = ClaudeClient(baseUrl, model, 1024, 15, apiKey, 25, 2048, 16384, 300)
                 val service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6")
 
                 if (case.expect422) {

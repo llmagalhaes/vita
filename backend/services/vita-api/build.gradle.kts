@@ -59,7 +59,8 @@ dependencies {
 }
 
 detekt {
-    buildUponDefaultConfig = true // ponytail: default rules, no custom config file until a rule actually gets in the way
+    buildUponDefaultConfig = true // default rules + the one override below
+    config.setFrom(files("config/detekt/detekt.yml")) // only overrides MaxLineLength to match ktlint's 140
 }
 
 // Official detekt workaround: detekt 1.23.x is compiled against Kotlin 2.0.21 and

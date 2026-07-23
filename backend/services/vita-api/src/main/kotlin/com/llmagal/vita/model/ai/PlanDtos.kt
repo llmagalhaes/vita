@@ -26,6 +26,14 @@ data class EatingPlanDraft(
     val dailyTotals: MacroTotals? = null,
     val micros: List<Micro>? = null,
     val meals: List<PlanMeal>,
+    // Plan lifecycle (V3-D3): "review" = imported, not yet reviewed (stamped by the
+    // async parse-save); "ready" = active. Default "ready" so every saved doc is
+    // explicit; absent on pre-0.7.0 docs reads as "ready" (contract).
+    val status: String = "ready",
+    // Plan-level nutritionist guidance transcribed from the document (V3-D7/D11).
+    val note: String? = null,
+    val hydration: Hydration? = null,
+    val supplements: List<Supplement>? = null,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -33,13 +41,22 @@ data class PlanMeal(
     val name: String,
     val time: String? = null,
     val items: List<PlanItem>,
+    // Per-meal kcal for the DEFAULT composition — stated report number or estimate (V3-D7).
+    val kcal: Double? = null,
+    // The meal's "Observações", transcribed.
+    val note: String? = null,
+    // Alternative complete compositions ("Opção 2 – Brunch"), each a full item list (V3-D8).
+    val options: List<MealOption>? = null,
+    // The user's usual composition: absent = the meal's own items; k = options[k] (V3-D4).
+    val usualOptionIndex: Int? = null,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class PlanItem(
     val name: String,
-    // Server-generated stable id ("it-1"…"it-N" in document order), assigned at
-    // save time only (no backfill, CEO A2) — the key of the portions overlay.
+    // Server-generated stable id ("it-1"…"it-N" in document order, base items then
+    // option items per meal — V3-D8), assigned at save time only (no backfill, CEO A2)
+    // — the key of the portions overlay.
     val id: String? = null,
     val quantity: Double? = null,
     val unit: String? = null,
@@ -47,8 +64,51 @@ data class PlanItem(
     // Per-single-unit micros (BE-039), same per-unit basis as nutritionPerUnit.
     val microsPerUnit: MicrosPerUnit? = null,
     // Server-authoritative slider bounds from the deterministic heuristic (BE-037);
-    // recomputed on every save/parse, client-sent value discarded.
+    // recomputed on every save/parse from the EFFECTIVE qty/unit (V3-D9), client value discarded.
     val portion: PortionBounds? = null,
+    // Gram/ml equivalent when the plan states a count plus grams ("1 unidade (100g)" → 100).
+    val grams: Double? = null,
+    // Full substitution list in document order; swaps carry NO nutrition (V3-D5/D6).
+    val swaps: List<SwapOption>? = null,
+    // The user's usual for this item: absent = the original item; k = swaps[k] (V3-D4/D9).
+    val usualSwapIndex: Int? = null,
+)
+
+/** An alternative complete composition for a meal (contract MealOption, V3-D8). */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class MealOption(
+    val name: String,
+    val kcal: Double? = null,
+    val items: List<PlanItem>,
+)
+
+/**
+ * One entry of an item's substitution list (contract SwapOption, V3-D5). Carries NO
+ * nutrition — a swap at its stated quantity is equivalent to the original item's total;
+ * the app derives macros by equivalence. "À vontade" entries have no quantity.
+ */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class SwapOption(
+    val name: String,
+    val quantity: Double? = null,
+    val unit: String? = null,
+    val grams: Double? = null,
+)
+
+/** Daily water target stated by the plan (contract Hydration). */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class Hydration(
+    val mlPerDay: Double,
+    val note: String? = null,
+)
+
+/** A supplement prescription transcribed from the plan (contract Supplement, V3-D10). */
+@JsonInclude(JsonInclude.Include.NON_NULL)
+data class Supplement(
+    val name: String,
+    val dose: String? = null,
+    val timing: String? = null,
+    val duration: String? = null,
 )
 
 /** Per-1-unit micronutrient estimates for a plan item (contract MicrosPerUnit). All optional. */
@@ -78,6 +138,8 @@ data class TrainingProgramDraft(
 data class ProgramDay(
     val name: String,
     val exercises: List<PlanExercise>? = null,
+    // Optional per-day energy estimate (v3 reconciliation) — powers the workout tab's "~{kcal}" line.
+    val kcalEstimate: Double? = null,
 )
 
 @JsonInclude(JsonInclude.Include.NON_NULL)

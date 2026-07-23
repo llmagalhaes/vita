@@ -32,7 +32,7 @@ class ParseEvalTest {
             DynamicTest.dynamicTest(case.name) {
                 wm.resetAll()
                 wm.stubFor(post(urlEqualTo("/v1/messages")).willReturn(okJson(case.goldenJson())))
-                val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048)
+                val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048, 16384, 300)
                 val service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6")
 
                 if (case.expect422) {
