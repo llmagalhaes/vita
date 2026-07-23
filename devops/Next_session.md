@@ -1,5 +1,22 @@
 # DevOps — Next session
 
+## 2026-07-23 — BE-046 V3 backend DEPLOYED to prod (image 2ca6def → task-def vita:9, probe GREEN)
+DevOps-executed deploy of the V3 backend round (async eating-plan import). Ledger:
+`Progress/BE-046-v3-deploy-Progress.md`.
+- **Image** `vita-api:2ca6def` (arm64, digest `sha256:20be0ebacd01b5c5a744eab5011f9efb2b2256d81e48aa417e971be551391e76`)
+  built host-bootJar → `Dockerfile.runtime` → buildx --push. Same Docker gotchas as 18c (scoped
+  DOCKER_CONFIG + cliPluginsExtraDirs; staged minimal context to bypass `.dockerignore` build/).
+- **Terraform**: only `variables.tf app_image_tag b56e2f5→2ca6def` (TF already reconciled by OPS-024).
+  Plan = **1 add / 1 change / 1 destroy** = task-def replace (image tag only) + service update +
+  old-rev deregister. Nothing else. Applied → **task-def vita:9**, rollout COMPLETED 1/1, vita:8 drained.
+- **V009 (plan_parse_job, expand-only)** applied on boot (`… now at version v009`). `/health` 200.
+- **Prod probe GREEN** (full v3 async import vs the real meal-plan.pdf): upload→PUT 200 →
+  POST /parse/eating-plan **202+jobId** → poll ~3.2 min → done → GET /plan **status review, 5 meals,
+  4 options, hydration 2500, 3 supplements, dailyTotals 1716/188.6/153.4/47.9, 42 items it-1..it-42
+  with portion bounds, 308 swaps (no bounds)**. Cost line queryable in Logs Insights: outputTokens=16884
+  (< 20480 cap). Disposable probe account left in prod DB (A2).
+- **Left dirty for the orchestrator**: `variables.tf` (tag bump), this file, the BE-046 ledger.
+
 ## 2026-07-22 — Meal-plan SPEC round done (OPS-024 filed, To do — do NOT start before CEO ticket review)
 Specification phase for the meal-plan/workout-plan feature (DESIGN-SPEC binding). Deliverable:
 `docs/meal-plan-handover/devops-spec.md` + Asana **OPS-024** (gid 1216780753421668, To do).
