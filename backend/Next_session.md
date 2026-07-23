@@ -1,6 +1,40 @@
 # Backend — Next session
 
-## Current state (session 19, 2026-07-22) — CEO amendments baked in + BE-036 EXECUTED (contract v0.6.0 live in repo)
+## Current state (session 20, 2026-07-23) — V3 round SPECIFIED (no code yet)
+
+Spec phase for the CEO-decided V3 round (full v3 plan model + real-PDF acceptance).
+Deliverable: **`docs/v3/backend-spec.md`** — build-ready. Tickets BE-042..046 listed in the
+spec §8, NOT filed in Asana (orchestrator files after CEO review). No code, no commit
+(orchestrator commits this file + the spec).
+
+- **Ground truth extracted from the real `docs/v3/design_handoff_vita_v3/meal-plan.pdf`**
+  (spec §2 — the fixture truth table): 5 meals, Almoço +1 option (Brunch) / Jantar +3
+  (Tortilha, Macarrão, Hamburguer), 42 items, **274 swap options** (max 26 per item — the
+  handoff's "214 / up to 25" was prototype copy), hydration 2500 ml, **3 supplements**
+  (creatina 4g/5mo, ômega-3, vitamina D 10µg/5mo — water is hydration, verified), report
+  totals 1716 kcal / P 188.6 / C 153.4 / F 47.9, no meal times stated.
+- **Key spec decisions (V3-D1..D15):** whole v3 model rides the existing encrypted doc blob
+  (only new table = `plan_parse_job`, V009); **POST /parse/eating-plan goes ASYNC** (202 +
+  job poll; parse-save as `status:"review"`) — forced by physics (~10k output tokens ≈ 2–4
+  min ≫ API GW 29 s) AND it implements the persisted review state; usuals
+  (`usualSwapIndex`/`usualOptionIndex`) + status are doc fields set via existing PUT /plan
+  (zero new mutation endpoints); swaps carry no nutrition (nutritionist-equivalence
+  derivation app-side); ids/bounds/A5 extended to option items + effective qty/unit;
+  new knobs plan-async-max-output-tokens 16384 / timeout 300 s; putPortions `{"it-1":null}`
+  NPE→400 folded in (V3-D15).
+- **Real-API test (CEO-authorized):** `PlanParseV3LiveEvalTest` @Tag("live") via existing
+  `ANTHROPIC_API_KEY=… ./gradlew liveEval` gate, feeds the real PDF bytes through the prod
+  parse path, asserts spec §6.1 (exact structure/stated numbers + tolerant estimates);
+  ≈ $0.30/run. Golden capture of one live run → deterministic fixtures for everything
+  downstream (§6.2).
+- **7 CEO questions with defaults in spec §9** (breaking async change, moreCount dropped,
+  swap equivalence, report folded into dailyTotals, transcribe-not-translate, habits
+  app-side, no meal times).
+- **Next backend action:** CEO reviews spec → orchestrator files BE-042..046 → build round
+  (BE-042 Sonnet → BE-043 Opus → BE-044 ∥ BE-045 Opus → BE-046 Sonnet + devops Terraform
+  apply vita:9). Suite baseline 202 green; next migration **V009**.
+
+## Previous state (session 19, 2026-07-22) — CEO amendments baked in + BE-036 EXECUTED (contract v0.6.0 live in repo)
 
 CEO amendments A1–A9 (2026-07-22, binding) folded into the round, then BE-036 executed.
 Ledger: `Progress/BE-036-contract-v0.6.0-Progress.md`.
