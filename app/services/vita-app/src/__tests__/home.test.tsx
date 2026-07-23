@@ -45,8 +45,10 @@ test("Home renders today's entries from SQLite with labeled estimates", async ()
   expect(screen.getAllByText(/waiting to sync/).length).toBeGreaterThan(0);
 });
 
-test("Home shows the calm empty state when nothing is logged", async () => {
+test("Home shows the v3 morning empty card when nothing is logged (no plan → generic body)", async () => {
   await render(<Home />);
-  expect(screen.getByText("Nothing logged yet today. Tell Vita below.")).toBeOnTheScreen();
+  // §7.5 morning empty state replaces the old one-liner with a dashed card.
+  expect(screen.getByText("Nothing logged yet")).toBeOnTheScreen();
+  expect(screen.getByText("Hold the mic when you eat — Vita counts whatever you log.")).toBeOnTheScreen();
   expect(screen.getAllByText("0").length).toBeGreaterThan(0);
 });

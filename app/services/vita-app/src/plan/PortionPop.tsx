@@ -44,9 +44,30 @@ function MiniBars({ totals }: { totals: Required<MacroTotals> }) {
   );
 }
 
+/** Delta badge beside the kcal readout — the change vs the open-time quantity
+ *  (§6.2). Day-scoped Today flow only; omitted (openQty undefined) in edit mode. */
+function DeltaBadge({ perKcal, qty, openQty }: { perKcal: number; qty: number; openQty: number }) {
+  const { t } = useTranslation();
+  const d = Math.round(perKcal * qty) - Math.round(perKcal * openQty);
+  const style =
+    d === 0
+      ? { ink: colors.labelMuted, bg: "#F0EDE2", text: t("today.noChange") }
+      : d > 0
+        ? { ink: "#A66A3F", bg: "#F7E7D4", text: `+${d} ${t("common.kcal")}` }
+        : { ink: "#5F7A61", bg: "#E7EDE1", text: `−${-d} ${t("common.kcal")}` };
+  return (
+    <View style={{ backgroundColor: style.bg, borderRadius: 9, paddingVertical: 3, paddingHorizontal: 8 }}>
+      <Text style={{ fontFamily: fonts.extraBold, fontSize: 10.5 }} color={style.ink}>
+        {style.text}
+      </Text>
+    </View>
+  );
+}
+
 export function PortionPop({
   item,
   qty,
+  openQty,
   mealName,
   mealTime,
   dailyTotals,
@@ -55,6 +76,8 @@ export function PortionPop({
 }: {
   item: PlanItem;
   qty: number;
+  /** Quantity when the modal opened — enables the day-scoped delta badge + caption. */
+  openQty?: number;
   mealName: string;
   mealTime?: string;
   dailyTotals: Required<MacroTotals>;
@@ -66,6 +89,7 @@ export function PortionPop({
   const bounds = boundsOf(item);
   const itemMacros = itemTotals(item, qty);
   const kcal = Math.round(itemMacros.kcal);
+  const perKcal = item.nutritionPerUnit?.kcal ?? 0;
 
   return (
     <View style={{ gap: 12 }}>
@@ -94,11 +118,21 @@ export function PortionPop({
                 {mealTime ? t("plan.mealAt", { name: mealName, time: mealTime }) : mealName}
               </Text>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-              <Text style={{ fontFamily: fonts.light, fontSize: 22 }}>~{kcal}</Text>
-              <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 12 }} color={colors.muted}>
-                {t("common.kcal")}
-              </Text>
+            <View style={{ alignItems: "flex-end", gap: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
+                <Text style={{ fontFamily: fonts.light, fontSize: 22 }}>~{kcal}</Text>
+                <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 12 }} color={colors.muted}>
+                  {t("common.kcal")}
+                </Text>
+              </View>
+              {openQty != null ? (
+                <>
+                  <DeltaBadge perKcal={perKcal} qty={qty} openQty={openQty} />
+                  <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
+                    {t("today.forTodayOnly")}
+                  </Text>
+                </>
+              ) : null}
             </View>
           </View>
 

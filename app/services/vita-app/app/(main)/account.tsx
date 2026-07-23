@@ -9,7 +9,8 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, shadowCta, showToast, spacing } from "../../src/ui";
-import { getSettings, notificationsEnabled, setName, setNotificationsEnabled } from "../../src/db/settings";
+import { getSettings, notificationsEnabled, recapEnabled, setName, setNotificationsEnabled, setRecapEnabled } from "../../src/db/settings";
+import { syncRecapFromLog } from "../../src/habits/recap";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
 import { refreshNotifications } from "../../src/habits/notifier";
@@ -65,6 +66,12 @@ export default function Account() {
   const toggleNotif = () => {
     setNotificationsEnabled(!notifOn);
     void refreshNotifications();
+    void syncRecapFromLog();
+  };
+  const recapOn = recapEnabled();
+  const toggleRecap = () => {
+    setRecapEnabled(!recapOn);
+    void syncRecapFromLog();
   };
 
   const vacSub = onVacation
@@ -123,6 +130,13 @@ export default function Account() {
           <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t("account.checkinRemindersSub")}</Text>
         </View>
         <Toggle on={notifOn} onToggle={toggleNotif} accessibilityLabel={t("account.checkinReminders")} />
+      </Card>
+      <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 }}>
+        <View style={{ flex: 1 }}>
+          <Text variant="label" style={{ fontSize: 14 }}>{t("account.notifRecap")}</Text>
+          <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t("account.notifRecapSub")}</Text>
+        </View>
+        <Toggle on={recapOn} onToggle={toggleRecap} accessibilityLabel={t("account.notifRecap")} />
       </Card>
 
       {/* away / vacation */}

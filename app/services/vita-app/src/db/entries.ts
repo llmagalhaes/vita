@@ -182,6 +182,15 @@ export function entriesInRange(type: LocalEntry["type"], start: Date, end: Date)
   return rows.map(rowToEntry);
 }
 
+/** Any entry (any type) with occurredAt in [start, end)? — drives the Trends consistency card. */
+export function hasEntriesInRange(start: Date, end: Date): boolean {
+  const row = getDb().getFirstSync<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM entries WHERE occurredAt >= ? AND occurredAt < ?`,
+    [start.toISOString(), end.toISOString()],
+  );
+  return (row?.n ?? 0) > 0;
+}
+
 export function getEntry(id: string): LocalEntry | null {
   const row = getDb().getFirstSync<Row>(`SELECT * FROM entries WHERE id = ?`, [id]);
   return row ? rowToEntry(row) : null;

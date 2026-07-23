@@ -83,8 +83,10 @@ export default function Onboarding() {
     // Offline-tolerant: profile sync is fire-and-forget; kv is the local truth.
     void api.patchMe({ name: name.trim() }).catch(() => {});
     // Persist the confirmed plan/program (POST → new version; cache is local truth).
+    // §5.7: an imported plan lands in "review" — Home shows the "finish setup" banner
+    // and Today opens the meal-by-meal review; onboarding itself does NOT run setup.
     const planDoc = confirmedDraft(plan);
-    if (planDoc) void savePlan(planDoc, plan.kind === "answered" ? (plan.source ?? "manual") : "manual");
+    if (planDoc) void savePlan({ ...planDoc, status: "review" }, plan.kind === "answered" ? (plan.source ?? "manual") : "manual");
     const programDoc = confirmedDraft(program);
     if (programDoc) void saveProgram(programDoc);
     router.replace("/home");

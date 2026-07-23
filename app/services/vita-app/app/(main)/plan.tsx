@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeInUp } from "react-native-reanimated";
 import { isMockApi } from "../../src/api";
@@ -8,7 +8,6 @@ import type { EatingPlanDraft } from "../../src/api";
 import { getCachedPlan, getPlanMeta, getPortions, setPlanMeta, setPortion, updatePlan } from "../../src/db/plan";
 import { logChanged, useLogVersion } from "../../src/db/notify";
 import {
-  barPct,
   itemTotals,
   kcalLabel,
   mealTotals,
@@ -17,6 +16,7 @@ import {
   qtyLabel,
   qtyOf,
 } from "../../src/plan/compute";
+import { MacroBars } from "../../src/plan/MacroBars";
 import { EditHeader } from "../../src/plan/editor";
 import { PortionPop } from "../../src/plan/PortionPop";
 import {
@@ -37,42 +37,10 @@ const clone = (p: EatingPlanDraft): EatingPlanDraft => JSON.parse(JSON.stringify
 const round = (n: number) => Math.round(n);
 const dateShort = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 
-const MACROS = [
-  { key: "proteinG", color: colors.macro.protein, tKey: "plan.protein" },
-  { key: "carbsG", color: colors.macro.carbs, tKey: "plan.carbs" },
-  { key: "fatG", color: colors.macro.fat, tKey: "plan.fat" },
-] as const;
-
-/** 3 macro bars normalized to the largest macro with 10% headroom (never 100%). */
-function MacroBars({ totals }: { totals: { proteinG: number; carbsG: number; fatG: number } }) {
-  const { t } = useTranslation();
-  return (
-    <View style={{ gap: 6 }}>
-      {MACROS.map((m) => {
-        const g = totals[m.key as "proteinG" | "carbsG" | "fatG"];
-        return (
-          <View key={m.key} style={{ gap: 4 }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
-              <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#6E6355">
-                {t(m.tKey)}
-              </Text>
-              <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
-                {round(g)} g
-              </Text>
-            </View>
-            <View style={{ height: 7, borderRadius: 4, backgroundColor: colors.track, overflow: "hidden" }}>
-              <View style={{ height: "100%", width: `${barPct(g, totals.proteinG, totals.carbsG, totals.fatG)}%`, borderRadius: 4, backgroundColor: m.color }} />
-            </View>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
 export default function EatingPlanScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const params = useLocalSearchParams<{ edit?: string }>();
   const accent = useAccent();
   const version = useLogVersion();
   const saved = useMemo(() => getCachedPlan(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -109,6 +77,13 @@ export default function EatingPlanScreen() {
     setWorking(clone(saved));
     setEditing(true);
   };
+
+  // "Fix something" from Plan Setup routes here with ?edit=1 → open edit mode
+  // straight away (§5.5). Runs once when a saved doc is present.
+  useEffect(() => {
+    if (params.edit === "1" && saved && !editing) startEdit();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.edit, saved]);
   const cancel = () => {
     setEditing(false);
     setWorking(null);

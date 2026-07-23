@@ -9,6 +9,8 @@ export type Settings = {
   // Plan/program now live in src/db/plan.ts (persisted server-side, cached in kv).
   /** Master check-in reminder switch (drives the Notifier; default on). Added APP-029. */
   notificationsEnabled?: boolean;
+  /** Evening-recap notification switch (default on). Added APP-089. */
+  notifRecap?: boolean;
   /** Integrations toggles — device-local prefs only; no real sync yet (APP-029). */
   integrations?: Record<string, boolean>;
 };
@@ -36,6 +38,10 @@ export function setName(name: string): void {
 /** Notifications default ON when the field is absent (pre-APP-029 profiles). */
 export const notificationsEnabled = (): boolean => getSettings()?.notificationsEnabled !== false;
 export const setNotificationsEnabled = (on: boolean): void => patch({ notificationsEnabled: on });
+
+/** Evening recap default ON when absent (APP-089). */
+export const recapEnabled = (): boolean => getSettings()?.notifRecap !== false;
+export const setRecapEnabled = (on: boolean): void => patch({ notifRecap: on });
 
 export const integrationEnabled = (id: string): boolean => getSettings()?.integrations?.[id] === true;
 export function setIntegrationEnabled(id: string, on: boolean): void {

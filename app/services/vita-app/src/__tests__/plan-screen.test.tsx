@@ -7,6 +7,7 @@ import { resetDbForTests } from "../db/db";
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: () => true }),
+  useLocalSearchParams: () => ({}),
 }));
 
 const basePlan: EatingPlanDraft = {

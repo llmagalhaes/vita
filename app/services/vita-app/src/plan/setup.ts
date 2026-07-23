@@ -6,8 +6,25 @@
  * once i18n is initialized.
  */
 import i18n from "../i18n";
-import type { EatingPlanDraft, PlanItem, ProgramDay } from "../api/client";
+import type { EatingPlanDraft, PlanItem, PlanMeal, ProgramDay } from "../api/client";
 import { effectiveQuantity } from "./compute";
+
+// ── meal composition helpers (base = chip 0, options[k-1] = chip k≥1) ──────────
+// Shared by Plan Setup (usual chips) and Today (switch-for-today chips). Matches
+// applyUsuals' chip index convention and the usualOptionIndex contract (k = options[k]).
+
+/** Items of a meal's composition: chip 0 = the meal's own items, chip k = options[k-1]. */
+export const compItems = (meal: PlanMeal, chip: number): PlanItem[] =>
+  chip === 0 ? meal.items : (meal.options?.[chip - 1]?.items ?? []);
+/** Stated kcal of a composition (report value, display only). */
+export const compKcal = (meal: PlanMeal, chip: number): number | undefined =>
+  chip === 0 ? meal.kcal : meal.options?.[chip - 1]?.kcal;
+/** Chip label: the meal's own name for the base, else the option's name. */
+export const compLabel = (meal: PlanMeal, chip: number): string =>
+  chip === 0 ? meal.name : (meal.options?.[chip - 1]?.name ?? meal.name);
+/** The persisted-usual chip for a meal: usualOptionIndex+1, or 0 (base) when unset. */
+export const usualChip = (meal: PlanMeal): number =>
+  meal.usualOptionIndex != null ? meal.usualOptionIndex + 1 : 0;
 
 // ── §5 findings ───────────────────────────────────────────────────────────────
 

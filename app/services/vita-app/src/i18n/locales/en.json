@@ -228,6 +228,7 @@
     "intPromptTitle": "Bring what you already use",
     "intPromptSub": "Health Connect — whenever you like",
     "intPromptLater": "Anytime — swipe left for Integrations",
+    "connect": "Connect",
     "recapLabel": "EVENING RECAP",
     "recapFresh": "Tomorrow starts fresh.",
     "recapKcal": "~{{in}} kcal in · ~{{out}} out — estimates, not scores",
@@ -674,10 +675,15 @@
     "wkFooter": "Your program keeps every lift for next time.",
     "wkNoneTitle": "No training program yet",
     "wkNoneBody": "Log workouts freely — or bring your program and Vita lays it out day by day. You can keep more than one.",
-    "programImported": "Program imported — {{n}} workouts found"
+    "programImported": "Program imported — {{n}} workouts found",
+    "exercisesWord": "exercises",
+    "saveProgram": "Save program"
   },
   "nav": {
     "today": "TODAY",
     "swipe": "SWIPE"
+  },
+  "workoutHub": {
+    "title": "Workout"
   }
 }

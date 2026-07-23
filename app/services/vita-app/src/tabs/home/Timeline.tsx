@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -307,6 +307,7 @@ export function Timeline({
   expandedKeys,
   onToggle,
   onDismiss,
+  emptyState,
 }: {
   entries: LocalEntry[];
   selectedOffset: number;
@@ -314,6 +315,8 @@ export function Timeline({
   expandedKeys: Set<string>;
   onToggle: (key: string) => void;
   onDismiss: (id: string) => void;
+  /** Rich empty card for TODAY (§7.5 morning state); past days keep the one-liner. */
+  emptyState?: ReactNode;
 }) {
   const { t } = useTranslation();
   const showFullDetails = selectedOffset === 0; // "Full details →" today-only (design fidelity)
@@ -380,9 +383,13 @@ export function Timeline({
           {summary}
         </Text>
         {entries.length === 0 ? (
-          <Text variant="body" color={colors.muted} style={{ paddingHorizontal: 4, paddingTop: 8 }}>
-            {t("home.emptyTimeline")}
-          </Text>
+          selectedOffset === 0 && emptyState ? (
+            <View style={{ paddingTop: 8 }}>{emptyState}</View>
+          ) : (
+            <Text variant="body" color={colors.muted} style={{ paddingHorizontal: 4, paddingTop: 8 }}>
+              {t("home.emptyTimeline")}
+            </Text>
+          )
         ) : (
           <View>
             {entries.map((e) =>

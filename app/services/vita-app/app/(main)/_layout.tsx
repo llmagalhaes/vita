@@ -6,6 +6,7 @@ import { CapturePill } from "../../src/capture/CapturePill";
 import { CaptureSheet } from "../../src/capture/CaptureSheet";
 import { startReconnectDrain } from "../../src/db/reconnect";
 import { CheckinSheet } from "../../src/habits/CheckinSheet";
+import { NavDots } from "../../src/nav/NavDots";
 import { TabsPager } from "../../src/nav/TabsPager";
 import { ReviewSheet } from "../../src/review/ReviewSheet";
 import { colors, ToastHost } from "../../src/ui";
@@ -33,11 +34,15 @@ export default function MainLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
+        <Stack.Screen name="today" options={{ animation: "none" }} />
         <Stack.Screen name="home" options={{ animation: "none" }} />
         <Stack.Screen name="trends" options={{ animation: "none" }} />
+        <Stack.Screen name="workout" options={{ animation: "none" }} />
         <Stack.Screen name="habits" options={{ animation: "none" }} />
+        <Stack.Screen name="integrations" options={{ animation: "none" }} />
       </Stack>
       <TabsPager />
+      <NavDots />
       <CapturePill />
       <CaptureSheet />
       <CheckinSheet />

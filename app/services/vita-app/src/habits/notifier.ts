@@ -45,7 +45,16 @@ export interface Notifier {
   requestPermission(): Promise<PermissionStatus>;
   /** Cancel all and (re)schedule for the given habits. */
   sync(habits: Habit[]): Promise<void>;
+  /**
+   * Schedule (body given) or cancel (null) the single evening-recap notification
+   * for today at 20:30 (APP-089). Optional so pre-existing Notifier literals stay
+   * valid; the recap subscriber calls it best-effort.
+   */
+  syncRecap?(planned: { body: string } | null): Promise<void>;
 }
+
+/** Identifier for the one-shot evening recap (so it can be replaced/cancelled). */
+export const RECAP_ID = "evening-recap";
 
 /** Category id carrying the interactive Yes/No actions (best-effort, dev-build). */
 export const CHECKIN_CATEGORY = "vita-checkin";
@@ -124,6 +133,21 @@ function createExpoNotifier(): Notifier {
         });
       }
     },
+    async syncRecap(planned) {
+      const Notifications = N();
+      // Cancel first, then reschedule — the body is recomputed from the log each
+      // time, so a repeating trigger would freeze stale content (spec §9). A Date
+      // trigger is a one-shot for TODAY only.
+      await Notifications.cancelScheduledNotificationAsync(RECAP_ID).catch(() => {});
+      if (!planned) return;
+      const at = new Date();
+      at.setHours(20, 30, 0, 0);
+      await Notifications.scheduleNotificationAsync({
+        identifier: RECAP_ID,
+        content: { title: "Evening recap", body: planned.body },
+        trigger: at,
+      });
+    },
   };
 }
 
@@ -174,8 +198,8 @@ export async function refreshNotifications(): Promise<void> {
 }
 
 /** A no-op recorder — the STT/OIDC-style stub for environments without the native module. */
-export function stubNotifier(): Notifier & { calls: { sync: Habit[][] } } {
-  const calls = { sync: [] as Habit[][] };
+export function stubNotifier(): Notifier & { calls: { sync: Habit[][]; recap: ({ body: string } | null)[] } } {
+  const calls = { sync: [] as Habit[][], recap: [] as ({ body: string } | null)[] };
   return {
     calls,
     async getPermission() {
@@ -186,6 +210,9 @@ export function stubNotifier(): Notifier & { calls: { sync: Habit[][] } } {
     },
     async sync(habits) {
       calls.sync.push(habits);
+    },
+    async syncRecap(planned) {
+      calls.recap.push(planned);
     },
   };
 }

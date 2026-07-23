@@ -1,22 +1,37 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Platform, Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, { FadeIn, FadeInDown, FadeOut, LinearTransition, ZoomIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
-import { api, type MealDetail, type WaterDetail, type WorkoutDetail } from "../api";
+import { api, type EatingPlanDraft, type MealDetail, type WaterDetail, type WorkoutDetail } from "../api";
 import { addLocalEntry, countNeedsReview, deleteEntry, entriesForDay, type LocalEntry } from "../db/entries";
 import { logChanged, useLogVersion } from "../db/notify";
 import { openReview } from "../review/ReviewSheet";
 import { drainOutbox } from "../db/outbox";
-import { getSettings } from "../db/settings";
-import { getCachedPlan, getCachedProgram, getPortions, syncPlan, syncProgram } from "../db/plan";
+import { getSettings, integrationEnabled, isOnboarded } from "../db/settings";
+import {
+  dismissIntPrompt,
+  getCachedPlan,
+  getCachedProgram,
+  getPortions,
+  hideSetupPrompt,
+  isIntPromptDismissed,
+  isSetupPromptHidden,
+  mealPlanStatus,
+  syncPlan,
+  syncProgram,
+} from "../db/plan";
+import { syncRecapFromLog } from "../habits/recap";
+import { RecapCard } from "./home/RecapCard";
 import { endVacation, isVacationActive, getVacation, syncVacation } from "../db/vacation";
 import { listHabits } from "../db/habits";
 import { openCheckins, pendingCheckins } from "../habits/checkins";
 import { energyChartMax, last7EnergySeries, logManualEnergy } from "../energy/manual";
 import { healthActiveKcalToday, refreshHealthConnect, todaysHealthSnapshot } from "../health/healthConnect";
-import { planDailyTotals } from "../plan/compute";
+import { mealTotals, planDailyTotals } from "../plan/compute";
+import { recapLine } from "../plan/setup";
 import { formatVolume } from "../lib/units";
 import { GrowBar } from "../trends/parts";
 import { MacrosSheet, type MacroMeal } from "./MacrosSheet";
@@ -35,6 +50,7 @@ import {
   fonts,
   showToast,
   spacing,
+  tint,
   useStartOnLayout,
 } from "../ui";
 
@@ -198,6 +214,154 @@ function CountBanner({ count, title, sub, onPress }: { count: number; title: str
   );
 }
 
+/** A small leaf glyph for the plan wells (matches the ❧ used elsewhere). */
+const LeafGlyph = ({ color }: { color: string }) => (
+  <Svg width={16} height={16} viewBox="0 0 16 16">
+    <Path d="M13.5 2.5 C7 2.5 3 6 3 11 C3 12 3.3 13 3.3 13 C3.3 13 8 12.5 11 9.5 C13.5 7 13.5 2.5 13.5 2.5 Z" fill={color} />
+  </Svg>
+);
+
+/** "Your meal plan is in" — the async "notify when ready" surface (§7.3). Shown while status:review. */
+function PlanPendingBanner({ nMeals, onContinue, onDismiss }: { nMeals: number; onContinue: () => void; onDismiss: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Animated.View entering={ZoomIn.duration(350)} exiting={FadeOut.duration(220)} style={{ borderRadius: 22 }}>
+      <LinearGradient
+        colors={["#FFF7EA", "#FBEFDD"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ flexDirection: "row", alignItems: "center", gap: 10, borderRadius: 22, borderWidth: 1.5, borderColor: tint(colors.accent, 26), paddingTop: 12, paddingBottom: 12, paddingLeft: 15, paddingRight: 12 }}
+      >
+        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}>
+          <LeafGlyph color="#5F7A61" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="label" style={{ fontSize: 13.5 }}>{t("home.planBannerTitle")}</Text>
+          <Text variant="caption" numberOfLines={1} style={{ fontSize: 11.5, marginTop: 1 }} color={colors.muted}>
+            {t("home.planBannerSub", { n: nMeals })}
+          </Text>
+        </View>
+        <PressScale accessibilityRole="button" onPress={onContinue} style={{ borderRadius: 15, paddingVertical: 9, paddingHorizontal: 13, backgroundColor: colors.accent }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12 }} color="#FFF9F1">{t("home.planBannerContinue")}</Text>
+        </PressScale>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={onDismiss} hitSlop={8} style={{ width: 30, alignItems: "center" }}>
+          <Text style={{ fontSize: 18 }} color={colors.labelMuted}>×</Text>
+        </Pressable>
+      </LinearGradient>
+    </Animated.View>
+  );
+}
+
+/** Integrations prompt (§7.4) — neutral, Android-only, once until dismissed. */
+function IntegrationsPrompt({ onConnect, onDismiss }: { onConnect: () => void; onDismiss: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Animated.View entering={ZoomIn.duration(350)} exiting={FadeOut.duration(220)}>
+      <Card style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 12 }}>
+        <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: "#E7EDE1", alignItems: "center", justifyContent: "center" }}>
+          <Svg width={17} height={17} viewBox="0 0 17 17">
+            <Path d="M6 11 L11 6 M6.5 8.5 a2.5 2.5 0 0 1 0-3.5 l1-1 a2.5 2.5 0 0 1 3.5 3.5 l-1 1 M10.5 8.5 a2.5 2.5 0 0 1 0 3.5 l-1 1 a2.5 2.5 0 0 1-3.5-3.5 l1-1" fill="none" stroke="#5F7A61" strokeWidth={1.4} strokeLinecap="round" />
+          </Svg>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text variant="label" style={{ fontSize: 13.5 }}>{t("home.intPromptTitle")}</Text>
+          <Text variant="caption" numberOfLines={1} style={{ fontSize: 11.5, marginTop: 1 }} color={colors.muted}>
+            {t("home.intPromptSub")}
+          </Text>
+        </View>
+        <PressScale accessibilityRole="button" onPress={onConnect} style={{ borderRadius: 15, paddingVertical: 9, paddingHorizontal: 13, backgroundColor: tint(colors.accent, 10) }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12 }} color={colors.accent}>{t("home.connect")}</Text>
+        </PressScale>
+        <Pressable accessibilityRole="button" accessibilityLabel={t("common.cancel")} onPress={onDismiss} hitSlop={8} style={{ width: 30, alignItems: "center" }}>
+          <Text style={{ fontSize: 18 }} color={colors.labelMuted}>×</Text>
+        </Pressable>
+      </Card>
+    </Animated.View>
+  );
+}
+
+/** Morning empty state (§7.5) — dashed card in the timeline area when today has no logs. */
+function MorningEmpty({ plan, onSeePlan }: { plan: EatingPlanDraft | null; onSeePlan: () => void }) {
+  const { t } = useTranslation();
+  const firstMeal = plan?.meals.find((m) => m.time);
+  const body = firstMeal
+    ? t("home.emptyPlanBody", { meal: firstMeal.name.toLowerCase(), time: firstMeal.time })
+    : t("home.emptyBody");
+  return (
+    <View style={{ borderWidth: 1.5, borderStyle: "dashed", borderColor: colors.dashedBorder, borderRadius: 24, paddingVertical: 26, paddingHorizontal: 20, alignItems: "center", gap: 9 }}>
+      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: colors.well, alignItems: "center", justifyContent: "center" }}>
+        <Svg width={22} height={22} viewBox="0 0 22 22">
+          <Circle cx={11} cy={11} r={4.2} fill="none" stroke="#C98A3F" strokeWidth={1.6} />
+          <Path d="M11 2.5 V4.5 M11 17.5 V19.5 M2.5 11 H4.5 M17.5 11 H19.5 M5 5 l1.4 1.4 M15.6 15.6 l1.4 1.4 M17 5 l-1.4 1.4 M6.4 15.6 l-1.4 1.4" stroke="#C98A3F" strokeWidth={1.4} strokeLinecap="round" />
+        </Svg>
+      </View>
+      <Text variant="label" style={{ fontSize: 15.5, textAlign: "center" }}>{t("home.emptyTitle")}</Text>
+      <Text variant="caption" style={{ fontSize: 12.5, textAlign: "center", maxWidth: 230 }} color={colors.muted}>
+        {body}
+      </Text>
+      {plan && (
+        <PressScale accessibilityRole="button" onPress={onSeePlan} style={{ marginTop: 4, borderRadius: 15, paddingVertical: 9, paddingHorizontal: 13, backgroundColor: tint(colors.accent, 10) }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.accent}>{t("home.seeTodaysPlan")}</Text>
+        </PressScale>
+      )}
+    </View>
+  );
+}
+
+/** Collapsed plan card (§7.6) — "kcal left" + progress; expands to per-meal logged/planned. */
+function PlanRow2({ plan, meals, portions, onOpen }: { plan: EatingPlanDraft; meals: LocalEntry[]; portions: Record<string, number>; onOpen: () => void }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const planTotal = Math.round(planDailyTotals(plan, portions).kcal);
+  const kcalToday = Math.round(meals.reduce((s, e) => s + ((e.detail as MealDetail).totals?.kcal ?? 0), 0));
+  const left = Math.max(0, planTotal - kcalToday);
+  const pct = planTotal > 0 ? Math.min(100, (kcalToday / planTotal) * 100) : 0;
+  const loggedNames = new Set(meals.map((e) => ((e.detail as MealDetail).title ?? "").toLowerCase()));
+  return (
+    <Pressable accessibilityRole="button" onPress={() => setOpen((o) => !o)}>
+      <Card layout={LinearTransition.duration(220)} style={{ gap: 10 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          <View style={{ width: 36, height: 36, borderRadius: 13, backgroundColor: "#E7EDE1", alignItems: "center", justifyContent: "center" }}>
+            <LeafGlyph color="#5F7A61" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text variant="label" style={{ fontSize: 15 }}>{t("home.kcalLeft", { n: left.toLocaleString("en-US") })}</Text>
+            <Text variant="caption" style={{ fontSize: 11.5, marginTop: 1 }} color={colors.muted}>
+              {t("home.kcalLeftOf", { total: planTotal.toLocaleString("en-US") })}
+            </Text>
+          </View>
+          <Chevron open={open} />
+        </View>
+        <View style={{ height: 6, borderRadius: 3, backgroundColor: colors.progressUpcoming, overflow: "hidden" }}>
+          <View style={{ width: `${pct}%`, height: 6, borderRadius: 3, backgroundColor: colors.accent }} />
+        </View>
+        {open && (
+          <Animated.View entering={FadeIn.duration(250)} style={{ borderTopWidth: 1, borderStyle: "dashed", borderTopColor: "rgba(120,100,75,0.16)", paddingTop: 10, gap: 8 }}>
+            {plan.meals.map((meal, i) => {
+              const k = Math.round(mealTotals(meal, portions).kcal) || meal.kcal || 0;
+              const logged = loggedNames.has(meal.name.toLowerCase());
+              return (
+                <View key={`${meal.name}-${i}`} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: logged ? "#8CA58A" : "#E4DBC9" }} />
+                  <Text style={{ fontFamily: fonts.semiBold, fontSize: 12.5, flex: 1 }} color="#453E35" numberOfLines={1}>
+                    {meal.name}
+                  </Text>
+                  <Text variant="caption" style={{ fontSize: 11.5 }} color={logged ? "#5F7A61" : colors.muted}>
+                    {logged ? t("home.mealLogged", { k }) : t("home.mealPlanned", { k })}
+                  </Text>
+                </View>
+              );
+            })}
+            <Pressable accessibilityRole="link" onPress={onOpen} hitSlop={6} style={{ alignSelf: "flex-start", marginTop: 2 }}>
+              <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.accent}>{t("home.openPlan")}</Text>
+            </Pressable>
+          </Animated.View>
+        )}
+      </Card>
+    </Pressable>
+  );
+}
+
 function inputMethodLabel(e: LocalEntry, t: (k: string) => string): string {
   switch (e.inputMethod) {
     case "voice":
@@ -268,6 +432,13 @@ export default function Home() {
     void refreshHealthConnect();
   }, []);
 
+  // Recompute + (re)schedule the 20:30 evening recap whenever the log changes —
+  // Home is always mounted, so this covers the app-open case (§9). Cheap; cancels
+  // when the log is empty / after 20:30 / paused / recap-off.
+  useEffect(() => {
+    void syncRecapFromLog();
+  }, [version]);
+
   const onVacation = useMemo(() => isVacationActive(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
   const vacRange = getVacation().ranges[0];
 
@@ -278,6 +449,23 @@ export default function Home() {
 
   // Offline captures auto-added on reconnect, awaiting the review they skipped (CEO R12 #2).
   const reviewCount = useMemo(() => countNeedsReview(), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // v3 banners (§7.3/§7.4) — plain reads, re-evaluated each render (version-bumped
+  // on dismiss so the FadeOut plays). Integrations prompt is Android-only + honest.
+  const planStatus = mealPlanStatus();
+  const showPlanPending = planStatus === "review" && !isSetupPromptHidden();
+  const showIntPrompt =
+    Platform.OS === "android" && isOnboarded() && !integrationEnabled("healthConnect") && !isIntPromptDismissed();
+  const onDismissPlanPending = useCallback(() => {
+    hideSetupPrompt();
+    showToast(t("home.planBannerLater"));
+    logChanged();
+  }, [t]);
+  const onDismissIntPrompt = useCallback(() => {
+    dismissIntPrompt();
+    showToast(t("home.intPromptLater"));
+    logChanged();
+  }, [t]);
 
   const meals = entries.filter((e) => e.type === "meal");
   const waters = entries.filter((e) => e.type === "water");
@@ -448,6 +636,30 @@ export default function Home() {
           title={reviewCount === 1 ? t("home.offlineReviewOne") : t("home.offlineReviewMany", { count: reviewCount })}
           sub={t("home.offlineReviewSub")}
           onPress={openReview}
+        />
+      )}
+
+      {/* ③ plan-setup pending — the async "notify when ready" surface (§7.3) */}
+      {showPlanPending && plan && (
+        <PlanPendingBanner
+          nMeals={plan.meals.length}
+          onContinue={() => router.push("/plan-setup?mode=review")}
+          onDismiss={onDismissPlanPending}
+        />
+      )}
+
+      {/* ④ integrations prompt — Android only, once (§7.4) */}
+      {showIntPrompt && (
+        <IntegrationsPrompt onConnect={() => router.replace("/integrations")} onDismiss={onDismissIntPrompt} />
+      )}
+
+      {/* ⑤ evening recap — after 18:00 when something's logged (§7.2) */}
+      {hour >= 18 && entries.length > 0 && (
+        <RecapCard
+          line={recapLine(meals.length, workouts.length, waterMl)}
+          kcalIn={kcalToday}
+          spent={spentKcal}
+          onSeeTrends={() => router.replace("/trends")}
         />
       )}
 
@@ -698,14 +910,10 @@ export default function Home() {
         </Card>
       </Pressable>
 
-      {/* eating plan + training program rows (persisted; tap to open the screen) */}
-      {plan && (
-        <SetupRow
-          glyph="❧"
-          title={t("home.eatingPlan")}
-          sub={`${Math.round(planDailyTotals(plan, getPortions()).kcal)} ${t("home.kcalPerDay")}`}
-          onPress={() => router.push("/plan")}
-        />
+      {/* eating plan (v3 collapsed plan2 card) + training program row. The plan card
+          shows only in ready state — the banner covers review, none shows nothing. */}
+      {planStatus === "ready" && plan && (
+        <PlanRow2 plan={plan} meals={meals} portions={getPortions()} onOpen={() => router.push("/plan")} />
       )}
       {program && (
         <SetupRow
@@ -728,6 +936,7 @@ export default function Home() {
         expandedKeys={expandedKeys}
         onToggle={onToggleEntry}
         onDismiss={onDismissEntry}
+        emptyState={<MorningEmpty plan={plan} onSeePlan={() => router.replace("/today")} />}
       />
     </ScrollView>
     <MacrosSheet

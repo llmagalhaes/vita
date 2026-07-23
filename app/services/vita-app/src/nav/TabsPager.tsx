@@ -4,60 +4,70 @@ import { usePathname, useRouter } from "expo-router";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { colors } from "../ui";
+import { setNavSwiped } from "../db/plan";
 import { tabsPagerRef } from "./pagerRef";
+import Today from "../tabs/Today";
 import Home from "../tabs/Home";
 import Trends from "../tabs/Trends";
 import Habits from "../tabs/Habits";
+import Integrations from "../tabs/Integrations";
 
 /**
- * The three top-level tabs (Today / Trends / Habits) co-mounted in one
- * finger-following horizontal pager. Lives once in the (main) layout, above the
- * Stack, and is shown only while the current route is a tab. The Stack still
- * renders push/detail screens; the tab route files are null placeholders that
- * keep /home /trends /habits alive so usePathname()-based pill state and deep
- * links keep working. Swipe and pill-tap both animate and both stay in sync
- * with expo-router.
+ * The six top-level tabs (Today · Home · Trends · Workout · Habits · Integrations)
+ * co-mounted in one finger-following horizontal pager (v3 nav, APP-084). Lives once
+ * in the (main) layout above the Stack, shown only while the route is a tab. Route
+ * files stay null placeholders that keep the pathname alive for the dot strip and
+ * deep links. Swipe and dot-tap both animate and stay in sync with expo-router.
  *
- * GESTURE ARBITRATION — inner horizontal pans (trends scrub, etc.) win like so:
- *   import { tabsPagerRef } from "../nav/pagerRef";
- *   Gesture.Pan().blocksExternalGesture(tabsPagerRef)...
- * The pager's own gesture is published via `.withRef(tabsPagerRef)` below; the
- * pager waits for the inner gesture to fail before activating, so the inner drag
- * wins. The pager also only claims clearly-horizontal drags (activeOffsetX ±14)
- * and fails on vertical intent (failOffsetY ±18), so vertical ScrollViews and
- * the mic hold-drag are never stolen.
+ * The Workout slot is referenced BY ROUTE via a deferred require — the other v3
+ * builder owns src/tabs/WorkoutHub; the require resolves at runtime when that slot
+ * first mounts, so this file never statically imports it.
+ *
+ * GESTURE ARBITRATION unchanged: inner horizontal pans (Trends scrub, Timeline day
+ * swipe) win via `Gesture.Pan().blocksExternalGesture(tabsPagerRef)`; the pager
+ * only claims clearly-horizontal drags (activeOffsetX ±14) and fails on vertical.
  */
 
-export const TAB_ROUTES = ["/home", "/trends", "/habits"] as const;
+export const TAB_ROUTES = ["/today", "/home", "/trends", "/workout", "/habits", "/integrations"] as const;
+const LAST = TAB_ROUTES.length - 1;
 
 /** Pure: route path → tab index; detail/unknown routes → -1. Tested. */
 export function tabIndex(pathname: string): number {
   return TAB_ROUTES.indexOf(pathname as (typeof TAB_ROUTES)[number]);
 }
 
+/** The slots to keep mounted around `active` (self ± 1, clamped). Tested. */
+export function neighborsToMount(active: number): number[] {
+  return [active - 1, active, active + 1].filter((i) => i >= 0 && i <= LAST);
+}
+
 const SNAP_DIST_FRAC = 0.5; // dragged past half a page → commit to the neighbour
 const SNAP_VEL = 500; // px/s flick threshold
 
 /**
- * Pure snap decision (worklet-safe, tested). One swipe moves AT MOST one page
- * from the page the drag STARTED on — no velocity-projected multi-page jumps
- * (APP-043: fast flicks used to clamp straight to the last tab).
- * translationX/velocityX follow gesture-handler signs: dragging the finger LEFT
- * is negative and advances to a higher index. Returns a clamped [0,2] page.
+ * Pure snap decision (worklet-safe, tested). One swipe moves AT MOST one page from
+ * the page the drag STARTED on — no velocity-projected multi-page jumps (APP-043).
+ * translationX/velocityX follow gesture-handler signs. Returns a clamped [0,LAST].
  */
 export function snapTarget(startPage: number, translationX: number, velocityX: number, width: number): number {
   "worklet";
   const base = Math.round(startPage);
   const w = Math.max(width, 1);
-  const dragToNext = -translationX / w; // >0 toward a higher index
-  const flickToNext = -velocityX; // >0 toward a higher index
+  const dragToNext = -translationX / w;
+  const flickToNext = -velocityX;
   let dir = 0;
   if (dragToNext > SNAP_DIST_FRAC || flickToNext > SNAP_VEL) dir = 1;
   else if (dragToNext < -SNAP_DIST_FRAC || flickToNext < -SNAP_VEL) dir = -1;
-  return Math.max(0, Math.min(2, base + dir));
+  return Math.max(0, Math.min(LAST, base + dir));
 }
 
 const SPRING = { damping: 22, stiffness: 210, mass: 0.9 } as const;
+
+/** Deferred require so the Workout slot references its route without a static import. */
+function WorkoutSlot() {
+  const WorkoutHub = (require("../tabs/WorkoutHub") as { default: React.ComponentType }).default;
+  return <WorkoutHub />;
+}
 
 export function TabsPager() {
   const router = useRouter();
@@ -65,28 +75,32 @@ export function TabsPager() {
   const { width } = useWindowDimensions();
   const active = tabIndex(pathname);
   const onTab = active >= 0;
+  const startIdx = active < 0 ? 1 : active;
 
-  // Home eager; Trends (heavy) and Habits mount shortly AFTER the current tab
-  // settles, then stay mounted for instant returns. Mounting must never happen
-  // mid-swipe: the setState re-render recreates the pan gesture and resets its
-  // translation, which ate the swipe (device-verified session 6) — so neighbors
-  // are pre-mounted from a deferred effect, not from the gesture.
-  const [mounted, setMounted] = useState([true, false, false]);
+  // Lazy mount: co-mounting 6 chart-heavy screens is the perf risk. Start with only
+  // the current slot; grow to current ± 1 from a DEFERRED effect after settle (never
+  // mid-gesture — the setState recreates the pan and eats the swipe, session-6).
+  const [mounted, setMounted] = useState<boolean[]>(() => {
+    const arr = Array<boolean>(TAB_ROUTES.length).fill(false);
+    arr[startIdx] = true;
+    return arr;
+  });
   const ensure = (i: number) => {
-    if (i < 0 || i > 2) return;
+    if (i < 0 || i > LAST) return;
     setMounted((m) => (m[i] ? m : m.map((v, k) => v || k === i)));
   };
 
-  const index = useSharedValue(active < 0 ? 0 : active); // page units; float mid-drag
+  const index = useSharedValue(startIdx); // page units; float mid-drag
   const start = useSharedValue(0);
-  const idxRef = useRef(active < 0 ? 0 : active);
+  const gestureDriven = useSharedValue(false);
+  const idxRef = useRef(startIdx);
 
-  const settle = (to: number) => {
+  const settle = (to: number, viaGesture: boolean) => {
     idxRef.current = to;
+    if (viaGesture) setNavSwiped(); // a real swipe retires the one-time SWIPE hint
     if (TAB_ROUTES[to] !== pathname) router.replace(TAB_ROUTES[to]);
   };
 
-  // Follow whatever route the app navigated to (pill tap / deep link / back).
   useEffect(() => {
     if (active < 0) return;
     ensure(active);
@@ -94,8 +108,6 @@ export function TabsPager() {
       idxRef.current = active;
       index.value = withSpring(active, SPRING);
     }
-    // Pre-mount the neighbors once this tab has settled (deferred so the tab
-    // itself paints first) — a swipe then never needs a mid-gesture mount.
     const id = setTimeout(() => {
       ensure(active - 1);
       ensure(active + 1);
@@ -110,26 +122,28 @@ export function TabsPager() {
     .failOffsetY([-18, 18])
     .onBegin(() => {
       start.value = index.value;
+      gestureDriven.value = false;
     })
     .onUpdate((e) => {
       const raw = start.value - e.translationX / Math.max(width, 1);
-      index.value = Math.max(-0.15, Math.min(2.15, raw)); // rubber-band past ends
+      index.value = Math.max(-0.15, Math.min(LAST + 0.15, raw)); // rubber-band past ends
+      if (Math.abs(e.translationX) > 4) gestureDriven.value = true;
     })
     .onEnd((e) => {
       const to = snapTarget(start.value, e.translationX, e.velocityX, width);
       index.value = withSpring(to, SPRING);
-      runOnJS(settle)(to);
+      runOnJS(settle)(to, true);
     });
 
   const rowStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: -index.value * width }],
   }));
 
-  // Android back: from Trends/Habits → Today instead of exiting mid-flow.
+  // Android back: from any non-Home tab → Home instead of exiting mid-flow.
   useEffect(() => {
     if (!onTab) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (idxRef.current > 0) {
+      if (idxRef.current !== 1) {
         router.replace("/home");
         return true;
       }
@@ -141,22 +155,16 @@ export function TabsPager() {
   return (
     <View
       pointerEvents={onTab ? "auto" : "none"}
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: colors.bg,
-        display: onTab ? "flex" : "none",
-        overflow: "hidden",
-      }}
+      style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: colors.bg, display: onTab ? "flex" : "none", overflow: "hidden" }}
     >
       <GestureDetector gesture={pan}>
-        <Animated.View style={[{ flexDirection: "row", flex: 1, width: width * 3 }, rowStyle]}>
-          <View style={{ width, flex: 1 }}>{mounted[0] && <Home />}</View>
-          <View style={{ width, flex: 1 }}>{mounted[1] && <Trends />}</View>
-          <View style={{ width, flex: 1 }}>{mounted[2] && <Habits />}</View>
+        <Animated.View style={[{ flexDirection: "row", flex: 1, width: width * TAB_ROUTES.length }, rowStyle]}>
+          <View style={{ width, flex: 1 }}>{mounted[0] && <Today />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[1] && <Home />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[2] && <Trends />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[3] && <WorkoutSlot />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[4] && <Habits />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[5] && <Integrations />}</View>
         </Animated.View>
       </GestureDetector>
     </View>
