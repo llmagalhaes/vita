@@ -8,7 +8,7 @@
  * `planQty`) selects an item's effective quantity; a missing key falls back to the
  * item's default `quantity`. One lens, no fork of the plan document.
  */
-import type { EatingPlanDraft, MacroTotals, PlanItem, PlanMeal } from "../api/client";
+import type { EatingPlanDraft, MacroTotals, PlanItem, PlanMeal, SwapOption } from "../api/client";
 
 const ZERO: Required<MacroTotals> = { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 };
 
@@ -22,6 +22,49 @@ const add = (a: Required<MacroTotals>, b: MacroTotals): Required<MacroTotals> =>
 /** Effective quantity for an item: portion override → default quantity → 1. */
 export const qtyOf = (item: PlanItem, portions: Record<string, number> = {}): number =>
   (item.id != null ? portions[item.id] : undefined) ?? item.quantity ?? 1;
+
+// ---- usual swap (persisted, plan-level) — §5.4 + reconciliation §2 -----------
+// A chosen usual (usualSwapIndex) shows the swap's name/quantity/unit IN PLACE.
+// Swaps carry NO nutrition; a substitution at its stated quantity is treated as
+// equivalent to the original item's total, so the swap's per-unit macros derive
+// from the equivalence formula: effectivePerUnit = base.perUnit × base.qty / swap.qty.
+
+/** The chosen usual swap for an item, or null when the original is in use. */
+export function effectiveSwap(item: PlanItem): SwapOption | null {
+  const i = item.usualSwapIndex;
+  return i != null && item.swaps?.[i] ? item.swaps[i]! : null;
+}
+
+/** Display name accounting for the usual swap. */
+export const effectiveName = (item: PlanItem): string => effectiveSwap(item)?.name ?? item.name;
+
+/** Effective default quantity (the swap's stated quantity when a usual is set). */
+export function effectiveQuantity(item: PlanItem): number {
+  const sw = effectiveSwap(item);
+  return (sw ? sw.quantity : undefined) ?? item.quantity ?? 1;
+}
+
+/** Effective unit (the swap's unit when a usual is set, e.g. "à vontade"). */
+export const effectiveUnit = (item: PlanItem): string | undefined => {
+  const sw = effectiveSwap(item);
+  return sw ? sw.unit : item.unit;
+};
+
+/**
+ * Per-unit macros of the effective composition. Original item → its own perUnit.
+ * A usual swap → the equivalence estimate (undefined when the swap has no usable
+ * quantity, e.g. "as much as you like" — the app shows no number, `~` covers it).
+ */
+export function effectivePerUnit(item: PlanItem): MacroTotals | undefined {
+  const sw = effectiveSwap(item);
+  if (!sw) return item.nutritionPerUnit;
+  const per = item.nutritionPerUnit;
+  const baseQty = item.quantity ?? 1;
+  const swQty = sw.quantity;
+  if (!per || swQty == null || swQty <= 0) return undefined;
+  const f = baseQty / swQty;
+  return { kcal: (per.kcal ?? 0) * f, proteinG: (per.proteinG ?? 0) * f, carbsG: (per.carbsG ?? 0) * f, fatG: (per.fatG ?? 0) * f };
+}
 
 /** Nutrition for one item = per-unit × quantity (explicit qty, else default). */
 export function itemTotals(item: PlanItem, qty: number = item.quantity ?? 1): Required<MacroTotals> {

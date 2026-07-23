@@ -113,9 +113,19 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
         }
         if (item.op === "portions") {
           // Coalesced overlay push — read the map FRESH so the last write wins.
+          // Drain-race guard (§2.6): if the map changed WHILE the PUT was in flight,
+          // the just-sent snapshot is stale — re-enqueue and keep the dirty flag so
+          // the newer write isn't lost; only clear dirty when nothing changed.
+          const sent = JSON.stringify(getPortions());
           await api.putPlanPortions(getPortions());
-          clearDirty(PORTIONS_KEY);
           db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
+          if (JSON.stringify(getPortions()) !== sent) {
+            // Re-enqueue a coalesced row (this same loop resends the newer map) and
+            // KEEP the dirty flag — clearing it now would strand the newer write.
+            db.runSync(`INSERT INTO outbox (entryId, op) SELECT 'plan.portions', 'portions' WHERE NOT EXISTS (SELECT 1 FROM outbox WHERE op = 'portions')`);
+          } else {
+            clearDirty(PORTIONS_KEY);
+          }
           progressed = true;
           continue;
         }

@@ -18,6 +18,10 @@ export type EatingPlanDraft = Schemas["EatingPlanDraft"];
 export type EatingPlanWithPortions = Schemas["EatingPlanWithPortions"];
 export type PlanMeal = Schemas["PlanMeal"];
 export type PlanItem = Schemas["PlanItem"];
+export type MealOption = Schemas["MealOption"];
+export type SwapOption = Schemas["SwapOption"];
+export type Hydration = Schemas["Hydration"];
+export type Supplement = Schemas["Supplement"];
 export type MicrosPerUnit = Schemas["MicrosPerUnit"];
 export type PortionBounds = Schemas["PortionBounds"];
 export type PortionsMap = Schemas["PortionsMap"];
@@ -59,7 +63,19 @@ export interface Api {
     caption?: string;
     capturedAt?: string;
   }): Promise<ParseResult>;
-  /** Onboarding step 3: text (or PDF fileRef) → draft eating plan for confirmation. */
+  /**
+   * v3 async import (contract 0.7.0): POST /parse/eating-plan ACCEPTS (202 + jobId)
+   * and parses in the background; on success the plan is saved server-side as
+   * status "review". Poll {@link getEatingPlanJob}; on "done" GET /plan.
+   */
+  startEatingPlanImport(body: { text?: string; fileRef?: string }): Promise<{ jobId: string }>;
+  /** Poll an eating-plan import job (running → keep polling; done → GET /plan; failed → failureReason). */
+  getEatingPlanJob(jobId: string): Promise<{ state: "running" | "done" | "failed"; failureReason?: string }>;
+  /**
+   * Convenience: start the async import, poll to completion, then GET /plan and
+   * return the saved review-status draft. Used by onboarding's simple describe
+   * path; the animated Plan Setup screen drives start/poll/GET directly instead.
+   */
   parseEatingPlan(body: { text?: string; fileRef?: string }): Promise<EatingPlanDraft>;
   /** Onboarding step 4: text (or PDF fileRef) → draft training program for confirmation. */
   parseTrainingProgram(body: { text?: string; fileRef?: string }): Promise<TrainingProgramDraft>;
@@ -174,8 +190,13 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
         .catch(() => ({ title: res.statusText, status: res.status, type: "about:blank" }));
       throw new ApiError(res.status, problem);
     }
-    // 202/204 carry no body (magic-link request, sign-out).
-    if (res.status === 204 || res.status === 202) return undefined as T;
+    // 204 carries no body (sign-out). 202 may carry one (the async parse job id)
+    // or be empty (magic-link request) — read it only when present.
+    if (res.status === 204) return undefined as T;
+    if (res.status === 202) {
+      const text = await res.text();
+      return (text ? JSON.parse(text) : undefined) as T;
+    }
     return (await res.json()) as T;
   }
 
@@ -195,7 +216,20 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
       if (capturedAt) form.append("capturedAt", capturedAt);
       return request<ParseResult>("POST", "/parse/photo", { body: form }).then(fillDraftTotals);
     },
-    parseEatingPlan: (body) => request("POST", "/parse/eating-plan", { body }),
+    startEatingPlanImport: (body) => request("POST", "/parse/eating-plan", { body }),
+    getEatingPlanJob: (jobId) => request("GET", `/parse/eating-plan/jobs/${jobId}`),
+    async parseEatingPlan(body) {
+      const { jobId } = await request<{ jobId: string }>("POST", "/parse/eating-plan", { body });
+      // Poll to completion (minutes-long on prod; a small plan resolves on the first poll).
+      for (;;) {
+        const job = await request<{ state: string; failureReason?: string }>("GET", `/parse/eating-plan/jobs/${jobId}`);
+        if (job.state === "done") break;
+        if (job.state === "failed") throw new ApiError(422, { type: "about:blank", title: job.failureReason ?? "parse failed", status: 422 });
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+      const { portions: _p, ...doc } = await request<EatingPlanWithPortions>("GET", "/plan");
+      return doc;
+    },
     parseTrainingProgram: (body) => request("POST", "/parse/training-program", { body }),
     requestUpload: (body) => request("POST", "/uploads", { body }),
     getPlan: () => request("GET", "/plan"),

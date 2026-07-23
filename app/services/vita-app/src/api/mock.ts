@@ -7,6 +7,7 @@
  * Parse is deterministic keyword-matching so the CEO can demo capture offline.
  * Every numeric value is an estimate and flagged isEstimate: true.
  */
+import { pruneOverlayAfterEdit } from "../plan/compute";
 import { uuid } from "../lib/uuid";
 import {
   ApiError,
@@ -286,6 +287,7 @@ export function mockParsePlan(text?: string): EatingPlanDraft {
     summary:
       (text?.trim().slice(0, 200) || "Low-carb weekdays, flexible weekends") +
       " — read back as a simple daily plan.",
+    status: "review", // parse drafts arrive unreviewed (v3)
     micros: [
       { name: "Fiber", amount: 28, unit: "g", percentDaily: 100 },
       { name: "Potassium", amount: 3200, unit: "mg", percentDaily: 68 },
@@ -320,82 +322,176 @@ export function mockParsePlan(text?: string): EatingPlanDraft {
   };
 }
 
-/**
- * Seeded stored eating plan — the handoff §1.2 reference (11 items, 4 meals) in
- * contract shape, so a fresh mock session opens the Eating Plan screen walkable
- * with portions/micros/bounds. Items carry stable ids (as a saved server plan
- * always does — A2) so the portion overlay keys them. **A4: EXAMPLE data** — real
- * plans get all nutrition from Claude parse estimates; no product/test code treats
- * any number below as a constant.
- */
-const seedItem = (
+
+// ─── v3 fixture (APP-082) ────────────────────────────────────────────────────
+// The prototype's `importedPlan` in contract shape: 5 meals (Pre-workout /
+// Post-workout / Lunch [2 compositions] / Snack / Dinner [4 compositions]), full
+// swap lists (Banana carries 20 so the "+N more" SwapSheet is exercisable in
+// mock mode), hydration, 4 supplements, the report-page dailyTotals. **A4: EXAMPLE
+// data** — every per-unit number is illustrative; no product/test code treats one
+// as a constant (asserts compute from the fixture).
+type Sw = { name: string; quantity?: number; unit?: string; grams?: number };
+const sw = (name: string, quantity?: number, unit?: string, grams?: number): Sw => ({
+  name,
+  ...(quantity != null ? { quantity } : {}),
+  ...(unit ? { unit } : {}),
+  ...(grams != null ? { grams } : {}),
+});
+
+const v3Item = (
   id: string,
   name: string,
-  unit: string,
   quantity: number,
-  min: number,
-  max: number,
-  step: number,
-  k: number,
-  P: number,
-  C: number,
-  F: number,
-  fb: number,
-  na: number,
-  fe: number,
-  ca: number,
+  unit: string,
+  grams: number | undefined,
+  per: { kcal: number; proteinG: number; carbsG: number; fatG: number },
+  swaps: Sw[] = [],
 ): PlanItem => ({
   id,
   name,
-  unit,
   quantity,
-  nutritionPerUnit: { kcal: k, proteinG: P, carbsG: C, fatG: F },
-  microsPerUnit: { fiberG: fb, sodiumMg: na, ironMg: fe, calciumMg: ca },
-  portion: { min, max, step },
+  unit,
+  ...(grams != null ? { grams } : {}),
+  nutritionPerUnit: per,
+  portion: { min: 0, max: Math.max(quantity * 2, quantity + 2), step: unit === "g" || unit === "ml" ? 10 : 1 },
+  swaps,
 });
 
-export function handoffPlan(): EatingPlanDraft {
+const BANANA_SWAPS: Sw[] = [
+  sw("Pineapple", 2, "medium slices", 150), sw("Grapes", 20, "units", 160), sw("Pear", 1, "medium", 150),
+  sw("Strawberries", 13, "units", 150), sw("Mango", 0.5, "large"), sw("Apple", 1, "medium", 155),
+  sw("Orange", 1, "medium", 180), sw("Kiwi", 2, "medium", 152), sw("Plum", 3, "small", 150),
+  sw("Tangerine", 2, "small", 200), sw("Blueberries", 9, "tbsp"), sw("Watermelon", 2, "slices", 300),
+  sw("Melon", 1, "slice", 200), sw("Papaya", 1, "cup", 140), sw("Peach", 2, "medium", 300),
+  sw("Fig", 3, "units", 150), sw("Cherries", 20, "units", 140), sw("Raspberries", 1, "cup", 125),
+  sw("Apricot", 4, "units", 140), sw("Guava", 1, "medium", 165),
+];
+
+/**
+ * Seeded stored eating plan for the v3 mock — a READY plan so the Eating Plan and
+ * Today screens are walkable offline. The async parse mock produces the same shape
+ * with status "review" for the setup flow. Ids present (a saved plan always has them).
+ */
+export function handoffPlanV3(): EatingPlanDraft {
+  const per = (k: number, p: number, c: number, f: number) => ({ kcal: k, proteinG: p, carbsG: c, fatG: f });
   return {
-    summary: "Low-carb weekdays",
+    summary: "5-meal plan · pre-workout to dinner, with swaps, hydration and supplements",
+    status: "ready",
+    note: "Up to 2 meals a week can go off-plan — your nutritionist built that in. Plan valid for up to 6 months.",
+    dailyTotals: { kcal: 1716, proteinG: 188.6, carbsG: 153.4, fatG: 47.9 },
     micros: [
-      { name: "Fiber", amount: 28, unit: "g", percentDaily: 100 },
-      { name: "Iron", amount: 14, unit: "mg", percentDaily: 78 },
-      { name: "Calcium", amount: 900, unit: "mg", percentDaily: 90 },
+      { name: "Fiber", amount: 31, unit: "g", percentDaily: 100 },
+      { name: "Iron", amount: 15, unit: "mg", percentDaily: 83 },
+      { name: "Calcium", amount: 980, unit: "mg", percentDaily: 98 },
+    ],
+    hydration: { mlPerDay: 2500 },
+    supplements: [
+      { name: "Creatine monohydrate", dose: "4g (1 dose) + 200ml water", timing: "once a day, any time", duration: "5 months" },
+      { name: "Omega-3 (330mg EPA / 220mg DHA)", dose: "1 capsule 1g", timing: "once a day, with lunch or dinner" },
+      { name: "Vitamin D — cholecalciferol", dose: "1 capsule 10µg", timing: "once a day, with lunch or dinner", duration: "5 months" },
+      { name: "Magnesium glycinate", dose: "1 dose", timing: "at night, before bed" },
     ],
     meals: [
       {
-        name: "Breakfast",
-        time: "07:30",
+        name: "Pre-workout", time: "06:40", kcal: 109, note: "A big glass of water when you wake up.",
+        items: [v3Item("it-1", "Banana", 1, "unit", 100, per(89, 1.1, 23, 0.3), BANANA_SWAPS)],
+      },
+      {
+        name: "Post-workout", time: "08:30", kcal: 121, note: "A pinch of cinnamon or pure cacao — optional.",
+        items: [v3Item("it-2", "Whey protein, concentrate", 1, "scoop", 30, per(120, 24, 3, 1.5), [])],
+      },
+      {
+        name: "Lunch", time: "13:00", kcal: 702, note: "Vary vegetables and preparation as you like — herbs, lemon and spices to taste.",
         items: [
-          seedItem("eggs", "Scrambled eggs", "egg", 2, 0, 4, 1, 95, 6.5, 0.8, 7, 0, 95, 0.9, 28),
-          seedItem("bread", "Grilled bread", "slice", 1, 0, 3, 1, 145, 4, 27, 2, 1.4, 210, 1, 20),
-          seedItem("latte", "Latte", "ml", 200, 0, 400, 50, 0.55, 0.033, 0.05, 0.018, 0, 0.4, 0, 1.2),
+          v3Item("it-3", "Steamed corn", 200, "g", 200, per(0.86, 0.032, 0.19, 0.012), [
+            sw("White rice, cooked", 150, "g", 150), sw("Brown rice, cooked", 180, "g", 180),
+            sw("Sweet potato, boiled", 210, "g", 210), sw("Beans or lentils", 185, "g", 185),
+            sw("Quinoa, cooked", 170, "g", 170), sw("Potato, boiled", 220, "g", 220), sw("Pasta, cooked", 160, "g", 160),
+          ]),
+          v3Item("it-4", "Shredded chicken", 200, "g", 200, per(1.65, 0.31, 0, 0.036), [
+            sw("Lean beef", 133, "g", 133), sw("Grilled pork loin", 208, "g", 208), sw("Grilled chicken breast", 2, "fillets", 200),
+          ]),
+          v3Item("it-5", "Olive oil", 1, "level tsp", 2, per(40, 0, 0, 4.5), []),
+          v3Item("it-6", "Leafy greens", 2, "servings", 30, per(6, 0.5, 1, 0.1), [
+            sw("Lettuce", undefined, "as much as you like"), sw("Arugula", undefined, "as much as you like"), sw("Spinach, sautéed", 25, "g", 25),
+          ]),
+        ],
+        options: [
+          {
+            name: "Brunch", kcal: 679,
+            items: [
+              v3Item("it-7", "Whole-grain bread", 2, "slices", 70, per(1.1, 0.045, 0.2, 0.017), []),
+              v3Item("it-8", "Cottage cheese", 2, "heaped tbsp", 80, per(0.98, 0.11, 0.034, 0.043), [
+                sw("Ricotta", 47, "g", 47), sw("Light cream cheese", 40, "g", 40), sw("Hummus", 33, "g", 33),
+              ]),
+              v3Item("it-9", "Eggs — boiled, poached or scrambled", 4, "medium", 220, per(78, 6.3, 0.6, 5.3), [
+                sw("Shredded chicken", 200, "g", 200),
+              ]),
+              v3Item("it-10", "Arugula or leafy greens", 25, "g", 25, per(0.25, 0.026, 0.036, 0.004), [
+                sw("Lettuce", undefined, "as much as you like"), sw("Spinach, sautéed", 25, "g", 25),
+              ]),
+            ],
+          },
         ],
       },
       {
-        name: "Lunch",
-        time: "13:00",
+        name: "Snack", time: "16:30", kcal: 72, note: "Swap the fruit freely — any option from the fruit group.",
         items: [
-          seedItem("chicken", "Grilled chicken", "g", 180, 0, 300, 10, 1.65, 0.31, 0, 0.036, 0, 0.74, 0.007, 0.11),
-          seedItem("rice", "Rice & beans", "g", 200, 0, 350, 10, 1.05, 0.035, 0.21, 0.006, 0.025, 1.9, 0.009, 0.12),
-          seedItem("salad", "Salad + olive oil", "g", 100, 0, 200, 10, 1.1, 0.012, 0.05, 0.09, 0.02, 0.5, 0.005, 0.3),
+          v3Item("it-11", "Green apple", 1, "unit", 150, per(72, 0.4, 19, 0.2), [
+            sw("Banana", 1, "medium", 100), sw("Kiwi", 2, "medium", 152), sw("Orange", 1, "medium", 180),
+            sw("Blueberries", 9, "tbsp"), sw("Pear", 1, "medium", 150),
+          ]),
         ],
       },
       {
-        name: "Snack",
-        time: "16:30",
+        name: "Dinner", time: "20:00", kcal: 702, note: "Up to 2 meals a week can go off-plan — your nutritionist built that in.",
         items: [
-          seedItem("yog", "Yogurt", "g", 170, 0, 300, 10, 0.59, 0.059, 0.047, 0.015, 0, 0.21, 0, 0.65),
-          seedItem("gran", "Granola", "g", 30, 0, 80, 5, 2.33, 0.08, 0.42, 0.07, 0.09, 0.5, 0.04, 0.4),
+          v3Item("it-12", "Steamed corn", 200, "g", 200, per(0.86, 0.032, 0.19, 0.012), [
+            sw("White rice, cooked", 150, "g", 150), sw("Brown rice, cooked", 180, "g", 180), sw("Sweet potato, boiled", 210, "g", 210),
+          ]),
+          v3Item("it-13", "Shredded chicken", 200, "g", 200, per(1.65, 0.31, 0, 0.036), [
+            sw("Lean beef", 133, "g", 133), sw("Grilled chicken breast", 2, "fillets", 200),
+          ]),
+          v3Item("it-14", "Olive oil", 1, "level tsp", 2, per(40, 0, 0, 4.5), []),
+          v3Item("it-15", "Raw + cooked vegetables", 3, "servings", 225, per(0.3, 0.02, 0.06, 0.003), [
+            sw("Broccoli, boiled", 200, "g", 200), sw("Tomato", 100, "g", 100), sw("Zucchini, roasted", 200, "g", 200),
+          ]),
         ],
-      },
-      {
-        name: "Dinner",
-        time: "20:00",
-        items: [
-          seedItem("salmon", "Baked salmon", "g", 160, 0, 300, 10, 1.85, 0.25, 0, 0.088, 0, 0.55, 0.005, 0.09),
-          seedItem("veg", "Roasted vegetables", "g", 150, 0, 300, 10, 0.6, 0.02, 0.11, 0.01, 0.03, 0.3, 0.007, 0.25),
-          seedItem("spot", "Sweet potato", "g", 150, 0, 300, 10, 0.92, 0.016, 0.21, 0.001, 0.03, 0.36, 0.006, 0.3),
+        options: [
+          {
+            name: "Tortilla", kcal: 718,
+            items: [
+              v3Item("it-16", "Whole-grain tortilla", 2, "medium", 84, per(1.3, 0.05, 0.22, 0.03), []),
+              v3Item("it-17", "Jong Belegen cheese", 2, "large thin slices", 70, per(3.6, 0.25, 0.01, 0.29), [
+                sw("Feta", 70, "g", 70), sw("Fresh mozzarella", 80, "g", 80),
+              ]),
+              v3Item("it-18", "Eggs — boiled, poached or scrambled", 3, "medium", 165, per(78, 6.3, 0.6, 5.3), [
+                sw("Canned tuna", 1.5, "cans"), sw("Cooked salmon", 105, "g", 105),
+              ]),
+            ],
+          },
+          {
+            name: "Pasta", kcal: 706,
+            items: [
+              v3Item("it-19", "Whole-grain pasta, cooked", 170, "g", 170, per(1.31, 0.05, 0.25, 0.011), [
+                sw("Baked potato", 245, "g", 245), sw("Sweet potato, baked", 149, "g", 149),
+              ]),
+              v3Item("it-20", "Shredded chicken", 200, "g", 200, per(1.65, 0.31, 0, 0.036), [
+                sw("Lean beef", 133, "g", 133), sw("Grilled chicken breast", 200, "g", 200),
+              ]),
+              v3Item("it-21", "Olive oil + pesto", 1, "serving", 25, per(4, 0.02, 0.05, 0.42), []),
+            ],
+          },
+          {
+            name: "Burger", kcal: 691,
+            items: [
+              v3Item("it-22", "Whole-grain bun", 1, "unit", 80, per(2.6, 0.09, 0.48, 0.04), []),
+              v3Item("it-23", "Lean beef patty", 150, "g", 150, per(1.7, 0.26, 0, 0.08), [
+                sw("Chicken patty", 150, "g", 150), sw("Black bean patty", 150, "g", 150),
+              ]),
+              v3Item("it-24", "Salad + light dressing", 1, "serving", 90, per(0.4, 0.02, 0.05, 0.02), []),
+            ],
+          },
         ],
       },
     ],
@@ -447,11 +543,13 @@ export function createMockApi(): Api {
   };
   const byIdempotencyKey = new Map<string, LogEntry>();
   // Persisted plan/program (in-memory for the session; POST/PUT store, GET reads).
-  // Seed the handoff plan so the Eating Plan screen is walkable in the mock build.
-  let storedPlan: EatingPlanDraft | null = handoffPlan();
+  // Seed the v3 plan (ready) so the Eating Plan / Today screens are walkable.
+  let storedPlan: EatingPlanDraft | null = handoffPlanV3();
   let storedProgram: TrainingProgramDraft | null = null;
   // Sparse portion overlay for the current plan version (PUT /plan/portions).
   let storedPortions: PortionsMap = {};
+  // Async eating-plan import jobs (v3): the mock resolves them immediately.
+  const parseJobs = new Map<string, { state: "done" | "failed"; failureReason?: string }>();
   // Vacation ranges — opaque blob to the server (D1); the mock just echoes them.
   let storedVacations: VacationRange[] = [];
   const notFound = () =>
@@ -496,7 +594,26 @@ export function createMockApi(): Api {
       await delay(LATENCY_MS);
       return mockPhotoParse(caption, capturedAt);
     },
+    async startEatingPlanImport({ text }) {
+      await delay(LATENCY_MS);
+      // The server saves the parse result as the current version, status "review".
+      const draft = { ...handoffPlanV3(), status: "review" as const };
+      if (text?.trim()) draft.summary = mockParsePlan(text).summary;
+      let n = 0;
+      storedPlan = { ...draft, meals: draft.meals.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, id: it.id ?? `it-${++n}` })) })) };
+      storedPortions = {};
+      const jobId = uuid();
+      parseJobs.set(jobId, { state: "done" });
+      return { jobId };
+    },
+    async getEatingPlanJob(jobId) {
+      await delay(120);
+      const job = parseJobs.get(jobId);
+      if (!job) throw notFound();
+      return job;
+    },
     async parseEatingPlan({ text }) {
+      // Convenience (onboarding describe path): the review-status draft directly.
       await delay(LATENCY_MS);
       return mockParsePlan(text);
     },
@@ -547,8 +664,18 @@ export function createMockApi(): Api {
     async updatePlan(doc) {
       await delay(150);
       if (!storedPlan) throw notFound();
-      storedPlan = doc;
-      return doc;
+      // APP-092 #1 — mirror the server: assign ids to items lacking them (continuing
+      // the "it-N" counter past the current max) and prune the overlay to the edit
+      // (removed items dropped, an item whose qty·unit changed loses its override).
+      const nums = storedPlan.meals.flatMap((m) => m.items.map((it) => Number((it.id ?? "").replace("it-", "")))).filter((x) => Number.isFinite(x));
+      let n = nums.length ? Math.max(...nums) : 0;
+      const withIds: EatingPlanDraft = {
+        ...doc,
+        meals: doc.meals.map((m) => ({ ...m, items: m.items.map((it) => ({ ...it, id: it.id ?? `it-${++n}` })) })),
+      };
+      storedPortions = pruneOverlayAfterEdit(storedPlan, withIds, storedPortions);
+      storedPlan = withIds;
+      return withIds;
     },
     async getProgram() {
       await delay(120);

@@ -1,5 +1,5 @@
-import type { MealDetail, WaterDetail, WorkoutDetail } from "../client";
-import { anchorTime, mockParse } from "../mock";
+import type { EatingPlanDraft, MealDetail, WaterDetail, WorkoutDetail } from "../client";
+import { anchorTime, createMockApi, handoffPlanV3, mockParse } from "../mock";
 
 test("banana + peanuts phrase → one meal draft with items and totals", () => {
   const { drafts } = mockParse("Had a banana and a handful of peanuts around 4");
@@ -47,4 +47,47 @@ test("anchorTime resolves 'around 4' to 16:00 when captured in the evening", () 
   captured.setHours(18, 30, 0, 0);
   const t = new Date(anchorTime("around 4", captured.toISOString()));
   expect(t.getHours()).toBe(16);
+});
+
+// ── v3 fixture + async parse + updatePlan (APP-082 / APP-092 #1) ──────────────
+
+test("v3 fixture: 5 meals, options, a >5-swap item, hydration + 4 supplements", () => {
+  const p = handoffPlanV3();
+  expect(p.meals).toHaveLength(5);
+  expect(p.meals[2]!.options).toHaveLength(1); // Lunch: base + 1 option = 2 compositions
+  expect(p.meals[4]!.options).toHaveLength(3); // Dinner: base + 3 = 4 compositions
+  expect(p.meals[0]!.items[0]!.swaps!.length).toBeGreaterThan(5); // Banana → "+N more" sheet
+  expect(p.hydration!.mlPerDay).toBe(2500);
+  expect(p.supplements).toHaveLength(4);
+  expect(p.status).toBe("ready");
+});
+
+test("async parse: start → job done → GET /plan arrives status review", async () => {
+  const api = createMockApi();
+  const { jobId } = await api.startEatingPlanImport({ text: "my nutritionist plan" });
+  expect(jobId).toBeTruthy();
+  const job = await api.getEatingPlanJob(jobId);
+  expect(job.state).toBe("done");
+  const plan = await api.getPlan();
+  expect(plan.status).toBe("review");
+  expect(plan.meals).toHaveLength(5);
+  expect(plan.meals[0]!.items.every((it) => it.id != null)).toBe(true);
+});
+
+test("updatePlan assigns ids to new items and prunes the changed item's portion", async () => {
+  const api = createMockApi();
+  const plan = await api.getPlan();
+  const first = plan.meals[0]!.items[0]!;
+  await api.putPlanPortions({ [first.id!]: 2 }); // override on the first item
+  // edit: change that item's quantity + append a brand-new (id-less) item
+  const edited: EatingPlanDraft = {
+    ...plan,
+    meals: plan.meals.map((m, mi) => (mi === 0 ? { ...m, items: [{ ...first, quantity: (first.quantity ?? 0) + 5 }, { name: "New item", quantity: 1, unit: "g" }] } : m)),
+  };
+  const res = await api.updatePlan(edited);
+  expect(res.meals[0]!.items.every((it) => it.id != null)).toBe(true); // new item got an id
+  const newIds = res.meals[0]!.items.map((i) => i.id);
+  expect(new Set(newIds).size).toBe(newIds.length); // unique
+  const after = await api.getPlan();
+  expect(after.portions).toEqual({}); // qty changed → its override pruned
 });

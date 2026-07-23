@@ -8,6 +8,7 @@ import {
   createHabit,
   deleteHabit,
   listHabits,
+  restoreHabit,
   updateHabit,
   type Habit,
   type HabitInput,
@@ -275,9 +276,15 @@ function HabitRow({ habit }: { habit: Habit }) {
     afterHabitChange();
   };
   const remove = () => {
+    const removed = habit;
     deleteHabit(habit.id);
     afterHabitChange();
-    showToast(t("toast.habitRemoved"));
+    showToast(t("toast.habitRemovedName", { name: removed.name }), {
+      undo: () => {
+        restoreHabit(removed);
+        afterHabitChange();
+      },
+    });
   };
 
   return (

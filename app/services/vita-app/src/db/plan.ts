@@ -26,7 +26,19 @@ import { logChanged } from "./notify";
 const PLAN_KEY = "plan.current";
 const PROGRAM_KEY = "program.current";
 export const PORTIONS_KEY = "plan.portions";
+const PORTIONS_DATE_KEY = "plan.portionsDate"; // ISO day the overlay belongs to (§2.2)
 const META_KEY = "plan.meta";
+const DAY_SKIPS_KEY = "workout.daySkips";
+const DAY_SKIPS_DATE_KEY = "workout.daySkipsDate";
+const SELECTED_DAY_KEY = "workout.selectedDay";
+const SETUP_PROMPT_HIDDEN_KEY = "plan.setupPromptHidden";
+const NAV_SWIPED_KEY = "nav.swiped";
+const INT_PROMPT_DISMISSED_KEY = "int.promptDismissed";
+
+/** Local calendar day YYYY-MM-DD. Kept local (not imported) to avoid a db↔habits cycle. */
+function todayISO(d = new Date()): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
 
 /**
  * Where the current plan came from — drives the Eating Plan source badge. Local
@@ -43,21 +55,42 @@ export const getCachedPlan = (): EatingPlanDraft | null => kvGet<EatingPlanDraft
 export const getCachedProgram = (): TrainingProgramDraft | null =>
   kvGet<TrainingProgramDraft>(PROGRAM_KEY);
 
-// ---- portion overlay ---------------------------------------------------------
+// ---- portion overlay (day-scoped, §2.2) --------------------------------------
 
-export const getPortions = (): Record<string, number> => kvGet<Record<string, number>>(PORTIONS_KEY) ?? {};
+/**
+ * The portion overlay only counts for TODAY — "tweak anything, tomorrow starts
+ * fresh" (handoff). Reads through a day gate: when the stored map belongs to a
+ * past day it returns `{}` and lazily resets (empties the local map + pushes an
+ * empty map to the server, once, on the first touch of the new day). Pure date
+ * compare — no timers. ponytail: the lazy-reset enqueue can nest a drain when
+ * read mid-drain; it's one-shot (portionsDate is stamped today first) and
+ * coalesced, so it settles — tighten only if a device pass shows churn.
+ */
+export const getPortions = (): Record<string, number> => {
+  const map = kvGet<Record<string, number>>(PORTIONS_KEY) ?? {};
+  if (Object.keys(map).length === 0) return map;
+  if (kvGet<string>(PORTIONS_DATE_KEY) === todayISO()) return map;
+  // rolled into a new day → yesterday's adjustments don't count anymore
+  kvSet(PORTIONS_KEY, {});
+  kvSet(PORTIONS_DATE_KEY, todayISO());
+  setDirty(PORTIONS_KEY);
+  enqueuePortionsPush(); // empty the server map too (one coalesced PUT of {})
+  return {};
+};
 
 /**
  * Set (or clear) one item's portion override. Sparse: a qty equal to the item's
  * default `quantity` REMOVES the key (slider back to default = no override).
  * Synchronous kv write → the screen re-reads it on the next render; no network on
  * the interaction path. Enqueues a coalesced push + fires a drain when online.
+ * Stamps today's date so the overlay is day-scoped (§2.2).
  */
 export function setPortion(itemId: string, qty: number, itemDefault?: number): void {
   const map = getPortions();
   if (itemDefault != null && qty === itemDefault) delete map[itemId];
   else map[itemId] = qty;
   kvSet(PORTIONS_KEY, map);
+  kvSet(PORTIONS_DATE_KEY, todayISO());
   setDirty(PORTIONS_KEY);
   logChanged(); // notify seam: screens re-read the overlay (live totals update)
   enqueuePortionsPush();
@@ -98,12 +131,76 @@ function pruneOverlayToDoc(doc: EatingPlanDraft): void {
   if (changed) kvSet(PORTIONS_KEY, map);
 }
 
+// ---- plan / program status (§2.1) --------------------------------------------
+
+/**
+ * Derived plan lifecycle — no new storage. No cached doc → "none" (GET /plan
+ * 404); else the doc's own `status`, defaulting to "ready" (docs saved before
+ * 0.7.0 carry no status and read as active).
+ */
+export function mealPlanStatus(): "ready" | "review" | "none" {
+  const doc = getCachedPlan();
+  if (!doc) return "none";
+  return doc.status ?? "ready";
+}
+
+/** Programs have no review flow — presence is the only state. */
+export const trainStatus = (): "ready" | "none" => (getCachedProgram() ? "ready" : "none");
+
+// ---- day workout skips + selected program day (§2.3) -------------------------
+// Device-local ONLY, never the outbox — day skips are ephemeral UI state, the
+// backend builds nothing. Skips are day-scoped (same lazy reset as §2.2); the
+// selected day chip persists across days.
+
+type DaySkips = Record<string, Record<string, true>>;
+
+export function getDaySkips(): DaySkips {
+  const map = kvGet<DaySkips>(DAY_SKIPS_KEY) ?? {};
+  if (Object.keys(map).length === 0) return map;
+  if (kvGet<string>(DAY_SKIPS_DATE_KEY) === todayISO()) return map;
+  kvSet(DAY_SKIPS_KEY, {}); // new day → nothing is skipped anymore
+  kvSet(DAY_SKIPS_DATE_KEY, todayISO());
+  return {};
+}
+
+/** Toggle one exercise's skip within a program day (today only). */
+export function toggleDaySkip(dayName: string, exercise: string): void {
+  const map = getDaySkips();
+  const day = { ...(map[dayName] ?? {}) };
+  if (day[exercise]) delete day[exercise];
+  else day[exercise] = true;
+  if (Object.keys(day).length) map[dayName] = day;
+  else delete map[dayName];
+  kvSet(DAY_SKIPS_KEY, map);
+  kvSet(DAY_SKIPS_DATE_KEY, todayISO());
+  logChanged();
+}
+
+export function clearDaySkips(): void {
+  kvSet(DAY_SKIPS_KEY, {});
+  kvSet(DAY_SKIPS_DATE_KEY, todayISO());
+  logChanged();
+}
+
+export const getSelectedDay = (): string | null => kvGet<string>(SELECTED_DAY_KEY);
+export const setSelectedDay = (name: string): void => kvSet(SELECTED_DAY_KEY, name);
+
+// ---- setup prompts state (§2.4) ----------------------------------------------
+
+export const isSetupPromptHidden = (): boolean => kvGet<boolean>(SETUP_PROMPT_HIDDEN_KEY) === true;
+export const hideSetupPrompt = (): void => kvSet(SETUP_PROMPT_HIDDEN_KEY, true);
+export const isNavSwiped = (): boolean => kvGet<boolean>(NAV_SWIPED_KEY) === true;
+export const setNavSwiped = (): void => kvSet(NAV_SWIPED_KEY, true);
+export const isIntPromptDismissed = (): boolean => kvGet<boolean>(INT_PROMPT_DISMISSED_KEY) === true;
+export const dismissIntPrompt = (): void => kvSet(INT_PROMPT_DISMISSED_KEY, true);
+
 // ---- plan / program docs -----------------------------------------------------
 
 export async function savePlan(doc: EatingPlanDraft, source: PlanSource = "manual"): Promise<void> {
   kvSet(PLAN_KEY, doc);
   setPlanMeta(source);
   setDirty(PLAN_KEY);
+  kvSet(SETUP_PROMPT_HIDDEN_KEY, false); // any new import shows the Home banner again (§2.4)
   clearPortions(); // new import = new plan version → overlay resets (server does too)
   try {
     // Adopt the stored doc — the server assigns the stable item ids (A2) the
@@ -156,10 +253,12 @@ export async function updateProgram(doc: TrainingProgramDraft): Promise<void> {
 async function pushPlan(): Promise<void> {
   const doc = getCachedPlan();
   if (!doc) return;
+  // Adopt the PUT/POST response (APP-092 #2) — the server assigns ids to any
+  // edit-added items, so the cache carries them without waiting for the next sync.
   try {
-    await api.updatePlan(doc);
+    kvSet(PLAN_KEY, await api.updatePlan(doc));
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) await api.createPlan(doc);
+    if (e instanceof ApiError && e.status === 404) kvSet(PLAN_KEY, await api.createPlan(doc));
     else throw e;
   }
   clearDirty(PLAN_KEY);
@@ -190,7 +289,12 @@ export async function syncPlan(): Promise<void> {
   try {
     const { portions, ...doc } = await api.getPlan();
     kvSet(PLAN_KEY, doc);
-    if (!isDirty(PORTIONS_KEY)) kvSet(PORTIONS_KEY, portions ?? {});
+    if (!isDirty(PORTIONS_KEY)) {
+      // The server map is only ever today's (the app empties it at rollover), so
+      // adopting it stamps today's date (§2.2 hydrate rule 3).
+      kvSet(PORTIONS_KEY, portions ?? {});
+      kvSet(PORTIONS_DATE_KEY, todayISO());
+    }
     pruneOverlayToDoc(doc);
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return; // never persisted yet

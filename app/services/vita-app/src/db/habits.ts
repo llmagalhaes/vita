@@ -101,3 +101,21 @@ export function updateHabit(id: string, patch: Partial<HabitInput>): void {
 export function deleteHabit(id: string): void {
   getDb().runSync(`DELETE FROM habits WHERE id = ?`, [id]);
 }
+
+/** Re-insert a removed habit verbatim (preserves id + createdAt) — powers toast Undo. */
+export function restoreHabit(habit: Habit): void {
+  getDb().runSync(
+    `INSERT OR REPLACE INTO habits (id, name, days, time, enabled, kind, planMealName, createdAt)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      habit.id,
+      habit.name,
+      JSON.stringify(habit.days),
+      habit.time,
+      habit.enabled ? 1 : 0,
+      habit.kind,
+      habit.planMealName ?? null,
+      habit.createdAt,
+    ],
+  );
+}

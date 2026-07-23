@@ -28,6 +28,19 @@ export const colors = {
   sheet: "#FBF6EC",
   scrubGuide: "rgba(69,62,53,0.4)", // vertical guide line under the scrub finger
   dotIdle: "#D9CFBD", // Home v2 dock date-picker idle (unmagnified) dot
+  // v3 (APP-083)
+  well: "#F3EBDD", // icon wells (parsing doc, sun, leaf)
+  dashedBorder: "rgba(120,100,75,0.22)", // dashed empty cards
+  toastUndo: "#F2C08C", // toast Undo link + recap gold
+  progressUpcoming: "rgba(74,66,56,0.13)", // setup + onboarding progress segments
+  recap: {
+    bg1: "#3E3A46",
+    bg2: "#5C4A4A",
+    text: "#F7F0E4",
+    label: "#D8C9B4",
+    dashed: "rgba(247,240,228,0.22)",
+    pill: "rgba(247,240,228,0.14)",
+  },
 } as const;
 
 /**
@@ -143,6 +156,7 @@ export const motion = {
   unfold: { durationMs: 450, bezier: [0.22, 0.9, 0.32, 1] as const }, // pill field expand
   fade: { durationMs: 250 },
   enter: { durationMs: 350, offsetY: 16 }, // vtIn — screen/step first paint (FadeInUp)
+  breath: { durationMs: 1600, scale: 1.07 }, // parsing-well pulse (BodyMap keeps its 1.5s)
 } as const;
 
 /** Nunito (200–800) loaded in the root layout via @expo-google-fonts/nunito. */

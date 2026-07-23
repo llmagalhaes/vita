@@ -1,4 +1,8 @@
-import { ALL_MUSCLES, bodyRegions, resolveHighlights } from "../BodyMap";
+import { ALL_MUSCLES, OPACITY_TWEEN_MS, bodyRegions, resolveHighlights } from "../BodyMap";
+
+test("highlight opacity changes tween over 300ms (APP-092 #3)", () => {
+  expect(OPACITY_TWEEN_MS).toBe(300);
+});
 
 const frontKeys = () => Object.keys(bodyRegions("front"));
 const backKeys = () => Object.keys(bodyRegions("back"));

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import Svg, { Circle, Ellipse, G, Rect } from "react-native-svg";
 import Animated, { Easing, useAnimatedProps, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
@@ -7,6 +7,11 @@ import { Text } from "./Text";
 import { colors, fonts, radii } from "./tokens";
 
 const AnimatedG = Animated.createAnimatedComponent(G);
+const AnimatedEllipse = Animated.createAnimatedComponent(Ellipse);
+const AnimatedRect = Animated.createAnimatedComponent(Rect);
+
+/** Highlight opacity changes ease over 300ms (APP-092 #3 — handoff transition). */
+export const OPACITY_TWEEN_MS = 300;
 
 /**
  * Interactive front/back muscle silhouette. Hand-built SVG (ponytail: no charting
@@ -160,6 +165,39 @@ const drawShape = (muscle: Muscle, s: Shape, i: number, accent: string, opacity:
     <Rect key={`${muscle}-${i}`} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} fill={accent} opacity={opacity} onPress={onPress ? () => onPress(muscle) : undefined} />
   );
 
+/**
+ * A muscle shape whose fill opacity TWEENS (300ms) when the target changes — so a
+ * chip/muscle selection fades regions in and out instead of snapping. Memoized so
+ * the animatedProps don't freeze on the owner's re-render (session-6 pitfall 3).
+ */
+const AnimatedShape = memo(function AnimatedShape({
+  muscle,
+  s,
+  i,
+  accent,
+  opacity,
+  onPress,
+}: {
+  muscle: Muscle;
+  s: Shape;
+  i: number;
+  accent: string;
+  opacity: number;
+  onPress?: (m: Muscle) => void;
+}) {
+  const o = useSharedValue(opacity);
+  useEffect(() => {
+    o.value = withTiming(opacity, { duration: OPACITY_TWEEN_MS });
+  }, [opacity, o]);
+  const animatedProps = useAnimatedProps(() => ({ opacity: o.value }));
+  const press = onPress ? () => onPress(muscle) : undefined;
+  return s.k === "e" ? (
+    <AnimatedEllipse key={`${muscle}-${i}`} cx={s.cx} cy={s.cy} rx={s.rx} ry={s.ry} fill={accent} animatedProps={animatedProps} onPress={press} />
+  ) : (
+    <AnimatedRect key={`${muscle}-${i}`} x={s.x} y={s.y} width={s.w} height={s.h} rx={s.rx} fill={accent} animatedProps={animatedProps} onPress={press} />
+  );
+});
+
 /** The selected muscle's shapes, breathing (scale 1→1.07→1, 1.5s) about their center. */
 function BreathGroup({ shapes, accent, muscle, onPress }: { shapes: Shape[]; accent: string; muscle: Muscle; onPress?: (m: Muscle) => void }) {
   const scale = useSharedValue(1);
@@ -204,7 +242,7 @@ function Figure({
         selected === muscle && side === sideOf(muscle, side) ? (
           <BreathGroup key={`${muscle}-breath`} shapes={shapes} accent={accent} muscle={muscle} onPress={onMusclePress} />
         ) : (
-          shapes.map((s, i) => drawShape(muscle, s, i, accent, opacity, onMusclePress))
+          shapes.map((s, i) => <AnimatedShape key={`${muscle}-${i}`} muscle={muscle} s={s} i={i} accent={accent} opacity={opacity} onPress={onMusclePress} />)
         ),
       )}
     </Svg>
