@@ -1,0 +1,1926 @@
+{
+  "summary": "Plano alimentar 5a consulta - Paciente Lucas Lima De Magalhães - Prescrito em 07/05/2026 por Talita Trindade Guimarães Pussente (CRN2-14061D). Plano válido por até 6 meses. Inclui pré-treino, pós-treino, almoço (2 opções), lanche, jantar (4 opções), hidratação e suplementação.",
+  "meals": [
+    {
+      "name": "Pré-treino",
+      "note": "Procure tomar 1 copo grande de água ao acordar.",
+      "items": [
+        {
+          "name": "Banana",
+          "quantity": 1,
+          "unit": "unidade",
+          "grams": 100,
+          "swaps": [
+            {
+              "name": "Abacaxi",
+              "quantity": 2,
+              "unit": "fatia média (150g)"
+            },
+            {
+              "name": "Uva",
+              "quantity": 20,
+              "unit": "unidades (160g)"
+            },
+            {
+              "name": "Pera",
+              "quantity": 1,
+              "unit": "unidade méd. (150g)"
+            },
+            {
+              "name": "Maçã",
+              "quantity": 1,
+              "unit": "unidade média (155g)"
+            },
+            {
+              "name": "Ameixa",
+              "quantity": 3,
+              "unit": "unidade peq. (150g)"
+            },
+            {
+              "name": "Laranja",
+              "quantity": 1,
+              "unit": "unidade média (180g)"
+            },
+            {
+              "name": "Kiwi",
+              "quantity": 2,
+              "unit": "unidade média (152g)"
+            },
+            {
+              "name": "Tangerina Ponkã",
+              "quantity": 2,
+              "unit": "unidade pequena (200g)"
+            },
+            {
+              "name": "Frutas vermelhas - Mix (Frescas ou congeladas)",
+              "quantity": 2,
+              "unit": "xícara café (200g)"
+            },
+            {
+              "name": "Mirtilo",
+              "quantity": 9,
+              "unit": "colher sopa (135g)"
+            },
+            {
+              "name": "Morango",
+              "quantity": 13,
+              "unit": "unidades (260g)"
+            },
+            {
+              "name": "Framboesa",
+              "quantity": 12,
+              "unit": "colheres de sopa cheias (180g)"
+            },
+            {
+              "name": "Melancia",
+              "quantity": 1.5,
+              "unit": "fatia média (300g)"
+            },
+            {
+              "name": "Melão",
+              "quantity": 3,
+              "unit": "fatias grandes (345g)"
+            },
+            {
+              "name": "Pêssego",
+              "quantity": 3,
+              "unit": "unidades médias (180g)"
+            },
+            {
+              "name": "Caqui",
+              "quantity": 1,
+              "unit": "unidade (120g)"
+            },
+            {
+              "name": "Manga",
+              "quantity": 0.5,
+              "unit": "unidade grande (110g)"
+            },
+            {
+              "name": "Mamão",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Goiaba",
+              "quantity": 1,
+              "unit": "unidade média (150g)"
+            },
+            {
+              "name": "Maracujá amarelo",
+              "quantity": 2.5,
+              "unit": "unidade média (112.5g)"
+            },
+            {
+              "name": "Suco natural de abacaxi",
+              "quantity": 1.5,
+              "unit": "copo americano duplo (360ml)"
+            },
+            {
+              "name": "Suco natural de morango",
+              "quantity": 1.5,
+              "unit": "copo americano duplo (360ml)"
+            },
+            {
+              "name": "Suco de laranja",
+              "quantity": 1,
+              "unit": "copo americano duplo (240ml)"
+            },
+            {
+              "name": "Polpa fruta 100% congelada (15kcal)",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Polpa de açaí (100% sem xarope - 70kcal)",
+              "quantity": 100,
+              "unit": "g"
+            }
+          ]
+        }
+      ],
+      "kcal": 109
+    },
+    {
+      "name": "Pós-treino",
+      "note": "Pitada de Canela, cacau puro em nibs ou pó - opcional. Para variar a fruta: 1 Porção do Grupo 3 da Lista de substituição (parte de anexos).",
+      "items": [
+        {
+          "name": "Whey protein concentrado",
+          "quantity": 1,
+          "unit": "medidor",
+          "grams": 30,
+          "nutritionPerUnit": {
+            "kcal": 120,
+            "proteinG": 21,
+            "carbsG": 5
+          }
+        }
+      ],
+      "kcal": 121
+    },
+    {
+      "name": "Almoço",
+      "note": "Vegetais: varie sempre os tipos, combinações e modo de preparo como desejar (cozido em água, vapor, refogado, forno ou grelhado - caso use gordura no preparo, não usar na salada ou dividir a quantidade indicada). Pode utilizar à gosto: limão, vinagre, balsâmico, sal, ervas e especiarias à gosto (NATURAIS).",
+      "kcal": 702,
+      "items": [
+        {
+          "name": "Milho verde cozido no vapor",
+          "grams": 200,
+          "unit": "g",
+          "swaps": [
+            {
+              "name": "Arroz branco cozido",
+              "quantity": 150,
+              "unit": "g"
+            },
+            {
+              "name": "Arroz integral cozido",
+              "quantity": 180,
+              "unit": "g"
+            },
+            {
+              "name": "Macarrão integral cozido",
+              "quantity": 155,
+              "unit": "g"
+            },
+            {
+              "name": "Arroz + Feijão ou Lentilha (meio a meio)",
+              "quantity": 170,
+              "unit": "g"
+            },
+            {
+              "name": "Quinoa cozida",
+              "quantity": 170,
+              "unit": "g"
+            },
+            {
+              "name": "Batata inglesa cozida",
+              "quantity": 380,
+              "unit": "g"
+            },
+            {
+              "name": "Batata inglesa assada",
+              "quantity": 220,
+              "unit": "g"
+            },
+            {
+              "name": "Batata doce cozida",
+              "quantity": 210,
+              "unit": "g"
+            },
+            {
+              "name": "Batata doce assada",
+              "quantity": 135,
+              "unit": "g"
+            },
+            {
+              "name": "Purê de batata (receita)",
+              "quantity": 315,
+              "unit": "g"
+            },
+            {
+              "name": "Feijão ou Lentilha cozidos",
+              "quantity": 185,
+              "unit": "g"
+            },
+            {
+              "name": "Inhame cozido ou amassado (purê)",
+              "quantity": 215,
+              "unit": "g"
+            },
+            {
+              "name": "Batata baroa cozida",
+              "quantity": 250,
+              "unit": "g"
+            },
+            {
+              "name": "Polenta mole",
+              "quantity": 300,
+              "unit": "g"
+            },
+            {
+              "name": "Nhoque cozido sem molho",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Farofa de mandioca temperada com sal",
+              "quantity": 45,
+              "unit": "g"
+            },
+            {
+              "name": "Mandioca cozida",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Cuscuz marroquino cozido água",
+              "quantity": 185,
+              "unit": "g"
+            },
+            {
+              "name": "Cuscuz de milho cozido água",
+              "quantity": 175,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Frango desfiado",
+          "grams": 200,
+          "unit": "g",
+          "swaps": [
+            {
+              "name": "Carne vermelha 10% gordura",
+              "quantity": 133.1,
+              "unit": "g"
+            },
+            {
+              "name": "Sobrecoxa de frango sem pele assada",
+              "quantity": 133.1,
+              "unit": "g"
+            },
+            {
+              "name": "Lombo Suíno grelhado",
+              "quantity": 4.3,
+              "unit": "filezinhos (208g)"
+            },
+            {
+              "name": "Falafel (235kcal em 100g)",
+              "quantity": 0.7,
+              "unit": "pacote (133.1g)"
+            },
+            {
+              "name": "Peito de frango sem pele grelhado",
+              "quantity": 2,
+              "unit": "filé médio (200g)"
+            }
+          ]
+        },
+        {
+          "name": "Azeite de oliva",
+          "quantity": 1,
+          "unit": "colher chá rasa",
+          "grams": 2
+        },
+        {
+          "name": "Folhoso cru ou refogado",
+          "quantity": 2,
+          "unit": "pegador(es)",
+          "grams": 30,
+          "swaps": [
+            {
+              "name": "Alface (Qualquer tipo)",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Espinafre refogado sem azeite",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Rúcula crua",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Acelga",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Acelga refogada sem azeite",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Couve crua",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Agrião",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Almeirão",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Repolho (Qualquer tipo) refogado sem azeite",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Repolho cru (Qualquer tipo)",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Couve refogada sem azeite",
+              "quantity": 25,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Legumes cozido/cru",
+          "quantity": 1,
+          "unit": "col. servir / pegador",
+          "grams": 75,
+          "swaps": [
+            {
+              "name": "Tomate cru (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Pepino cru (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Rabanete (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Broto de feijão cru (Qualquer tipo)",
+              "quantity": 50,
+              "unit": "g"
+            },
+            {
+              "name": "Pimentão cru (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Cenoura crua (Qualquer tipo)",
+              "quantity": 75,
+              "unit": "g"
+            },
+            {
+              "name": "Palmito em conserva",
+              "quantity": 100,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Legume refogado/cozido",
+          "quantity": 2,
+          "unit": "col. servi / pegador",
+          "grams": 150,
+          "swaps": [
+            {
+              "name": "Abóbora moranga cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Abobrinha cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Alcachofra cozida sem sal",
+              "quantity": 150,
+              "unit": "g"
+            },
+            {
+              "name": "Berinjela cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Beterraba cozida",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Brócolis cozido",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Cenoura cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Chuchu cozido/refogado sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Couve-flor cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Couvebruxelas cozida em água",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Cogumelo refogado/cozido sem azeite",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Vagem refogado/cozido sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Pimentão refogado/cozido sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Quiabo refogado",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Aspargo cozido",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Molho de Tomate 100%",
+              "quantity": 300,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Queijo Branco salada (100g ter até 230kcal)",
+          "grams": 35,
+          "unit": "g",
+          "swaps": [
+            {
+              "name": "Molho pesto",
+              "quantity": 15,
+              "unit": "g"
+            },
+            {
+              "name": "Manteiga sem sal",
+              "quantity": 10,
+              "unit": "g"
+            },
+            {
+              "name": "Azeite de oliva - preparo, salada, etc.",
+              "quantity": 1,
+              "unit": "colher sopa rasa (8g)"
+            },
+            {
+              "name": "Queijo tipo Feta ou Cabra (100g ter 275kcal)",
+              "quantity": 30,
+              "unit": "g"
+            },
+            {
+              "name": "Tahine (misturar suco de limão para molho)",
+              "quantity": 15,
+              "unit": "g"
+            },
+            {
+              "name": "Homus tradicional (que tenha 240kcal em 100g)",
+              "quantity": 35,
+              "unit": "g"
+            },
+            {
+              "name": "Molho receitas (até 90kcal porção)",
+              "quantity": 35,
+              "unit": "g"
+            },
+            {
+              "name": "Molho mostarda, Mel e azeite (Receita PDF)",
+              "quantity": 55,
+              "unit": "g"
+            },
+            {
+              "name": "Molho de limão com iogurte",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Creme fraiche",
+              "quantity": 30,
+              "unit": "g"
+            },
+            {
+              "name": "Creme fraiche light 15% gordura",
+              "quantity": 50,
+              "unit": "g"
+            }
+          ]
+        }
+      ],
+      "options": [
+        {
+          "name": "Opção 2 - Brunch",
+          "kcal": 679,
+          "items": [
+            {
+              "name": "Pão integral (que tenha até 250kcal em 100g)",
+              "quantity": 2,
+              "unit": "fatia média",
+              "grams": 70
+            },
+            {
+              "name": "Cottage cheese",
+              "quantity": 2,
+              "unit": "colher sopa cheia",
+              "grams": 80,
+              "swaps": [
+                {
+                  "name": "Zuivelspread Light",
+                  "quantity": 80,
+                  "unit": "g"
+                },
+                {
+                  "name": "Ricotta",
+                  "quantity": 46.7,
+                  "unit": "g"
+                },
+                {
+                  "name": "Smeerkaas 20+",
+                  "quantity": 53.3,
+                  "unit": "g"
+                },
+                {
+                  "name": "Cream cheese light",
+                  "quantity": 40,
+                  "unit": "g"
+                },
+                {
+                  "name": "Homus tradicional (que tenha 240kcal em 100g)",
+                  "quantity": 33.3,
+                  "unit": "g"
+                },
+                {
+                  "name": "Roomkaas sem lactose",
+                  "quantity": 4,
+                  "unit": "colher sobremesa (40g)"
+                },
+                {
+                  "name": "Avocado pequeno",
+                  "quantity": 0.3,
+                  "unit": "unidade média (40g)"
+                },
+                {
+                  "name": "Queijo cabra pasta (Pure Geitenkaas)",
+                  "quantity": 8,
+                  "unit": "ponta faca (48g)"
+                }
+              ]
+            },
+            {
+              "name": "Ovo de galinha (Cozido, pochê, mexido, grelhado sem óleo)",
+              "quantity": 4,
+              "unit": "unidade média",
+              "grams": 220,
+              "swaps": [
+                {
+                  "name": "Frango desfiado",
+                  "quantity": 10,
+                  "unit": "colher de sopa cheia (200g)"
+                }
+              ]
+            },
+            {
+              "name": "Queijo Jong Belegen 30+ (100g ter 280kcal)",
+              "quantity": 1,
+              "unit": "fatia grande fina",
+              "grams": 35,
+              "swaps": [
+                {
+                  "name": "Queijo Jong Belegen 20+ (100g ter 250kcal)",
+                  "quantity": 40,
+                  "unit": "g"
+                },
+                {
+                  "name": "Queijo tipo Feta (100g ter 275kcal)",
+                  "quantity": 35,
+                  "unit": "g"
+                },
+                {
+                  "name": "Mozzarela fresca (100g ter 230 a 255kcal)",
+                  "quantity": 40,
+                  "unit": "g"
+                },
+                {
+                  "name": "Mozzarella geraspt (ralada)",
+                  "quantity": 30,
+                  "unit": "g"
+                },
+                {
+                  "name": "Queijo Cabra Jong 50+",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Queijo Hallumi (100g ter 315kcal)",
+                  "quantity": 30,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Rúcula ou outra folhoso verde",
+              "grams": 25,
+              "unit": "g",
+              "swaps": [
+                {
+                  "name": "Alface (Qualquer tipo)",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Espinafre refogado sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Rúcula crua",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Acelga",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Acelga refogada sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Couve crua",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Agrião",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Almeirão",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Repolho (Qualquer tipo) refogado sem azeite",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Repolho cru (Qualquer tipo)",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Couve refogada sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Legume variados",
+              "grams": 100,
+              "unit": "g",
+              "swaps": [
+                {
+                  "name": "Tomate cru (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Pepino cru (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Rabanete (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Broto de feijão cru (Qualquer tipo)",
+                  "quantity": 50,
+                  "unit": "g"
+                },
+                {
+                  "name": "Pimentão cru (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Cenoura crua (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Palmito em conserva",
+                  "quantity": 100,
+                  "unit": "g"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Lanche",
+      "note": "Pitada de Canela, cacau puro em nibs ou pó - opcional.",
+      "kcal": 72,
+      "items": [
+        {
+          "name": "Maçã verde",
+          "quantity": 1,
+          "unit": "unidade",
+          "grams": 150,
+          "swaps": [
+            {
+              "name": "Banana",
+              "quantity": 1,
+              "unit": "unidade média (80g)"
+            },
+            {
+              "name": "Abacaxi",
+              "quantity": 2,
+              "unit": "fatia média (150g)"
+            },
+            {
+              "name": "Uva",
+              "quantity": 20,
+              "unit": "unidades (160g)"
+            },
+            {
+              "name": "Pera",
+              "quantity": 1,
+              "unit": "unidade méd. (150g)"
+            },
+            {
+              "name": "Maçã",
+              "quantity": 1,
+              "unit": "unidade média (155g)"
+            },
+            {
+              "name": "Ameixa",
+              "quantity": 3,
+              "unit": "unidade peq. (150g)"
+            },
+            {
+              "name": "Laranja",
+              "quantity": 1,
+              "unit": "unidade média (180g)"
+            },
+            {
+              "name": "Kiwi",
+              "quantity": 2,
+              "unit": "unidade média (152g)"
+            },
+            {
+              "name": "Tangerina Ponkã",
+              "quantity": 2,
+              "unit": "unidade pequena (200g)"
+            },
+            {
+              "name": "Frutas vermelhas - Mix (Frescas ou congeladas)",
+              "quantity": 2,
+              "unit": "xícara café (200g)"
+            },
+            {
+              "name": "Mirtilo",
+              "quantity": 9,
+              "unit": "colher sopa (135g)"
+            },
+            {
+              "name": "Morango",
+              "quantity": 13,
+              "unit": "unidades (260g)"
+            },
+            {
+              "name": "Framboesa",
+              "quantity": 12,
+              "unit": "colheres de sopa cheias (180g)"
+            },
+            {
+              "name": "Melancia",
+              "quantity": 1.5,
+              "unit": "fatia média (300g)"
+            },
+            {
+              "name": "Melão",
+              "quantity": 3,
+              "unit": "fatias grandes (345g)"
+            },
+            {
+              "name": "Pêssego",
+              "quantity": 3,
+              "unit": "unidades médias (180g)"
+            },
+            {
+              "name": "Caqui",
+              "quantity": 1,
+              "unit": "unidade (120g)"
+            },
+            {
+              "name": "Manga",
+              "quantity": 0.5,
+              "unit": "unidade grande (110g)"
+            },
+            {
+              "name": "Mamão",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Goiaba",
+              "quantity": 1,
+              "unit": "unidade média (150g)"
+            },
+            {
+              "name": "Maracujá amarelo",
+              "quantity": 2.5,
+              "unit": "unidade média (112.5g)"
+            },
+            {
+              "name": "Suco natural de abacaxi",
+              "quantity": 1.5,
+              "unit": "copo americano duplo (360ml)"
+            },
+            {
+              "name": "Suco natural de morango",
+              "quantity": 1.5,
+              "unit": "copo americano duplo (360ml)"
+            },
+            {
+              "name": "Suco de laranja",
+              "quantity": 1,
+              "unit": "copo americano duplo (240ml)"
+            },
+            {
+              "name": "Polpa fruta 100% congelada (15kcal)",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Polpa de açaí (100% sem xarope - 70kcal)",
+              "quantity": 100,
+              "unit": "g"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Jantar",
+      "note": "Vegetais: varie sempre os tipos, combinações e modo de preparo como desejar (cozido em água, vapor, refogado, forno ou grelhado - caso use gordura no preparo, não usar na salada ou dividir a quantidade indicada). Pode utilizar à gosto: limão, vinagre, balsâmico, sal, ervas e especiarias à gosto (NATURAIS).",
+      "kcal": 702,
+      "items": [
+        {
+          "name": "Milho verde cozido no vapor",
+          "grams": 200,
+          "unit": "g",
+          "swaps": [
+            {
+              "name": "Arroz branco cozido",
+              "quantity": 150,
+              "unit": "g"
+            },
+            {
+              "name": "Arroz integral cozido",
+              "quantity": 180,
+              "unit": "g"
+            },
+            {
+              "name": "Macarrão integral cozido",
+              "quantity": 155,
+              "unit": "g"
+            },
+            {
+              "name": "Arroz + Feijão ou Lentilha (meio a meio)",
+              "quantity": 170,
+              "unit": "g"
+            },
+            {
+              "name": "Quinoa cozida",
+              "quantity": 170,
+              "unit": "g"
+            },
+            {
+              "name": "Batata inglesa cozida",
+              "quantity": 380,
+              "unit": "g"
+            },
+            {
+              "name": "Batata inglesa assada",
+              "quantity": 220,
+              "unit": "g"
+            },
+            {
+              "name": "Batata doce cozida",
+              "quantity": 210,
+              "unit": "g"
+            },
+            {
+              "name": "Batata doce assada",
+              "quantity": 135,
+              "unit": "g"
+            },
+            {
+              "name": "Purê de batata (receita)",
+              "quantity": 315,
+              "unit": "g"
+            },
+            {
+              "name": "Feijão ou Lentilha cozidos",
+              "quantity": 185,
+              "unit": "g"
+            },
+            {
+              "name": "Inhame cozido ou amassado (purê)",
+              "quantity": 215,
+              "unit": "g"
+            },
+            {
+              "name": "Batata baroa cozida",
+              "quantity": 250,
+              "unit": "g"
+            },
+            {
+              "name": "Polenta mole",
+              "quantity": 300,
+              "unit": "g"
+            },
+            {
+              "name": "Nhoque cozido sem molho",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Farofa de mandioca temperada com sal",
+              "quantity": 45,
+              "unit": "g"
+            },
+            {
+              "name": "Mandioca cozida",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Cuscuz marroquino cozido água",
+              "quantity": 185,
+              "unit": "g"
+            },
+            {
+              "name": "Cuscuz de milho cozido água",
+              "quantity": 175,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Frango desfiado",
+          "grams": 200,
+          "unit": "g",
+          "swaps": [
+            {
+              "name": "Carne vermelha 10% gordura",
+              "quantity": 133.1,
+              "unit": "g"
+            },
+            {
+              "name": "Sobrecoxa de frango sem pele assada",
+              "quantity": 133.1,
+              "unit": "g"
+            },
+            {
+              "name": "Lombo Suíno grelhado",
+              "quantity": 4.3,
+              "unit": "filezinhos (208g)"
+            },
+            {
+              "name": "Falafel (235kcal em 100g)",
+              "quantity": 0.7,
+              "unit": "pacote (133.1g)"
+            },
+            {
+              "name": "Peito de frango sem pele grelhado",
+              "quantity": 2,
+              "unit": "filé médio (200g)"
+            }
+          ]
+        },
+        {
+          "name": "Azeite de oliva",
+          "quantity": 1,
+          "unit": "colher chá rasa",
+          "grams": 2
+        },
+        {
+          "name": "Folhoso cru ou refogado",
+          "quantity": 2,
+          "unit": "pegador(es)",
+          "grams": 30,
+          "swaps": [
+            {
+              "name": "Alface (Qualquer tipo)",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Espinafre refogado sem azeite",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Rúcula crua",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Acelga",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Acelga refogada sem azeite",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Couve crua",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Agrião",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Almeirão",
+              "quantity": 25,
+              "unit": "g"
+            },
+            {
+              "name": "Repolho (Qualquer tipo) refogado sem azeite",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Repolho cru (Qualquer tipo)",
+              "unit": "à vontade"
+            },
+            {
+              "name": "Couve refogada sem azeite",
+              "quantity": 25,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Legumes cozido/cru",
+          "quantity": 1,
+          "unit": "col. servir / pegador",
+          "grams": 75,
+          "swaps": [
+            {
+              "name": "Tomate cru (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Pepino cru (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Rabanete (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Broto de feijão cru (Qualquer tipo)",
+              "quantity": 50,
+              "unit": "g"
+            },
+            {
+              "name": "Pimentão cru (Qualquer tipo)",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Cenoura crua (Qualquer tipo)",
+              "quantity": 75,
+              "unit": "g"
+            },
+            {
+              "name": "Palmito em conserva",
+              "quantity": 100,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Legume refogado/cozido",
+          "quantity": 2,
+          "unit": "col. servi / pegador",
+          "grams": 150,
+          "swaps": [
+            {
+              "name": "Abóbora moranga cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Abobrinha cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Alcachofra cozida sem sal",
+              "quantity": 150,
+              "unit": "g"
+            },
+            {
+              "name": "Berinjela cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Beterraba cozida",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Brócolis cozido",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Cenoura cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Chuchu cozido/refogado sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Couve-flor cozida/assada sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Couvebruxelas cozida em água",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Cogumelo refogado/cozido sem azeite",
+              "quantity": 100,
+              "unit": "g"
+            },
+            {
+              "name": "Vagem refogado/cozido sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Pimentão refogado/cozido sem azeite",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Quiabo refogado",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Aspargo cozido",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Molho de Tomate 100%",
+              "quantity": 300,
+              "unit": "g"
+            }
+          ]
+        },
+        {
+          "name": "Queijo Branco salada (100g ter até 230kcal)",
+          "grams": 35,
+          "unit": "g",
+          "swaps": [
+            {
+              "name": "Molho pesto",
+              "quantity": 15,
+              "unit": "g"
+            },
+            {
+              "name": "Manteiga sem sal",
+              "quantity": 10,
+              "unit": "g"
+            },
+            {
+              "name": "Azeite de oliva - preparo, salada, etc.",
+              "quantity": 1,
+              "unit": "colher sopa rasa (8g)"
+            },
+            {
+              "name": "Queijo tipo Feta ou Cabra (100g ter 275kcal)",
+              "quantity": 30,
+              "unit": "g"
+            },
+            {
+              "name": "Tahine (misturar suco de limão para molho)",
+              "quantity": 15,
+              "unit": "g"
+            },
+            {
+              "name": "Homus tradicional (que tenha 240kcal em 100g)",
+              "quantity": 35,
+              "unit": "g"
+            },
+            {
+              "name": "Molho receitas (até 90kcal porção)",
+              "quantity": 35,
+              "unit": "g"
+            },
+            {
+              "name": "Molho mostarda, Mel e azeite (Receita PDF)",
+              "quantity": 55,
+              "unit": "g"
+            },
+            {
+              "name": "Molho de limão com iogurte",
+              "quantity": 200,
+              "unit": "g"
+            },
+            {
+              "name": "Creme fraiche",
+              "quantity": 30,
+              "unit": "g"
+            },
+            {
+              "name": "Creme fraiche light 15% gordura",
+              "quantity": 50,
+              "unit": "g"
+            }
+          ]
+        }
+      ],
+      "options": [
+        {
+          "name": "Opção 2 - Tortilha",
+          "kcal": 718,
+          "items": [
+            {
+              "name": "Tortilha integral (100g - até 290kcal)",
+              "quantity": 2,
+              "unit": "unidade méd.",
+              "grams": 84
+            },
+            {
+              "name": "Queijo Jong Belegen 30+ (100g ter 280kcal)",
+              "quantity": 2,
+              "unit": "fatia grande fina",
+              "grams": 70,
+              "swaps": [
+                {
+                  "name": "Queijo Jong Belegen 20+ (100g ter 250kcal)",
+                  "quantity": 80,
+                  "unit": "g"
+                },
+                {
+                  "name": "Queijo tipo Feta (100g ter 275kcal)",
+                  "quantity": 70,
+                  "unit": "g"
+                },
+                {
+                  "name": "Mozzarela fresca (100g ter 230 a 255kcal)",
+                  "quantity": 80,
+                  "unit": "g"
+                },
+                {
+                  "name": "Avocado pequeno",
+                  "quantity": 1,
+                  "unit": "unidade pequena (100g)"
+                },
+                {
+                  "name": "Queijo Cabra Jong 50+",
+                  "quantity": 50,
+                  "unit": "g"
+                },
+                {
+                  "name": "Queijo Hallumi (100g ter 315kcal)",
+                  "quantity": 60,
+                  "unit": "g"
+                },
+                {
+                  "name": "Mozzarella geraspt (ralada)",
+                  "quantity": 60,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Cottage cheese",
+              "quantity": 2,
+              "unit": "colher de sobremesa",
+              "grams": 50,
+              "swaps": [
+                {
+                  "name": "Zuivelspread Light",
+                  "quantity": 50,
+                  "unit": "g"
+                },
+                {
+                  "name": "Ricotta",
+                  "quantity": 29.2,
+                  "unit": "g"
+                },
+                {
+                  "name": "Smeerkaas 20+",
+                  "quantity": 33.3,
+                  "unit": "g"
+                },
+                {
+                  "name": "Cream cheese light",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Homus tradicional (que tenha 240kcal em 100g)",
+                  "quantity": 20.8,
+                  "unit": "g"
+                },
+                {
+                  "name": "Roomkaas sem lactose",
+                  "quantity": 2.5,
+                  "unit": "colher sobremesa (25g)"
+                },
+                {
+                  "name": "Avocado pequeno",
+                  "quantity": 0.2,
+                  "unit": "unidade média (25g)"
+                }
+              ]
+            },
+            {
+              "name": "Ovo de galinha (Cozido, pochê, mexido, grelhado sem óleo)",
+              "quantity": 3,
+              "unit": "unidade média",
+              "grams": 165,
+              "swaps": [
+                {
+                  "name": "Atum conserva ao natural",
+                  "quantity": 1.5,
+                  "unit": "lata 145g (217.5g)"
+                },
+                {
+                  "name": "Salmão sem pele cozido",
+                  "quantity": 105,
+                  "unit": "g"
+                },
+                {
+                  "name": "Salmão cru defumado (100g ter 200kcal)",
+                  "quantity": 120,
+                  "unit": "g"
+                },
+                {
+                  "name": "Falafel (235kcal em 100g)",
+                  "quantity": 9.8,
+                  "unit": "unidade pequena (97.5g)"
+                },
+                {
+                  "name": "Carne moída refogada",
+                  "quantity": 5.3,
+                  "unit": "colher de sopa rasa (78.8g)"
+                },
+                {
+                  "name": "Frango desfiado",
+                  "quantity": 7.5,
+                  "unit": "colher de sopa cheia (150g)"
+                },
+                {
+                  "name": "Tartar de carne (peso preparado/pronto)",
+                  "quantity": 1.5,
+                  "unit": "unidade (100g cru) (120g)"
+                },
+                {
+                  "name": "Tartar (Peso antes preparo)",
+                  "quantity": 165,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Rúcula OU outra folhoso verde",
+              "quantity": 3,
+              "unit": "pegador(es)",
+              "grams": 24,
+              "swaps": [
+                {
+                  "name": "Alface (Qualquer tipo)",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Espinafre refogado sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Rúcula crua",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Acelga",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Acelga refogada sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Couve crua",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Agrião",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Almeirão",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Repolho (Qualquer tipo) refogado sem azeite",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Repolho cru (Qualquer tipo)",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Couve refogada sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Opção 3 - Macarrão sem milho",
+          "kcal": 706,
+          "items": [
+            {
+              "name": "Macarrão integral ou trad. cozido",
+              "grams": 170,
+              "unit": "g",
+              "swaps": [
+                {
+                  "name": "Batata inglesa assada",
+                  "quantity": 244.7,
+                  "unit": "g"
+                },
+                {
+                  "name": "Batata doce (batata abóbora, batata jerimum, batata cenoura) assada",
+                  "quantity": 149.2,
+                  "unit": "g"
+                },
+                {
+                  "name": "Batata doce (batata abóbora, batata jerimum, batata cenoura) cozida",
+                  "quantity": 234.2,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Frango desfiado",
+              "grams": 200,
+              "unit": "g",
+              "swaps": [
+                {
+                  "name": "Carne vermelha 10% gordura",
+                  "quantity": 133.1,
+                  "unit": "g"
+                },
+                {
+                  "name": "Sobrecoxa de frango sem pele assada",
+                  "quantity": 133.1,
+                  "unit": "g"
+                },
+                {
+                  "name": "Lombo Suíno grelhado",
+                  "quantity": 4.3,
+                  "unit": "filezinhos (208g)"
+                },
+                {
+                  "name": "Falafel (235kcal em 100g)",
+                  "quantity": 0.7,
+                  "unit": "pacote (133.1g)"
+                },
+                {
+                  "name": "Peito de frango sem pele grelhado",
+                  "quantity": 2,
+                  "unit": "filé médio (200g)"
+                }
+              ]
+            },
+            {
+              "name": "Azeite de oliva",
+              "quantity": 1,
+              "unit": "colher chá rasa",
+              "grams": 2
+            },
+            {
+              "name": "Folhoso cru ou refogado",
+              "quantity": 2,
+              "unit": "pegador(es)",
+              "grams": 30,
+              "swaps": [
+                {
+                  "name": "Alface (Qualquer tipo)",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Espinafre refogado sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Rúcula crua",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Acelga",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Acelga refogada sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Couve crua",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Agrião",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Almeirão",
+                  "quantity": 25,
+                  "unit": "g"
+                },
+                {
+                  "name": "Repolho (Qualquer tipo) refogado sem azeite",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Repolho cru (Qualquer tipo)",
+                  "unit": "à vontade"
+                },
+                {
+                  "name": "Couve refogada sem azeite",
+                  "quantity": 25,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Legumes cozido/cru",
+              "quantity": 1,
+              "unit": "col. servir / pegador",
+              "grams": 75,
+              "swaps": [
+                {
+                  "name": "Tomate cru (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Pepino cru (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Rabanete (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Broto de feijão cru (Qualquer tipo)",
+                  "quantity": 50,
+                  "unit": "g"
+                },
+                {
+                  "name": "Pimentão cru (Qualquer tipo)",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Cenoura crua (Qualquer tipo)",
+                  "quantity": 75,
+                  "unit": "g"
+                },
+                {
+                  "name": "Palmito em conserva",
+                  "quantity": 100,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Legume refogado/cozido",
+              "quantity": 2,
+              "unit": "col. servi / pegador",
+              "grams": 150,
+              "swaps": [
+                {
+                  "name": "Abóbora moranga cozida/assada sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Abobrinha cozida/assada sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Alcachofra cozida sem sal",
+                  "quantity": 150,
+                  "unit": "g"
+                },
+                {
+                  "name": "Berinjela cozida/assada sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Beterraba cozida",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Brócolis cozido",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Cenoura cozida/assada sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Chuchu cozido/refogado sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Couve-flor cozida/assada sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Couvebruxelas cozida em água",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Cogumelo refogado/cozido sem azeite",
+                  "quantity": 100,
+                  "unit": "g"
+                },
+                {
+                  "name": "Vagem refogado/cozido sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Pimentão refogado/cozido sem azeite",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Quiabo refogado",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Aspargo cozido",
+                  "quantity": 200,
+                  "unit": "g"
+                },
+                {
+                  "name": "Molho de Tomate 100%",
+                  "quantity": 300,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Azeite de oliva - preparo, salada, etc.",
+              "quantity": 1,
+              "unit": "colher sopa rasa",
+              "grams": 8,
+              "swaps": [
+                {
+                  "name": "Molho pesto",
+                  "quantity": 20,
+                  "unit": "g"
+                },
+                {
+                  "name": "Manteiga sem sal",
+                  "quantity": 1.6,
+                  "unit": "colher chá cheia (12g)"
+                },
+                {
+                  "name": "Mozzarella geraspt (ralada)",
+                  "quantity": 25,
+                  "unit": "g"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Opção 4 - Hamburguer",
+          "kcal": 691,
+          "items": [
+            {
+              "name": "Pão hamburguer",
+              "quantity": 1,
+              "unit": "unidade média",
+              "grams": 60
+            },
+            {
+              "name": "Maionese tradicional",
+              "quantity": 1,
+              "unit": "colher de sopa rasa",
+              "grams": 17,
+              "swaps": [
+                {
+                  "name": "Ricotta",
+                  "quantity": 1,
+                  "unit": "colher de sopa (30g)"
+                },
+                {
+                  "name": "Cream cheese light",
+                  "quantity": 1,
+                  "unit": "colher de sopa cheia (30g)"
+                }
+              ]
+            },
+            {
+              "name": "Ovo de galinha (Cozido, pochê, mexido, grelhado sem óleo)",
+              "quantity": 2,
+              "unit": "unidade média",
+              "grams": 110
+            },
+            {
+              "name": "Peito de frango sem pele moído (peso cru - fazer hamburguer e grelhar)",
+              "grams": 170,
+              "unit": "g",
+              "swaps": [
+                {
+                  "name": "Hambúrguer pronto (100g ter 200kcal)",
+                  "quantity": 1,
+                  "unit": "personalizar medida (100g)"
+                },
+                {
+                  "name": "Carne magra (Rundergehakt mager) - peso antes preparo",
+                  "quantity": 120,
+                  "unit": "g"
+                },
+                {
+                  "name": "Tartar - peso antes preparo",
+                  "quantity": 150,
+                  "unit": "g"
+                }
+              ]
+            },
+            {
+              "name": "Queijo Jong Belegen 30+ (100g ter 280kcal)",
+              "quantity": 3,
+              "unit": "tirinha fina",
+              "grams": 30,
+              "swaps": [
+                {
+                  "name": "Mozzarella",
+                  "quantity": 1.5,
+                  "unit": "punhado (30g)"
+                },
+                {
+                  "name": "Queijo gouda",
+                  "quantity": 22.5,
+                  "unit": "g"
+                },
+                {
+                  "name": "Mozzarella geraspt (ralada)",
+                  "quantity": 1.5,
+                  "unit": "punhado (30g)"
+                }
+              ]
+            },
+            {
+              "name": "Alface ou outra folha",
+              "quantity": 2,
+              "unit": "folha média",
+              "grams": 20
+            },
+            {
+              "name": "Tomate ou outro legume",
+              "quantity": 3,
+              "unit": "fatia média",
+              "grams": 45
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "hydration": {
+    "mlPerDay": 2500
+  },
+  "supplements": [
+    {
+      "name": "Creatina Monohidratada 100% Pura",
+      "dose": "4g (1 dose) + 200ml água",
+      "timing": "1x ao dia, qualquer horário (longe de cafeína, não aquecer)",
+      "duration": "5 meses (7x semana)"
+    },
+    {
+      "name": "Ômega-3 (330mg EPA e 220mg DHA - livre metais)",
+      "dose": "1 cápsula 1g",
+      "timing": "1x ao dia, junto ao almoço ou jantar"
+    },
+    {
+      "name": "Vitamina D - Colecalciferol",
+      "dose": "1 cápsula/dose 10 microgramas",
+      "timing": "1x ao dia, junto ao almoço ou jantar",
+      "duration": "5 meses"
+    }
+  ],
+  "dailyTotals": {
+    "kcal": 1716,
+    "proteinG": 188.6,
+    "fatG": 47.9,
+    "carbsG": 153.4
+  }
+}

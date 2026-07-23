@@ -40,10 +40,40 @@ contradicts a team spec, THIS FILE WINS; builders read their spec + this file.
 9. **Portions endpoints unchanged**; day-scoping of the overlay is client semantics (both
    specs agree; CEO Q below only confirms the product behavior change).
 
-## Needs CEO answer (or silence = default)
+## CEO decisions (2026-07-23, binding) — the sync→async resolution
 
-See the session summary — merged list, each with a default. The only cross-spec one:
-**ProgramDay.kcalEstimate** (app contract-need #6 vs backend V3-D14 "program parse untouched").
-Orchestrator recommendation: ADD it — optional additive schema field + one prompt line inside
-BE-045; without it the Today workout summary loses its `~430 kcal` headline (handoff fidelity).
-Fallback if declined: app omits the kcal line (already specced as honest-when-absent).
+The CEO first asked for a **synchronous** parse (the design already has loading animations, so
+slowness is fine UX-wise). The orchestrator measured the real parse against the real API before
+committing to an architecture:
+
+- **Empirical measurement** (real `meal-plan.pdf`, real API, `claude-sonnet-4-6`, v3 tool schema):
+  **158.6 s wall-clock**, 33.9k input / **13.0k output** tokens, `stop_reason: tool_use`,
+  308 swaps captured, and the parse **nailed the ground truth** (dailyTotals 1716/188.6/153.4/47.9,
+  5 meals, 4 options, hydration 2500, 3 supplements). Result saved as `scratchpad/parse_result.json`
+  → the **golden capture** for §6.2 deterministic fixtures.
+- **Infra ceiling**: our gateway is an **HTTP API v2** (`aws_apigatewayv2`, HTTP_PROXY via VPC link;
+  `devops/.../modules/apigw/main.tf`) — max integration timeout **30 s, hard cap**. A 158 s sync
+  request is physically impossible through it; no model generates 13k tokens in <30 s (~65 s even at
+  200 tok/s). Sync-through-gateway is **ruled out by physics, not preference**.
+- **CEO decision: ASYNC, confirmed.** The CEO's point ("most users' PDFs are smaller / fewer swaps")
+  is handled by the SAME async path — a small plan just resolves on the first poll; no sync/async
+  hybrid (two code paths, and duration is unknowable up front).
+- **Mechanism = poll (backend V3-D2/D12 stands): `POST /parse/eating-plan` → 202 + `plan_parse_job`
+  row → app polls `GET /parse/eating-plan/jobs/{id}` every ~3 s** while the "Reading your plan…"
+  animation runs → `done` → `GET /plan` (`status:"review"`). **WebSocket REJECTED** (API-GW WS is
+  separate infra; for a 5-user app the poll is the lazy equal). The tiny job row stays (not
+  over-engineering — it gives the honest `failed` signal that polling GET /plan alone cannot).
+- **"Notify when ready" for a backgrounded user = the v3 Home banner "Your meal plan is in"**
+  (fires on `status:"review"`), already in the design, **zero new infra**. Real server push
+  (FCM/APNs token registration) is **deferred to an optional phase-2 devops ticket** — not built
+  this round.
+
+## Build-round guidance (orchestrator)
+
+- **No emulator/simulator verification this round** (CEO: "eu mesmo testo no app" — device testing is
+  the CEO's). App DoD = `tsc` 0 · Jest green · `api:check` clean · `expo export` OK · fresh APK built.
+  Drop every "emulator-verified" acceptance criterion; the CEO drives feel on device.
+- **ProgramDay.kcalEstimate** (app contract-need #6 vs backend V3-D14): ADD it — optional additive
+  field + one prompt line in BE-045; app omits the `~kcal` line when absent (honest fallback).
+- **Live eval is authorized and REQUIRED** as a backend gate (real PDF end-to-end). Key from SSM
+  `/vita/prod/anthropic-api-key`. ~$0.30/run.
