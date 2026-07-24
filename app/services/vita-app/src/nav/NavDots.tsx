@@ -1,7 +1,7 @@
 /**
- * The v3 navigation dot strip (APP-084) — the complete 6-position map that sits
- * above every tab: the word "TODAY" then 5 dots (Home · Trends · Workout · Habits
- * · Integrations). The active position stretches to a 16px accent pill; the word
+ * The v3 navigation dot strip (APP-084) — the complete 5-position map that sits
+ * above every tab: the word "TODAY" then 4 dots (Home · Trends · Habits ·
+ * Integrations). The active position stretches to a 16px accent pill; the word
  * turns accent when Today is active. A one-time "SWIPE" hint trails the last dot
  * until the user has swiped (kv nav.swiped). Tapping any position navigates.
  *
@@ -70,7 +70,7 @@ export function NavDots() {
             {t("nav.today")}
           </Animated.Text>
         </Pressable>
-        {[1, 2, 3, 4, 5].map((i) => (
+        {TAB_ROUTES.map((_, i) => i).slice(1).map((i) => (
           <Dot key={i} active={i === active} accent={accent} onPress={() => go(i)} label={TAB_ROUTES[i]!} />
         ))}
         {!swiped ? (

@@ -3,12 +3,13 @@ import { Pressable, TextInput, View } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, ZoomIn, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, ZoomIn, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
 import Svg, { Circle, Path } from "react-native-svg";
 import { Button, KeyboardLift, Text, colors, fonts, motion, spacing, useAccent, useAnySheetOpen } from "../ui";
+import { selectionTick } from "../lib/haptics";
 import { useCapture } from "./CaptureContext";
 import { PhotoSheet } from "./PhotoSheet";
-import { useVoiceCapture } from "./useVoiceCapture";
+import { CANCEL_THRESHOLD, useVoiceCapture } from "./useVoiceCapture";
 import { VoiceOverlay } from "./VoiceOverlay";
 
 // A press shorter than this is a tap (toggle the text field); longer starts voice.
@@ -85,6 +86,11 @@ export function CapturePill() {
   const [expanded, setExpanded] = useState(false);
   const [text, setText] = useState("");
   const progress = useSharedValue(0);
+  // Slide-to-cancel: UI-thread horizontal follow while recording (dragX ≤ 0),
+  // plus flags the pan worklet reads without touching JS per frame.
+  const dragX = useSharedValue(0);
+  const recording = useSharedValue(0);
+  const armed = useSharedValue(0);
 
   // Slide the whole pill away while any sheet/pop-up is open — the prototype's
   // floating menu disappears under a sheet (CEO #1, image 2).
@@ -144,25 +150,57 @@ export function CapturePill() {
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
 
+  // Tap-vs-hold detection + async voice start/stop stay on JS; the gesture
+  // worklets reach them via runOnJS — only on press-begin, threshold-cross and
+  // release, never per frame.
+  const beginPress = () => {
+    held.current = false;
+    holdTimer.current = setTimeout(() => {
+      held.current = true;
+      recording.value = 1; // arm the UI-thread finger-follow
+      void voice.holdStart();
+    }, HOLD_MS);
+  };
+  const crossCancel = (x: number) => {
+    voice.holdMove(x); // flips willCancel + ref for the overlay copy/tint
+    selectionTick(); // a calm tick as the drag crosses the cancel line
+  };
+  const endPress = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+    if (held.current) voice.holdEnd(); // reads willCancel → submit or abort
+    else setExpanded((e) => !e); // quick tap toggles the text field
+  };
+
+  // Slide-to-cancel (WhatsApp-idiomatic, leftward). The horizontal drag is
+  // tracked into dragX on the UI thread so the overlay's mic + hint follow the
+  // finger with zero JS round-trips; JS is touched only at the three edges above.
   const micGesture = Gesture.Pan()
-    .runOnJS(true)
     .minDistance(0)
     .maxPointers(1)
     .onBegin(() => {
-      held.current = false;
-      holdTimer.current = setTimeout(() => {
-        held.current = true;
-        void voice.holdStart();
-      }, HOLD_MS);
+      "worklet";
+      dragX.value = 0;
+      armed.value = 0;
+      runOnJS(beginPress)();
     })
     .onUpdate((e) => {
-      if (held.current) voice.holdMove(e.translationY);
+      "worklet";
+      if (recording.value === 0) return;
+      const x = Math.min(0, e.translationX); // leftward drag only
+      dragX.value = x;
+      const next = x < -CANCEL_THRESHOLD ? 1 : 0;
+      if (next !== armed.value) {
+        armed.value = next;
+        runOnJS(crossCancel)(x);
+      }
     })
     .onFinalize(() => {
-      if (holdTimer.current) clearTimeout(holdTimer.current);
-      holdTimer.current = null;
-      if (held.current) voice.holdEnd();
-      else setExpanded((e) => !e); // quick tap
+      "worklet";
+      runOnJS(endPress)();
+      recording.value = 0;
+      armed.value = 0;
+      dragX.value = withTiming(0, unfold); // settle the mic back home
     });
 
   return (
@@ -171,6 +209,7 @@ export function CapturePill() {
         status={voice.status}
         transcript={voice.transcript}
         willCancel={voice.willCancel}
+        drag={dragX}
         onTypeInstead={() => {
           voice.dismiss();
           setExpanded(true);

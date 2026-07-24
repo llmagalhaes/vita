@@ -9,7 +9,7 @@ export type VoiceStatus =
   | "denied"
   | "unavailable";
 
-/** Drag this far up while holding to arm cancel-on-release. */
+/** Drag this far (leftward) while holding to arm cancel-on-release. */
 export const CANCEL_THRESHOLD = 90;
 
 /**
@@ -65,10 +65,10 @@ export function useVoiceCapture(
     });
   }, [recognizer, onFinal, reset]);
 
-  /** translationY < 0 means dragging up (toward the cancel zone). */
-  const holdMove = useCallback((translationY: number) => {
+  /** Signed drag distance; < -CANCEL_THRESHOLD (dragged left) arms cancel. */
+  const holdMove = useCallback((translationX: number) => {
     if (!startedRef.current) return;
-    const armed = translationY < -CANCEL_THRESHOLD;
+    const armed = translationX < -CANCEL_THRESHOLD;
     willCancelRef.current = armed;
     setWillCancel(armed);
   }, []);

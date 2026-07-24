@@ -11,6 +11,8 @@ export type Settings = {
   notificationsEnabled?: boolean;
   /** Evening-recap notification switch (default on). Added APP-089. */
   notifRecap?: boolean;
+  /** Hour (0–23) the Home evening-recap card starts appearing. Default 20. Added APP-090. */
+  recapStartHour?: number;
   /** Integrations toggles — device-local prefs only; no real sync yet (APP-029). */
   integrations?: Record<string, boolean>;
 };
@@ -42,6 +44,10 @@ export const setNotificationsEnabled = (on: boolean): void => patch({ notificati
 /** Evening recap default ON when absent (APP-089). */
 export const recapEnabled = (): boolean => getSettings()?.notifRecap !== false;
 export const setRecapEnabled = (on: boolean): void => patch({ notifRecap: on });
+
+/** Hour the recap card starts showing; default 20:00 when unset (APP-090). */
+export const recapStartHour = (): number => getSettings()?.recapStartHour ?? 20;
+export const setRecapStartHour = (h: number): void => patch({ recapStartHour: h });
 
 export const integrationEnabled = (id: string): boolean => getSettings()?.integrations?.[id] === true;
 export function setIntegrationEnabled(id: string, on: boolean): void {

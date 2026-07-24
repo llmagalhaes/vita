@@ -9,9 +9,10 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
+import type { SharedValue } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { Button, Text, colors, fonts, motion, spacing } from "../ui";
-import type { VoiceStatus } from "./useVoiceCapture";
+import { CANCEL_THRESHOLD, type VoiceStatus } from "./useVoiceCapture";
 
 /** One equalizer bar looping scaleY .3→1 (`vtWave`), staggered by index (Fable B7). */
 function WaveBar({ i, cancel }: { i: number; cancel: boolean }) {
@@ -83,16 +84,28 @@ export function VoiceOverlay({
   status,
   transcript,
   willCancel,
+  drag,
   onTypeInstead,
   onDismiss,
 }: {
   status: VoiceStatus;
   transcript: string;
   willCancel: boolean;
+  /** UI-thread horizontal drag (≤ 0) so the mic + hint follow the finger. */
+  drag?: SharedValue<number>;
   onTypeInstead: () => void;
   onDismiss: () => void;
 }) {
   const { t } = useTranslation();
+  const zero = useSharedValue(0);
+  const dx = drag ?? zero;
+  // Mic slides left with the finger and fades as it nears the cancel line.
+  const micFollow = useAnimatedStyle(() => {
+    const p = Math.min(1, -dx.value / CANCEL_THRESHOLD);
+    return { transform: [{ translateX: dx.value * 0.7 }], opacity: 1 - p * 0.55 };
+  });
+  // The hint trails the finger a touch less, so it reads as leading the mic out.
+  const hintFollow = useAnimatedStyle(() => ({ transform: [{ translateX: dx.value * 0.45 }] }));
   if (status === "idle") return null;
 
   const holding = status === "listening" || status === "transcribing";
@@ -114,7 +127,9 @@ export function VoiceOverlay({
     >
       {holding && (
         <View style={{ alignItems: "center", gap: spacing.lg }}>
-          <MicPulse cancel={willCancel} />
+          <Animated.View style={micFollow}>
+            <MicPulse cancel={willCancel} />
+          </Animated.View>
           {status === "listening" && <Equalizer cancel={willCancel} />}
           <Text
             variant="title"
@@ -126,13 +141,20 @@ export function VoiceOverlay({
               : transcript || t("capture.voice.listening")}
           </Text>
           {status === "listening" && (
-            <Text
-              variant="label"
-              style={{ fontFamily: willCancel ? fonts.extraBold : fonts.semiBold, textAlign: "center" }}
-              color={willCancel ? "#F0C6B4" : "rgba(247,242,233,0.75)"}
-            >
-              {willCancel ? t("capture.voice.releaseToCancel") : t("capture.voice.slideToCancel")}
-            </Text>
+            <Animated.View style={[{ flexDirection: "row", alignItems: "center", gap: 6 }, hintFollow]}>
+              {!willCancel && (
+                <Text style={{ fontFamily: fonts.semiBold, fontSize: 18, marginTop: -2 }} color="rgba(247,242,233,0.6)">
+                  ‹
+                </Text>
+              )}
+              <Text
+                variant="label"
+                style={{ fontFamily: willCancel ? fonts.extraBold : fonts.semiBold, textAlign: "center" }}
+                color={willCancel ? "#F0C6B4" : "rgba(247,242,233,0.75)"}
+              >
+                {willCancel ? t("capture.voice.releaseToCancel") : t("capture.voice.slideToCancel")}
+              </Text>
+            </Animated.View>
           )}
         </View>
       )}

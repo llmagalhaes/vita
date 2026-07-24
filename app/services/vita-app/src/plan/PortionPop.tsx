@@ -6,12 +6,20 @@
  * cancel/revert (DESIGN-SPEC): the overlay write is already persistent, exactly
  * like the prototype. "Done" only closes.
  */
-import { View } from "react-native";
+import { useEffect } from "react";
+import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { FadeIn, useAnimatedProps, useSharedValue } from "react-native-reanimated";
 import type { MacroTotals, PlanItem } from "../api/client";
 import { barPct, boundsOf, effectiveName, effectivePerUnit, effectiveUnit, itemTotals, kcalLabel, portionRange, qtyLabel } from "./compute";
 import { Button, Card, EditableText, Slider, Text, colors, fonts, shadowPop, tint, useAccent } from "../ui";
+
+/** TextInput whose text is written from the UI thread — the big qty readout tracks
+ *  the slider finger with no per-frame React re-render. */
+const AnimatedInput = Animated.createAnimatedComponent(TextInput);
+
+const G_UNITS = ["g", "gram", "grams"];
+const ML_UNITS = ["ml", "milliliter", "milliliters", "millilitre", "millilitres"];
 
 const MACROS = [
   { key: "proteinG", color: colors.macro.protein },
@@ -96,6 +104,26 @@ export function PortionPop({
   const kcal = Math.round(itemMacros.kcal);
   const perKcal = effectivePerUnit(item)?.kcal ?? 0;
 
+  // Live drag value on the UI thread. Slider writes it every frame; the big qty
+  // readout below reads it via animatedProps — no React re-render mid-drag. When
+  // idle (open / numeric-field edit / after commit) we keep it synced to `qty`.
+  const live = useSharedValue(qty);
+  useEffect(() => {
+    live.value = qty;
+  }, [qty, live]);
+
+  const unitKind = G_UNITS.includes((unit ?? "").trim().toLowerCase())
+    ? "g"
+    : ML_UNITS.includes((unit ?? "").trim().toLowerCase())
+      ? "ml"
+      : "x";
+  const unitText = unit || "unit"; // matches qtyLabel's fallback (used for defaultValue)
+  const qtyProps = useAnimatedProps(() => {
+    const q = Math.round(live.value * 100) / 100; // strip step-math float noise
+    const s = unitKind === "g" ? `${q} g` : unitKind === "ml" ? `${q} ml` : `${q} × ${unitText}`;
+    return { text: s, defaultValue: s } as never;
+  });
+
   return (
     <View style={{ gap: 12 }}>
       {/* Card A — live daily totals (updates on every tick) */}
@@ -141,17 +169,22 @@ export function PortionPop({
             </View>
           </View>
 
-          <Text style={{ textAlign: "center", fontSize: 30, fontFamily: fonts.semiBold, letterSpacing: -0.5 }} color={accent}>
-            {qtyLabel(unit, qty)}
-          </Text>
+          <AnimatedInput
+            editable={false}
+            underlineColorAndroid="transparent"
+            animatedProps={qtyProps}
+            defaultValue={qtyLabel(unit, qty)}
+            style={{ textAlign: "center", fontSize: 30, fontFamily: fonts.semiBold, letterSpacing: -0.5, color: accent, padding: 0, includeFontPadding: false }}
+          />
 
           <Slider
             value={qty}
+            live={live}
             min={bounds.min}
             max={bounds.max}
             step={bounds.step}
             accessibilityLabel={t("plan.portionFor", { name })}
-            onChange={onChangeQty}
+            onCommit={onChangeQty}
           />
           <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
             <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>

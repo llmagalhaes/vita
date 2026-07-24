@@ -4,10 +4,12 @@ import {
   getSettings,
   integrationEnabled,
   notificationsEnabled,
+  recapStartHour,
   saveSettings,
   setIntegrationEnabled,
   setName,
   setNotificationsEnabled,
+  setRecapStartHour,
   type Settings,
 } from "../settings";
 
@@ -37,6 +39,12 @@ test("notifications default on; toggle persists (no backend — local only)", ()
   setNotificationsEnabled(true);
   expect(notificationsEnabled()).toBe(true);
   expect(spy).not.toHaveBeenCalled(); // prefs stay local
+});
+
+test("recap start hour defaults to 20:00 and round-trips", () => {
+  expect(recapStartHour()).toBe(20); // field absent → default 20
+  setRecapStartHour(21);
+  expect(recapStartHour()).toBe(21);
 });
 
 test("integration toggles are device-local prefs", () => {

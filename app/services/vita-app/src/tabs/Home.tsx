@@ -10,7 +10,7 @@ import { addLocalEntry, countNeedsReview, deleteEntry, entriesForDay, type Local
 import { logChanged, useLogVersion } from "../db/notify";
 import { openReview } from "../review/ReviewSheet";
 import { drainOutbox } from "../db/outbox";
-import { getSettings, integrationEnabled, isOnboarded } from "../db/settings";
+import { getSettings, integrationEnabled, isOnboarded, recapStartHour } from "../db/settings";
 import {
   dismissIntPrompt,
   getCachedPlan,
@@ -653,8 +653,8 @@ export default function Home() {
         <IntegrationsPrompt onConnect={() => router.replace("/integrations")} onDismiss={onDismissIntPrompt} />
       )}
 
-      {/* ⑤ evening recap — after 18:00 when something's logged (§7.2) */}
-      {hour >= 18 && entries.length > 0 && (
+      {/* ⑤ evening recap — from the user-set start hour (default 20:00) when something's logged (§7.2, APP-090) */}
+      {hour >= recapStartHour() && entries.length > 0 && (
         <RecapCard
           line={recapLine(meals.length, workouts.length, waterMl)}
           kcalIn={kcalToday}

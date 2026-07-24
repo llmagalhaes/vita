@@ -72,7 +72,7 @@ describe("useVoiceCapture state machine", () => {
     expect(screen.getByText("status:idle")).toBeOnTheScreen();
   });
 
-  test("slide up past threshold then release cancels — no submit", async () => {
+  test("slide past cancel threshold then release cancels — no submit", async () => {
     const fake = makeFake();
     const onFinal = jest.fn();
     await render(<Host rec={fake.rec} onFinal={onFinal} />);
@@ -135,7 +135,7 @@ describe("VoiceOverlay rendering per state", () => {
   test("listening shows transcript and cancel hint", async () => {
     await render(<VoiceOverlay status="listening" {...base} transcript="had eggs" />);
     expect(screen.getByText("had eggs")).toBeOnTheScreen();
-    expect(screen.getByText("Slide up to cancel")).toBeOnTheScreen();
+    expect(screen.getByText("Slide to cancel")).toBeOnTheScreen();
   });
 
   test("listening + willCancel warns release-to-cancel", async () => {

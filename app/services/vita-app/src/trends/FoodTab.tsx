@@ -245,6 +245,7 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         title={t("trends.consumedVsSpent")}
         unitNote={`${t("common.kcal")} · ${t("common.estimates")}`}
         count={days.length}
+        gap={6}
         readout={(i) => ({ value: `${round(days[i]!.consumedKcal)} / ${round(days[i]!.spentKcal)}`, detail: dateLabel(days[i]!.date) })}
         dragHint={t("trends.dragChart")}
         delay={60}

@@ -14,7 +14,7 @@ import { motion } from "./tokens";
 export function SheetBackdrop({
   onClose,
   closeLabel,
-  intensity = 40, // stronger, "strongly blurred" macros/sheet backdrop (APP-063)
+  intensity = 52, // denser macros/sheet blur — CEO asked for a bit more (was 40)
   scrim = "light",
   style,
 }: {
@@ -43,7 +43,7 @@ export function SheetBackdrop({
       ? "rgba(60,50,38,0.55)"
       : "rgba(60,50,38,0.38)"
     : android
-      ? "rgba(247,242,233,0.86)"
+      ? "rgba(247,242,233,0.92)" // denser cream frost — CEO wanted more obscuring (was .86)
       : "rgba(247,242,233,0.45)";
   return (
     <Animated.View

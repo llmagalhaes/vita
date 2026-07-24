@@ -135,7 +135,7 @@ export function ActivityTab({
                 const dim = b.excluded ? 0.25 : active != null && active !== i ? 0.4 : 1;
                 return (
                   <View key={b.key} style={{ flex: 1, height: "100%", justifyContent: "flex-end", opacity: dim }}>
-                    <GrowBar pct={(b.workoutMin / maxMin) * 100} color={colors.accent} delay={barDelay(i, days.length)} style={{ width: "100%", minHeight: b.workoutMin > 0 ? 3 : 0, maxWidth: 22, borderRadius: 5, alignSelf: "flex-end" }} />
+                    <GrowBar pct={(b.workoutMin / maxMin) * 100} color={colors.accent} delay={barDelay(i, days.length)} style={{ width: "100%", minHeight: b.workoutMin > 0 ? 3 : 0, maxWidth: 22, borderRadius: 5, alignSelf: "center" }} />
                   </View>
                 );
               })}

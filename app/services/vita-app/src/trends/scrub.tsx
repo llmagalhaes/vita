@@ -25,12 +25,15 @@ export const indexFromX = (x: number, width: number, count: number): number => {
 export function ScrubOverlay({
   count,
   active,
+  gap = 3,
   onScrub,
   onEnd,
   accessibilityLabel,
 }: {
   count: number;
   active?: number | null;
+  /** Inter-bar gap (px) of the chart below, so the guide lands on the true column centre. */
+  gap?: number;
   onScrub: (index: number) => void;
   onEnd?: () => void;
   accessibilityLabel?: string;
@@ -68,12 +71,17 @@ export function ScrubOverlay({
       if (onEnd) runOnJS(onEnd)();
     });
 
-  // Guide follows the finger on the UI thread; before/after a drag it falls back
-  // to the active day's column centre (initial render, external selection).
+  // Guide SNAPS to a bar's column centre (prototype parity: `calGuideX = 4 + i*step`,
+  // never the raw finger). While dragging it tracks `lastIdx` (the column under the
+  // finger, UI thread); otherwise it follows the externally-selected `active`. The
+  // centre is gap-aware — columns are `flex:1` separated by `gap`, so the true centre
+  // of column i is `i*(colW+gap) + colW/2`, not the gapless `(i+0.5)/count*width`.
   const guideStyle = useAnimatedStyle(() => {
-    const fallback = active != null && count > 0 && width > 0 ? ((active + 0.5) / count) * width : null;
-    const x = touchX.value != null ? touchX.value : fallback;
-    return { opacity: x == null ? 0 : 1, transform: [{ translateX: (x ?? 0) - 1 }] };
+    const idx = touchX.value != null ? lastIdx.value : active ?? -1;
+    if (idx < 0 || width <= 0 || count <= 0) return { opacity: 0, transform: [{ translateX: 0 }] };
+    const colW = (width - (count - 1) * gap) / count;
+    const cx = idx * (colW + gap) + colW / 2;
+    return { opacity: 1, transform: [{ translateX: cx - 1 }] }; // -1 centres the 2px line on cx
   });
 
   return (

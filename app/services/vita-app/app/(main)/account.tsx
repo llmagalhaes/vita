@@ -7,9 +7,9 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import Animated, { FadeIn } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, withTiming } from "react-native-reanimated";
 import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, shadowCta, showToast, spacing } from "../../src/ui";
-import { getSettings, notificationsEnabled, recapEnabled, setName, setNotificationsEnabled, setRecapEnabled } from "../../src/db/settings";
+import { getSettings, notificationsEnabled, recapEnabled, recapStartHour, setName, setNotificationsEnabled, setRecapEnabled, setRecapStartHour } from "../../src/db/settings";
 import { syncRecapFromLog } from "../../src/habits/recap";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
@@ -19,6 +19,17 @@ import { listHabits } from "../../src/db/habits";
 import { VacationSheet } from "../../src/vacation/VacationSheet";
 import { ExportSheet } from "../../src/export/ExportSheet";
 import { signOut } from "../../src/auth/session";
+
+// prototype `vtIn`: fade + translateY 16→0 over .3s ease. The screen's native
+// `fade` (see (main)/_layout.tsx) owns the opacity; this adds the 16px rise only.
+const VT_RISE = { duration: 300, easing: Easing.bezier(0.25, 0.1, 0.25, 1) } as const;
+const vtRise = () => {
+  "worklet";
+  return {
+    initialValues: { transform: [{ translateY: 16 }] },
+    animations: { transform: [{ translateY: withTiming(0, VT_RISE) }] },
+  };
+};
 
 const Label = ({ children }: { children: string }) => (
   <Text style={{ fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: "uppercase", paddingHorizontal: 4, paddingTop: 6 }} color={colors.labelMuted}>
@@ -42,6 +53,37 @@ function SetupRow({ glyph, bg, ink, title, sub, onPress, delay = 0 }: { glyph: s
       </Card>
     </PressScale>
     </Animated.View>
+  );
+}
+
+/** Lightweight hour picker: − HH:00 + stepper, clamped to a sensible evening range. */
+const RECAP_MIN = 17;
+const RECAP_MAX = 23;
+function HourStepper({ hour, onChange }: { hour: number; onChange: (h: number) => void }) {
+  const { t } = useTranslation();
+  const btn = (dir: -1 | 1, glyph: string, label: string) => {
+    const disabled = dir < 0 ? hour <= RECAP_MIN : hour >= RECAP_MAX;
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        disabled={disabled}
+        onPress={() => onChange(Math.max(RECAP_MIN, Math.min(RECAP_MAX, hour + dir)))}
+        hitSlop={8}
+        style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.sheet, alignItems: "center", justifyContent: "center", opacity: disabled ? 0.4 : 1 }}
+      >
+        <Text style={{ fontFamily: fonts.bold, fontSize: 18 }} color={colors.accent}>{glyph}</Text>
+      </Pressable>
+    );
+  };
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      {btn(-1, "−", t("account.recapEarlier"))}
+      <Text style={{ fontFamily: fonts.bold, fontSize: 15, minWidth: 52, textAlign: "center" }}>
+        {`${String(hour).padStart(2, "0")}:00`}
+      </Text>
+      {btn(1, "+", t("account.recapLater"))}
+    </View>
   );
 }
 
@@ -73,12 +115,18 @@ export default function Account() {
     setRecapEnabled(!recapOn);
     void syncRecapFromLog();
   };
+  const [recapHour, setRecapHourState] = useState(recapStartHour());
+  const changeRecapHour = (h: number) => {
+    setRecapHourState(h);
+    setRecapStartHour(h); // persists + bumps log version → Home card gate re-reads
+  };
 
   const vacSub = onVacation
     ? `${vac.ranges[0]?.start ?? ""} – ${vac.ranges[0]?.end ?? ""}`
     : t("account.vacationOffSub");
 
   return (
+    <Animated.View entering={vtRise} style={{ flex: 1 }}>
     <KeyboardAvoider>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
@@ -137,6 +185,13 @@ export default function Account() {
           <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t("account.notifRecapSub")}</Text>
         </View>
         <Toggle on={recapOn} onToggle={toggleRecap} accessibilityLabel={t("account.notifRecap")} />
+      </Card>
+      <Card style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14 }}>
+        <View style={{ flex: 1 }}>
+          <Text variant="label" style={{ fontSize: 14 }}>{t("account.recapTime")}</Text>
+          <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t("account.recapTimeSub")}</Text>
+        </View>
+        <HourStepper hour={recapHour} onChange={changeRecapHour} />
       </Card>
 
       {/* away / vacation */}
@@ -200,5 +255,6 @@ export default function Account() {
       onClose={() => setEndConfirmOpen(false)}
     />
     </KeyboardAvoider>
+    </Animated.View>
   );
 }

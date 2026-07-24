@@ -13,22 +13,22 @@ import Habits from "../tabs/Habits";
 import Integrations from "../tabs/Integrations";
 
 /**
- * The six top-level tabs (Today · Home · Trends · Workout · Habits · Integrations)
+ * The five top-level tabs (Today · Home · Trends · Habits · Integrations)
  * co-mounted in one finger-following horizontal pager (v3 nav, APP-084). Lives once
  * in the (main) layout above the Stack, shown only while the route is a tab. Route
  * files stay null placeholders that keep the pathname alive for the dot strip and
  * deep links. Swipe and dot-tap both animate and stay in sync with expo-router.
  *
- * The Workout slot is referenced BY ROUTE via a deferred require — the other v3
- * builder owns src/tabs/WorkoutHub; the require resolves at runtime when that slot
- * first mounts, so this file never statically imports it.
+ * Workout is NO LONGER a pager tab (CEO decision): logging stays reachable via the
+ * Today screen's Workout sub-tab + capture, and the detail screen /workout/[id]
+ * stays a normal push. src/tabs/WorkoutHub is no longer mounted here.
  *
  * GESTURE ARBITRATION unchanged: inner horizontal pans (Trends scrub, Timeline day
  * swipe) win via `Gesture.Pan().blocksExternalGesture(tabsPagerRef)`; the pager
  * only claims clearly-horizontal drags (activeOffsetX ±14) and fails on vertical.
  */
 
-export const TAB_ROUTES = ["/today", "/home", "/trends", "/workout", "/habits", "/integrations"] as const;
+export const TAB_ROUTES = ["/today", "/home", "/trends", "/habits", "/integrations"] as const;
 const LAST = TAB_ROUTES.length - 1;
 
 /** Pure: route path → tab index; detail/unknown routes → -1. Tested. */
@@ -63,12 +63,6 @@ export function snapTarget(startPage: number, translationX: number, velocityX: n
 
 const SPRING = { damping: 22, stiffness: 210, mass: 0.9 } as const;
 
-/** Deferred require so the Workout slot references its route without a static import. */
-function WorkoutSlot() {
-  const WorkoutHub = (require("../tabs/WorkoutHub") as { default: React.ComponentType }).default;
-  return <WorkoutHub />;
-}
-
 export function TabsPager() {
   const router = useRouter();
   const pathname = usePathname();
@@ -77,7 +71,7 @@ export function TabsPager() {
   const onTab = active >= 0;
   const startIdx = active < 0 ? 1 : active;
 
-  // Lazy mount: co-mounting 6 chart-heavy screens is the perf risk. Start with only
+  // Lazy mount: co-mounting 5 chart-heavy screens is the perf risk. Start with only
   // the current slot; grow to current ± 1 from a DEFERRED effect after settle (never
   // mid-gesture — the setState recreates the pan and eats the swipe, session-6).
   const [mounted, setMounted] = useState<boolean[]>(() => {
@@ -177,9 +171,8 @@ export function TabsPager() {
           <View style={{ width, flex: 1 }}>{mounted[0] && <Today />}</View>
           <View style={{ width, flex: 1 }}>{mounted[1] && <Home />}</View>
           <View style={{ width, flex: 1 }}>{mounted[2] && <Trends />}</View>
-          <View style={{ width, flex: 1 }}>{mounted[3] && <WorkoutSlot />}</View>
-          <View style={{ width, flex: 1 }}>{mounted[4] && <Habits />}</View>
-          <View style={{ width, flex: 1 }}>{mounted[5] && <Integrations />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[3] && <Habits />}</View>
+          <View style={{ width, flex: 1 }}>{mounted[4] && <Integrations />}</View>
         </Animated.View>
       </GestureDetector>
     </View>

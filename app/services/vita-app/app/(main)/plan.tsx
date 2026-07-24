@@ -311,25 +311,26 @@ export default function EatingPlanScreen() {
             {t("plan.tapHint")}
           </Text>
         )}
-
-        {/* portion adjust pop-up — centered, blurred backdrop (PopOverlay) */}
-        <PopOverlay visible={sel != null} onClose={() => setSel(null)} closeLabel={t("common.cancel")}>
-          {selItem && selMeal && sel && (
-            <PortionPop
-              item={selItem}
-              qty={qtyOf(selItem, activePortions)}
-              mealName={selMeal.name}
-              mealTime={selMeal.time}
-              dailyTotals={totals}
-              onClose={() => setSel(null)}
-              onChangeQty={(next) => {
-                if (editing) mutate((d) => (d.meals[sel.mi]!.items[sel.ii]!.quantity = next));
-                else if (selItem.id != null) setPortion(selItem.id, next, effectiveQuantity(selItem));
-              }}
-            />
-          )}
-        </PopOverlay>
       </ScrollView>
+
+      {/* portion pop — mounted OUTSIDE the ScrollView so its absolute-fill centers
+          against the screen, not the tall scroll content (which pushed it low). */}
+      <PopOverlay visible={sel != null} onClose={() => setSel(null)} closeLabel={t("common.cancel")}>
+        {selItem && selMeal && sel && (
+          <PortionPop
+            item={selItem}
+            qty={qtyOf(selItem, activePortions)}
+            mealName={selMeal.name}
+            mealTime={selMeal.time}
+            dailyTotals={totals}
+            onClose={() => setSel(null)}
+            onChangeQty={(next) => {
+              if (editing) mutate((d) => (d.meals[sel.mi]!.items[sel.ii]!.quantity = next));
+              else if (selItem.id != null) setPortion(selItem.id, next, effectiveQuantity(selItem));
+            }}
+          />
+        )}
+      </PopOverlay>
     </KeyboardAvoider>
   );
 }

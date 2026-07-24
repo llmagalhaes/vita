@@ -56,7 +56,8 @@ export function PopOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible]);
 
-  useSheetPresence(visible); // hide the floating tab bar while the pop is up (CEO #1)
+  useSheetPresence(rendered); // hold the tab-bar hide through the fade-OUT (rendered, not
+  // visible) so it doesn't pop back behind a still-fading backdrop — the abrupt-close flash (CEO)
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: progress.value,

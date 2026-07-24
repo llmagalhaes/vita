@@ -3,14 +3,14 @@ import { TAB_ROUTES, neighborsToMount, snapTarget, tabIndex } from "../TabsPager
 const W = 400;
 const LAST = TAB_ROUTES.length - 1;
 
-test("tabIndex maps the six v3 top-level routes in swipe order", () => {
-  expect(TAB_ROUTES).toEqual(["/today", "/home", "/trends", "/workout", "/habits", "/integrations"]);
+test("tabIndex maps the five v3 top-level routes in swipe order", () => {
+  expect(TAB_ROUTES).toEqual(["/today", "/home", "/trends", "/habits", "/integrations"]);
   expect(tabIndex("/today")).toBe(0);
   expect(tabIndex("/home")).toBe(1);
   expect(tabIndex("/trends")).toBe(2);
-  expect(tabIndex("/workout")).toBe(3);
-  expect(tabIndex("/habits")).toBe(4);
-  expect(tabIndex("/integrations")).toBe(5);
+  expect(tabIndex("/habits")).toBe(3);
+  expect(tabIndex("/integrations")).toBe(4);
+  expect(tabIndex("/workout")).toBe(-1); // Workout removed from pager (still a push route)
 });
 
 test("tabIndex returns -1 for detail/unknown routes (pager hides)", () => {
@@ -47,7 +47,7 @@ describe("snapTarget — one swipe moves at most one adjacent tab (APP-043)", ()
     expect(snapTarget(3, 260, 900, W)).toBe(2);
   });
 
-  test("already at an end clamps — no overshoot across six tabs", () => {
+  test("already at an end clamps — no overshoot across five tabs", () => {
     expect(snapTarget(LAST, -300, -6000, W)).toBe(LAST); // can't go past Integrations
     expect(snapTarget(0, 300, 6000, W)).toBe(0); // can't go before Today
   });

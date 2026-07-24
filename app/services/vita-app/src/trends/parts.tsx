@@ -76,6 +76,7 @@ export function TrendCard({
   unitNote,
   extra,
   count,
+  gap,
   readout,
   footer,
   children,
@@ -86,6 +87,8 @@ export function TrendCard({
   unitNote?: string;
   extra?: ReactNode;
   count?: number;
+  /** Inter-bar gap (px) of the chart, so the scrub guide snaps to bar centres. Default 3. */
+  gap?: number;
   readout?: (index: number) => { value: string; detail: string };
   footer?: string;
   dragHint?: string;
@@ -155,7 +158,7 @@ export function TrendCard({
       <Animated.View layout={LinearTransition.duration(300)} style={{ position: "relative" }}>
         {children(active, open)}
         {open && count != null && count > 0 && (
-          <ScrubOverlay count={count} active={active} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
+          <ScrubOverlay count={count} gap={gap} active={active} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
         )}
       </Animated.View>
 
