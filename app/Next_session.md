@@ -1,5 +1,21 @@
 # App Team — Next Session
 
+## Session 20 (2026-07-24) — PDF import fixed on-device + prototype-fidelity pass ✅
+
+Device-verified on the emulator (host GPU). Commits `be7353e` (import + mock) → `33d8a04` (fidelity). tsc 0 · Jest 313/313.
+
+**PDF import silent failure — FIXED.** The picker→upload→parse leg was never device-verified (all prod probes were curl/API-level). Two bugs: (a) `src/api/client.ts` `putPresignedFile` read the cache file with `fetch("file://…").blob()` → **silently fails on Android RN** → presigned S3 PUT throws before any request; (b) `src/tabs/Today.tsx:173` "Import a PDF" handler only branched on `status:"ready"` (no else) → cancel/pick/upload errors = **zero UI**. Fix: presigned PUT → `expo-file-system` **`uploadAsync` BINARY_CONTENT** (lazy `require`, like `api/index.ts`); handler adds a busy label + `today.importError` toast on non-ready. Verified E2E vs the real `meal-plan.pdf` (→ "Reading your plan…" → backend outcome=ok 32822/15441 tokens → 6-step review). Other import call-sites (`onboarding/PlanStep.tsx`, `workout/ImportProgramSheet.tsx`) already surfaced outcomes and inherit the shared upload fix.
+
+**Prototype-fidelity pass (5 parallel Opus agents, disjoint files; CEO's 6 diffs + 2 labels):**
+- `src/ui/SheetBackdrop.tsx` — macros/pop backdrop: `shadowPop` card shadow was already right; the bug was the backdrop. Android → reliable cream scrim (BlurView too weak, bled colour + gave the shadow no field to read); **iOS keeps real blur + prototype tint `rgba(247,242,233,.45)`/13px**. Trade: Android loses true blur.
+- `src/capture/CapturePill.tsx` — dock: **Log stays accent** (capture CTA, per prototype); **active NavButton** solid-accent pill → `rgba(120,100,75,.12)` tint + `#453E35` ink. (CEO chose prototype-faithful over de-emphasising Log.)
+- `app/(main)/_layout.tsx` — account route `fade_from_bottom` → `fade` 240ms (scoped to `account`).
+- `src/trends/parts.tsx` — entry `vtFade` 450ms/8px-lift; tap-expand readout no longer gated on `active!=null` (defaults to today) + chart grows via `LinearTransition`. `FoodTab.tsx`/`ActivityTab.tsx` carry the open-heights.
+- `src/tabs/home/DockDatePicker.tsx` — mid-drag date pill `width:62` (was absolute+unsized in a ~32px cell → clipped).
+- Labels: `en.json` `trends.food` Food→**Nutrition**; `trends.F` "2 weeks"→**"15 days"** + `trends/aggregate.ts` `WINDOW_DAYS.F` 14→15 (+ test, + `FoodTab` value-label threshold 14→15). ⚠ 15-day view now shows 15 per-bar labels — watch crowding.
+
+**APKs (scratchpad, session-local):** `vita-prod-fidelity.apk` (real backend — CEO's install, also at the canonical release path) · `vita-mock-fidelity.apk` (mock, seeded data + `ready` plan). Install clean.
+
 ## Session 19 (2026-07-23) — VITA V3 app BUILT + reviewed + fresh APK (rides prod backend vita:9) ✅
 
 Full V3 app shipped per `docs/v3/app-spec.md` (+ `docs/v3/reconciliation.md` = binding cross-team decisions).
