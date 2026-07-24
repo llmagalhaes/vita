@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useEffect, useId, useState } from "react";
 import { View } from "react-native";
 import {
   Easing,
@@ -11,6 +11,7 @@ import Animated from "react-native-reanimated";
 import { motion } from "./tokens";
 import { SheetBackdrop } from "./SheetBackdrop";
 import { useSheetPresence } from "./sheetPresence";
+import { setPopNode } from "./popHost";
 
 /**
  * The app's one CENTERED pop-up chrome (prototype `vtPop`) — distinct from the
@@ -38,6 +39,7 @@ export function PopOverlay({
   scrim?: "light" | "dark";
   paddingHorizontal?: number;
 }) {
+  const id = useId();
   const progress = useSharedValue(0); // 0 hidden → 1 shown
   const [rendered, setRendered] = useState(visible);
 
@@ -65,11 +67,19 @@ export function PopOverlay({
   }));
   const backdropStyle = useAnimatedStyle(() => ({ opacity: progress.value }));
 
-  if (!rendered) return null;
-  return (
-    <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal, zIndex: 60 }}>
+  const overlay: ReactNode = rendered ? (
+    <View key={id} style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal, zIndex: 60 }}>
       <SheetBackdrop onClose={onClose} closeLabel={closeLabel} scrim={scrim} style={backdropStyle} />
       <Animated.View style={cardStyle}>{children}</Animated.View>
     </View>
-  );
+  ) : null;
+
+  // Portal the overlay to the app-root PopHost so it centers on the SCREEN, not the
+  // tall ScrollView content it's declared inside (the "abre fora de foco" bug). Push
+  // fresh every render; clear on unmount. (RN Modal would ANR here — see popHost.)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setPopNode(id, overlay));
+  useEffect(() => () => setPopNode(id, null), [id]);
+
+  return null;
 }

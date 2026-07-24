@@ -17,7 +17,7 @@ import { useAuthReady } from "../src/auth/useAuth";
 import { getDb } from "../src/db/db";
 import { drainOutbox } from "../src/db/outbox";
 import { seedDemoDataOnce } from "../src/db/seed";
-import { colors } from "../src/ui";
+import { colors, PopHost } from "../src/ui";
 import "../src/i18n";
 
 export default function RootLayout() {
@@ -55,6 +55,9 @@ export default function RootLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       />
+      {/* Centered pop-ups (PopOverlay) portal here — root level, inside the gesture
+          root — so they center on the screen and the slider's Pan still fires. */}
+      <PopHost />
     </GestureHandlerRootView>
   );
 }

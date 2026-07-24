@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import "../i18n";
 import EatingPlanScreen from "../../app/(main)/plan";
+import { PopHost } from "../ui/popHost";
 import { api, type EatingPlanDraft } from "../api";
 import { getCachedPlan, savePlan } from "../db/plan";
 import { resetDbForTests } from "../db/db";
@@ -27,7 +28,7 @@ test("Edit mode recomputes totals live and Save PUTs the whole doc", async () =>
   await savePlan(structuredClone(basePlan)); // cache + store in the mock so PUT has a current version
   const putSpy = jest.spyOn(api, "updatePlan");
 
-  await render(<EatingPlanScreen />);
+  await render(<><EatingPlanScreen /><PopHost /></>);
 
   // View mode: daily total is one serving (~137). ~411 (×3) is nowhere yet.
   expect(screen.getAllByText("~137").length).toBeGreaterThan(0);
@@ -58,7 +59,7 @@ test("Edit mode recomputes totals live and Save PUTs the whole doc", async () =>
 test("Cancel discards edits (no PUT, cache unchanged)", async () => {
   await savePlan(structuredClone(basePlan));
   const putSpy = jest.spyOn(api, "updatePlan");
-  await render(<EatingPlanScreen />);
+  await render(<><EatingPlanScreen /><PopHost /></>);
 
   await fireEvent.press(screen.getByText("Edit"));
   await fireEvent.press(screen.getByText("1 × bowl"));
@@ -74,7 +75,7 @@ test("Cancel discards edits (no PUT, cache unchanged)", async () => {
 test("View mode: tapping an item opens the portion modal and a slider drag persists via the overlay", async () => {
   await savePlan(structuredClone(basePlan)); // items get server ids assigned (mock createPlan)
   const portionSpy = jest.spyOn(api, "putPlanPortions").mockResolvedValue(undefined);
-  await render(<EatingPlanScreen />);
+  await render(<><EatingPlanScreen /><PopHost /></>);
 
   // Open the modal in VIEW mode (no Edit press) on the item pill.
   await fireEvent.press(screen.getByText("1 × bowl"));
