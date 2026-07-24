@@ -2,6 +2,28 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-07-24, session 21 — CEO device-feedback batch: overlays/nav/voice/recap)
+
+**10 CEO adjustments from real-Samsung testing, 7 parallel Opus agents + orchestrator fixes. Commit `de1eea2` (pushed). Gates tsc 0 · Jest 314/314. Emulator-verified (host GPU): PortionPop opens with NO ANR, 5-tab pager, dock/macros intact.**
+
+Done:
+- **PortionPop (P0 regression caught in verify):** a fidelity agent had wrapped the shared `PopOverlay` in a **RN `Modal` + GestureHandlerRootView** to fix "sits too low" — it **ANR'd on Android** when the pop opened (RN Modal + Reanimated + RNGH is a known deadlock). Reverted `PopOverlay` to the absolute-fill overlay and instead **moved `plan.tsx`'s PortionPop mount OUT of its `ScrollView`** (the real "too low" cause — absolute `inset:0` centered against the tall scroll canvas; Today's mount was already outside its ScrollView). **Slider + big-number now track on the UI thread** (Reanimated shared value in `Slider.tsx`/`PortionPop.tsx`, commit on release) — kills the drag-lag / delayed-value. **LESSON: never wrap `PopOverlay`/a Reanimated+gesture surface in RN `Modal` on Android; jest can't catch it — verify overlays on-device.**
+- **Macros backdrop** blur denser (`SheetBackdrop` Android .86→.92, iOS 40→52) + tab-bar held through the fade-out.
+- **Muscle sheet** (`trends/MuscleSheet.tsx`): header icon tile + rounded session cards, prototype-matched.
+- **Trends chart alignment** (`trends/scrub.tsx`/`parts.tsx`/`FoodTab.tsx`/`ActivityTab.tsx`): scrub guide snaps to the gap-aware bar centre; active-minutes bars centered.
+- **Account open**: real `vtIn` — native fade + Reanimated 16px rise, 300ms (`_layout.tsx` + `account.tsx`).
+- **Voice slide-to-cancel** (`capture/CapturePill.tsx`/`VoiceOverlay.tsx`/`useVoiceCapture.ts`): WhatsApp-style UI-thread horizontal drag, mic follows+fades, calm "‹ Slide to cancel", haptic at the threshold.
+- **Workout removed from the top pager** (`nav/TabsPager.tsx` `TAB_ROUTES`, `NavDots.tsx`): **5 tabs** (Today/Home/Trends/Habits/Integrations); workout logging stays in Today. `app/(main)/workout.tsx` left as a harmless orphan.
+- **Evening-recap start time**: `recapStartHour` (default **20:00**), `−  HH:00  +` stepper (17–23, no new dep) in Account → Notifications, gating the Home recap card. Recap **notification stays 20:30** (follow-up).
+
+**Health Connect "won't ask permission" — diagnosed, NOT fixed (needs the device).** HC IS installed on the Samsung, APK declares the 3 perms + `HealthDataSdkService` (all `granted=false`), lib `react-native-health-connect@3.5.3` + plugin present. `connectHealthConnect` only calls `requestPermissions()` when `getSdkStatus()==3`; if it returns **2 (update_required)** it returns early → toast + Play Store, **no prompt** — likely on a recent One UI (platform HC module older than the SDK min). **Pin it with the Samsung reconnected for a 30-sec `adb logcat`** (or a diagnostic build). NOT a publishing gate.
+
+**Publishing (answered):** Play Store needs a signed **AAB** (Play App Signing; I generate the upload key), **Android OAuth client** (package `com.llmagal.vita` + SHA-1 from Play App Signing — session-9 pending), OAuth consent screen, **Health Connect declaration + privacy-policy URL**, Data-safety + content-rating. Google OAuth only needs the Android client; Health works sideloaded once the runtime bug is fixed.
+
+**FRESH APKs (scratchpad):** `vita-prod-fidelity.apk` (real backend — CEO install) · `vita-mock-fidelity.apk` (mock + seeded data). Install clean.
+
+**CEO next:** install prod-fidelity clean → feel PortionPop (centered, snappy slider), voice slide-to-cancel, account open, macros blur, 5-tab pager, recap-time setting. **Reconnect the Samsung to pin the Health bug.** Open Qs: (1) shift the 20:30 recap *notification* to the chosen hour? (2) if "janky" persists on-device I'll profile.
+
 ## Where we are (2026-07-24, session 20 — PDF IMPORT FIXED (device) + prototype-fidelity pass)
 
 **Two things this session, both device-verified on the emulator (host GPU): the V3 PDF import money-path now works on-device, and a screen-by-screen prototype-fidelity pass landed the CEO's 6 flagged diffs + 2 label fixes.** Commits `be7353e` (import + mock) → `33d8a04` (fidelity), pushed to `main`. Gates: **tsc 0 · Jest 313/313**.
