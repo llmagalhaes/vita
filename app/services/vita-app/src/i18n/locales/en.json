@@ -395,12 +395,12 @@
     "notYet": "Trends aren't in this build yet.",
     "window": {
       "W": "Week",
-      "F": "2 weeks",
+      "F": "15 days",
       "M": "Month"
     },
     "days": "days",
     "recordedOnly": "recorded totals only",
-    "food": "Food",
+    "food": "Nutrition",
     "activity": "Activity",
     "dragChart": "drag the chart",
     "calories": "Calories",

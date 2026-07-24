@@ -40,6 +40,11 @@ export default function MainLayout() {
         <Stack.Screen name="workout" options={{ animation: "none" }} />
         <Stack.Screen name="habits" options={{ animation: "none" }} />
         <Stack.Screen name="integrations" options={{ animation: "none" }} />
+        {/* Account: prototype opens it with `vtIn` (soft fade + tiny rise, .3s ease) —
+            the global `fade_from_bottom` felt heavy/slow. A plain `fade` cross-fade at
+            240ms reads smoother + faster, closest native match. Scoped here so other
+            detail screens (plan-setup, meal/workout) keep `fade_from_bottom`. */}
+        <Stack.Screen name="account" options={{ animation: "fade", animationDuration: 240 }} />
       </Stack>
       <TabsPager />
       <NavDots />

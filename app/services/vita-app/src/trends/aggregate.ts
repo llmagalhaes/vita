@@ -7,7 +7,7 @@ import type { MealDetail, Muscle, WaterDetail, WorkoutDetail } from "../api/clie
 import type { LocalEntry } from "../db/entries";
 
 export type TrendWindow = "W" | "F" | "M";
-export const WINDOW_DAYS: Record<TrendWindow, number> = { W: 7, F: 14, M: 30 };
+export const WINDOW_DAYS: Record<TrendWindow, number> = { W: 7, F: 15, M: 30 };
 
 /** Local YYYY-MM-DD key — buckets an instant into its calendar day (device tz). */
 export function dayKey(d: Date): string {

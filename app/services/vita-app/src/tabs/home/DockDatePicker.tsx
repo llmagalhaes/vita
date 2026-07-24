@@ -129,8 +129,15 @@ function Tip({
           // also lifts up to 13px when magnified, so clear that too.
           bottom: 52,
           alignSelf: "center",
+          // Fixed width: the pill is absolute inside a ~32px flex:1 cell, so Yoga
+          // measures its label against that cell width and numberOfLines={1}
+          // clips "Jul 11" to a couple of chars (APP: date/month cut off). The
+          // prototype's shrink-to-fit `white-space:nowrap` pill overflows its
+          // cell freely; Yoga can't, so size the pill to fit the longest label
+          // and let it overflow the cell (pointerEvents:none, purely visual).
+          width: 62,
+          alignItems: "center",
           backgroundColor: accent,
-          paddingHorizontal: 9,
           paddingVertical: 4,
           borderRadius: 9,
           ...shadowTooltip,
@@ -139,7 +146,7 @@ function Tip({
       ]}
     >
       <Animated.Text
-        style={{ fontFamily: fonts.extraBold, fontSize: 10.5, letterSpacing: 0.3, color: "#FFF9F1" }}
+        style={{ fontFamily: fonts.extraBold, fontSize: 10.5, letterSpacing: 0.3, color: "#FFF9F1", textAlign: "center" }}
         numberOfLines={1}
       >
         {label}

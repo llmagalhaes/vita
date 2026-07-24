@@ -30,8 +30,8 @@ function NavButton({
   onPress: () => void;
   icon: "today" | "trends" | "habits";
 }) {
-  const accent = useAccent();
-  const ink = active ? colors.card : "#6E6355";
+  // Prototype active tab = calm brown tint + dark ink, NOT a solid accent pill.
+  const ink = active ? "#453E35" : "#6E6355";
   return (
     <Pressable
       accessibilityRole="button"
@@ -41,7 +41,7 @@ function NavButton({
         width: 66,
         height: 56,
         borderRadius: 28,
-        backgroundColor: active ? accent : "transparent",
+        backgroundColor: active ? "rgba(120,100,75,0.12)" : "transparent",
         alignItems: "center",
         justifyContent: "center",
         gap: 3,
@@ -257,30 +257,38 @@ export function CapturePill() {
         }]}
       >
         <GestureDetector gesture={micGesture}>
-          <View
-            accessibilityRole="button"
-            accessibilityLabel={t("capture.log")}
-            accessibilityHint={t("capture.voice.a11yHint")}
-            onAccessibilityTap={() => setExpanded((e) => !e)}
-            style={{
-              width: 66,
-              height: 56,
-              borderRadius: 28,
-              backgroundColor: expanded || voice.status !== "idle" ? colors.estimateBg : "transparent",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 3,
-            }}
-          >
-            <Svg width={16} height={18} viewBox="0 0 16 18">
-              <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={accent} />
-              <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={accent} strokeWidth={1.6} strokeLinecap="round" />
-              <Path d="M8 14 v2.5" stroke={accent} strokeWidth={1.6} strokeLinecap="round" />
-            </Svg>
-            <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={accent}>
-              {t("capture.log")}
-            </Text>
-          </View>
+          {(() => {
+            // Log is the capture CTA, not a nav destination — in the prototype
+            // its mic + label are always accent over a soft accent-tint bubble
+            // (CEO: keep it prototype-faithful). Only the active NAV tab softens.
+            const logInk = accent;
+            return (
+              <View
+                accessibilityRole="button"
+                accessibilityLabel={t("capture.log")}
+                accessibilityHint={t("capture.voice.a11yHint")}
+                onAccessibilityTap={() => setExpanded((e) => !e)}
+                style={{
+                  width: 66,
+                  height: 56,
+                  borderRadius: 28,
+                  backgroundColor: colors.estimateBg,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 3,
+                }}
+              >
+                <Svg width={16} height={18} viewBox="0 0 16 18">
+                  <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={logInk} />
+                  <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={logInk} strokeWidth={1.6} strokeLinecap="round" />
+                  <Path d="M8 14 v2.5" stroke={logInk} strokeWidth={1.6} strokeLinecap="round" />
+                </Svg>
+                <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={logInk}>
+                  {t("capture.log")}
+                </Text>
+              </View>
+            );
+          })()}
         </GestureDetector>
 
         <Animated.View style={[{ flexDirection: "row", alignItems: "center", overflow: "hidden" }, fieldStyle]}>

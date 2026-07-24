@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import Animated, { Easing, FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
 import { Chevron, Text, colors, fonts, useStartOnLayout } from "../ui";
 import { ScrubOverlay } from "./scrub";
 
@@ -90,18 +90,27 @@ export function TrendCard({
   footer?: string;
   dragHint?: string;
   delay?: number;
-  children: (active: number | null) => ReactNode;
+  children: (active: number | null, open: boolean) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState<number | null>(null);
   const scrubbable = count != null && count > 0;
-  const read = open && active != null && readout ? readout(active) : null;
+  // On open (before any drag) the readout defaults to the last day / today,
+  // matching the prototype (`calI = idxOf('cal') ?? N-1`) — so tapping the card
+  // shows info immediately instead of only while scrubbing.
+  const readIndex = active != null ? active : count != null && count > 0 ? count - 1 : null;
+  const read = open && readIndex != null && readout ? readout(readIndex) : null;
   const epoch = useContext(TrendsReplayContext); // re-key on Trends entry → replay fade + bar grow
 
   return (
     <Animated.View
       key={epoch}
-      entering={FadeInDown.duration(420).delay(delay)}
+      // Prototype `vtFade`: opacity 0→1 + a subtle 8px lift over 450ms ease — a
+      // smooth fade, not the ~25px slide FadeInDown ships by default.
+      entering={FadeInDown.duration(450)
+        .easing(Easing.bezier(0.25, 0.1, 0.25, 1))
+        .delay(delay)
+        .withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
       style={{
         backgroundColor: colors.card,
         borderRadius: 24,
@@ -142,12 +151,13 @@ export function TrendCard({
         </Animated.View>
       )}
 
-      <View style={{ position: "relative" }}>
-        {children(active)}
+      {/* Smoothly tween the chart's height when it grows on open (prototype `transition:height .3s`). */}
+      <Animated.View layout={LinearTransition.duration(300)} style={{ position: "relative" }}>
+        {children(active, open)}
         {open && count != null && count > 0 && (
           <ScrubOverlay count={count} active={active} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
         )}
-      </View>
+      </Animated.View>
 
       {footer && (
         <Text variant="caption" style={{ fontSize: 11 }} color={colors.muted}>

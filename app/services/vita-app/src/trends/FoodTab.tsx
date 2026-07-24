@@ -97,7 +97,7 @@ function DayBars({
         const dim = b.excluded ? 0.25 : active != null && active !== i ? 0.4 : 1;
         return (
           <View key={b.key} style={{ flex: 1, alignItems: "center", gap: 5, height: "100%", justifyContent: "flex-end", minWidth: 0, opacity: dim }}>
-            {topLabel && n <= 14 && (
+            {topLabel && n <= 15 && (
               <Text style={{ fontFamily: fonts.bold, fontSize: 9 }} color={colors.labelMuted} numberOfLines={1}>
                 {topLabel(b)}
               </Text>
@@ -114,11 +114,11 @@ function DayBars({
 }
 
 /** Consumed vs spent — paired thin bars per day (D8: spent = logged workout kcal). */
-function PairBars({ days, active }: { days: DayBucket[]; active: number | null }) {
+function PairBars({ days, active, height = 96 }: { days: DayBucket[]; active: number | null; height?: number }) {
   const max = Math.max(1, ...days.filter((b) => !b.excluded).flatMap((b) => [b.consumedKcal, b.spentKcal]));
   const n = days.length;
   return (
-    <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-end", height: 96 }}>
+    <View style={{ flexDirection: "row", gap: 6, alignItems: "flex-end", height }}>
       {days.map((b, i) => {
         const dim = b.excluded ? 0.25 : active != null && active !== i ? 0.4 : 1;
         return (
@@ -231,11 +231,11 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         delay={0}
         footer={`${t("common.estimates")} · ${avgKcal} ${t("trends.avgPerDay")}`}
       >
-        {(active) =>
+        {(active, open) =>
           calCurve ? (
             <CalorieCurve values={days.map((d) => d.consumedKcal)} />
           ) : (
-            <DayBars days={days} value={(b) => b.consumedKcal} color={() => colors.macro.fat} active={active} topLabel={(b) => (b.consumedKcal > 0 ? String(round(b.consumedKcal)) : "")} />
+            <DayBars days={days} value={(b) => b.consumedKcal} color={() => colors.macro.fat} active={active} height={open ? 128 : 96} topLabel={(b) => (b.consumedKcal > 0 ? String(round(b.consumedKcal)) : "")} />
           )
         }
       </TrendCard>
@@ -250,9 +250,9 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         delay={60}
         footer={totalSpent === 0 ? t("trends.spentEmpty") : `${totalSpent} ${t("trends.spentTotal")}`}
       >
-        {(active) => (
+        {(active, open) => (
           <View style={{ gap: 10 }}>
-            <PairBars days={days} active={active} />
+            <PairBars days={days} active={active} height={open ? 120 : 96} />
             <Legend items={[[t("trends.consumed"), colors.macro.fat], [t("trends.spent"), colors.macro.protein]]} />
           </View>
         )}
@@ -284,8 +284,8 @@ export function FoodTab({ window, isExcluded }: { window: TrendWindow; isExclude
         dragHint={t("trends.dragChart")}
         delay={180}
       >
-        {(active) => (
-          <DayBars days={days} value={(b) => b.waterMl} color={() => colors.macro.protein} active={active} />
+        {(active, open) => (
+          <DayBars days={days} value={(b) => b.waterMl} color={() => colors.macro.protein} active={active} height={open ? 120 : 96} />
         )}
       </TrendCard>
 

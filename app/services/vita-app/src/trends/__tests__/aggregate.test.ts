@@ -47,7 +47,7 @@ describe("windowing", () => {
   });
 
   test("W/F/M sizes", () => {
-    expect(windowDays("F", TODAY)).toHaveLength(14);
+    expect(windowDays("F", TODAY)).toHaveLength(15);
     expect(windowDays("M", TODAY)).toHaveLength(30);
   });
 

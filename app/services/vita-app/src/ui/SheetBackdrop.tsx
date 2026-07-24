@@ -30,29 +30,34 @@ export function SheetBackdrop({
   style?: ComponentProps<typeof Animated.View>["style"];
 }) {
   const dark = scrim === "dark";
+  const android = Platform.OS === "android";
+  // Prototype scrim = a light cream field at rgba(247,242,233,.45) WITH backdrop-filter
+  // blur(13). iOS BlurView reproduces that faithfully, so the .45 tint is right there.
+  // On Android BlurView is weak/unreliable (fought since APP-063 — blurReductionFactor
+  // did NOT fix it per the CEO), so instead of a see-through .45 tint that lets the
+  // colourful background bleed through — reading as "not blurred" AND leaving the card's
+  // shadow no field to sit against — we lean on a near-opaque frosted tint that reliably
+  // muted the background. Same muted-cream result, no BlurView dependency.
+  const scrimBg = dark
+    ? android
+      ? "rgba(60,50,38,0.55)"
+      : "rgba(60,50,38,0.38)"
+    : android
+      ? "rgba(247,242,233,0.86)"
+      : "rgba(247,242,233,0.45)";
   return (
     <Animated.View
       entering={style ? undefined : FadeIn.duration(motion.fade.durationMs)}
       style={[{ position: "absolute", inset: 0 }, style]}
     >
-      <BlurView
-        intensity={dark ? 16 : intensity}
-        tint={dark ? "dark" : "light"}
-        blurMethod={Platform.OS === "android" ? "dimezisBlurView" : undefined}
-        // Android divides the perceived blur by blurReductionFactor (default 4),
-        // which made release builds read as barely-blurred — the CEO's "not blurred"
-        // flag (APP-063). 1 keeps the full intensity, closer to iOS / the prototype.
-        blurReductionFactor={Platform.OS === "android" ? 1 : undefined}
-        style={{ position: "absolute", inset: 0 }}
-      />
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={closeLabel}
-        onPress={onClose}
-        // Prototype macros/sheet scrim: light cream rgba(247,242,233,.45). This tint
-        // is also the guaranteed fallback if a device can't blur at all.
-        style={{ flex: 1, backgroundColor: dark ? "rgba(60,50,38,0.38)" : "rgba(247,242,233,0.45)" }}
-      />
+      {!android && (
+        <BlurView
+          intensity={dark ? 16 : intensity}
+          tint={dark ? "dark" : "light"}
+          style={{ position: "absolute", inset: 0 }}
+        />
+      )}
+      <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onClose} style={{ flex: 1, backgroundColor: scrimBg }} />
     </Animated.View>
   );
 }

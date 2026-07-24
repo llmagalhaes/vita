@@ -122,7 +122,7 @@ export function ActivityTab({
         delay={60}
         footer={t("trends.connectHealth")}
       >
-        {(active) => (
+        {(active, open) => (
           <View style={{ gap: 10 }}>
             <View style={{ flexDirection: "row", alignItems: "baseline", gap: 10 }}>
               <Text style={{ fontFamily: fonts.extraLight, fontSize: 36, letterSpacing: -1 }}>{Math.round(totalMin)}</Text>
@@ -130,7 +130,7 @@ export function ActivityTab({
                 {t("trends.minInWindow")}
               </Text>
             </View>
-            <View style={{ flexDirection: "row", gap: 3, alignItems: "flex-end", height: 60 }}>
+            <View style={{ flexDirection: "row", gap: 3, alignItems: "flex-end", height: open ? 92 : 60 }}>
               {days.map((b, i) => {
                 const dim = b.excluded ? 0.25 : active != null && active !== i ? 0.4 : 1;
                 return (
