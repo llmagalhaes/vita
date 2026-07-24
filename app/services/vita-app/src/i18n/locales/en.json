@@ -668,6 +668,8 @@
     "noneTitle": "No meal plan yet",
     "noneBody": "Vita counts whatever you log either way. Bring a plan whenever you're ready.",
     "importPdf": "Import a PDF",
+    "importing": "Reading…",
+    "importError": "Couldn't import that PDF — try again, or type it instead.",
     "typeOrSpeak": "Type or speak it",
     "exOf": "{{a}} of {{t}} exercises",
     "offToday": "OFF TODAY",

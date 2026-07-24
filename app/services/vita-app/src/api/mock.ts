@@ -562,7 +562,7 @@ export function createMockApi(): Api {
   let me: User = {
     id: uuid(),
     name: "",
-    email: "you@example.com",
+    email: "lucasmagalhaes2007+mock@gmail.com",
     units: "metric",
     createdAt: new Date().toISOString(),
   };
@@ -591,7 +591,8 @@ export function createMockApi(): Api {
     new ApiError(401, { type: "about:blank", title: "Unauthorized", status: 401 });
 
   return {
-    async requestMagicLink() {
+    async requestMagicLink(email) {
+      if (email) me.email = email; // mock signs in as whatever address you enter
       await delay(300);
     },
     async verifyMagicLink(token) {

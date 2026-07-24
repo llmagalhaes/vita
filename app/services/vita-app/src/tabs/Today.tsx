@@ -170,9 +170,19 @@ function MealTab() {
     return (
       <>
         <DashedCard icon={<LeafIcon />} title={t("today.noneTitle")} body={t("today.noneBody")}>
-          <Button label={t("today.importPdf")} onPress={async () => {
-            const out = await importPdf();
-            if (out.status === "ready") router.push(`/plan-setup?mode=parse&fileRef=${encodeURIComponent(out.fileRef)}`);
+          <Button label={busy ? t("today.importing") : t("today.importPdf")} disabled={busy} onPress={async () => {
+            setBusy(true);
+            try {
+              const out = await importPdf();
+              if (out.status === "ready") {
+                router.push(`/plan-setup?mode=parse&fileRef=${encodeURIComponent(out.fileRef)}`);
+              } else if (out.status !== "cancelled") {
+                // pick-error / upload-error — never leave the user staring at a dead screen
+                showToast(t("today.importError"));
+              }
+            } finally {
+              setBusy(false);
+            }
           }} />
           <Button label={t("today.typeOrSpeak")} variant="ghost" onPress={() => setDescribe(true)} />
         </DashedCard>

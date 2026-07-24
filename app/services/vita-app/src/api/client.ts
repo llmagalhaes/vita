@@ -291,9 +291,13 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
 
 /**
  * Phase 2 of PDF import: raw PUT of the picked file's bytes straight to the
- * presigned S3 URL (no bearer, no baseUrl — it's S3, not our API). The RN way to
- * get the bytes is a Blob from the local file uri. Content-Type MUST match the
- * one sent to POST /uploads or S3 rejects the signature.
+ * presigned S3 URL (no bearer, no baseUrl — it's S3, not our API). Content-Type
+ * MUST match the one sent to POST /uploads or S3 rejects the signature.
+ *
+ * Uses expo-file-system's native binary upload rather than `fetch(fileUri).blob()`:
+ * Android RN `fetch` can't read a `file://` cache uri, so the old path threw
+ * "Network request failed" and the import silently died before ever hitting S3.
+ * Lazy require (like api/index.ts) keeps the native module out of jest/module load.
  * ponytail: mock mode returns a non-https sentinel url — nothing to upload, skip.
  */
 export async function putPresignedFile(
@@ -302,17 +306,16 @@ export async function putPresignedFile(
   contentType = "application/pdf",
 ): Promise<void> {
   if (!/^https?:/i.test(uploadUrl)) return;
-  const blob = await fetch(localUri).then((r) => r.blob());
-  const res = await fetch(uploadUrl, {
-    method: "PUT",
+  const { uploadAsync, FileSystemUploadType } = require("expo-file-system/legacy");
+  const res = await uploadAsync(uploadUrl, localUri, {
+    httpMethod: "PUT",
+    uploadType: FileSystemUploadType.BINARY_CONTENT,
     headers: { "Content-Type": contentType },
-    body: blob,
   });
-  if (!res.ok) {
+  if (res.status < 200 || res.status >= 300) {
     // Include S3's error body — it names the real cause (e.g. a 403 when the
     // task role can't KMS-encrypt the bucket). Without it, PDF import fails as a
     // blank "upload error" with nothing to act on (APP-060).
-    const body = await res.text().catch(() => "");
-    throw new Error(`upload PUT failed: ${res.status} ${body.slice(0, 300)}`);
+    throw new Error(`upload PUT failed: ${res.status} ${String(res.body ?? "").slice(0, 300)}`);
   }
 }
