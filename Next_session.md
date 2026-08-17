@@ -26,7 +26,23 @@ Done:
 
 **FRESH APKs (scratchpad):** `vita-prod-fidelity.apk` (real backend — CEO install) · `vita-mock-fidelity.apk` (mock + seeded data). Install clean.
 
-**CEO next:** install prod-fidelity clean → feel PortionPop (centered, snappy slider), voice slide-to-cancel, account open, macros blur, 5-tab pager, recap-time setting. **Reconnect the Samsung to pin the Health bug.** Open Qs: (1) shift the 20:30 recap *notification* to the chosen hour? (2) if "janky" persists on-device I'll profile.
+**CEO TEST CHECKLIST** (install prod-fidelity CLEAN first: `adb uninstall com.llmagal.vita && adb install -r <apk>` — clears the stale mock SQLite):
+1. **PDF import** (credits topped up now): Today → Meal plan → Import a PDF → `meal-plan.pdf` → "Reading your plan…" → 6-step review → Finish.
+2. **PortionPop** — tap a portion chip on Today's plan: opens CENTERED, Done button visible, slider drags smooth, big number updates live (no lag).
+3. **Macros modal** — tap MACROS on Home: denser blur, appears + disappears smoothly.
+4. **Dock colors** — Log stays terracotta (CTA), the ACTIVE tab is a calm tint circle (not a solid blob).
+5. **Trends entry** — open Trends: charts fade in smoothly.
+6. **Trends tap-expand** — tap a chart card: it grows + shows the readout (value · date); the scrub guide line sits ON the bars.
+7. **Muscle sheet** — Trends → tap a muscle on the body map: icon-tile header + rounded session cards.
+8. **Account open** — tap the account icon: soft fade + slight rise (not a heavy top-down fade).
+9. **Pager = 5 tabs** — swipe: Today · Home · Trends · Habits · Integrations (NO Workout); workout logging still lives in Today's Workout tab.
+10. **Voice slide-to-cancel** — hold the Log mic, slide LEFT past the line: "‹ Slide to cancel" + haptic tick, release to cancel; release before = submits.
+11. **Recap time** — Account → Notifications → "Recap starts" stepper (default 20:00); the Home evening-recap card should only appear from that hour.
+12. (session-20 carryover) **15-day Trends** label + bar-label density; **timeline date pill** on Home (drag the day dots) shows "MMM DD" un-clipped.
+
+**Do NOT test Health Connect yet** — confirmed still broken (permission never prompts); fix pending the diagnostic build.
+
+Open Qs for the CEO: (1) shift the 20:30 recap *notification* to the chosen hour too, or card-only? (2) if animations still feel janky on-device, say so and I'll profile. (3) want me to generate the signed **AAB + upload key** for Play Console now?
 
 ## Where we are (2026-07-24, session 20 — PDF IMPORT FIXED (device) + prototype-fidelity pass)
 
