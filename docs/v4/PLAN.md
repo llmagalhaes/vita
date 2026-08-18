@@ -1,6 +1,10 @@
 # Vita V4 — Master implementation plan (reconciled)
 
-**Session 22 (2026-08-18), orchestrator.** Status: **proposal — awaiting CEO review. No code, no tickets filed yet.**
+**Session 22 (2026-08-18), orchestrator.** Status: **§5 ANSWERED by the CEO (see Round 13 in `docs/ceo-decisions.md`) — build unblocked pending the backend-persistence decisions.**
+
+> **CEO answers (2026-08-18):** Q1 yes · **Q2 KEEP the portions overlay (BE-053/V011 do NOT run — R3's recommendation overruled)** · Q3 hide · Q4 delete · Q5 keep grace · Q6 yes · Q7 make vacation semantics real (auto-expire + keep-water behaviour) · Q8 scenic only · Q9/Q14 proceed · Q10–Q15 cheapest possible (API-GW privacy route, no domain, keep 30d, SES prod access proceeds — it's free, alarm stays).
+>
+> **Standing directives:** (1) **maximum mockup fidelity** — study and use every value/curve/palette in the handoff; **known libraries that help fidelity are allowed** (relaxes app-plan's zero-new-deps stance — candidates: a real Android blur lib for the frosted surfaces (risk R3), Skia-class rendering if the scenic header needs it); (2) **database may be truncated/recreated from zero** — no backfill or migration-compat work, ever, this round.
 Inputs: `docs/v4/README.md` (binding handoff) · the three team plans in this folder
 (`app-plan.md` · `backend-plan.md` · `devops-plan.md`, all Opus leads) · this file reconciles them
 (same role as `docs/v3/reconciliation.md` in the v3 round). Where this file and a team plan disagree,

@@ -2,6 +2,27 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-08-18 — Round 13 (V4 plan answers, session 22)
+
+Answers to `docs/v4/PLAN.md` §5 (build-shaping):
+
+1. **Day records persist server-side** — as entries per reconciliation R1. Confirmed.
+2. **Portions overlay STAYS** — do NOT run BE-053/V011; "the app may still need it". Endpoint + table remain live even though the v4 day record absorbs the day-scoped use.
+3. **iOS "Connected sources": hide the section** until a real HealthKit reader exists.
+4. **Manual "spent energy": DELETE** (supersedes Round-10 #4's manual-entry half) — "be faithful to the mockup".
+5. **Delete-my-data: keep the server-side 7-day grace** (`DELETE /account`).
+6. **One plan re-import after deploy**: approved (no `m-N` backfill).
+7. **Vacation semantics: make them real** — "This week" auto-expires after 7 days; "keep water" keeps the water card + its notifications live while everything else pauses.
+8. **Scenic home only** — classic mode not built.
+9. **Plan-aware capture token cost: proceed** (~1.5–3k input tokens/capture).
+
+Cost round (devops): **cheapest possible on everything** — privacy policy on the existing API Gateway (no domain purchase now), SES production access proceeds (free), S3 uploads keep 30-day expiry, budget alarm stays at $40.
+
+Standing directives (binding on the build):
+- **Maximum mockup fidelity.** The designer invested heavily in the math, colors, palettes, animations and exact values — the mobile team must study and use each one. **Known libraries that help fidelity are explicitly allowed** (relaxes the zero-new-deps stance; e.g. a real Android blur lib or Skia-class rendering if it serves the prototype).
+- **Backend/database: pre-production blanket** — no backfill, no migration compatibility work needed; truncate or recreate the database from zero whenever it is the shortest path (strengthens session-18 A2).
+- **Backend persistence directive:** device-only data should move to the backend where it makes sense (analysis in `docs/v4/backend-persistence-analysis.md`; decisions pending its delivery).
+
 ## 2026-07-14 — Round 12 (session-4 close: local-100 built + offline-log decision)
 
 1. **"Vita 100% local" backlog COMPLETE** — all slices 1–8 built and green locally in one parallel-agent session (commits `0ae4310..91a1e73`). Backend `./gradlew check` 122 + 6 LocalStack; app Jest 144, Expo Go SDK 56; contract v0.4.0. Two Fable QA audits run; audit fixes + a CEO live-test bugfix (Home layout, sheet drag-dismiss) landed.
