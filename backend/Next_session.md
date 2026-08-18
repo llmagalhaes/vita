@@ -1,6 +1,41 @@
 # Backend — Next session
 
-## Current state (2026-08-18, v4 planning session) — V4 round SPECIFIED (no code, no tickets filed)
+## Current state (2026-08-18, session 22b) — V4 BUILD OPEN: BE-047 DONE (contract v0.8.0 + ADR-0019), 9 tickets filed
+
+CEO approved the v4 plan (Rounds 13+14 in `docs/ceo-decisions.md`); planning is closed. This session
+did JOB A (file the backend tickets) and JOB B (execute BE-047). No git — orchestrator commits.
+
+**BE-047 executed.** `docs/contracts/vita-api-v0.yaml` **0.7.0 → 0.8.0, all additive**:
+`MealDetail` + `planMealId`/`planStatus`/`planOptionIndex` and `items` minItems 1→0 (empty iff
+`skipped`) · `MealItem` + `replacesItemId` · `WorkoutDetail` + `planDay`/`planStatus` · new `weight`
+type + `WeightDetail{kg 20..500}` (+ the `GET /entries` filter enum) · `PlanMeal.id` (`m-N`) ·
+plan-aware prose on `/parse/text`+`/parse/photo` · **new `GET/PUT /me/settings`** (opaque encrypted
+blob, LWW, ~64 KB cap, hydrate-before-push documented) · **new public `GET /privacy`** · `GET /entries`
+documented as the reinstall restore read. `PUT /plan/portions` **untouched** (CEO Round 13 #2) — which
+is exactly why 0.8.0 stayed non-breaking. ADR: `Doc/ADRs/ADR-0019-contract-v0.8.0-v4-day-record-weight-settings-blob.md`.
+Ledger: `Progress/BE-047-contract-v0.8.0-Progress.md`.
+
+**Gates:** redocly lint **valid, exit 0** (45 warnings vs 40 baseline; the +5 are the same cosmetic
+classes — 3× operationId, 1× tag-description for the new `public` tag, 1× 4xx-response on `/privacy`).
+App `npm run api:check` generates cleanly then reports drift — **expected**, type regen is app-team work.
+
+**Tickets filed (Vita backend board):** BE-047 (In progress) · BE-048/049/050/051/052/055/056 (To do) ·
+BE-054 (Backlog). **BE-053 deliberately NOT filed** — the CEO keeps the portions overlay.
+Model on every ticket: **Opus** (CEO directive this session).
+
+**Wave order for the next build session:**
+`BE-047 ✅ → {BE-048, BE-049, BE-050, BE-055, BE-056} in parallel (disjoint files) → BE-051 (needs BE-050) → BE-052 (ships last) → devops image-tag bump (task-def vita:10)`.
+
+**Migration numbers claimed:** **V010** = weight type (BE-049, expand-only) · **V011 = BURNT/UNUSED**
+(the portions-overlay drop that the CEO overruled) · **V012** = `user_settings` (BE-056, expand-only).
+Both live migrations ride the same OPS deploy. Suite baseline 227 green; expect ~+30 tests.
+
+**Open questions for the CEO** (neither blocks the build):
+1. `/privacy` policy TEXT — BE-055 ships a placeholder page structure; the words are a CEO/product deliverable.
+2. `docs/v4/meal-plan.pdf` is still uncommitted pending the anonymize-or-keep-out-of-git call
+   (`PLAN.md` §5 housekeeping). Untracked in the working tree right now.
+
+## Previous state (2026-08-18, v4 planning session) — V4 round SPECIFIED (no code, no tickets filed)
 
 Planning-only round for the v4 design handoff (`docs/v4/README.md`). Deliverable:
 **`docs/v4/backend-plan.md`** — build-ready. No code, no migration, no Asana ticket filed
