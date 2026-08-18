@@ -29,7 +29,7 @@ So the honest state is:
 | Meals, water, workouts, check-ins (the whole log) | **NO** | Persisted server-side, encrypted — but the app has no hydrate path |
 | Eating plan / training program | YES | `syncPlan` / `syncProgram` on Home mount |
 | Vacation ranges | YES | `syncVacation` on Home mount |
-| Portion overlay | YES (being retired anyway, BE-053) | rides `GET /plan` |
+| Portion overlay | YES (kept — CEO Round-13 #2 overruled the retirement) | rides `GET /plan` |
 | Name | NO (re-asked in onboarding) | `PATCH /me` is a write-only mirror; `GET /me` is never called |
 | Habits, composition flags, notification prefs, recap hour | **NO** | never left the device |
 
@@ -79,7 +79,7 @@ preference · **UI** = pure UI mechanics · **RM** = re-syncable mirror of somet
 | 16 | `vacation.tripHabitIds` | `["8f2c…","1a0b…"]` | PP | C3, in the blob | **PERSIST BACKEND** (blob) — meaningless without #4, so it must ride the same blob to stay consistent. | included |
 | 17 | `plan.current` | full `EatingPlanDraft` (5 meals, 42 items) | **HD** | Already C3 (`eating_plan.doc_enc`) | **Already persisted + hydrated.** No change. | — |
 | 18 | `program.current` | full `TrainingProgramDraft` | **HD** | Already C3 (`training_program.doc_enc`) | **Already persisted + hydrated.** No change. | — |
-| 19 | `plan.portions` | `{"it-7": 1.5}` | HD (portion actually eaten) | plaintext jsonb today (CEO A1) | **Being retired** (BE-053/V011, `PLAN.md` R3). No action; do **not** carry the plaintext-jsonb precedent into the new table. | — |
+| 19 | `plan.portions` | `{"it-7": 1.5}` | HD (portion actually eaten) | plaintext jsonb today (CEO A1) | **KEPT** (CEO Round-13 #2: BE-053/V011 do not run). Still: do **not** carry its plaintext-jsonb precedent into the new table. | — |
 | 20 | `plan.portionsDate` | `"2026-08-18"` | UI | — | **DEVICE-ONLY.** Day-scoped gate; dies with the overlay. | — |
 | 21 | `plan.meta` | `{source:"pdf", importedAt:"2026-07-23T…"}` | PP | C3, in the blob | **PERSIST BACKEND** (blob) — 2 fields, keeps the Eating-Plan source badge honest on a restored device (which otherwise shows a plan with no provenance). Its own code comment already names this as the ceiling. | included |
 | 22 | `plan.setupPromptHidden` | `false` | UI | — | **DEVICE-ONLY.** One-time banner dismissal; re-showing it once after a reinstall is harmless (arguably correct). | — |
@@ -204,7 +204,7 @@ day-close hour. Everything here is small, none of it is ever aggregated in SQL, 
 rationale (ADR-0003: "encrypt the words, aggregate the numbers") does not apply — there are no numbers to
 aggregate. Encryption is free: the envelope, the DEK cache, the AAD discipline and the crypto-shred already
 exist. The **plaintext-jsonb precedent from `plan_portions` (CEO amendment A1) is deliberately not extended** —
-that table is being retired in this same round (BE-053).
+that table stays (CEO Round-13 #2) but its precedent was a one-off amendment (A1), not a policy.
 
 Notably nothing here needs to be server-*readable*, which is what makes the opaque blob honest rather than
 lazy: the server genuinely cannot learn anything from it, matching the vacation precedent.
@@ -330,7 +330,7 @@ gain one sentence acknowledging its new role as the reinstall-restore read (docu
 | **APP-112** | **Wire `DELETE /entries/{id}`** into `deleteEntry()` via an outbox `delete` op; fix the stale comment at `src/db/entries.ts:236`. Blocks APP-111 (resurrection) and closes a data-responsibility gap on its own | **0.25 builder-session** |
 | **BE-057** *(only if CEO reverses ADR-0016)* | HC daily snapshots as a `health` entry type + migration + `hc:<date>` idempotency/PATCH dedup + superseding ADR | **0.5d** (+0.5 app) |
 
-**Migration numbering:** V010 (weight type) and V011 (drop `plan_portions`, if Q2=yes) are already claimed by
+**Migration numbering:** V010 (weight type) and V011 (reserved; unused now that the portions overlay stays per CEO Round-13 #2) are already claimed by
 the v4 round → this is **V012**, expand-only, rides the same OPS-025 deploy. No extra deploy round.
 
 **Net delta:** backend **+0.75d** (≈3.25d → ≈4d) · app **+2.75 builder-sessions** (≈18 → ≈20.75). Still inside
