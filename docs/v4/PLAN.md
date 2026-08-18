@@ -4,6 +4,8 @@
 
 > **CEO answers (2026-08-18):** Q1 yes · **Q2 KEEP the portions overlay (BE-053/V011 do NOT run — R3's recommendation overruled)** · Q3 hide · Q4 delete · Q5 keep grace · Q6 yes · Q7 make vacation semantics real (auto-expire + keep-water behaviour) · Q8 scenic only · Q9/Q14 proceed · Q10–Q15 cheapest possible (API-GW privacy route, no domain, keep 30d, SES prod access proceeds — it's free, alarm stays).
 >
+> **Round-14 (persistence) answers:** all seven defaults of `backend-persistence-analysis.md` confirmed — `user_settings` encrypted blob + `/me/settings` (BE-056, V012) · log restore on reinstall (APP-111, 12-month background window) · wire `DELETE /entries/{id}` (APP-112) · HC stays device-local · one blob LWW · integrations toggle not restored. Scope is **recovery-only, one device at a time**; restore is **silent**. R5's device-local set is amended accordingly (habit definitions, composition flags, notification prefs → backend blob). Roster grows to BE-047..052+055+056 · APP-093..112 · OPS-025..028 (OPS-029 resolved: keep 30d).
+>
 > **Standing directives:** (1) **maximum mockup fidelity** — study and use every value/curve/palette in the handoff; **known libraries that help fidelity are allowed** (relaxes app-plan's zero-new-deps stance — candidates: a real Android blur lib for the frosted surfaces (risk R3), Skia-class rendering if the scenic header needs it); (2) **database may be truncated/recreated from zero** — no backfill or migration-compat work, ever, this round.
 Inputs: `docs/v4/README.md` (binding handoff) · the three team plans in this folder
 (`app-plan.md` · `backend-plan.md` · `devops-plan.md`, all Opus leads) · this file reconciles them

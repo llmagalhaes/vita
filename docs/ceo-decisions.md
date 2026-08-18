@@ -2,6 +2,22 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-08-18 — Round 14 (backend persistence, session 22)
+
+Answers to `docs/v4/backend-persistence-analysis.md` — all seven defaults CONFIRMED, plus the two open questions:
+
+1. Habits + composition flags + notification prefs persist as **one encrypted blob** (`user_settings`, C3 per-user DEK) via `GET/PUT /me/settings`.
+2. **Restore the log on reinstall** (the gap finding: `GET /entries` was never called for restore).
+3. **Wire the existing `DELETE /entries/{id}`** in the app.
+4. Restore window: **12 months, background**.
+5. Health Connect stays **device-local** (ADR-0016 stands).
+6. One blob, **last-write-wins**.
+7. Integrations toggle is NOT restored (a toggle without the OS grant would lie).
+8. **Scope is recovery-only, one device at a time** — no multi-device; LWW is final.
+9. **Restore is silent** — no "Restoring your log…" UI.
+
+Consequences: BE-047 gains the `/me/settings` block · new BE-056 (user_settings, V012) · new APP-110/111/112 (blob sync, log restore, delete wire) · PLAN.md R5 amended (habit definitions/flags/notif prefs are now backend-persisted).
+
 ## 2026-08-18 — Round 13 (V4 plan answers, session 22)
 
 Answers to `docs/v4/PLAN.md` §5 (build-shaping):
