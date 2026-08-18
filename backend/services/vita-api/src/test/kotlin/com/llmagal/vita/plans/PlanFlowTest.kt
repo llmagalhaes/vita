@@ -353,6 +353,98 @@ class PlanFlowTest {
         assertThat(itemsOf(currentDoc())[0]["id"]).isEqualTo("it-1")
     }
 
+    // ── BE-050: stable meal ids (m-N) ───────────────────────────────────────
+
+    @Suppress("UNCHECKED_CAST")
+    private fun mealsOf(doc: Map<String, Any>): List<Map<String, Any>> = doc["meals"] as List<Map<String, Any>>
+
+    @Test
+    fun `POST assigns m-N in document order, client-sent meal ids ignored`() {
+        val body =
+            mapOf(
+                "summary" to "x",
+                "meals" to
+                    listOf(
+                        mapOf("name" to "Breakfast", "id" to "client-sent", "items" to listOf(mapOf("name" to "Eggs"))),
+                        mapOf("name" to "Lunch", "items" to listOf(mapOf("name" to "Rice"))),
+                    ),
+            )
+        post(body).expectStatus().isCreated
+        assertThat(mealsOf(currentDoc()).map { it["id"] }).containsExactly("m-1", "m-2")
+    }
+
+    @Test
+    fun `PUT preserves round-tripped meal ids and gives a new meal m-max+1`() {
+        post(multiItemBody()).expectStatus().isCreated
+        val stored = mealsOf(currentDoc())
+
+        // Drop m-1, round-trip m-2, add a brand-new id-less meal.
+        val edited =
+            mapOf(
+                "summary" to "edited",
+                "meals" to
+                    listOf(
+                        stored[1], // m-2
+                        mapOf("name" to "Snack", "items" to listOf(mapOf("name" to "Apple", "quantity" to 1))),
+                    ),
+            )
+        put(edited).expectStatus().isOk
+        assertThat(mealsOf(currentDoc()).map { it["id"] }).containsExactly("m-2", "m-3")
+    }
+
+    @Test
+    fun `PUT with duplicate meal ids is 400`() {
+        post(planBody("seed")).expectStatus().isCreated
+        val dup =
+            mapOf(
+                "summary" to "dup",
+                "meals" to
+                    listOf(
+                        mapOf("name" to "A", "id" to "m-9", "items" to listOf(mapOf("name" to "X"))),
+                        mapOf("name" to "B", "id" to "m-9", "items" to listOf(mapOf("name" to "Y"))),
+                    ),
+            )
+        put(dup).expectStatus().isBadRequest
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `history versions carry the meal ids`() {
+        post(multiItemBody()).expectStatus().isCreated
+        val doc = history()[0]["doc"] as Map<String, Any>
+        assertThat(mealsOf(doc).map { it["id"] }).containsExactly("m-1", "m-2")
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `the add-a-meal form's synthesized serving item gets 0 to 3 step 1 bounds`() {
+        // APP add-a-meal (name · time · total kcal) synthesizes exactly one item.
+        val body =
+            mapOf(
+                "summary" to "manual add",
+                "meals" to
+                    listOf(
+                        mapOf(
+                            "name" to "Late snack",
+                            "time" to "22:00",
+                            "items" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Late snack",
+                                        "quantity" to 1,
+                                        "unit" to "serving",
+                                        "nutritionPerUnit" to mapOf("kcal" to 320),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        post(body).expectStatus().isCreated
+        val item = itemsOf(currentDoc())[0]
+        assertThat(item["id"]).isEqualTo("it-1")
+        assertThat(item["portion"]).isEqualTo(mapOf("min" to 0.0, "max" to 3.0, "step" to 1.0))
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun currentDoc(): Map<String, Any> =
         getCurrent()

@@ -29,10 +29,10 @@ import java.util.UUID
  * Edit is a full-doc replace + whole-blob re-encrypt in the service (D5): the
  * jsonb is never merge-patched in plaintext on the server.
  *
- * Eating plans go through [importPlan]/[editPlan], which stamp stable item ids
- * ("it-N" in document order, save-time only — no backfill, CEO A2) and the
- * server-authoritative portion bounds ([PortionBoundsHeuristic]) into the doc
- * before it is encrypted. Programs use the generic [importVersion]/[edit] and
+ * Eating plans go through [importPlan]/[editPlan], which stamp stable meal ids
+ * ("m-N") and item ids ("it-N") in document order — save-time only, no backfill,
+ * CEO A2 — plus the server-authoritative portion bounds ([PortionBoundsHeuristic])
+ * into the doc before it is encrypted. Programs use the generic [importVersion]/[edit] and
  * get no ids this round (no consumer — the overlay is eating-plan-only, D-8).
  *
  * The portion overlay (BE-038, [PlanPortionsRepository]) is a plaintext sparse
@@ -60,7 +60,8 @@ class PlanService(
     }
 
     /**
-     * POST /plan: assign fresh ids it-1…it-N in document order + recompute portion
+     * POST /plan: assign fresh ids m-1…m-N (meals) and it-1…it-N (items) in document
+     * order + recompute portion
      * bounds, then store as a new version. Client-sent ids/portion are ignored. The
      * overlay resets (new version = new identity space, CEO A5).
      */
@@ -75,8 +76,8 @@ class PlanService(
     }
 
     /**
-     * PUT /plan: preserve round-tripped ids, assign fresh ones above the max it-N
-     * suffix, recompute portion bounds. Duplicate incoming ids → 400. Null → 404.
+     * PUT /plan: preserve round-tripped meal/item ids, assign fresh ones above the max
+     * suffix of each space, recompute portion bounds. Duplicate incoming ids → 400. Null → 404.
      * Then prune the overlay per CEO A5 (removed item dropped, edited item reset,
      * untouched item kept).
      */
@@ -179,41 +180,54 @@ class PlanService(
         assignFreshIds: Boolean,
     ): EatingPlanDraft {
         validateV3(draft)
-        val items = allItems(draft)
-        val nextId: (PlanItem) -> String =
-            if (assignFreshIds) {
-                var n = 0
-                { "it-${++n}" }
-            } else {
-                val valid = items.mapNotNull { it.id?.takeIf(::validId) }
-                val dupes =
-                    valid
-                        .groupingBy { it }
-                        .eachCount()
-                        .filterValues { it > 1 }
-                        .keys
-                if (dupes.isNotEmpty()) badRequest("duplicate item id: ${dupes.joinToString()}")
-                var next = valid.mapNotNull { itN(it) }.maxOrNull() ?: 0
-                { item -> item.id?.takeIf(::validId) ?: "it-${++next}" }
-            }
+        val nextItemId = idStamper(allItems(draft).map { it.id }, "it", "item", assignFreshIds)
+        val nextMealId = idStamper(draft.meals.map { it.id }, "m", "meal", assignFreshIds)
 
         fun stamp(item: PlanItem): PlanItem {
             val (q, u, g) = effective(item)
             // An "à vontade" usual swap (chosen swap with no quantity AND no grams) is unbounded →
             // no slider (spec §3.1). Without this it falls through to countable() = a bogus 0..3.
             val portion = if (item.usualSwapIndex != null && q == null && g == null) null else PortionBoundsHeuristic.of(q, u, g)
-            return item.copy(id = nextId(item), portion = portion)
+            return item.copy(id = nextItemId(item.id), portion = portion)
         }
         return draft.copy(
             meals =
                 draft.meals.map { meal ->
                     meal.copy(
+                        id = nextMealId(meal.id),
                         // base items are stamped before option items so ids follow flat order.
                         items = meal.items.map(::stamp),
                         options = meal.options?.map { opt -> opt.copy(items = opt.items.map(::stamp)) },
                     )
                 },
         )
+    }
+
+    /**
+     * One id space (items "it-N", meals "m-N"): on POST fresh 1…N in the order called;
+     * on PUT preserve valid round-tripped ids (non-blank, ≤40 chars, unique) and assign
+     * {prefix}-{max+1}… to the rest. Duplicate incoming ids → 400.
+     */
+    private fun idStamper(
+        incoming: List<String?>,
+        prefix: String,
+        label: String,
+        assignFreshIds: Boolean,
+    ): (String?) -> String {
+        if (assignFreshIds) {
+            var n = 0
+            return { "$prefix-${++n}" }
+        }
+        val valid = incoming.mapNotNull { it?.takeIf(::validId) }
+        val dupes =
+            valid
+                .groupingBy { it }
+                .eachCount()
+                .filterValues { it > 1 }
+                .keys
+        if (dupes.isNotEmpty()) badRequest("duplicate $label id: ${dupes.joinToString()}")
+        var next = valid.mapNotNull { suffixOf(prefix, it) }.maxOrNull() ?: 0
+        return { id -> id?.takeIf(::validId) ?: "$prefix-${++next}" }
     }
 
     /** Contract v3 constraints that map to 400 (mirror the schema so bad saves fail loud). */
@@ -300,13 +314,11 @@ class PlanService(
 
     private fun validId(id: String): Boolean = id.isNotBlank() && id.length <= MAX_ID_LEN
 
-    /** The numeric suffix of an "it-N" id, or null if it is not that shape. */
-    private fun itN(id: String): Int? =
-        IT_N
-            .matchEntire(id)
-            ?.groupValues
-            ?.get(1)
-            ?.toIntOrNull()
+    /** The numeric suffix of a "{prefix}-N" id, or null if it is not that shape. */
+    private fun suffixOf(
+        prefix: String,
+        id: String,
+    ): Int? = id.takeIf { it.startsWith("$prefix-") }?.removePrefix("$prefix-")?.toIntOrNull()
 
     private fun encrypt(
         table: PlanTable,
@@ -332,7 +344,6 @@ class PlanService(
         const val MAX_SWAPS = 40
         const val MAX_OPTIONS = 8
         val VALID_STATUS = setOf("ready", "review")
-        val IT_N = Regex("^it-(\\d+)$")
         val UNPROCESSABLE = HttpStatus.UNPROCESSABLE_ENTITY
     }
 }

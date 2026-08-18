@@ -39,6 +39,9 @@ data class EatingPlanDraft(
 @JsonInclude(JsonInclude.Include.NON_NULL)
 data class PlanMeal(
     val name: String,
+    // Server-generated stable meal id ("m-1"…"m-N" in document order), assigned at
+    // save time only (no backfill, CEO A2) — the target of MealDetail.planMealId.
+    val id: String? = null,
     val time: String? = null,
     val items: List<PlanItem>,
     // Per-meal kcal for the DEFAULT composition — stated report number or estimate (V3-D7).

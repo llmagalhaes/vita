@@ -76,6 +76,7 @@ class PlanParseFlowTest {
 
         assertThat(draft.summary).isEqualTo("Balanced 3-meal plan")
         assertThat(draft.meals).hasSize(1)
+        assertThat(draft.meals[0].id).isNull() // BE-050: ids are stamped at save time only (no backfill, A2)
         assertThat(draft.meals[0].items[0].name).isEqualTo("Oats")
         assertThat(draft.dailyTotals?.kcal).isEqualTo(2000.0)
     }

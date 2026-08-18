@@ -10,8 +10,10 @@ import com.llmagal.vita.model.entries.LogEntry
 import com.llmagal.vita.model.entries.MealDetail
 import com.llmagal.vita.model.entries.MealItem
 import com.llmagal.vita.model.entries.NewEntry
+import com.llmagal.vita.model.entries.PlanStatus
 import com.llmagal.vita.model.entries.UpdateEntry
 import com.llmagal.vita.model.entries.WaterDetail
+import com.llmagal.vita.model.entries.WeightDetail
 import com.llmagal.vita.model.entries.WorkoutDetail
 import com.llmagal.vita.repository.entries.DayRange
 import com.llmagal.vita.repository.entries.Denorm
@@ -232,44 +234,64 @@ class EntryService(
         detail: JsonNode,
     ): JsonNode =
         when (type) {
-            EntryType.meal -> {
-                val meal = read<MealDetail>(detail)
-                if (meal.items.isEmpty()) badRequest("A meal needs at least one item.")
-                meal.items.forEach(::validateItem)
-                mapper.valueToTree(meal.copy(totals = totalsOf(meal.items)))
-            }
+            EntryType.meal -> normalizeMeal(detail)
             EntryType.water -> {
                 val water = read<WaterDetail>(detail)
                 if (water.amountMl !in 1..MAX_WATER_ML) badRequest("Water amount must be 1-$MAX_WATER_ML ml.")
                 mapper.valueToTree(water)
             }
-            EntryType.workout -> {
-                val workout = read<WorkoutDetail>(detail)
-                if (workout.title.isBlank()) badRequest("A workout needs a title.")
-                workout.durationMin?.let { if (it < 1) badRequest("durationMin must be >= 1.") }
-                nonNegative("workout kcal", workout.kcal)
-                workout.exercises?.forEach(::validateExercise)
-                // Closed-vocabulary muscle map (shared Muscles object): model output onto
-                // the 11 silhouettes, aliases folded, unmappable dropped. Per exercise the
-                // roles are normalized too (primary wins on dup) and derive `muscles` when
-                // that is absent; the workout-level list has no roles (DESIGN scope).
-                val exercises =
-                    workout.exercises?.map { ex ->
-                        val n = Muscles.normalize(ex.muscles, ex.muscleRoles)
-                        ex.copy(muscles = n.muscles, muscleRoles = n.muscleRoles)
-                    }
-                mapper.valueToTree(workout.copy(muscles = Muscles.mapAll(workout.muscles), exercises = exercises))
-            }
-            EntryType.checkin -> {
-                // Server-opaque: validate the fields are present, then store verbatim.
-                val c = read<CheckinDetail>(detail)
-                if (c.habitId.isBlank()) badRequest("A check-in needs a habitId.")
-                if (c.habitName.isBlank()) badRequest("A check-in needs a habitName.")
-                if (c.kind.isBlank()) badRequest("A check-in needs a kind.")
-                if (c.answer.isBlank()) badRequest("A check-in needs an answer.")
-                mapper.valueToTree(c)
+            EntryType.workout -> normalizeWorkout(detail)
+            EntryType.checkin -> normalizeCheckin(detail)
+            EntryType.weight -> {
+                val w = read<WeightDetail>(detail)
+                if (w.kg !in MIN_WEIGHT_KG..MAX_WEIGHT_KG) badRequest("Weight must be $MIN_WEIGHT_KG-$MAX_WEIGHT_KG kg.")
+                mapper.valueToTree(w)
             }
         }
+
+    /** Meal + its 0.8.0 plan linkage; totals are always recomputed server-side. */
+    private fun normalizeMeal(detail: JsonNode): JsonNode {
+        val meal = read<MealDetail>(detail)
+        if (meal.planMealId == null && (meal.planStatus != null || meal.planOptionIndex != null)) {
+            badRequest("planStatus/planOptionIndex require planMealId.")
+        }
+        meal.planOptionIndex?.let { if (it < 0) badRequest("planOptionIndex must be >= 0.") }
+        // Empty items is a real record only for a skipped plan meal (0.8.0); it totals 0.
+        if (meal.items.isEmpty() && meal.planStatus != PlanStatus.skipped) {
+            badRequest("A meal needs at least one item.")
+        }
+        meal.items.forEach(::validateItem)
+        return mapper.valueToTree(meal.copy(totals = totalsOf(meal.items)))
+    }
+
+    private fun normalizeWorkout(detail: JsonNode): JsonNode {
+        val workout = read<WorkoutDetail>(detail)
+        if (workout.title.isBlank()) badRequest("A workout needs a title.")
+        if (workout.planDay == null && workout.planStatus != null) badRequest("planStatus requires planDay.")
+        workout.durationMin?.let { if (it < 1) badRequest("durationMin must be >= 1.") }
+        nonNegative("workout kcal", workout.kcal)
+        workout.exercises?.forEach(::validateExercise)
+        // Closed-vocabulary muscle map (shared Muscles object): model output onto
+        // the 11 silhouettes, aliases folded, unmappable dropped. Per exercise the
+        // roles are normalized too (primary wins on dup) and derive `muscles` when
+        // that is absent; the workout-level list has no roles (DESIGN scope).
+        val exercises =
+            workout.exercises?.map { ex ->
+                val n = Muscles.normalize(ex.muscles, ex.muscleRoles)
+                ex.copy(muscles = n.muscles, muscleRoles = n.muscleRoles)
+            }
+        return mapper.valueToTree(workout.copy(muscles = Muscles.mapAll(workout.muscles), exercises = exercises))
+    }
+
+    /** Server-opaque: validate the fields are present, then store verbatim. */
+    private fun normalizeCheckin(detail: JsonNode): JsonNode {
+        val c = read<CheckinDetail>(detail)
+        if (c.habitId.isBlank()) badRequest("A check-in needs a habitId.")
+        if (c.habitName.isBlank()) badRequest("A check-in needs a habitName.")
+        if (c.kind.isBlank()) badRequest("A check-in needs a kind.")
+        if (c.answer.isBlank()) badRequest("A check-in needs an answer.")
+        return mapper.valueToTree(c)
+    }
 
     /** Contract MealItem minimums — kcal/macros >= 0 (mirror the log_entry CHECKs → 400 not 500). */
     private fun validateItem(item: MealItem) {
@@ -308,8 +330,8 @@ class EntryService(
                 val w = read<WorkoutDetail>(detail)
                 Denorm(w.kcal, null, null, null, null, w.durationMin)
             }
-            // Check-ins carry no aggregatable numbers.
-            EntryType.checkin -> Denorm(null, null, null, null, null, null)
+            // Check-ins and weight readings carry no aggregatable numbers (trends are client-side).
+            EntryType.checkin, EntryType.weight -> Denorm(null, null, null, null, null, null)
         }
 
     private fun totalsOf(items: List<MealItem>): MacroTotals =
@@ -375,6 +397,8 @@ class EntryService(
 
     private companion object {
         const val MAX_WATER_ML = 10_000
+        const val MIN_WEIGHT_KG = 20.0
+        const val MAX_WEIGHT_KG = 500.0
         const val MAX_LIMIT = 100
 
         // Accepted `type` filter values — every entry type (checkin now real, BE-024).
