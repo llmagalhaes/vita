@@ -1,5 +1,33 @@
 # App Team — Next Session
 
+## Session 22 (2026-08-18) — V4 app PLAN written (no code) ✅
+
+Deliverable: **`docs/v4/app-plan.md`** — build-ready implementation plan for the V4 round, read from
+`docs/v4/README.md` + the v4 prototype source (3 parallel Explore agents pulled the exact values:
+shell/day/capture · trends/muscle/habits · library/onboarding/lock). Baseline re-verified before
+planning: **tsc 0 · Jest 314/314 (56 suites)** on `0997bea`.
+
+- **17 tickets APP-093..109 in 6 waves**, file-disjoint per wave so parallel Opus builders don't collide.
+  Wave 0 foundation (tokens+oklab · **day record model** · composition flags) → wave 1 three-panel shell →
+  wave 2 six surfaces → wave 3 timeline/dock+past/Trends → wave 4 day-close notification + HC fix +
+  deletion sweep → wave 5 QA/device/APK. ≈18 builder-sessions.
+- **Reuse map** in the plan: infra/UI kit/sheets/pops/dock/capture/plan-setup survive; ~3,500 lines get
+  **deleted** (TabsPager+NavDots, Home.tsx, Today.tsx, tabs/Habits, Integrations, WorkoutHub, CheckinSheet,
+  digest, consistency, the meal/water/workout detail routes). Net smaller. **No new dependency.**
+- **Contract ask for backend (v0.8.0)**: `GET /days?from&to` compact index (calendar dots + Trends record
+  counter), `GET/PUT /days/{date}` DayRecord, `weight` entry type + `WeightDetail`, `ParseResult.planDelta`.
+  Explicitly NOT needed: habit schedules (device-local D1), composition flags, a close-the-day verb.
+- **APP-107 (Health Connect)**: session-21's "delegate not wired" hypothesis is **disproven** — the plugin
+  injects it and the generated `MainActivity.kt:22` has it. New leading suspect: the manifest declares only
+  the legacy `androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` filter and is missing the **Android 14+
+  `<activity-alias>`** (`VIEW_PERMISSION_USAGE` + `HEALTH_PERMISSIONS`) — matches every observed symptom on
+  the Android-15 Samsung. Diagnostic build first, then the alias, then `READ_WEIGHT`.
+- **7 CEO questions** in the plan's §6 (day-record persistence server-side · composition flags on the
+  account · iOS Connected-sources · manual spent-energy has no home in v4 · Delete-my-data grace vs device
+  wipe · vacation duration/keep-water real semantics · scenic-only vs keeping classic).
+- **No Asana tickets filed yet** — per the session-18 precedent, the CEO reviews the plan before tickets
+  are created and the build is un-gated.
+
 ## Session 20 (2026-07-24) — PDF import fixed on-device + prototype-fidelity pass ✅
 
 Device-verified on the emulator (host GPU). Commits `be7353e` (import + mock) → `33d8a04` (fidelity). tsc 0 · Jest 313/313.

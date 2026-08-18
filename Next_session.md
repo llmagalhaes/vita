@@ -2,6 +2,19 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## Where we are (2026-08-18, session 22 — V4 PLANNING ROUND: 3 Opus lead plans + orchestrator reconciliation)
+
+**The CEO dropped `docs/v4/` (handoff README + Prototype v4 html + support.js + meal-plan.pdf) and asked for an implementation plan with all leads. Done — planning only, no code, no tickets filed.** 3 parallel Opus leads each wrote a team plan, then the orchestrator reconciled them:
+
+- **`docs/v4/PLAN.md` — the master plan (reconciled; where it disagrees with a team plan, PLAN.md wins).** Team plans: `app-plan.md` (17 tickets APP-093..109, 6 waves, ≈18 builder-sessions, ~3.5k lines deleted / ~2.8k added, zero new deps) · `backend-plan.md` (6 core tickets BE-047..052 + optional 053/054, ~3–3.5 days, contract v0.8.0 all-additive, ONE expand-only migration V010) · `devops-plan.md` (OPS-025..029, cost impact ≈$0).
+- **Key reconciliations (PLAN.md §1):** R1 day record rides the existing entries (planMealId/planStatus on meal/workout details) — the app's proposed `GET/PUT /days` resource is DROPPED, day status derives locally from SQLite; R2 no `closed{at,mode}` on the wire (retro = logged_at after day end); R3 orchestrator recommends RETIRING plan_portions (BE-053+V011, CEO word needed); R6 no `planDelta` object — parse returns the enriched full composition, delta math app-side; R7 day-close notification reuses `recapStartHour` (closes the session-21 recap question); R10 two binding build rules (one close/retro representation; tolerate empty items+zero totals).
+- **v4 in one line:** 6-tab pager → three panels (Trends | Day | Library, edge-swipe), Home+Today merge into one Day (scenic parallax header + Overview + timeline), the **day record model** (planned→done/adjusted/skipped, close-the-day, retro-close, unrecorded-as-absence), capture becomes a plan delta, fake surfaces deleted, onboarding 5→2.
+- **Health Connect carry-over: session-21 hypothesis DISPROVEN by the app lead** (the permission delegate IS injected — generated MainActivity.kt:22). New leading suspect: manifest lacks the Android-14+ `<activity-alias>` (`VIEW_PERMISSION_USAGE` + `HEALTH_PERMISSIONS`); only the legacy rationale filter is declared. Matches all observed symptoms on the Android-15 Samsung. Fix path in APP-107.
+- **15 CEO decisions pending in PLAN.md §5** (with defaults). Build-shaping: day-records-as-entries confirm · portions-overlay retirement · iOS Connected-sources hide · manual spent-energy delete · delete-my-data grace · plan re-import after deploy · vacation semantics · scenic-only · composition flags device-local. Infra: privacy-policy on API-GW · S3 30d expiry · SES production access · keystore self-held · capture token cost · budget alarm.
+- **`docs/v4/meal-plan.pdf` deliberately NOT committed** (handoff says anonymize first; the committed v3 copy has the same issue retroactively — flagged in §5).
+
+**NEXT SESSION:** CEO answers PLAN.md §5 (or accepts defaults) → file the tickets (Asana texts amended per R1/R6) → build per PLAN.md §2: **BE-047 (contract v0.8.0 + ADR-0019) first and alone**, then backend waves ∥ app waves 0–4 → Fable adversarial reviews → gates → BE-052 + OPS-025 deploy (vita:10, V010[+V011]) → APP-109 + fresh APK → CEO device checklist (app-plan §6 D1–D10). Session-21 CEO test checklist below still stands for the current APKs.
+
 ## Where we are (2026-07-24, session 21 — CEO device-feedback batch: overlays/nav/voice/recap)
 
 **10 CEO adjustments from real-Samsung testing, 7 parallel Opus agents + orchestrator fixes. Commit `de1eea2` (pushed). Gates tsc 0 · Jest 314/314. Emulator-verified (host GPU): PortionPop opens with NO ANR, 5-tab pager, dock/macros intact.**

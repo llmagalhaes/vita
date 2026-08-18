@@ -1,6 +1,39 @@
 # Backend — Next session
 
-## Current state (2026-07-23, session 19) — V3 round SHIPPED: built + review-fixed + DEPLOYED to prod (task-def vita:9) + probe GREEN
+## Current state (2026-08-18, v4 planning session) — V4 round SPECIFIED (no code, no tickets filed)
+
+Planning-only round for the v4 design handoff (`docs/v4/README.md`). Deliverable:
+**`docs/v4/backend-plan.md`** — build-ready. No code, no migration, no Asana ticket filed
+(orchestrator files after CEO review). Nothing committed by me; orchestrator commits.
+
+- **Headline: v4 is an app rethink, not a backend rethink.** The day-record model maps onto the
+  log entries that already exist — a meal moving `planned → done/adjusted/skipped` **is** a meal
+  entry, now carrying `planMealId` + `planStatus`. Close-the-day = a batch of those writes;
+  retro-close = the same batch with a later `logged_at`. **No `day_record` table.** Day status
+  (`unrecorded` / as-planned / adjusted) is **derived**, never stored.
+- **Backend vs device-local split (plan §1.1):** backend = meal/workout plan status, manual weight
+  (new `weight` entry type), plan-aware capture, plus everything already shipped (check-ins,
+  vacation, plan edit/import, muscleRoles). Device-local = composition flags, habit definitions +
+  weekday circles + notification switch, HC weight (ADR-0016 stands), trends, portion-for-today.
+- **Data model: one expand-only migration.** `V010` widens `log_entry.type` to add `weight`.
+  Everything else rides existing encrypted blobs (`detail_enc`, `eating_plan.doc_enc`) — no new
+  table, **no new crypto stance**. `PlanMeal.id` (`m-N`) stamped in `PlanService.decorate()` like `it-N`.
+- **Recommended deletion (CEO Q3):** retire `plan_portions` + `PUT /plan/portions` (`V011 DROP TABLE`).
+  The modal says "only counts for today" but the overlay persists across days; the v4 day record makes
+  it redundant. Breaking → isolated in optional BE-053, needs CEO word + app agreement.
+- **Contract v0.8.0 (all additive):** `MealDetail.planMealId/planStatus/planOptionIndex`,
+  `MealItem.replacesItemId`, `WorkoutDetail.planDay/planStatus`, `WeightDetail{kg}` + `weight` in the
+  type enums/filter, `PlanMeal.id`, `MealDetail.items` minItems 1→0 (empty iff `planStatus:"skipped"`).
+  Plan-aware capture reuses `/parse/text` + `/parse/photo` — **no new endpoint, no new response schema**.
+- **Parse target unchanged vs v3** — README §6 says "as v3 handoff"; "13 pages" is static demo copy
+  (`Vita Prototype v4.dc.html:1040`) and the backend never opens the PDF (CEO Q5).
+- **Proposed tickets: BE-047..BE-052 core** (contract → 3 parallel → capture → ship) + optional
+  BE-053 (portions retire) / BE-054 (`units` cleanup) + one devops image-tag bump. ~3–3.5 days.
+- **7 CEO questions with defaults in plan §7.** Suite baseline 227 green; next migration **V010**.
+- **Next backend action:** CEO reviews `docs/v4/backend-plan.md` → orchestrator files BE-047..052 →
+  BE-047 (contract v0.8.0 + ADR-0019, Sonnet) FIRST and alone — it blocks every app v4 day-record ticket.
+
+## Previous state (2026-07-23, session 19) — V3 round SHIPPED: built + review-fixed + DEPLOYED to prod (task-def vita:9) + probe GREEN
 
 Full v3 backend built per `docs/v3/backend-spec.md`, adversarially reviewed (Fable), fixed, and live in prod.
 Commits: `558517f` (BE-043/044/045) · `c3e3bcd` (review fixes) · `f585f95` (BE-046 deploy). Ledger:
