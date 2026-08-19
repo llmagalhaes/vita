@@ -279,14 +279,17 @@ export const shadowPill = {
   elevation: 8,
 } as const;
 
-/** Scenic sheet cap seam (`0 -12px 26px -8px rgba(50,36,22,.18)`). */
-export const shadowCap = {
-  shadowColor: "#322416",
-  shadowOpacity: 0.18,
-  shadowRadius: 26,
-  shadowOffset: { width: 0, height: -12 },
-  elevation: 6,
-} as const;
+/**
+ * Scenic sheet cap seam (`0 -12px 26px -8px rgba(50,36,22,.18)`).
+ *
+ * CEO batch #1: this used `shadowOffset {0,-12} + elevation: 6`, and Android ignores
+ * the offset — elevation draws its shadow BELOW the view, so the cap painted a dark
+ * line across the one seam that must be invisible and the whole thing read as a
+ * detached white strip floating over the dock. `boxShadow` is a real CSS shadow on
+ * both platforms under the New Architecture (RN 0.85), so the prototype's upward,
+ * negative-spread shadow finally renders as written.
+ */
+export const shadowCap = { boxShadow: "0px -12px 26px -8px rgba(50,36,22,0.18)" } as const;
 
 /** Home v2 timeline meal/workout row shadow (`0 8px 20px rgba(105,84,60,.07)`). */
 export const shadowRow = {
@@ -413,7 +416,8 @@ export const motion = {
 
 /** Panel edge-swipe gesture thresholds (README §1). */
 export const panelGesture = {
-  edgePx: 34,
+  // `edgePx: 34` is gone — Android's system back gesture owns both screen edges, so
+  // the prototype's edge-only arming made the Day swipe unreachable (CEO batch #1).
   minDxPx: 8,
   verticalVetoPx: 12,
   verticalVetoRatio: 1.1,

@@ -6,7 +6,8 @@
  * Scenic-only (CEO): the prototype's `homeStyle:"classic"` flat header is a demo
  * comparison, not a product mode, so there is no switch here.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { kvGet, kvSet } from "../db/kv";
 import { scenes, type SceneName } from "./tokens";
 
 /** 00:00–11:59 morning · 12:00–17:59 afternoon · 18:00+ evening. */
@@ -25,6 +26,28 @@ export function msUntilNextScene(now: Date): number {
   return next.getTime() - now.getTime();
 }
 
+// ── TEST-ONLY scene override (CEO batch #1) ─────────────────────────────────
+// ponytail: dev affordance, not a product feature — the evening scene only exists
+// after 18:00, which makes the dark header impossible to review at 11am. To remove:
+// delete this block, the `override ??` in useSceneName, and the Library's dev row.
+export type SceneOverride = SceneName | "auto";
+const OVERRIDE_KEY = "dev.scene";
+let cached: SceneOverride | null = null;
+const listeners = new Set<() => void>();
+
+export const getSceneOverride = (): SceneOverride => (cached ??= kvGet<SceneOverride>(OVERRIDE_KEY) ?? "auto");
+
+export function setSceneOverride(v: SceneOverride): void {
+  cached = v;
+  kvSet(OVERRIDE_KEY, v);
+  listeners.forEach((l) => l());
+}
+
+const subscribe = (cb: () => void) => {
+  listeners.add(cb);
+  return () => void listeners.delete(cb);
+};
+
 /** The live scene: re-resolves when the clock crosses the next boundary. */
 export function useSceneName(): SceneName {
   const [scene, setScene] = useState(() => sceneFor(new Date().getHours()));
@@ -33,7 +56,8 @@ export function useSceneName(): SceneName {
     const id = setTimeout(() => setScene(sceneFor(new Date().getHours())), msUntilNextScene(new Date()) + 1000);
     return () => clearTimeout(id);
   }, [scene]);
-  return scene;
+  const override = useSyncExternalStore(subscribe, getSceneOverride, getSceneOverride);
+  return override === "auto" ? scene : override;
 }
 
 /** Evening is the dark scene — panel tabs and the status bar flip to light ink. */

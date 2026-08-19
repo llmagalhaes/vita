@@ -15,9 +15,9 @@
  * turning Meals off hides the eating plan here too — it never deletes it.
  */
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text, colors, fonts, typeScale } from "../ui";
+import { Text, colors, fonts, getSceneOverride, setSceneOverride, typeScale, type SceneOverride } from "../ui";
 import { useDomains } from "../db/domains";
 import { getSettings } from "../db/settings";
 import { useLogVersion } from "../db/notify";
@@ -66,8 +66,52 @@ export function LibraryPanel() {
         <Text style={{ fontSize: typeScale.micro, textAlign: "center", paddingTop: 2, paddingHorizontal: 20 }} color={colors.labelMuted}>
           {t("library.footer")}
         </Text>
+
+        <SceneSwitcher />
       </ScrollView>
       <ExportSheet visible={exportOpen} onClose={() => setExportOpen(false)} />
+    </View>
+  );
+}
+
+/**
+ * TEST-ONLY (CEO batch #1): the evening scene only exists after 18:00, so the dark
+ * header can't be reviewed in daylight. Writes the `dev.scene` kv override that
+ * `useSceneName` honours; "Auto" hands the header back to the clock.
+ *
+ * ponytail: hard-coded English, no i18n keys, no settings row — delete this component
+ * and its one call site above and the feature is gone.
+ */
+function SceneSwitcher() {
+  const current = getSceneOverride();
+  const opts: SceneOverride[] = ["auto", "morning", "afternoon", "evening"];
+  return (
+    <View style={{ alignItems: "center", gap: 4, paddingTop: 10, opacity: 0.75 }}>
+      <Text style={{ fontSize: typeScale.micro, letterSpacing: 0.6 }} color={colors.labelMuted}>
+        DEV · SCENE
+      </Text>
+      <View style={{ flexDirection: "row", gap: 6 }}>
+        {opts.map((o) => (
+          <Pressable
+            key={o}
+            accessibilityRole="button"
+            accessibilityLabel={`Scene ${o}`}
+            onPress={() => setSceneOverride(o)}
+            style={{
+              paddingVertical: 5,
+              paddingHorizontal: 10,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: colors.borderControl,
+              backgroundColor: o === current ? colors.card : "transparent",
+            }}
+          >
+            <Text style={{ fontSize: 11, fontFamily: fonts.bold }} color={o === current ? colors.ink : colors.muted}>
+              {o[0]!.toUpperCase() + o.slice(1)}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
     </View>
   );
 }

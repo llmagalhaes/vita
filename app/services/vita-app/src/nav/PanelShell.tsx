@@ -6,7 +6,7 @@
  * is a panel route; pushes (account, plan-setup, details) hide it. The route stays
  * the source of truth, so deep links and `router.replace` keep working.
  *
- * WHAT THIS FILE HAS BROKEN TWICE — do not undo:
+ * WHAT THIS FILE HAS BROKEN — do not undo:
  *  · session 6: growing the mounted-panel set mid-gesture recreated the pan and ate
  *    the swipe. v4 has three panels, so all three are simply always mounted — there
  *    is no `mounted` state to grow, and no setState runs during a drag.
@@ -15,6 +15,17 @@
  *  · session 11: arbitration. Inner horizontal gestures (dock date picker, Trends
  *    scrub, timeline) still win via `blocksExternalGesture(tabsPagerRef)` — that ref
  *    now points at this pan, so `scrub.tsx` / `DockDatePicker.tsx` need zero edits.
+ *  · CEO batch #1 (device): BOTH ways in were dead on the Samsung.
+ *    - Tabs: `settle()` wrote `idxRef.current` BEFORE `router.replace`, so the
+ *      route→panel effect below saw `idxRef.current === active` and returned — the
+ *      route changed, the tab highlighted, and the row never translated. The drag
+ *      path is the ONLY one allowed to pre-write `idxRef` (it already moved the row);
+ *      every other move goes through `pick` and lets the effect animate.
+ *    - Swipe: the prototype's 34px edge gate is unreachable on Android. Gesture
+ *      navigation owns both screen edges (Samsung lets the user widen that inset
+ *      further), so an edge drag is swallowed by the system back gesture and the
+ *      user lands on the launcher. All three panels now pan from anywhere; the
+ *      inner horizontal gestures still win through `blocksExternalGesture`.
  *
  * All decisions are the pure helpers in `panelPan.ts` (unit-tested); everything
  * here is shared-value work on the UI thread.
@@ -32,7 +43,7 @@ import { LibraryPanel } from "../library/LibraryPanel";
 import { TrendsPanel } from "../trends/TrendsPanel";
 import { PanelTabs } from "./PanelTabs";
 import { tabsPagerRef } from "./pagerRef";
-import { DAY_PANEL, PANEL_ROUTES, canStartPan, commitTarget, isVerticalVeto, panelIndex, rubberBand, shouldEngage } from "./panelPan";
+import { DAY_PANEL, PANEL_ROUTES, commitTarget, isVerticalVeto, panelIndex, rubberBand, shouldEngage } from "./panelPan";
 
 const SNAP = { duration: motion.panelSnap.durationMs, easing: Easing.bezier(...motion.panelSnap.bezier) };
 
@@ -54,13 +65,20 @@ export function PanelShell() {
   const panel = useSharedValue(startIdx); // committed index, UI thread
   const tx = useSharedValue(-startIdx * width); // row translateX in px
   const startTx = useSharedValue(0);
-  const armed = useSharedValue(false); // began inside an edge (or off Day)
   const engaged = useSharedValue(false); // passed |dx| ≥ 8
   const dead = useSharedValue(false); // vertical veto — dead for this gesture
 
-  const settle = (to: number, viaGesture: boolean) => {
+  /** The drag committed: the row is already animating, so record the index here and
+   *  let the route catch up (the effect below then no-ops). */
+  const settle = (to: number) => {
     idxRef.current = to;
-    if (viaGesture) setNavSwiped(); // first real swipe retires the hint
+    setNavSwiped(); // the first real swipe retires the hint
+    if (PANEL_ROUTES[to] !== pathname) router.replace(PANEL_ROUTES[to]);
+  };
+
+  /** Tab tap (and anything else that just wants a panel): change the route ONLY —
+   *  the effect below owns the move. Writing `idxRef` here is what killed the tabs. */
+  const pick = (to: number) => {
     if (PANEL_ROUTES[to] !== pathname) router.replace(PANEL_ROUTES[to]);
   };
 
@@ -83,16 +101,13 @@ export function PanelShell() {
     .enabled(onPanel && !sheetOpen)
     .activeOffsetX([-8, 8]) // engage at |dx| ≥ 8 (panelGesture.minDxPx)
     .failOffsetY([-12, 12]) // and give up to a clearly vertical drag (the scroll wins)
-    .onBegin((e) => {
-      // absoluteX, not e.x: the detector sits on the 3×width row, whose local x is
-      // offset by the current panel — only screen space knows where the edges are.
-      armed.value = canStartPan(panel.value, e.absoluteX, width);
+    .onBegin(() => {
       engaged.value = false;
       dead.value = false;
       startTx.value = -panel.value * width;
     })
     .onUpdate((e) => {
-      if (!armed.value || dead.value) return;
+      if (dead.value) return;
       if (!engaged.value) {
         // The veto only applies before engaging; after that the pointer is ours.
         if (isVerticalVeto(e.translationX, e.translationY)) {
@@ -109,10 +124,10 @@ export function PanelShell() {
       const to = commitTarget(panel.value, tx.value - startTx.value);
       panel.value = to;
       tx.value = withTiming(-to * width, SNAP);
-      runOnJS(settle)(to, true);
+      runOnJS(settle)(to);
     })
     .onFinalize(() => {
-      // A dead/unarmed gesture may have nudged nothing, but snap back defensively.
+      // A dead gesture may have nudged nothing, but snap back defensively.
       if (!engaged.value) tx.value = withTiming(-panel.value * width, SNAP);
       engaged.value = false;
     });
@@ -160,7 +175,7 @@ export function PanelShell() {
           </View>
         </Animated.View>
       </GestureDetector>
-      <PanelTabs panel={active < 0 ? idxRef.current : active} dark={dark} onPick={(i) => settle(i, true)} />
+      <PanelTabs panel={active < 0 ? idxRef.current : active} dark={dark} onPick={pick} />
     </View>
   );
 }

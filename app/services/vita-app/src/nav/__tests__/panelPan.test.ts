@@ -1,4 +1,4 @@
-import { PANEL_ROUTES, canStartPan, commitTarget, isVerticalVeto, panelIndex, rubberBand, shouldEngage } from "../panelPan";
+import { PANEL_ROUTES, commitTarget, isVerticalVeto, panelIndex, rubberBand, shouldEngage } from "../panelPan";
 
 const W = 390; // the prototype's canvas — keeps the reference numbers comparable
 
@@ -13,22 +13,6 @@ test("panelIndex returns -1 off the panels (shell hides on pushes)", () => {
   expect(panelIndex("/account")).toBe(-1);
   expect(panelIndex("/plan-setup")).toBe(-1);
   expect(panelIndex("/")).toBe(-1);
-});
-
-describe("canStartPan — EDGE 34 on Day only", () => {
-  test("Day arms inside either 34px edge, exactly at the threshold", () => {
-    expect(canStartPan(1, 0, W)).toBe(true);
-    expect(canStartPan(1, 34, W)).toBe(true);
-    expect(canStartPan(1, 34.1, W)).toBe(false);
-    expect(canStartPan(1, 195, W)).toBe(false); // mid-screen: dock/charts own it
-    expect(canStartPan(1, W - 34, W)).toBe(true); // 356 in the prototype
-    expect(canStartPan(1, W - 34.1, W)).toBe(false);
-    expect(canStartPan(1, W, W)).toBe(true);
-  });
-  test("Trends and Library drag from anywhere", () => {
-    expect(canStartPan(0, 195, W)).toBe(true);
-    expect(canStartPan(2, 195, W)).toBe(true);
-  });
 });
 
 describe("shouldEngage — |dx| ≥ 8", () => {

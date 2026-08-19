@@ -1,5 +1,5 @@
 /**
- * v4 three-panel edge-swipe math (APP-096) — pure, worklet-safe, unit-tested.
+ * v4 three-panel swipe math (APP-096) — pure, worklet-safe, unit-tested.
  *
  * Lifted 1:1 from the prototype's `panPD / panPM / panPU`
  * (`docs/v4/Vita Prototype v4.dc.html` lines 1578–1585) and README §1 "Structure".
@@ -23,15 +23,14 @@ export function panelIndex(pathname: string): number {
 }
 
 /**
- * Where a pan may START. On Day only the two 34px edges arm the pan (the dock and
- * the charts own mid-screen); on Trends/Library the whole surface drags back.
- * Prototype: `act = S.panel!==1 || x<=34 || x>=356` (356 = 390 − 34).
+ * The prototype's `canStartPan` (on Day only the two 34px edges arm the pan,
+ * `act = S.panel!==1 || x<=34 || x>=356`) is GONE — CEO batch #1. A browser has no
+ * system back gesture; Android does, it owns both screen edges, and it is the one
+ * thing the app cannot outbid — so on the CEO's Samsung an edge drag never reached
+ * the app, it just went back to the launcher. Every panel now pans from anywhere;
+ * mid-screen horizontal gestures still win via `blocksExternalGesture(tabsPagerRef)`
+ * (dock date picker, Trends scrub) and vertical drags via `isVerticalVeto`.
  */
-export function canStartPan(panel: number, x: number, width: number): boolean {
-  "worklet";
-  if (panel !== DAY_PANEL) return true;
-  return x <= panelGesture.edgePx || x >= width - panelGesture.edgePx;
-}
 
 /** Engage the drag at |dx| ≥ 8px. */
 export function shouldEngage(dx: number): boolean {

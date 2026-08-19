@@ -28,7 +28,7 @@
       "day": "Today",
       "library": "Library"
     },
-    "swipeHint": "◂ Swipe from an edge · Trends — Library ▸"
+    "swipeHint": "◂ Swipe left or right · Trends — Library ▸"
   },
   "auth": {
     "tagline": "A quiet log of meals, water & movement.",
