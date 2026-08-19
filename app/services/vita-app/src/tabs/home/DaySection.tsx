@@ -3,8 +3,8 @@ import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { Text, colors, fonts, useAccent } from "../../ui";
-import { DockDatePicker } from "./DockDatePicker";
-import { NDAYS, MAXD } from "./dock";
+import { DockDatePicker } from "../../day/dock/DockDatePicker";
+import { NDAYS, MAXD } from "../../day/dock/dock";
 
 const dayAt = (offset: number): Date => {
   const d = new Date();

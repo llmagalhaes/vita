@@ -9,6 +9,15 @@ export type LocalEntry = NewEntry & {
   // `failed` = the sync was dropped as poison (a non-retryable server rejection or a
   // dead parked capture). Terminal — Home stops promising "waiting to sync" (audit 1.8).
   syncState: "pending" | "synced" | "failed";
+  /**
+   * Server receive time, present once synced (the `updatedAt` column). Surfaced under
+   * the wire's name because that is what `fromMealEntry` reads: a record whose
+   * `loggedAt` lands on a later day than `occurredAt` was **closed later, by you**
+   * (PLAN R2, APP-099). Absent while the write is still local, so an offline
+   * retro-close only reads as retro once it reaches the server. (APP-099 touched
+   * APP-094's file here: without it `isRetro` could never fire on a local record.)
+   */
+  loggedAt?: string;
   // true = auto-added on reconnect from a parked offline capture (interpretPending),
   // so it never passed the confirm/adjust/discard sheet. Home surfaces a review banner
   // to give that affordance back (CEO Round 12 #2). Normal online confirms are NOT flagged.
@@ -24,6 +33,7 @@ type Row = {
   sourcePhrase: string | null;
   isEstimate: number;
   detail: string;
+  updatedAt: string | null;
   syncState: string;
   needsReview: number;
 };
@@ -50,6 +60,7 @@ function rowToEntry(r: Row): LocalEntry {
     sourcePhrase: r.sourcePhrase ?? undefined,
     isEstimate: r.isEstimate === 1,
     detail: JSON.parse(r.detail) as EntryDetail,
+    loggedAt: r.updatedAt ?? undefined,
     syncState: r.syncState as LocalEntry["syncState"],
     needsReview: r.needsReview === 1,
   };

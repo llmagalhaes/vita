@@ -80,6 +80,7 @@ export function PortionPop({
   mealTime,
   dailyTotals,
   onChangeQty,
+  onSkip,
   onClose,
 }: {
   item: PlanItem;
@@ -90,6 +91,12 @@ export function PortionPop({
   mealTime?: string;
   dailyTotals: Required<MacroTotals>;
   onChangeQty: (next: number) => void;
+  /**
+   * v4 (APP-098): present on the Day timeline, where the write lands in the
+   * **day-scoped overlay** (`setOverlay`) rather than the plan. It adds "Didn't have
+   * it today" and swaps the caption for the v4 one that says what day-scoped means.
+   */
+  onSkip?: () => void;
   onClose: () => void;
 }) {
   const { t } = useTranslation();
@@ -161,9 +168,11 @@ export function PortionPop({
               {openQty != null ? (
                 <>
                   <DeltaBadge perKcal={perKcal} qty={qty} openQty={openQty} />
-                  <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
-                    {t("today.forTodayOnly")}
-                  </Text>
+                  {onSkip ? null : (
+                    <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
+                      {t("today.forTodayOnly")}
+                    </Text>
+                  )}
                 </>
               ) : null}
             </View>
@@ -229,7 +238,25 @@ export function PortionPop({
             ) : null}
           </View>
 
+          {/* v4 day-scoped tail: what "today" means, then the honest way out. */}
+          {onSkip ? (
+            <Text variant="caption" style={{ fontSize: 11, lineHeight: 16 }} color={colors.labelMuted}>
+              {t("timeline.portion.onlyToday")}
+            </Text>
+          ) : null}
+
           <Button label={t("plan.done")} onPress={onClose} />
+
+          {onSkip ? (
+            <Text
+              accessibilityRole="button"
+              onPress={onSkip}
+              style={{ alignSelf: "center", fontFamily: fonts.semiBold, fontSize: 12, textDecorationLine: "underline" }}
+              color={colors.labelMuted}
+            >
+              {t("timeline.portion.skip")}
+            </Text>
+          ) : null}
         </Card>
       </Animated.View>
     </View>

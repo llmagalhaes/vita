@@ -1,18 +1,6 @@
 import type { LocalEntry } from "../../db/entries";
-import { ALL_MUSCLES } from "../../ui/BodyMap";
-import {
-  WINDOW_DAYS,
-  aggregateDays,
-  dayKey,
-  mealTimeDots,
-  muscleStats,
-  vacationExcluder,
-  visibleDays,
-  windowDays,
-  windowRange,
-  workoutsInWindow,
-} from "../aggregate";
-import { indexFromX } from "../scrub";
+import { WINDOW_DAYS, aggregateDays, dayKey, vacationExcluder, visibleDays, windowDays, windowRange } from "../aggregate";
+import { indexFromX, nearestIndexFromX } from "../scrub";
 
 // Fixed anchor so day math is deterministic (local noon avoids tz day-flip).
 const TODAY = new Date(2026, 5, 15, 12, 0, 0); // 2026-06-15
@@ -46,8 +34,9 @@ describe("windowing", () => {
     for (const d of days) expect([d.getHours(), d.getMinutes()]).toEqual([0, 0]);
   });
 
-  test("W/F/M sizes", () => {
-    expect(windowDays("F", TODAY)).toHaveLength(15);
+  // The v3 15-day window (WINDOW_DAYS.F) died with the Food/Activity tabs (APP-100).
+  test("only W and M survive; M is 30 days", () => {
+    expect(Object.keys(WINDOW_DAYS)).toEqual(["W", "M"]);
     expect(windowDays("M", TODAY)).toHaveLength(30);
   });
 
@@ -115,67 +104,6 @@ describe("vacation-day exclusion", () => {
   });
 });
 
-describe("muscleStats → BodyMap intensity", () => {
-  const entries = [
-    entry("workout", daysAgo(1, 18), { muscles: ["chest", "shoulders"] }),
-    entry("workout", daysAgo(3, 18), { muscles: ["chest", "triceps"] }),
-    entry("workout", daysAgo(5, 18), { muscles: ["chest"] }),
-  ];
-
-  test("counts sessions per muscle, normalizes intensity to the busiest = 1", () => {
-    const { counts, intensity, ranked } = muscleStats(entries, "W", TODAY);
-    expect(counts.chest).toBe(3);
-    expect(counts.shoulders).toBe(1);
-    expect(intensity.chest).toBe(1);
-    expect(intensity.shoulders).toBeCloseTo(1 / 3, 5);
-    // ranked is sorted by count desc, chest first
-    expect(ranked[0]!.muscle).toBe("chest");
-    expect(ranked[0]!.count).toBe(3);
-  });
-
-  test("intensity keys are all real BodyMap muscles and within [0,1]", () => {
-    const { intensity } = muscleStats(entries, "W", TODAY);
-    for (const [m, v] of Object.entries(intensity)) {
-      expect(ALL_MUSCLES).toContain(m);
-      expect(v).toBeGreaterThanOrEqual(0);
-      expect(v).toBeLessThanOrEqual(1);
-    }
-  });
-
-  test("vacation workouts excluded from the counts", () => {
-    const isEx = vacationExcluder([{ start: daysAgo(1), end: daysAgo(1) }]);
-    const { counts } = muscleStats(entries, "W", TODAY, isEx);
-    expect(counts.shoulders).toBeUndefined(); // that session was on the vacation day
-    expect(counts.chest).toBe(2);
-  });
-});
-
-describe("meal-time dots", () => {
-  test("x maps clock time from 6:00→0% to 24:00→100%; before 6am clamps to 0", () => {
-    const dots = mealTimeDots(
-      [entry("meal", daysAgo(0, 12), { totals: { kcal: 400 } }), entry("meal", daysAgo(0, 5), { totals: { kcal: 200 } })],
-      "W",
-      TODAY,
-    );
-    const noon = dots.find((d) => d.xPct > 0)!;
-    expect(noon.xPct).toBeCloseTo(((12 - 6) / 18) * 100, 3);
-    const early = dots.find((d) => d.xPct === 0);
-    expect(early).toBeDefined(); // 5am clamped to 0
-  });
-});
-
-describe("workoutsInWindow", () => {
-  test("returns window workouts newest-first, honoring exclusion", () => {
-    const entries = [
-      entry("workout", daysAgo(1, 18), { title: "A", muscles: ["chest"] }),
-      entry("workout", daysAgo(4, 18), { title: "B", muscles: ["back"] }),
-      entry("meal", daysAgo(1, 8), { totals: { kcal: 100 } }),
-    ];
-    const w = workoutsInWindow(entries, "W", TODAY);
-    expect(w.map((e) => (e.detail as { title: string }).title)).toEqual(["A", "B"]);
-  });
-});
-
 describe("scrub index math", () => {
   test("indexFromX clamps to [0, count-1]", () => {
     expect(indexFromX(0, 100, 7)).toBe(0);
@@ -183,5 +111,14 @@ describe("scrub index math", () => {
     expect(indexFromX(50, 100, 10)).toBe(5);
     expect(indexFromX(-5, 100, 7)).toBe(0); // finger dragged left of the chart
     expect(indexFromX(10, 0, 7)).toBe(0); // zero width (not laid out yet)
+  });
+
+  // The weight line has vertices, not columns: it snaps to the NEAREST reading.
+  test("nearestIndexFromX rounds to the closest vertex", () => {
+    expect(nearestIndexFromX(0, 100, 5)).toBe(0);
+    expect(nearestIndexFromX(100, 100, 5)).toBe(4);
+    expect(nearestIndexFromX(51, 100, 5)).toBe(2);
+    expect(nearestIndexFromX(63, 100, 5)).toBe(3); // .52 of the way → vertex 3, not 2
+    expect(nearestIndexFromX(50, 100, 1)).toBe(0); // a single reading
   });
 });

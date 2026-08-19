@@ -23,7 +23,8 @@ test("mounts Trends, Day and Library together, with the tabs and the hint", asyn
   // so its proof of mounting is the Overview zone label.
   expect(screen.getAllByText("Trends").length).toBeGreaterThanOrEqual(2);
   expect(screen.getAllByText("Library").length).toBeGreaterThanOrEqual(2);
-  expect(screen.getByText("Today")).toBeTruthy(); // the tab
+  // Two "Today"s on screen since APP-099: the panel tab and the dock's day label.
+  expect(screen.getAllByText("Today").length).toBeGreaterThanOrEqual(2);
   expect(screen.getByText("Overview")).toBeTruthy(); // the Day panel
   expect(screen.getByText(/swipe from an edge/i)).toBeTruthy();
 });

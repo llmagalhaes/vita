@@ -1,26 +1,27 @@
 import { createContext, useContext, type ReactNode, useEffect, useRef, useState } from "react";
 import { Pressable, View, type StyleProp, type ViewStyle } from "react-native";
-import Animated, { Easing, FadeIn, FadeInDown, LinearTransition, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
-import { Chevron, Text, colors, fonts, useStartOnLayout } from "../ui";
+import Animated, { Easing, FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withTiming } from "react-native-reanimated";
+import { Text, colors, fonts, motion, radii, shadowCard, useAccent, useStartOnLayout } from "../ui";
 import { ScrubOverlay } from "./scrub";
+import { barGap, barHeightPct, tipLeftPct } from "./series";
 
 /**
- * Focus-replay epoch (APP-052). Trends is PRE-MOUNTED by TabsPager (session-6 swipe
- * fix), so a one-shot mount animation runs once, offscreen, and the bars are already
- * static by the time the user swipes in. Trends bumps this epoch every time it
- * becomes the settled tab; `TrendCard` re-keys off it so the card fade + the bars'
- * left→right grow replay on every entry (the CEO's named bug). Bumping happens on
- * navigation settle only (never mid-gesture — the pager rule stands).
+ * Focus-replay epoch (APP-052). All three panels are PRE-MOUNTED by PanelShell, so a
+ * one-shot mount animation runs once, offscreen, and the bars are already static by
+ * the time the user swipes in. TrendsPanel bumps this epoch every time it becomes the
+ * settled panel; every card re-keys off it so the card fade + the bars' left→right
+ * grow replay on every entry (the CEO's named bug). Bumped on navigation settle only
+ * — never mid-gesture (the pager rule stands).
  */
 export const TrendsReplayContext = createContext(0);
 
-/** Per-window bar stagger (prototype `tDelay`): 55ms/bar for the 7-day view, 16ms for 15/30. */
+/** Per-window bar stagger (prototype `tDelay`): 55ms/bar for the 7-day view, 16ms for 12/30. */
 export const barDelay = (i: number, count: number): number => i * (count === 7 ? 55 : 16);
 
 /**
  * A chart bar that grows up from the bottom on mount (`vtGrowY`, Fable A3). Height
  * is a % of the parent (which justifies flex-end, so growth reads bottom-up).
- * `delay` staggers neighbours. Remounts (window change, or the Trends focus-replay
+ * `delay` staggers neighbours. Remounts (range change, or the Trends focus-replay
  * key) re-grow it. The first grow starts from onLayout (see useStartOnLayout);
  * target changes tween.
  */
@@ -42,7 +43,7 @@ export function GrowBar({ pct, color, delay = 0, style }: { pct: number; color: 
 export const SectionLabel = ({ children }: { children: string }) => (
   <Text
     variant="caption"
-    style={{ fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.2, textTransform: "uppercase" }}
+    style={{ fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1, textTransform: "uppercase" }}
     color={colors.labelMuted}
   >
     {children}
@@ -64,109 +65,168 @@ export function linePath(values: number[], w: number, h: number, pad = 6): strin
 }
 
 /**
- * A Trends card: uppercase title + optional unit note + a right-hand extra
- * (e.g. a bars/curve toggle). Matches the prototype: the card is collapsed by
- * default and fades in on mount. Tapping the header opens it — only then does the
- * scrub overlay mount, so a closed card never fights the tab-swipe pager for the
- * horizontal drag (CEO bug #6). While scrubbing an open card, a readout line
- * shows and the active index is handed to `children` so bars highlight/dim.
+ * The v4 Trends card: `#FFFDF7` r24, 15×17, hairline + card shadow, and the
+ * prototype's `vtFade` entrance (8px lift, no slide). Re-keys on the replay epoch.
  */
-export function TrendCard({
-  title,
-  unitNote,
-  extra,
-  count,
-  gap,
-  readout,
-  footer,
-  children,
-  dragHint,
-  delay = 0,
-}: {
-  title: string;
-  unitNote?: string;
-  extra?: ReactNode;
-  count?: number;
-  /** Inter-bar gap (px) of the chart, so the scrub guide snaps to bar centres. Default 3. */
-  gap?: number;
-  readout?: (index: number) => { value: string; detail: string };
-  footer?: string;
-  dragHint?: string;
-  delay?: number;
-  children: (active: number | null, open: boolean) => ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState<number | null>(null);
-  const scrubbable = count != null && count > 0;
-  // On open (before any drag) the readout defaults to the last day / today,
-  // matching the prototype (`calI = idxOf('cal') ?? N-1`) — so tapping the card
-  // shows info immediately instead of only while scrubbing.
-  const readIndex = active != null ? active : count != null && count > 0 ? count - 1 : null;
-  const read = open && readIndex != null && readout ? readout(readIndex) : null;
-  const epoch = useContext(TrendsReplayContext); // re-key on Trends entry → replay fade + bar grow
-
+export function TrendsCard({ children, gap = 10, delay = 0 }: { children: ReactNode; gap?: number; delay?: number }) {
+  const epoch = useContext(TrendsReplayContext);
   return (
     <Animated.View
       key={epoch}
-      // Prototype `vtFade`: opacity 0→1 + a subtle 8px lift over 450ms ease — a
-      // smooth fade, not the ~25px slide FadeInDown ships by default.
-      entering={FadeInDown.duration(450)
-        .easing(Easing.bezier(0.25, 0.1, 0.25, 1))
+      entering={FadeInDown.duration(motion.vtFade.longMs)
+        .easing(Easing.bezier(...motion.ease))
         .delay(delay)
-        .withInitialValues({ opacity: 0, transform: [{ translateY: 8 }] })}
+        .withInitialValues({ opacity: 0, transform: [{ translateY: motion.vtFade.offsetY }] })}
       style={{
         backgroundColor: colors.card,
-        borderRadius: 24,
-        padding: 18,
+        borderRadius: radii.card,
+        paddingVertical: 15,
+        paddingHorizontal: 17,
         borderWidth: 1,
-        borderColor: "rgba(120,100,75,0.06)",
-        gap: 12,
+        borderColor: colors.borderFaint,
+        gap,
+        ...shadowCard,
       }}
     >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => setOpen((o) => !o)}
-        style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline" }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
-          <SectionLabel>{title}</SectionLabel>
-          {scrubbable && <Chevron open={open} />}
-        </View>
-        {extra ?? (unitNote ? (
-          <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
-            {unitNote}
-          </Text>
-        ) : null)}
-      </Pressable>
+      {children}
+    </Animated.View>
+  );
+}
 
-      {read && (
-        <Animated.View entering={FadeIn.duration(200)} style={{ flexDirection: "row", alignItems: "baseline", gap: 7, marginTop: -2 }}>
-          <Text style={{ fontFamily: fonts.light, fontSize: 22, letterSpacing: -0.5 }}>{read.value}</Text>
-          <Text variant="caption" style={{ fontSize: 11.5 }} color={colors.muted}>
-            {read.detail}
-          </Text>
-          {dragHint && (
-            <Text variant="caption" style={{ fontSize: 10, marginLeft: "auto" }} color={colors.labelMuted}>
-              {dragHint}
+/** Card header: uppercase label left, a counter note right (both baseline-aligned). */
+export const CardHead = ({ label, note }: { label: string; note?: string }) => (
+  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "baseline", gap: 8 }}>
+    <SectionLabel>{label}</SectionLabel>
+    {note ? (
+      <Text style={{ fontFamily: fonts.bold, fontSize: 11, flexShrink: 1, textAlign: "right" }} color={colors.muted}>
+        {note}
+      </Text>
+    ) : null}
+  </View>
+);
+
+/** Caption under a card — counters, never targets. */
+export const CardFoot = ({ children }: { children: string }) => (
+  <Text style={{ fontSize: 10.5, lineHeight: 15 }} color={colors.faint}>
+    {children}
+  </Text>
+);
+
+/**
+ * The pinned/scrubbed tooltip (`vtTip`). RN has no `translateX(-50%)`, so the pill
+ * measures itself once and offsets by half its own width; it stays invisible for that
+ * one frame rather than flashing off-centre.
+ */
+function Tip({ text, leftPct }: { text: string; leftPct: number }) {
+  const accent = useAccent();
+  const [w, setW] = useState(0);
+  return (
+    <Animated.View
+      entering={FadeIn.duration(motion.vtTip.durationMs).easing(Easing.bezier(...motion.vtTip.bezier))}
+      onLayout={(e) => setW(e.nativeEvent.layout.width)}
+      pointerEvents="none"
+      style={{
+        position: "absolute",
+        top: 0,
+        left: `${leftPct}%`,
+        transform: [{ translateX: -w / 2 }],
+        opacity: w ? 1 : 0,
+        zIndex: 2,
+        backgroundColor: accent,
+        borderRadius: 9,
+        paddingVertical: 4,
+        paddingHorizontal: 9,
+      }}
+    >
+      <Text style={{ fontFamily: fonts.extraBold, fontSize: 10.5 }} color="#FFF9F1">
+        {text}
+      </Text>
+    </Animated.View>
+  );
+}
+
+/**
+ * One Trends bar chart: a 72px box of `flex:1` bars, the pinned one in accent, an
+ * optional axis-label row, and the scrub/pin overlay on top of the whole block (the
+ * prototype puts the pointer handlers on the wrapper, tooltip padding included).
+ */
+export function BarChart({
+  values,
+  color,
+  labels,
+  pinned,
+  tip,
+  onScrub,
+  onEnd,
+  accessibilityLabel,
+}: {
+  values: number[];
+  color: string;
+  /** Axis labels (W and Y only — the 30-day month has no room). */
+  labels?: string[];
+  pinned: number | null;
+  tip?: string;
+  onScrub: (i: number) => void;
+  onEnd: () => void;
+  accessibilityLabel: string;
+}) {
+  const accent = useAccent();
+  const n = values.length;
+  const max = Math.max(...values, 1);
+  const gap = barGap(n);
+  return (
+    <View style={{ position: "relative", paddingTop: 26 }}>
+      {tip != null && pinned != null && <Tip text={tip} leftPct={tipLeftPct(pinned, n)} />}
+      <View style={{ flexDirection: "row", alignItems: "flex-end", height: 72, gap }}>
+        {values.map((v, i) => (
+          <GrowBar
+            key={i}
+            pct={barHeightPct(v, max)}
+            color={i === pinned ? accent : color}
+            delay={barDelay(i, n)}
+            style={{ flex: 1, borderRadius: 3 }}
+          />
+        ))}
+      </View>
+      {labels && (
+        <View style={{ flexDirection: "row", paddingTop: 5, gap }}>
+          {labels.map((l, i) => (
+            <Text key={i} style={{ flex: 1, textAlign: "center", fontSize: 9, fontFamily: fonts.bold }} color={colors.faint}>
+              {l}
             </Text>
-          )}
-        </Animated.View>
+          ))}
+        </View>
       )}
+      <ScrubOverlay count={n} onScrub={onScrub} onEnd={onEnd} accessibilityLabel={accessibilityLabel} />
+    </View>
+  );
+}
 
-      {/* Smoothly tween the chart's height when it grows on open (prototype `transition:height .3s`). */}
-      <Animated.View layout={LinearTransition.duration(300)} style={{ position: "relative" }}>
-        {children(active, open)}
-        {open && count != null && count > 0 && (
-          <ScrubOverlay count={count} gap={gap} active={active} onScrub={setActive} onEnd={() => setActive(null)} accessibilityLabel={title} />
-        )}
-      </Animated.View>
-
-      {footer && (
-        <Text variant="caption" style={{ fontSize: 11 }} color={colors.muted}>
-          {footer}
+/** The detail card a pin opens: `#FBF6EC` r16, "· " lines, optional day jump. */
+export function DetailCard({ title, lines, onOpenDay, openLabel }: { title: string; lines: string[]; onOpenDay?: () => void; openLabel?: string }) {
+  const accent = useAccent();
+  return (
+    <Animated.View
+      entering={FadeIn.duration(motion.vtFade.durationMs)}
+      style={{ backgroundColor: colors.sheet, borderRadius: radii.innerBlockTight, paddingVertical: 11, paddingHorizontal: 13, gap: 5 }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Text style={{ fontFamily: fonts.extraBold, fontSize: 11.5, flexShrink: 1 }} color={colors.inkHeading}>
+          {title}
         </Text>
-      )}
+        {onOpenDay && openLabel && (
+          <Pressable accessibilityRole="button" onPress={onOpenDay} hitSlop={12} style={{ marginLeft: "auto" }}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 11 }} color={accent}>
+              {openLabel}
+            </Text>
+          </Pressable>
+        )}
+      </View>
+      {lines.map((l, i) => (
+        <Text key={i} style={{ fontSize: 11.5, fontFamily: fonts.semiBold, lineHeight: 17 }} color={colors.inkMuted}>
+          {`· ${l}`}
+        </Text>
+      ))}
     </Animated.View>
   );
 }

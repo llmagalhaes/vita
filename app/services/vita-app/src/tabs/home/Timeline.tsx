@@ -18,7 +18,7 @@ import type { LocalEntry } from "../../db/entries";
 import { formatVolume } from "../../lib/units";
 import { Chevron, PressScale, Text, colors, entryPalette, fonts, shadowRow } from "../../ui";
 import { tabsPagerRef } from "../../nav/pagerRef";
-import { MAXD } from "./dock";
+import { MAXD } from "../../day/dock/dock";
 import { daySummary, mealExpanded, workoutExpanded } from "./timelineData";
 
 const GUTTER_W = 38;

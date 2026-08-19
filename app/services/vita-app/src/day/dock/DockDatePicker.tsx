@@ -13,6 +13,7 @@ import Animated, {
 import { colors, fonts, shadowTooltip, useAccent } from "../../ui";
 import { tabsPagerRef } from "../../nav/pagerRef";
 import { selectionTick } from "../../lib/haptics";
+import type { DayStatus } from "../statuses";
 import {
   AMPLITUDE,
   IDLE_SELECTED_SCALE,
@@ -27,6 +28,22 @@ import {
 
 const ROW_H = 44;
 const DOT = 7;
+
+/**
+ * The dot's resting colour carries the day's record status (v4, APP-099): green
+ * as-planned · amber adjusted · a RING for a day with no record — an absence is
+ * drawn as an absence, never as a failed fill. Without statuses (v3 Home) every
+ * dot keeps the prototype's neutral sand.
+ */
+const RING_BASE = "rgba(120,100,75,0)"; // transparent, but interpolable towards the accent
+export const dotBase = (status?: DayStatus): { color: string; ring: boolean } =>
+  status === "asPlanned"
+    ? { color: colors.green.fill, ring: false }
+    : status === "adjusted"
+      ? { color: colors.amber.fill, ring: false }
+      : status === "unrecorded"
+        ? { color: RING_BASE, ring: true }
+        : { color: colors.dotIdle, ring: false };
 // The CSS spring `transform .55s cubic-bezier(.34,1.56,.64,1)` — an overshoot
 // bezier. Driving the single `drag` value 1→0 with it reproduces the settle.
 const SETTLE = { duration: 550, easing: Easing.bezier(0.34, 1.56, 0.64, 1) } as const;
@@ -45,6 +62,7 @@ function Dot({
   rowWidth,
   selected,
   accent,
+  status,
 }: {
   i: number;
   fingerX: SharedValue<number>;
@@ -52,7 +70,9 @@ function Dot({
   rowWidth: SharedValue<number>;
   selected: SharedValue<number>;
   accent: string;
+  status?: DayStatus;
 }) {
+  const base = dotBase(status);
   const style = useAnimatedStyle(() => {
     const slot = rowWidth.value / NDAYS;
     const mag = slot > 0 ? gaussian(Math.abs(fingerX.value - dotCenter(i, slot)), spreadFor(slot)) : 0;
@@ -69,12 +89,12 @@ function Dot({
     const idleOpacity = isSel ? 1 : 0.85;
     const opacity = idleOpacity + (dragOpacity - idleOpacity) * d;
 
-    // colour: idle → accent if selected else dotIdle; drag → tint by mag.
+    // colour: idle → accent if selected else the status colour; drag → tint by mag.
     const colorT = isSel * (1 - d) + mag * d;
     return {
       transform: [{ translateY: ty }, { scale }],
       opacity,
-      backgroundColor: interpolateColor(colorT, [0, 1], [colors.dotIdle, accent]),
+      backgroundColor: interpolateColor(colorT, [0, 1], [base.color, accent]),
     };
   });
 
@@ -87,6 +107,7 @@ function Dot({
           height: DOT,
           borderRadius: DOT / 2,
           transformOrigin: "center bottom",
+          ...(base.ring ? { borderWidth: 1.5, borderColor: colors.ringNoRecord } : {}),
         },
         style,
       ]}
@@ -177,16 +198,20 @@ function Tip({
  * the touch from touch-down (like the prototype's `touch-action:none`).
  *
  * `dayDates` are the 10 tooltip labels indexed by dot (dot i → dayDates[i]);
- * the caller passes them newest-last so dayDates[9] is today.
+ * the caller passes them newest-last so dayDates[9] is today. `statuses` is
+ * indexed the same way and colours each dot by that day's record status.
  */
 export function DockDatePicker({
   selectedOffset,
   goDay,
   dayDates,
+  statuses = [],
 }: {
   selectedOffset: number;
   goDay: (offset: number) => void;
   dayDates: string[];
+  /** Per-dot record status (dot i → statuses[i]); omitted = the neutral v3 dock. */
+  statuses?: (DayStatus | undefined)[];
 }) {
   const accent = useAccent();
   const rowWidth = useSharedValue(0);
@@ -254,7 +279,15 @@ export function DockDatePicker({
         {Array.from({ length: NDAYS }, (_, i) => (
           <View key={i} style={{ flex: 1, alignItems: "center", justifyContent: "flex-end", height: "100%", overflow: "visible" }}>
             <Tip i={i} fingerX={fingerX} dragging={dragging} rowWidth={rowWidth} label={dayDates[i] ?? ""} accent={accent} />
-            <Dot i={i} fingerX={fingerX} drag={drag} rowWidth={rowWidth} selected={selected} accent={accent} />
+            <Dot
+              i={i}
+              fingerX={fingerX}
+              drag={drag}
+              rowWidth={rowWidth}
+              selected={selected}
+              accent={accent}
+              status={statuses[i]}
+            />
           </View>
         ))}
       </View>

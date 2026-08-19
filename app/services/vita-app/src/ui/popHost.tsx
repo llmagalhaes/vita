@@ -8,7 +8,7 @@
  * GestureHandlerRootView — so the card centers on the screen and the slider's Pan
  * still fires (same gesture root, no separate window). Mirrors the toast store.
  */
-import { type ReactNode, useSyncExternalStore } from "react";
+import { type ReactNode, useEffect, useId, useSyncExternalStore } from "react";
 
 const nodes = new Map<string, ReactNode>();
 const listeners = new Set<() => void>();
@@ -19,6 +19,20 @@ export function setPopNode(id: string, node: ReactNode): void {
   if (node == null) nodes.delete(id);
   else nodes.set(id, node);
   emit();
+}
+
+/**
+ * Portal `node` to the host while the caller is mounted, and always return null so
+ * the caller renders nothing in place. Same reason as PopOverlay's: a sheet declared
+ * inside a panel's ScrollView would anchor to the tall scroll CONTENT, not the screen.
+ * (Added by APP-099 for the calendar + past-day muscle sheets, which live in the dock.)
+ */
+export function usePortal(node: ReactNode): null {
+  const id = useId();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => setPopNode(id, node));
+  useEffect(() => () => setPopNode(id, null), [id]);
+  return null;
 }
 
 // A new array only when the set of nodes changes, so useSyncExternalStore is stable.

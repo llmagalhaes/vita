@@ -1,97 +1,92 @@
 import { useState } from "react";
 import { StyleSheet, View, type LayoutChangeEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
-import { colors } from "../ui";
+import { runOnJS, useSharedValue } from "react-native-reanimated";
 import { tabsPagerRef } from "../nav/pagerRef";
 
-/** Touch x (px within the chart) → the day index under the finger. Pure/tested. */
+/** Touch x → the BAR under the finger (`floor`, the prototype's `mkI`). Pure/tested. */
 export const indexFromX = (x: number, width: number, count: number): number => {
   "worklet";
   return width <= 0 || count <= 0 ? 0 : Math.max(0, Math.min(count - 1, Math.floor((x / width) * count)));
 };
 
 /**
- * Scrub-by-drag overlay — same gesture-handler Pan + runOnJS pattern as Slider.
- * Absolute-fills its parent chart; onScrub fires the day index per frame,
- * onEnd on release (so the card can clear its readout). No new deps.
+ * Touch x → the NEAREST VERTEX (`round`, the prototype's `wtI`). The weight line has
+ * points, not columns, so it snaps to the closest reading instead of the slot the
+ * finger is inside — a deliberate difference from the bars, not an oversight.
+ */
+export const nearestIndexFromX = (x: number, width: number, count: number): number => {
+  "worklet";
+  return width <= 0 || count <= 1 ? 0 : Math.max(0, Math.min(count - 1, Math.round((x / width) * (count - 1))));
+};
+
+/**
+ * Scrub-and-PIN overlay (APP-100). Absolute-fills its chart; the same gesture-handler
+ * Pan + runOnJS pattern as Slider, no new deps.
  *
- * Only mounted while a Trends card is open, so it never fights the tab-swipe pager
- * for a closed card. When open it wins the horizontal drag: `blocksExternalGesture`
- * makes the pager wait for this to fail, and `activeOffsetX`/`failOffsetY` claim
- * clear horizontal moves only — a vertical drag falls through to the ScrollView.
- * A 2px guide line marks the active day (prototype parity, CEO bug #6 / Fable B3).
+ * The v4 rule (README §3): pointer-down selects, a move updates AND marks the gesture
+ * as moved, release clears the selection **only if it moved** — so a tap PINS the bar
+ * and a drag is transient. The pinned index is owned by the panel (one pin across all
+ * four charts), which is why this component holds no selection state of its own.
+ *
+ * It wins the horizontal drag against the panel edge-swipe: `blocksExternalGesture`
+ * makes the shell's pan wait for this one to fail, and `activeOffsetX`/`failOffsetY`
+ * claim clear horizontal moves only — a vertical drag falls through to the ScrollView.
  */
 export function ScrubOverlay({
   count,
-  active,
-  gap = 3,
+  snap = "bar",
   onScrub,
   onEnd,
   accessibilityLabel,
 }: {
   count: number;
-  active?: number | null;
-  /** Inter-bar gap (px) of the chart below, so the guide lands on the true column centre. */
-  gap?: number;
+  /** `bar` = the column under the finger · `vertex` = the nearest point (weight line). */
+  snap?: "bar" | "vertex";
   onScrub: (index: number) => void;
+  /** Release after a real drag — the panel drops the pin. Not called on a tap. */
   onEnd?: () => void;
   accessibilityLabel?: string;
 }) {
   const [width, setWidth] = useState(0);
   const onLayout = (e: LayoutChangeEvent) => setWidth(e.nativeEvent.layout.width);
 
-  // Touch x lives on the UI thread so the guide tracks the finger without a JS
-  // round-trip (APP-044). onScrub still fires for the readout, but only when the
-  // day index actually changes — cuts a per-frame JS hop to one hop per column.
-  const touchX = useSharedValue<number | null>(null);
+  const startIdx = useSharedValue(-1);
   const lastIdx = useSharedValue(-1);
+  const moved = useSharedValue(false);
+
+  const vertex = snap === "vertex";
 
   const pan = Gesture.Pan()
     .blocksExternalGesture(tabsPagerRef)
     .activeOffsetX([-10, 10])
     .failOffsetY([-16, 16])
     .onBegin((e) => {
-      touchX.value = e.x;
-      const i = indexFromX(e.x, width, count);
+      const i = vertex ? nearestIndexFromX(e.x, width, count) : indexFromX(e.x, width, count);
+      startIdx.value = i;
       lastIdx.value = i;
+      moved.value = false;
       runOnJS(onScrub)(i);
     })
     .onUpdate((e) => {
-      touchX.value = e.x;
-      const i = indexFromX(e.x, width, count);
+      const i = vertex ? nearestIndexFromX(e.x, width, count) : indexFromX(e.x, width, count);
+      if (i !== startIdx.value) moved.value = true;
       if (i !== lastIdx.value) {
         lastIdx.value = i;
         runOnJS(onScrub)(i);
       }
     })
     .onFinalize(() => {
-      touchX.value = null;
+      const drag = moved.value;
+      startIdx.value = -1;
       lastIdx.value = -1;
-      if (onEnd) runOnJS(onEnd)();
+      moved.value = false;
+      if (drag && onEnd) runOnJS(onEnd)(); // a tap keeps the pin; a drag lets go
     });
-
-  // Guide SNAPS to a bar's column centre (prototype parity: `calGuideX = 4 + i*step`,
-  // never the raw finger). While dragging it tracks `lastIdx` (the column under the
-  // finger, UI thread); otherwise it follows the externally-selected `active`. The
-  // centre is gap-aware — columns are `flex:1` separated by `gap`, so the true centre
-  // of column i is `i*(colW+gap) + colW/2`, not the gapless `(i+0.5)/count*width`.
-  const guideStyle = useAnimatedStyle(() => {
-    const idx = touchX.value != null ? lastIdx.value : active ?? -1;
-    if (idx < 0 || width <= 0 || count <= 0) return { opacity: 0, transform: [{ translateX: 0 }] };
-    const colW = (width - (count - 1) * gap) / count;
-    const cx = idx * (colW + gap) + colW / 2;
-    return { opacity: 1, transform: [{ translateX: cx - 1 }] }; // -1 centres the 2px line on cx
-  });
 
   return (
     <GestureDetector gesture={pan}>
-      <View accessibilityLabel={accessibilityLabel} onLayout={onLayout} style={StyleSheet.absoluteFill}>
-        <Animated.View
-          pointerEvents="none"
-          style={[{ position: "absolute", top: 0, bottom: 0, left: 0, width: 2, backgroundColor: colors.scrubGuide }, guideStyle]}
-        />
-      </View>
+      <View accessibilityLabel={accessibilityLabel} onLayout={onLayout} style={StyleSheet.absoluteFill} />
     </GestureDetector>
   );
 }

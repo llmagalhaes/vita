@@ -35,7 +35,11 @@ import { MacrosCard } from "./overview/MacrosCard";
 import { WaterCard } from "./overview/WaterCard";
 import { WeightCard } from "./overview/WeightCard";
 import { dayCounters } from "./state";
-import { ZERO, dayMeals } from "./record";
+import { ZERO, dayKey, dayMeals } from "./record";
+import { DayDock } from "./dock/DayDock";
+import { PastDay } from "./PastDay";
+import { useSelectedDate } from "./selection";
+import { Timeline } from "./timeline/Timeline";
 import { latestWeight } from "./weight";
 
 /** Zone heading — 11.5/800 uppercase ls 1.4 `#B7AB9C` (README §1). */
@@ -68,6 +72,7 @@ export function DayPanel() {
   const scene = useSceneName();
   const domains = useDomains();
   const version = useLogVersion(); // any local write re-reads everything below
+  const selectedDate = useSelectedDate(); // APP-099: which day the dock is showing
   const scrollY = useSharedValue(0);
   const onScroll = useAnimatedScrollHandler((e) => {
     scrollY.value = e.contentOffset.y;
@@ -134,25 +139,38 @@ export function DayPanel() {
 
       <SwipeHint />
 
-      {domains.ovOn && <ZoneLabel>{t("day.zones.overview")}</ZoneLabel>}
+      {/* APP-099 — day travel: label row + dock sit between the header and Overview,
+          past-day cards right below (prototype lines 336–429). */}
+      <DayDock />
+      {selectedDate !== dayKey() && <PastDay date={selectedDate} />}
 
-      {domains.rowWM && (
-        <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start", paddingTop: 2 }}>
-          {domains.water && <WaterCard totalMl={data.waterMl} drinks={data.drinks} />}
-          {domains.meals && <MacrosCard recorded={data.recorded} plan={data.planTotals} meals={data.macroMeals} />}
-        </View>
+      {/* Today-only zones — the prototype's `todayOn` gate: a past day shows only
+          the dock + status cards above. */}
+      {selectedDate === dayKey() && (
+        <>
+          {domains.ovOn && <ZoneLabel>{t("day.zones.overview")}</ZoneLabel>}
+
+          {domains.rowWM && (
+            <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start", paddingTop: 2 }}>
+              {domains.water && <WaterCard totalMl={data.waterMl} drinks={data.drinks} />}
+              {domains.meals && <MacrosCard recorded={data.recorded} plan={data.planTotals} meals={data.macroMeals} />}
+            </View>
+          )}
+
+          {domains.habits && <HabitsCard habits={data.habits} today={data.today} />}
+
+          {domains.weight && <WeightCard latest={data.weight} />}
+
+          {domains.tlOn && (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 6, paddingBottom: 2 }}>
+              <ZoneLabel>{t("day.zones.yourDay")}</ZoneLabel>
+            </View>
+          )}
+          {/* APP-098 — "Your day" timeline. */}
+          {domains.tlOn && <Timeline />}
+        </>
       )}
 
-      {domains.habits && <HabitsCard habits={data.habits} today={data.today} />}
-
-      {domains.weight && <WeightCard latest={data.weight} />}
-
-      {domains.tlOn && (
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingTop: 6, paddingBottom: 2 }}>
-          <ZoneLabel>{t("day.zones.yourDay")}</ZoneLabel>
-        </View>
-      )}
-      {/* APP-098 mounts <Timeline /> here (src/day/timeline/), APP-099 the dock. */}
     </Animated.ScrollView>
   );
 }

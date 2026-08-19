@@ -163,7 +163,7 @@ const midnight = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate(
 export const dayOffsetOf = (at: string, today: Date): number =>
   Math.round((midnight(today) - midnight(new Date(at))) / 86_400_000);
 
-/** ponytail: the dock shows today + the previous 9 days (src/tabs/home/dock NDAYS); APP-099 moves that file. */
+/** ponytail: the dock shows today + the previous 9 days (`NDAYS` in src/day/dock/dock.ts). */
 const DOCK_DAYS = 10;
 
 export type SessionRow = {

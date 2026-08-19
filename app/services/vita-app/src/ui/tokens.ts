@@ -81,6 +81,8 @@ export const colors = {
     bg2: "#5C4A4A",
     angleDeg: 135,
     text: "#F7F0E4",
+    /** Quiet cream on the recap gradient (`rgba(247,240,228,.65)`) — the recap footer. */
+    textSoft: "rgba(247,240,228,0.65)",
     label: "#D8C9B4",
     dashed: "rgba(247,240,228,0.22)",
     pill: "rgba(247,240,228,0.14)",
