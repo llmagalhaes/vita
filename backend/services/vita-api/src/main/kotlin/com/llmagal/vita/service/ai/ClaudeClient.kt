@@ -66,7 +66,7 @@ data class TypedToolCall<T>(
 class ClaudeClient(
     @Value("\${vita.ai.base-url:https://api.anthropic.com}") baseUrl: String,
     @Value("\${vita.ai.model:claude-haiku-4-5}") private val model: String,
-    @Value("\${vita.ai.max-output-tokens:1024}") private val maxTokens: Int,
+    @Value("\${vita.ai.max-output-tokens:4096}") private val maxTokens: Int,
     @Value("\${vita.ai.timeout-seconds:10}") private val timeoutSeconds: Long,
     @Value("\${keys.anthropic:}") private val apiKey: String,
     @Value("\${vita.ai.plan-timeout-seconds:25}") planTimeoutSeconds: Long,
@@ -207,7 +207,14 @@ class ClaudeClient(
         type: Class<T>,
     ): T? =
         try {
-            val content = mapper.readTree(response).get("content") ?: return null
+            val root = mapper.readTree(response)
+            // Review M1: a cap trip truncates the tool JSON, which then looks exactly like "nothing to
+            // record" downstream (same null → same 422 → same outcome=uninterpretable). WARN so the two
+            // are distinguishable in CloudWatch. Every path lands here — text, photo and the plan tools.
+            if (root.get("stop_reason")?.asString() == "max_tokens") {
+                log.warn("Claude response truncated: stop_reason=max_tokens — raise the max-output-tokens budget for this call")
+            }
+            val content = root.get("content") ?: return null
             val toolUse = content.firstOrNull { it.get("type")?.asString() == "tool_use" } ?: return null
             val input = toolUse.get("input") ?: return null
             mapper.treeToValue(input, type)

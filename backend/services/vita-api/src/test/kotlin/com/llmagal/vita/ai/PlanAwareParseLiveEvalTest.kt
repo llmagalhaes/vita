@@ -48,7 +48,8 @@ class PlanAwareParseLiveEvalTest {
 
         val plans = mockk<PlanService>()
         every { plans.currentEatingPlan(USER) } returns plan
-        val client = ClaudeClient(baseUrl, model, 1024, 20, apiKey, 25, 2048, 16384, 300)
+        // 4096 = the prod budget (review M1): a real matched meal's full composition does not fit 1024.
+        val client = ClaudeClient(baseUrl, model, 4096, 20, apiKey, 25, 2048, 16384, 300)
         val service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6", plans)
 
         val drafts = service.parseText(NOTE, CAPTURED_AT, USER).drafts

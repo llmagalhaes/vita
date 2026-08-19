@@ -1,5 +1,6 @@
 package com.llmagal.vita.ai
 
+import ch.qos.logback.classic.Level
 import ch.qos.logback.classic.Logger
 import ch.qos.logback.classic.spi.ILoggingEvent
 import ch.qos.logback.core.read.ListAppender
@@ -24,6 +25,7 @@ import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -43,14 +45,25 @@ class PlanAwareParseTest {
     private val plans = mockk<PlanService>()
     private lateinit var service: ParseService
     private lateinit var logs: ListAppender<ILoggingEvent>
+    private lateinit var clientLogs: ListAppender<ILoggingEvent>
 
     @BeforeEach
     fun setUp() {
         wm.resetAll()
+        // maxTokens stays 1024 here: the golden locks the PROMPT shape, and max_tokens is a
+        // config value (prod runs 4096 since review M1), not part of what 0.7.0 vs 0.8.0 sends.
         val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048, 16384, 300)
         service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6", plans)
         logs = ListAppender<ILoggingEvent>().apply { start() }
         (LoggerFactory.getLogger(ParseService::class.java) as Logger).addAppender(logs)
+        clientLogs = ListAppender<ILoggingEvent>().apply { start() }
+        (LoggerFactory.getLogger(ClaudeClient::class.java) as Logger).addAppender(clientLogs)
+    }
+
+    @AfterEach
+    fun tearDown() {
+        (LoggerFactory.getLogger(ParseService::class.java) as Logger).detachAppender(logs)
+        (LoggerFactory.getLogger(ClaudeClient::class.java) as Logger).detachAppender(clientLogs)
     }
 
     @Test
@@ -166,6 +179,45 @@ class PlanAwareParseTest {
 
         val line = logs.list.map { it.formattedMessage }.single { it.startsWith("parse capture=") }
         assertThat(line).isEqualTo("parse capture=text outcome=success plan=true inputTokens=2871 outputTokens=412")
+    }
+
+    @Test
+    fun `a truncated response (stop_reason max_tokens) still 422s but is WARNed as truncation`() {
+        // Review M1: without this line a cap trip is indistinguishable from "nothing to record".
+        givenPlan()
+        // What the API actually returns on a cap trip: a well-formed envelope whose tool `input`
+        // stopped mid-generation — here before `drafts` was ever produced.
+        stub(
+            """
+            {"id":"msg_1","type":"message","role":"assistant","model":"claude-haiku-4-5",
+             "stop_reason":"max_tokens","usage":{"input_tokens":2871,"output_tokens":1024},
+             "content":[{"type":"tool_use","id":"toolu_1","name":"record_log_entries","input":{}}]}
+            """.trimIndent(),
+        )
+
+        assertThatThrownBy { service.parseText("almocei e jantei como planejado", CAPTURED_AT, USER) }
+            .isInstanceOf(ResponseStatusException::class.java)
+
+        val warn = clientLogs.list.single { it.level == Level.WARN }
+        assertThat(warn.formattedMessage).contains("truncated").contains("max_tokens")
+    }
+
+    @Test
+    fun `an unreadable plan degrades to the plan-less prompt instead of failing the capture`() {
+        // Review M2: a bad plan blob (GCM tag mismatch, missing DEK, untypeable doc) must not take
+        // down water/workout captures. Same request bytes as no plan at all.
+        every { plans.currentEatingPlan(USER) } throws IllegalStateException("no DEK for user")
+        stub(toolResponse("""{"drafts":[{"type":"water","occurredAt":"$AT","detail":{"amountMl":250}}]}"""))
+
+        val result = service.parseText("a glass of water", CAPTURED_AT, USER)
+
+        assertThat(result.drafts).hasSize(1)
+        assertThat(sentBody()).isEqualTo(golden())
+        assertThat(logs.list.single { it.level == Level.WARN }.formattedMessage)
+            .contains("Plan unreadable")
+            .contains("IllegalStateException")
+        assertThat(logs.list.map { it.formattedMessage }.single { it.startsWith("parse capture=") })
+            .contains("plan=false")
     }
 
     private fun givenPlan() {

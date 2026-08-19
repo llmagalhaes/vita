@@ -26,11 +26,14 @@ and no streaks, and it does not build an advertising profile. There is no
 third-party analytics or ad tracking in the app.</p>
 
 <h2>How it is stored</h2>
-<p>Personal content is encrypted before it is written to the database, with
-AES-256-GCM under a key that belongs to your account alone. When you delete your
-account that key is destroyed first — every stored value encrypted with it
-becomes permanently unreadable — and the rows are then deleted. Deletion runs
-after a 7-day grace period, and signing in during that window cancels it.</p>
+<p>Your health content — entries, plans, notes and settings — is encrypted before
+it is written to the database, with AES-256-GCM under a key that belongs to your
+account alone. When you delete your account that key is destroyed first, which
+makes every value encrypted with it permanently unreadable, and the rows are then
+deleted. Your email address is encrypted too, but under a service key rather than
+your own (Vita has to find your account before you are signed in); it is removed
+when the account rows are deleted. Deletion runs after a 7-day grace period, and
+signing in during that window cancels it.</p>
 
 <h2>Health Connect and health data</h2>
 <p>On Android, Vita can read activity data from Health Connect (active energy,
@@ -39,9 +42,10 @@ stored in the app's local database and is never uploaded to Vita's servers. You
 can revoke the permission at any time in Health Connect.</p>
 
 <h2>Photos and documents</h2>
-<p>Photos of meals and imported plan documents are uploaded so they can be read
-once and turned into entries. The uploaded file expires automatically after 30
-days and is removed from storage.</p>
+<p>A photo of a meal is sent straight to the interpretation step and discarded —
+Vita never stores the image, on disk or in the database. Only an imported plan
+document (a PDF) is stored, so it can be read and turned into your plan; that
+file expires automatically after 30 days and is removed from storage.</p>
 
 <h2>Interpretation</h2>
 <p>Text, voice transcripts, photos and plan documents you submit are sent to

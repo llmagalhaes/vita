@@ -141,6 +141,15 @@ class EntryFlowTest {
     }
 
     @Test
+    fun `a blank or oversized Idempotency-Key is a 400`() {
+        // Blank collided every write under one key (409); an over-long key blew the btree
+        // index limit as a 500 (review L3). Both are the client's mistake → 400.
+        post(mealBody(), " ").expectStatus().isBadRequest
+        post(mealBody(), "k".repeat(201)).expectStatus().isBadRequest
+        post(mealBody(), "k".repeat(200)).expectStatus().isCreated
+    }
+
+    @Test
     fun `same key with a different body is a 409`() {
         val k = key()
         post(mealBody(), k).expectStatus().isCreated

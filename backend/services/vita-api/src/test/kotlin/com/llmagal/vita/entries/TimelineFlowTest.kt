@@ -218,6 +218,14 @@ class TimelineFlowTest {
         assertThat(seen).isEqualTo(ids)
     }
 
+    @Test
+    fun `a malformed cursor is a 400, not a 500`() {
+        // "YWJj" decodes to "abc" — no "|", so the destructuring used to throw
+        // IndexOutOfBoundsException past both catches → 500 (review L2).
+        get("/v1/entries?cursor=YWJj").expectStatus().isBadRequest
+        get("/v1/entries?cursor=not-base64!!").expectStatus().isBadRequest
+    }
+
     @Suppress("UNCHECKED_CAST")
     @Test
     fun `get returns one entry and a foreign entry is 404`() {

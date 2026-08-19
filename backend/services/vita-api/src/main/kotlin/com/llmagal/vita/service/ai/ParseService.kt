@@ -58,8 +58,18 @@ class ParseService(
         return respond(result, capturedAt, inputMethod = "photo", sourcePhrase = caption, planAware = digest != null)
     }
 
-    /** The user's current plan as prompt text, or null (no user, no plan, no ids) → 0.7.0 prompt. */
-    private fun planDigest(userId: UUID?): String? = userId?.let { plans.currentEatingPlan(it) }?.let(PlanDigest::of)
+    /**
+     * The user's current plan as prompt text, or null (no user, no plan, no ids) → 0.7.0 prompt.
+     * Review M2: an unreadable plan (undecryptable blob, missing DEK, a doc that no longer types)
+     * is "no plan", not a failed capture — water and workout captures have nothing to do with it.
+     * Exception CLASS only in the log; the plan is C3 content.
+     */
+    private fun planDigest(userId: UUID?): String? {
+        if (userId == null) return null
+        return runCatching { plans.currentEatingPlan(userId)?.let(PlanDigest::of) }
+            .onFailure { log.warn("Plan unreadable for capture, falling back to the plan-less prompt: {}", it.javaClass.name) }
+            .getOrNull()
+    }
 
     /** Shared tail for both pipelines: map to drafts, record token/cost metrics, 422 if none. */
     @Suppress("LongParameterList") // one call's worth of context; a holder object buys nothing

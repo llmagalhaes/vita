@@ -76,6 +76,10 @@ class EntryService(
     ): EntryResult {
         // Normalize the detail (typed round-trip + meal-total recompute) so both
         // storage and the idempotency hash are canonical, whitespace-independent.
+        // Review L3: blank collides every write under one key (409s); a key over Postgres' btree
+        // entry limit (~2704 bytes) is a 500 out of the UNIQUE index. Both are 400s.
+        if (idempotencyKey.isBlank()) badRequest("Idempotency-Key must not be blank.")
+        if (idempotencyKey.length > MAX_IDEMPOTENCY_KEY) badRequest("Idempotency-Key must be <= $MAX_IDEMPOTENCY_KEY characters.")
         if (new.inputMethod !in INPUT_METHODS) badRequest("Unknown inputMethod: ${new.inputMethod}")
         val detail = normalize(new.type, new.detail)
         val denorm = denormalize(new.type, detail)
@@ -218,8 +222,11 @@ class EntryService(
 
     private fun decodeCursor(cursor: String): EntryCursor =
         try {
-            val (instant, id) = String(Base64.getUrlDecoder().decode(cursor)).split("|", limit = 2)
-            EntryCursor(Instant.parse(instant).atOffset(ZoneOffset.UTC), UUID.fromString(id))
+            // A cursor with no "|" gives a 1-element list; destructuring it throws
+            // IndexOutOfBoundsException, which neither catch below names → 500 (review L2).
+            val parts = String(Base64.getUrlDecoder().decode(cursor)).split("|", limit = 2)
+            if (parts.size != 2) badRequest("Invalid cursor.")
+            EntryCursor(Instant.parse(parts[0]).atOffset(ZoneOffset.UTC), UUID.fromString(parts[1]))
         } catch (_: IllegalArgumentException) {
             badRequest("Invalid cursor.")
         } catch (_: DateTimeException) {
@@ -400,6 +407,7 @@ class EntryService(
         const val MIN_WEIGHT_KG = 20.0
         const val MAX_WEIGHT_KG = 500.0
         const val MAX_LIMIT = 100
+        const val MAX_IDEMPOTENCY_KEY = 200 // a UUID is 36; 200 is generous and far under the btree limit
 
         // Accepted `type` filter values — every entry type (checkin now real, BE-024).
         val FILTERABLE_TYPES: Set<String> = EntryType.entries.map { it.name }.toSet()

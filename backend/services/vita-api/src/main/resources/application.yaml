@@ -49,7 +49,14 @@ vita:
     # WireMock stub in tests. Key comes from keys.anthropic (env/secrets.yaml only).
     model: ${VITA_AI_MODEL:claude-haiku-4-5}
     base-url: ${ANTHROPIC_BASE_URL:https://api.anthropic.com}
-    max-output-tokens: 1024
+    # BE-051 review M1: 1024 was the 0.7.0 budget, when a matched meal did not exist. The plan-aware
+    # prompt asks for the matched meal's FULL composition (every item + replacesItemId), so the real
+    # plan's 7-item Almoço is ~450 output tokens and "almocei e jantei como planejado" ~900+; a cap
+    # trip returns stop_reason=max_tokens → truncated tool JSON → null → a 422 the user reads as
+    # "plan matching doesn't work". 4096 = 4× the old budget: the ~2× content widening plus the same
+    # ~2× headroom BE-039 took (2048→3072), and covers the 5-draft ceiling. Only produced tokens are
+    # billed, so the margin is free.
+    max-output-tokens: 4096
     timeout-seconds: 10
     # BE-014 abuse guard: per-user parses per UTC day; over it → 429 + Retry-After. Invisible in normal use.
     daily-parse-limit: ${VITA_AI_DAILY_PARSE_LIMIT:50}
