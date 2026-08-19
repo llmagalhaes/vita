@@ -142,6 +142,13 @@ class PlanService(
         }
     }
 
+    /**
+     * The current eating plan, typed, for the plan-aware capture digest (BE-051). Null when the
+     * user has no plan — the parse prompt then stays byte-identical to 0.7.0.
+     */
+    fun currentEatingPlan(userId: UUID): EatingPlanDraft? =
+        current(PlanTable.EATING_PLAN, userId)?.let { mapper.treeToValue(it, EatingPlanDraft::class.java) }
+
     /** GET current (newest) version, or null → 404. */
     fun current(
         table: PlanTable,

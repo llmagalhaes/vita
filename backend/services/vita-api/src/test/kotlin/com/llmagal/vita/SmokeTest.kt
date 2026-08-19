@@ -94,6 +94,7 @@ class SmokeTest {
             "eating_plan.doc_enc",
             "training_program.doc_enc",
             "vacation.ranges_enc",
+            "user_settings.settings_enc",
         )
     }
 

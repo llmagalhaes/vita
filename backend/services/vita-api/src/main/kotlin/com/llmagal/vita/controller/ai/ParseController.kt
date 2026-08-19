@@ -40,10 +40,11 @@ class ParseController(
         val text = body.text?.takeIf { it.isNotBlank() } ?: badRequest("text is required.")
         if (text.length > MAX_TEXT) badRequest("text must be at most $MAX_TEXT characters.")
 
-        quota.tryAcquire(UUID.fromString(jwt.subject))?.let { return tooManyRequests(it) }
+        val userId = UUID.fromString(jwt.subject)
+        quota.tryAcquire(userId)?.let { return tooManyRequests(it) }
 
         val capturedAt = body.capturedAt ?: OffsetDateTime.now()
-        return ResponseEntity.ok(service.parseText(text, capturedAt))
+        return ResponseEntity.ok(service.parseText(text, capturedAt, userId))
     }
 
     /**
@@ -64,10 +65,11 @@ class ParseController(
                 ?: throw ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "image must be JPEG, PNG, or WebP.")
         if ((caption?.length ?: 0) > MAX_CAPTION) badRequest("caption must be at most $MAX_CAPTION characters.")
 
-        quota.tryAcquire(UUID.fromString(jwt.subject))?.let { return tooManyRequests(it) }
+        val userId = UUID.fromString(jwt.subject)
+        quota.tryAcquire(userId)?.let { return tooManyRequests(it) }
 
         val hint = caption?.takeIf { it.isNotBlank() }
-        return ResponseEntity.ok(service.parsePhoto(image.bytes, mediaType, hint, parseCapturedAt(capturedAt)))
+        return ResponseEntity.ok(service.parsePhoto(image.bytes, mediaType, hint, parseCapturedAt(capturedAt), userId))
     }
 
     /** Lenient: a missing or unparseable capturedAt just anchors to now (matches /parse/text). */

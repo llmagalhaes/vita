@@ -4,6 +4,7 @@ import com.llmagal.vita.service.ai.ClaudeClient
 import com.llmagal.vita.service.ai.ParseMetrics
 import com.llmagal.vita.service.ai.ParseService
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.mockk.mockk
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -32,7 +33,7 @@ class ParseLiveEvalTest {
             DynamicTest.dynamicTest(case.name) {
                 assumeTrue(apiKey.isNotBlank(), "ANTHROPIC_API_KEY not set — skipping live eval")
                 val client = ClaudeClient(baseUrl, model, 1024, 15, apiKey, 25, 2048, 16384, 300)
-                val service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6")
+                val service = ParseService(client, ParseMetrics(SimpleMeterRegistry()), "claude-sonnet-4-6", mockk())
 
                 if (case.expect422) {
                     assertThatThrownBy { service.parseText(case.input, CAPTURED_AT) }

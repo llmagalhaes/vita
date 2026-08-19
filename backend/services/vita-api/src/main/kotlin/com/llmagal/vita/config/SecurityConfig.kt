@@ -37,7 +37,7 @@ class SecurityConfig(
             .csrf { it.disable() } // stateless bearer-token API, no cookies
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests {
-                it.requestMatchers("/health", "/v1/auth/**").permitAll()
+                it.requestMatchers("/health", "/v1/auth/**", "/v1/privacy").permitAll()
                 it.anyRequest().authenticated()
             }.oauth2ResourceServer {
                 it.jwt { }

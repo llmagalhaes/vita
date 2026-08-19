@@ -1,0 +1,60 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vita — Privacy</title>
+<style>
+  body { max-width: 40rem; margin: 3rem auto; padding: 0 1.25rem; font: 16px/1.6 system-ui, sans-serif; color: #2c2a27; background: #faf7f2; }
+  h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.05rem; margin-top: 2rem; }
+  .lede { color: #6d675f; margin-top: 0; }
+  .draft { background: #f3ead9; border-left: 3px solid #c8794f; padding: 0.75rem 1rem; font-size: 0.9rem; }
+  footer { margin-top: 3rem; color: #8a837a; font-size: 0.85rem; }
+</style>
+
+<h1>Vita</h1>
+<p class="lede">A quiet log of meals, water &amp; movement.</p>
+
+<p class="draft"><strong>Draft (v0).</strong> This page describes how Vita handles
+data today. Wording is pending final review; the practices below are what the
+software actually does.</p>
+
+<h2>What Vita collects</h2>
+<p>Only what the app needs to show you your own log: your email address (to sign
+you in), an optional display name, and the entries you create — meals, water,
+workouts, weight, notes, and the plans you import. Vita has no goals, no scores
+and no streaks, and it does not build an advertising profile. There is no
+third-party analytics or ad tracking in the app.</p>
+
+<h2>How it is stored</h2>
+<p>Personal content is encrypted before it is written to the database, with
+AES-256-GCM under a key that belongs to your account alone. When you delete your
+account that key is destroyed first — every stored value encrypted with it
+becomes permanently unreadable — and the rows are then deleted. Deletion runs
+after a 7-day grace period, and signing in during that window cancels it.</p>
+
+<h2>Health Connect and health data</h2>
+<p>On Android, Vita can read activity data from Health Connect (active energy,
+steps, workout sessions) if you turn it on. That data stays on your device: it is
+stored in the app's local database and is never uploaded to Vita's servers. You
+can revoke the permission at any time in Health Connect.</p>
+
+<h2>Photos and documents</h2>
+<p>Photos of meals and imported plan documents are uploaded so they can be read
+once and turned into entries. The uploaded file expires automatically after 30
+days and is removed from storage.</p>
+
+<h2>Interpretation</h2>
+<p>Text, voice transcripts, photos and plan documents you submit are sent to
+Anthropic's Claude API to be turned into structured entries, and are not used to
+train models. Voice is transcribed on your device; the audio itself never leaves
+the phone.</p>
+
+<h2>Your choices</h2>
+<p>You can export your data or delete your account from the account screen in the
+app. Deleting the account removes everything described above.</p>
+
+<h2>Contact</h2>
+<p>Questions about this policy or about your data can be sent to the address
+listed on Vita's store listing.</p>
+
+<footer>Vita — privacy policy v0.</footer>

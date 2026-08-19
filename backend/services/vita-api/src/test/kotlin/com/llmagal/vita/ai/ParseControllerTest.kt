@@ -45,7 +45,7 @@ class ParseControllerTest {
 
     @Test
     fun `under the ceiling returns 200 with drafts`() {
-        every { service.parseText(any(), any()) } returns ParseResponse(listOf(sampleDraft))
+        every { service.parseText(any(), any(), any()) } returns ParseResponse(listOf(sampleDraft))
 
         val response = controller.parseText(jwt, ParseTextRequest("a glass of water", null))
 
@@ -55,7 +55,7 @@ class ParseControllerTest {
 
     @Test
     fun `over the daily ceiling returns 429 with Retry-After and problem+json`() {
-        every { service.parseText(any(), any()) } returns ParseResponse(listOf(sampleDraft))
+        every { service.parseText(any(), any(), any()) } returns ParseResponse(listOf(sampleDraft))
 
         controller.parseText(jwt, ParseTextRequest("first", null)) // consumes the single allowed call
         val response = controller.parseText(jwt, ParseTextRequest("second", null))

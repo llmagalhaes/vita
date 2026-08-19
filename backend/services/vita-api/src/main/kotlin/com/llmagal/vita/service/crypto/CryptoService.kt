@@ -120,6 +120,7 @@ object AadContext {
     const val ENTRY_DETAIL = "log_entry.detail"
     const val ENTRY_SOURCE_PHRASE = "log_entry.source_phrase"
     const val VACATION_RANGES = "vacation.ranges"
+    const val USER_SETTINGS = "user_settings.settings"
 
     /** Plan/program docs share one shape across two tables — bind to the table. */
     fun planDoc(table: String) = "$table.doc"
