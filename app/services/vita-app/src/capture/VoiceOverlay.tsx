@@ -14,28 +14,33 @@ import Svg, { Path } from "react-native-svg";
 import { Button, Text, colors, fonts, motion, spacing } from "../ui";
 import { CANCEL_THRESHOLD, type VoiceStatus } from "./useVoiceCapture";
 
-/** One equalizer bar looping scaleY .3→1 (`vtWave`), staggered by index (Fable B7). */
+/**
+ * One `vtWave` bar — scaleY .3 ↔ 1 over 1s, delay `i × .13s` (README §2 Keyframes).
+ * v4 prototype (line 985): 5 bars, 6×30px r3, accent.
+ */
 function WaveBar({ i, cancel }: { i: number; cancel: boolean }) {
-  const s = useSharedValue(0.3);
+  const s = useSharedValue<number>(motion.vtWave.fromScaleY);
   useEffect(() => {
     const run = () => {
-      s.value = withRepeat(withTiming(1, { duration: 525, easing: Easing.inOut(Easing.ease) }), -1, true);
+      s.value = withRepeat(
+        withTiming(1, { duration: motion.vtWave.durationMs / 2, easing: Easing.inOut(Easing.ease) }),
+        -1,
+        true,
+      );
     };
-    const id = setTimeout(run, i * 90);
+    const id = setTimeout(run, i * motion.vtWave.staggerMs);
     return () => clearTimeout(id);
   }, [i, s]);
   const style = useAnimatedStyle(() => ({ transform: [{ scaleY: s.value }] }));
   return (
-    <Animated.View
-      style={[{ width: 4, height: 26, borderRadius: 2, backgroundColor: cancel ? "#F0C6B4" : "rgba(247,242,233,0.9)" }, style]}
-    />
+    <Animated.View style={[{ width: 6, height: 30, borderRadius: 3, backgroundColor: cancel ? "#F0C6B4" : colors.accent }, style]} />
   );
 }
 
 function Equalizer({ cancel }: { cancel: boolean }) {
   return (
-    <View style={{ flexDirection: "row", gap: 5, alignItems: "center", height: 26 }}>
-      {Array.from({ length: 7 }, (_, i) => (
+    <View style={{ flexDirection: "row", gap: 5, alignItems: "center", height: 34 }}>
+      {Array.from({ length: 5 }, (_, i) => (
         <WaveBar key={i} i={i} cancel={cancel} />
       ))}
     </View>
@@ -126,33 +131,42 @@ export function VoiceOverlay({
       }}
     >
       {holding && (
-        <View style={{ alignItems: "center", gap: spacing.lg }}>
+        // Prototype `capListenOn` (line 983): the listening state is the capture
+        // sheet itself — 5 accent wave bars, "Listening…", the example phrase, and
+        // the release hint. The mic pulse + slide-to-cancel stay: they are the real
+        // affordance the prototype's pointer-down/up shorthand stands for.
+        <View
+          style={{
+            backgroundColor: colors.sheet,
+            borderRadius: 30,
+            paddingVertical: spacing.xl,
+            paddingHorizontal: spacing.xl,
+            gap: spacing.md + 2,
+            alignItems: "center",
+            width: "100%",
+            maxWidth: 400,
+          }}
+        >
           <Animated.View style={micFollow}>
             <MicPulse cancel={willCancel} />
           </Animated.View>
           {status === "listening" && <Equalizer cancel={willCancel} />}
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15.5, textAlign: "center" }} color={colors.inkHeading}>
+            {status === "transcribing" ? t("capture.voice.transcribing") : t("capture.voice.listening")}
+          </Text>
           <Text
-            variant="title"
-            style={{ fontSize: 19, textAlign: "center", maxWidth: 320 }}
-            color={colors.card}
+            style={{ fontFamily: fonts.semiBold, fontSize: 13, fontStyle: "italic", textAlign: "center", maxWidth: 270, lineHeight: 19.5 }}
+            color={colors.muted}
           >
-            {status === "transcribing"
-              ? t("capture.voice.transcribing")
-              : transcript || t("capture.voice.listening")}
+            {transcript || t("capture.voice.example")}
           </Text>
           {status === "listening" && (
             <Animated.View style={[{ flexDirection: "row", alignItems: "center", gap: 6 }, hintFollow]}>
-              {!willCancel && (
-                <Text style={{ fontFamily: fonts.semiBold, fontSize: 18, marginTop: -2 }} color="rgba(247,242,233,0.6)">
-                  ‹
-                </Text>
-              )}
               <Text
-                variant="label"
-                style={{ fontFamily: willCancel ? fonts.extraBold : fonts.semiBold, textAlign: "center" }}
-                color={willCancel ? "#F0C6B4" : "rgba(247,242,233,0.75)"}
+                style={{ fontFamily: willCancel ? fonts.extraBold : fonts.semiBold, fontSize: 11, textAlign: "center" }}
+                color={willCancel ? colors.accent : colors.faint}
               >
-                {willCancel ? t("capture.voice.releaseToCancel") : t("capture.voice.slideToCancel")}
+                {willCancel ? t("capture.voice.releaseToCancel") : t("capture.voice.releaseHint")}
               </Text>
             </Animated.View>
           )}

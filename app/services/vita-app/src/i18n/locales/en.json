@@ -88,20 +88,26 @@
     "pasteTokenDev": "Paste magic-link token (dev)"
   },
   "onboarding": {
-    "stepLabel": "Step {{current}} of {{total}}",
+    "continue": "Continue",
+    "openVita": "Open Vita →",
+    "back": "Back",
     "welcome": {
       "eyebrow": "Welcome to Vita",
       "title": "What should we call you?",
-      "nameLabel": "Your name"
+      "nameLabel": "Your name",
+      "note": "Two steps — that's the whole setup. Plans, programs and habits come later, when you need them."
     },
-    "keepTrack": {
-      "title": "What would you like to keep an eye on?",
-      "subtitle": "Just your own reference — Vita never sets targets or scores.",
-      "meals": "Meals",
-      "water": "Water",
-      "workouts": "Workouts",
-      "habits": "Habits",
-      "cycle": "Cycle"
+    "keep": {
+      "title": "What should Vita keep?",
+      "subtitle": "Your day is built from exactly this — anything you skip won't appear anywhere.",
+      "note": "Change this anytime in the Library — turning something off hides it, it never deletes history.",
+      "desc": {
+        "meals": "plan cards on your day · a meals trend",
+        "water": "a water card · a water trend",
+        "move": "programs day by day · a movement trend",
+        "habits": "your own habits, one tap a day",
+        "weight": "morning readings · a weight trend"
+      }
     },
     "plan": {
       "title": "Do you follow an eating plan?",
@@ -142,17 +148,6 @@
       "changeAnswer": "Change answer",
       "answeredByTap": "answered by tap",
       "dictate": "Dictate"
-    },
-    "allSet": {
-      "title": "All set, {{name}}.",
-      "recapName": "Name",
-      "recapKeepTrack": "Keeping an eye on",
-      "recapPlan": "Eating plan",
-      "recapProgram": "Training program",
-      "planYes": "Saved",
-      "planNo": "None",
-      "philosophy": "Vita records what you tell it and shows it back — it never sets goals, grades your day, or gives advice.",
-      "tryIt": "Try it — say what you ate today."
     }
   },
   "home": {
@@ -289,6 +284,38 @@
     "hamstrings": "Hamstrings",
     "calves": "Calves"
   },
+  "muscle": {
+    "name": {
+      "qu": "Quads",
+      "gl": "Glutes",
+      "ha": "Hamstrings",
+      "ca": "Calves",
+      "ch": "Chest",
+      "bk": "Back",
+      "sh": "Shoulders",
+      "ar": "Arms",
+      "tr": "Traps",
+      "co": "Core"
+    },
+    "front": "FRONT",
+    "back": "BACK",
+    "tier": {
+      "primary": "primary",
+      "secondary": "secondary",
+      "light": "light"
+    },
+    "range": {
+      "week": "this week",
+      "month": "this month",
+      "year": "this year"
+    },
+    "sessionCount": "{{n}}×",
+    "sheetSub": "{{range}} · sessions that worked it",
+    "openDay": "Open this day →",
+    "earlier": "+ {{n}} earlier sessions in this range",
+    "none": "No recorded session worked this muscle in this range.",
+    "footer": "Exercises from your recorded sessions — coverage, never a score."
+  },
   "workoutDetail": {
     "eyebrow": "Workout",
     "back": "Back",
@@ -348,7 +375,7 @@
     }
   },
   "capture": {
-    "placeholder": "Tell Vita what you had…",
+    "placeholder": "e.g. lunch as planned, rice → sweet potato",
     "makingSense": "Making sense of it…",
     "estimatedBy": "Estimated by Vita from your description",
     "draftCount": "{{current}} of {{total}}",
@@ -371,7 +398,11 @@
       "takePhotoSub": "use your camera",
       "fromLibrary": "Choose from library",
       "fromLibrarySub": "pick an existing photo",
-      "sheetNote": "Vita reads the photo to fill in a card — nothing is stored."
+      "sheetNote": "Vita reads the photo to fill in a card — nothing is stored.",
+      "fromPhoto": "From your photo",
+      "looksLike": "Looks like your plan's {{meal}}",
+      "confirmSub": "~{{kcal}} kcal — you confirm, Vita never guesses alone",
+      "recordIt": "It's that — record it"
     },
     "voice": {
       "a11yHint": "Tap to type. Press and hold to speak.",
@@ -382,7 +413,23 @@
       "typeInstead": "Type instead",
       "denied": "Vita needs the microphone to hear you. Turn it on in Settings, or type instead. Audio never leaves your device.",
       "unavailable": "Voice input isn't available on this device yet. You can type instead.",
-      "error": "Vita didn't catch that. Try again, or type instead."
+      "error": "Vita didn't catch that. Try again, or type instead.",
+      "releaseHint": "release the mic to finish",
+      "example": "“Had lunch as planned but swapped the rice for sweet potato…”"
+    },
+    "textTitle": "Tell Vita what happened",
+    "matchIt": "Match it to my plan",
+    "textEntry": "Type what happened",
+    "delta": {
+      "matched": "Matched to your plan",
+      "rest": "everything else as planned — an estimate, labelled as one",
+      "recordIt": "Record it",
+      "toast": "{{meal}} recorded",
+      "state": {
+        "done": "as planned",
+        "adjusted": "adjusted",
+        "skipped": "didn't have it"
+      }
     }
   },
   "pill": {
@@ -510,6 +557,22 @@
     "linkedDigest": "digest",
     "digestNote": "Arrives as a notification — no check-in."
   },
+  "habitDetail": {
+    "times": "{{n}}×",
+    "thisMonth": "this month",
+    "total": "total",
+    "mostOften": "most often",
+    "none": "—",
+    "since": "recorded since {{date}}",
+    "byMonth": "By month · counts",
+    "byWeekday": "By weekday · last 30 days",
+    "today": "Today",
+    "done": "done",
+    "notMarked": "not marked",
+    "onVacation": "you were on vacation",
+    "openDay": "Open this day →",
+    "footer": "Counts of recorded days — never a score, never a streak."
+  },
   "account": {
     "title": "Account",
     "back": "Back",
@@ -565,18 +628,14 @@
   },
   "vacation": {
     "title": "Vacation mode",
-    "subtitle": "A calmer Vita while you're away.",
-    "from": "From date",
-    "to": "To date",
-    "keepCheckins": "Keep check-in reminders",
-    "keepCheckinsSub": "Off pauses them until you're back.",
-    "tripAddLabel": "Add something just for the trip",
-    "tripPlaceholder": "e.g. Walk on the beach",
-    "addTrip": "Add",
-    "removeTrip": "Remove",
-    "start": "Start vacation mode",
-    "invalidRange": "Enter valid dates (YYYY-MM-DD), start on or before end.",
-    "startNote": "The app shifts to a calmer tone until {{to}}."
+    "subtitle": "Check-ins pause, nothing counts against you — nothing ever does.",
+    "start": "Start vacation",
+    "duration": {
+      "thisWeek": "This week",
+      "untilEnded": "Until I end it"
+    },
+    "keepWater": "Keep the water card",
+    "keepWaterSub": "It and its reminder stay live while everything else pauses."
   },
   "export": {
     "title": "Export to…",
@@ -697,7 +756,193 @@
     },
     "swipeHint": "◂ Swipe from an edge · Trends — Library ▸"
   },
+  "day": {
+    "you": "you",
+    "openLibrary": "Library",
+    "greeting": {
+      "morning": "Good morning, {{name}}",
+      "afternoon": "Good afternoon, {{name}}",
+      "evening": "Good evening, {{name}}"
+    },
+    "heroSub": "kcal recorded · plan ~{{plan}} · estimates",
+    "hero": {
+      "confirmed": "{{n}} confirmed",
+      "adjusted": "{{n}} adjusted",
+      "planned": "{{n}} planned",
+      "skipped": "{{n}} skipped",
+      "noneLeft": "none left"
+    },
+    "zones": {
+      "overview": "Overview",
+      "yourDay": "Your day"
+    },
+    "water": {
+      "label": "Water",
+      "value": "{{ml}} ml",
+      "quickAdd": "+{{ml}} ml",
+      "exactLink": "Add an exact amount →",
+      "exactTitle": "Add water",
+      "typedLabel": "Exact amount in millilitres",
+      "add": "Add",
+      "added": "+{{ml}} ml — {{total}} ml today"
+    },
+    "macros": {
+      "label": "Macros · recorded",
+      "protein": "Protein",
+      "carbs": "Carbs",
+      "fat": "Fat",
+      "grams": "{{recorded}} / {{plan}} g",
+      "footer": "vs. your plan's day — estimates"
+    },
+    "habits": {
+      "label": "Habits",
+      "count": "{{n}} today",
+      "yes": "{{name}} — done",
+      "no": "{{name}} — not today",
+      "answeredDone": "done",
+      "answeredNot": "not today",
+      "doneToast": "{{name}} — done",
+      "notTodayToast": "Noted — not today",
+      "footer": "One tap a day — never a streak."
+    },
+    "weight": {
+      "label": "Weight",
+      "value": "{{kg}} kg",
+      "sourceManual": "logged by you · {{time}}",
+      "sourceNone": "no reading yet — log it yourself",
+      "modalTitle": "Log weight",
+      "typedLabel": "Weight in kilograms",
+      "dualHint": "kg — slide roughly or type it exactly",
+      "save": "Save",
+      "savedToast": "Weight logged — {{kg}} kg"
+    }
+  },
   "workoutHub": {
     "title": "Workout"
+  },
+  "library": {
+    "subtitle": "{{name}} · plans, habits & settings",
+    "footer": "Your log stays on this device — exports are files you choose to share.",
+    "keeps": {
+      "title": "What Vita keeps",
+      "row": {
+        "meals": "Meals & eating plan",
+        "water": "Water",
+        "move": "Movement",
+        "habits": "Habits",
+        "weight": "Body weight"
+      },
+      "rowSub": {
+        "meals": "plan cards on your day · a meals trend",
+        "water": "a water card · a water trend",
+        "move": "programs day by day · a movement trend",
+        "habits": "your own habits, one tap a day",
+        "weight": "morning readings · a weight trend"
+      },
+      "note": "Off hides it everywhere — history stays, nothing is deleted."
+    },
+    "plan": {
+      "title": "Eating plan",
+      "yourPlan": "Your plan",
+      "sub": "{{meals}} meals · ~{{kcal}} kcal/day · {{source}}",
+      "source": {
+        "pdf": "via nutritionist PDF",
+        "text": "described in your words",
+        "manual": "built by you"
+      },
+      "none": "No plan yet — import a PDF or add meals yourself.",
+      "expandNote": "Usuals and swaps are set during import — portions adjust any day, on the Day itself.",
+      "addMeal": "+ Add a meal",
+      "replacePdf": "Replace — new PDF",
+      "formTitle": "New meal — yours, outside the PDF",
+      "namePlaceholder": "e.g. Evening snack",
+      "nameLabel": "Meal name",
+      "timeLabel": "Time",
+      "kcalLabel": "Estimated kcal",
+      "formHint": "time · ~kcal, your estimate",
+      "addToPlan": "Add to plan",
+      "addedToast": "\"{{name}}\" added to your plan"
+    },
+    "programs": {
+      "title": "Training programs",
+      "daySub": "{{n}} exercises",
+      "daySubKcal": "{{n}} exercises · ~{{kcal}} kcal (estimate)",
+      "none": "No program yet — import one from your gym or trainer, or just describe it.",
+      "import": "Import or type a program"
+    },
+    "habits": {
+      "title": "Habits",
+      "new": "+ New habit",
+      "dayLetters": [
+        "S",
+        "M",
+        "T",
+        "W",
+        "T",
+        "F",
+        "S"
+      ],
+      "daily": "Daily",
+      "formTitle": "New habit — in your own words",
+      "namePlaceholder": "e.g. Train legs · Read 20 pages",
+      "nameLabel": "Habit name",
+      "timeLabel": "Reminder time",
+      "timeHint": "daily notification time — optional, per habit",
+      "save": "Save habit",
+      "addedToast": "\"{{name}}\" added — it’s yours, Vita never suggests",
+      "notifOn": "Daily reminder at {{time}}",
+      "notifOff": "Notification off — the habit stays",
+      "notifLabel": "Daily reminder for {{name}}",
+      "removeLabel": "Remove {{name}}",
+      "removedToast": "\"{{name}}\" removed — history stays",
+      "none": "Nothing here yet — a habit is whatever you decide to notice.",
+      "note": "Yours alone — Vita never suggests a habit. The switch is the notification."
+    },
+    "sources": {
+      "title": "Connected sources",
+      "hcOn": "Connected · weight & workouts flow in",
+      "hcOff": "Off — nothing is read",
+      "onToast": "Health Connect on",
+      "offToast": "Health Connect off — Vita reads nothing"
+    },
+    "away": {
+      "title": "Away & sharing",
+      "vacationOn": "On — {{duration}} · {{keep}}",
+      "vacationOff": "Pause check-ins without losing anything",
+      "keepingWater": "keeping water",
+      "allPaused": "everything paused",
+      "setUp": "Set up",
+      "end": "End",
+      "startedToast": "Vacation on — nothing counts against you (nothing ever does)",
+      "endedToast": "Welcome back — your days pick up where they were",
+      "endConfirmTitle": "End vacation mode?",
+      "endConfirmBody": "Check-ins and reminders start again from today. The days you were away stay as they are.",
+      "shareTitle": "Share your log",
+      "shareSub": "a PDF shaped for whoever reads it",
+      "export": "Export",
+      "createPdf": "Create the PDF",
+      "recipient": {
+        "nutritionist": "My nutritionist",
+        "trainer": "My trainer",
+        "myself": "Just me"
+      },
+      "recipientNote": {
+        "nutritionist": "Meals, swaps and portions — shaped for a nutrition review.",
+        "trainer": "Workouts and exercise records only.",
+        "myself": "Everything, plainly."
+      }
+    },
+    "account": {
+      "title": "Account",
+      "you": "you",
+      "signOut": "Sign out",
+      "delete": "Delete my data",
+      "deleteTitle": "Delete everything?",
+      "deleteBody": "This erases plans, records and habits on this device, and asks the server to delete your account after a 7-day grace — signing in again inside that window cancels it. Your log lives here: consider exporting a PDF first.",
+      "deleteConfirm": "Delete",
+      "exportFirst": "Export first",
+      "keepIt": "Keep it",
+      "deletedToast": "Deleted — nothing of yours is left on this device"
+    }
   }
 }

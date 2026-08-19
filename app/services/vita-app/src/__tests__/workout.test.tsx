@@ -31,6 +31,15 @@ beforeEach(() => {
 });
 const t = (k: string) => i18n.t(k);
 
+// APP-104: text capture lives in the sheet now — the pill's "Aa" opens it.
+const FIELD = "e.g. lunch as planned, rice → sweet potato";
+async function openField() {
+  const open = screen.queryByLabelText(FIELD);
+  if (open) return open;
+  await fireEvent.press(screen.getByLabelText("Type what happened"));
+  return await screen.findByLabelText(FIELD);
+}
+
 function Capture() {
   return (
     <CaptureProvider>
@@ -42,7 +51,7 @@ function Capture() {
 
 test("workout confirm card → confirm writes a workout entry via the outbox", async () => {
   await render(<Capture />);
-  const input = screen.getByLabelText("Tell Vita what you had…");
+  const input = await openField();
   await fireEvent.changeText(input, "Leg day at the gym for 45 minutes");
   await fireEvent(input, "submitEditing");
 

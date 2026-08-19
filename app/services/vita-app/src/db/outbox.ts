@@ -27,9 +27,10 @@ function isPoison(err: unknown, op?: string): boolean {
   if (err instanceof PoisonError) return true;
   if (!(err instanceof ApiError)) return false;
   if ([400, 409, 422].includes(err.status)) return true;
-  // `update` (PATCH) treats 403/404 as poison too: a forbidden/absent target never
-  // recovers, so backing off would stall the drain.
-  return [403, 404].includes(err.status) && op === "update";
+  // `update` (PATCH) and `delete` treat 403/404 as poison too: a forbidden/absent
+  // target never recovers, so backing off would stall the drain. (A delete's 404 is
+  // handled as success before it ever gets here.)
+  return [403, 404].includes(err.status) && (op === "update" || op === "delete");
 }
 
 /**
@@ -124,6 +125,19 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
           progressed = true;
           continue;
         }
+        if (item.op === "delete") {
+          // entryId is the SERVER id here — the local row is already gone (APP-112).
+          try {
+            await api.deleteEntry(item.entryId);
+          } catch (e) {
+            // Already gone server-side is exactly the outcome we wanted.
+            if (!(e instanceof ApiError && e.status === 404)) throw e;
+          }
+          db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
+          synced++;
+          progressed = true;
+          continue;
+        }
         const entry = getEntry(item.entryId);
         if (!entry) {
           db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]); // entry gone — drop
@@ -177,7 +191,8 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
         // Non-retryable: drop the poison pill (and its parked input) and keep draining.
         if (isPoison(err, item.op)) {
           if (item.op === "interpret") deletePending(item.entryId);
-          else markFailed(item.entryId); // terminal state so Home stops the "waiting to sync" lie (audit 1.8)
+          // A dropped `delete` has no local entry left to mark — the row is already gone.
+          else if (item.op !== "delete") markFailed(item.entryId); // terminal state so Home stops the "waiting to sync" lie (audit 1.8)
           db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
           progressed = true;
           continue;

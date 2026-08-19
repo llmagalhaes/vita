@@ -98,6 +98,8 @@ export interface Api {
   createEntry(idempotencyKey: string, entry: NewEntry): Promise<LogEntry>;
   /** Update an entry (check-in re-answer replaces the whole detail — BE-024). */
   patchEntry(id: string, patch: { detail?: EntryDetail; occurredAt?: string }): Promise<LogEntry>;
+  /** Hard-delete a server entry (204, idempotent). `id` is the SERVER id, not the local one. */
+  deleteEntry(id: string): Promise<void>;
   listEntries(params: {
     date?: string;
     tz?: string;
@@ -106,6 +108,8 @@ export interface Api {
   }): Promise<EntriesPage>;
   getMe(): Promise<User>;
   patchMe(patch: { name?: string }): Promise<User>;
+  /** "Delete my data" — starts the server's 7-day grace (ADR-0004); signing in cancels it. */
+  deleteAccount(): Promise<void>;
   /** Vacation ranges (D1): device-owned, opaque to the server. Replace-on-write. */
   getVacations(): Promise<VacationRange[]>;
   putVacations(ranges: VacationRange[]): Promise<VacationRange[]>;
@@ -287,6 +291,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
         headers: { "Idempotency-Key": idempotencyKey },
       }),
     patchEntry: (id, patch) => request("PATCH", `/entries/${id}`, { body: patch }),
+    deleteEntry: (id) => request("DELETE", `/entries/${id}`),
     listEntries: (params) => {
       const q = new URLSearchParams();
       for (const [k, v] of Object.entries(params)) {
@@ -297,6 +302,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     },
     getMe: () => request("GET", "/me"),
     patchMe: (patch) => request("PATCH", "/me", { body: patch }),
+    deleteAccount: () => request("DELETE", "/account"),
     getVacations: () => request("GET", "/me/vacations"),
     putVacations: (ranges) => request("PUT", "/me/vacations", { body: ranges }),
   };

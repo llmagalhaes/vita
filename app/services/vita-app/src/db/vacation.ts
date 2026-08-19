@@ -1,10 +1,17 @@
 /**
- * Vacation mode (APP-030, standing decision D1).
+ * Vacation mode (APP-030 → APP-103, standing decision D1).
  *
  * The date RANGES persist server-side (`GET/PUT /me/vacations`, replace-on-write)
  * so a reinstalled device gets them back; the server stores them as an opaque
- * encrypted blob and never reads them (BE-025). Everything else — whether to keep
- * check-in reminders, the habits added just for the trip — is device-local.
+ * encrypted blob and never reads them (BE-025). Everything else — the duration
+ * choice, whether the water card stays live — is device-local.
+ *
+ * v4 (CEO Q7 "make vacation semantics real"): the sheet no longer asks for two
+ * dates, it asks for a DURATION. "This week" writes a 7-day range, so it expires
+ * by itself — expiry is structural, there is no timer and nothing to sweep.
+ * "Until I end it" writes an open-ended range that only `endVacation()` closes.
+ * `keepWater` (was `keepCheckins`) is real behaviour now: the water card and its
+ * reminder stay live while everything else pauses.
  *
  * The local kv copy is the display/behaviour source (offline-first, same shape as
  * src/db/plan.ts): writes go to kv first (instant) then push to the server
@@ -19,16 +26,24 @@ import { setVacationAccent } from "../ui/accent";
 import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "./kv";
 import { logChanged } from "./notify";
 
+/** Prototype's two chips. "thisWeek" = today + 6 days; "untilEnded" = open-ended. */
+export type VacationDuration = "thisWeek" | "untilEnded";
+
 export type VacationConfig = {
   ranges: VacationRange[]; // YYYY-MM-DD; the only part that leaves the device
-  keepCheckins: boolean; // keep check-in reminders during the trip (device-local)
-  tripHabitIds: string[]; // habits created just for this trip (device-local)
+  duration: VacationDuration; // which chip was picked (drives the row subtitle)
+  keepWater: boolean; // keep the water card + its reminder live (device-local)
 };
 
 const KEY = "vacation";
-const empty: VacationConfig = { ranges: [], keepCheckins: false, tripHabitIds: [] };
+const empty: VacationConfig = { ranges: [], duration: "thisWeek", keepWater: false };
 
-export const getVacation = (): VacationConfig => kvGet<VacationConfig>(KEY) ?? empty;
+/** "This week" = 7 days counting today. */
+export const THIS_WEEK_DAYS = 7;
+/** Open-ended end date — sorts after every real day, so only "End" closes the trip. */
+export const OPEN_ENDED_END = "9999-12-31";
+
+export const getVacation = (): VacationConfig => ({ ...empty, ...(kvGet<VacationConfig>(KEY) ?? {}) });
 
 /** A day (inclusive) inside any stored range → on vacation. */
 export function isVacationActive(today: Date = new Date()): boolean {
@@ -38,7 +53,8 @@ export function isVacationActive(today: Date = new Date()): boolean {
 /** Ranges for the trends vacation-day excluder (D1/slice-6 hook). */
 export const vacationRanges = (): VacationRange[] => getVacation().ranges;
 
-export const vacationKeepsCheckins = (): boolean => getVacation().keepCheckins;
+/** True while a keep-water trip is running — the water card and its reminder stay. */
+export const vacationKeepsWater = (): boolean => isVacationActive() && getVacation().keepWater;
 
 function persist(cfg: VacationConfig): void {
   kvSet(KEY, cfg);
@@ -64,6 +80,20 @@ async function pushVacations(): Promise<void> {
 /** Save the whole config (dates + local prefs). */
 export function saveVacation(cfg: VacationConfig): void {
   persist(cfg);
+}
+
+/**
+ * Start a trip from the Library sheet: the duration IS the range, so "This week"
+ * simply stops being active on day 8 — no expiry job, no stale flag to clear.
+ */
+export function startVacation(duration: VacationDuration, keepWater: boolean, today: Date = new Date()): void {
+  const end = new Date(today);
+  end.setDate(today.getDate() + THIS_WEEK_DAYS - 1);
+  persist({
+    ranges: [{ start: dayKey(today), end: duration === "thisWeek" ? dayKey(end) : OPEN_ENDED_END }],
+    duration,
+    keepWater,
+  });
 }
 
 /** End the trip: drop the ranges (kv + server), keep no local prefs lingering. */

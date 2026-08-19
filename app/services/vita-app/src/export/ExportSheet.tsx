@@ -1,41 +1,34 @@
 /**
- * Export sheet (APP-031, D2). Pick a reader, adjust the content chips, prepare a
- * PDF. Everything is built on-device from local SQLite and handed to the OS share
- * sheet — nothing leaves the phone until the user chooses a share target.
+ * Export sheet (APP-031 → APP-103, prototype lines 1292–1306). Pick who reads it,
+ * read the one-line note, create the PDF. v4 drops the per-section chips: the
+ * recipient IS the shape, so the chosen audience's sections are used as-is.
+ *
+ * Unlike the prototype (which only toasts), this really builds the PDF on-device
+ * from local SQLite via expo-print and hands it to the OS share sheet — nothing
+ * leaves the phone until the user picks a share target.
  */
 import { useState } from "react";
 import { Alert, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Chevron, SheetOverlay, Text, colors, fonts, shadowCta } from "../ui";
-import { AUDIENCES, exportPdf, type Section } from "./pdf";
+import { SheetOverlay, Text, colors, fonts, shadowCta } from "../ui";
+import { AUDIENCES, exportPdf } from "./pdf";
 
-const ALL_SECTIONS: Section[] = ["meals", "water", "workouts", "energy", "macros"];
+/** The prototype's three chips, in order — `doctor` is not a v4 recipient. */
+const RECIPIENTS = ["nutritionist", "trainer", "myself"] as const;
+type Recipient = (typeof RECIPIENTS)[number];
 
 export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { t } = useTranslation();
-  const [audienceId, setAudienceId] = useState<string | null>(null);
-  const [sections, setSections] = useState<Section[]>([]);
+  const [recipient, setRecipient] = useState<Recipient>("nutritionist");
   const [busy, setBusy] = useState(false);
 
-  const pickAudience = (id: string) => {
-    if (audienceId === id) {
-      setAudienceId(null);
-      return;
-    }
-    setAudienceId(id);
-    setSections(AUDIENCES.find((a) => a.id === id)!.sections);
-  };
-
-  const toggleSection = (s: Section) =>
-    setSections((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
-
-  const prepare = async () => {
-    if (!audienceId || sections.length === 0 || busy) return;
+  const create = async () => {
+    if (busy) return;
     setBusy(true);
     try {
       await exportPdf({
-        audienceLabel: t(`export.audience.${audienceId}`),
-        sections,
+        audienceLabel: t(`export.audience.${recipient}`),
+        sections: AUDIENCES.find((a) => a.id === recipient)!.sections,
         t,
       });
       onClose();
@@ -49,53 +42,52 @@ export function ExportSheet({ visible, onClose }: { visible: boolean; onClose: (
 
   return (
     <SheetOverlay visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
-      <View style={{ gap: 12 }}>
-        <View style={{ marginBottom: 2 }}>
-          <Text variant="title" style={{ fontSize: 19 }}>{t("export.title")}</Text>
-          <Text variant="caption" color={colors.muted}>{t("export.subtitle")}</Text>
+      <View style={{ gap: 13 }}>
+        <Text variant="title" style={{ fontSize: 16 }}>{t("library.away.shareTitle")}</Text>
+
+        <View style={{ flexDirection: "row", gap: 6 }}>
+          {RECIPIENTS.map((r) => {
+            const on = recipient === r;
+            return (
+              <Pressable
+                key={r}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                onPress={() => setRecipient(r)}
+                style={{
+                  flex: 1,
+                  paddingVertical: 10,
+                  paddingHorizontal: 4,
+                  borderRadius: 15,
+                  borderWidth: 1.5,
+                  borderColor: on ? colors.dark.bg : colors.borderControl,
+                  backgroundColor: on ? colors.dark.bg : colors.card,
+                  alignItems: "center",
+                }}
+              >
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12 }} color={on ? colors.dark.ink : colors.inkMuted}>
+                  {t(`library.away.recipient.${r}`)}
+                </Text>
+              </Pressable>
+            );
+          })}
         </View>
 
-        {AUDIENCES.map((a) => {
-          const open = audienceId === a.id;
-          return (
-            <View key={a.id} style={{ backgroundColor: colors.card, borderWidth: 1.5, borderColor: open ? colors.accent : colors.border, borderRadius: 18, overflow: "hidden" }}>
-              <Pressable accessibilityRole="button" accessibilityState={{ expanded: open }} onPress={() => pickAudience(a.id)} style={{ flexDirection: "row", alignItems: "center", gap: 11, padding: 13 }}>
-                <View style={{ flex: 1 }}>
-                  <Text variant="label" style={{ fontSize: 14.5 }}>{t(`export.audience.${a.id}`)}</Text>
-                  <Text variant="caption" style={{ marginTop: 1 }} color={colors.muted}>{t(`export.audienceSub.${a.id}`)}</Text>
-                </View>
-                <Chevron open={open} size={13} />
-              </Pressable>
-              {open && (
-                <View style={{ paddingHorizontal: 13, paddingBottom: 13, gap: 10 }}>
-                  <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-                    {ALL_SECTIONS.map((s) => {
-                      const on = sections.includes(s);
-                      return (
-                        <Pressable
-                          key={s}
-                          accessibilityRole="button"
-                          accessibilityState={{ selected: on }}
-                          onPress={() => toggleSection(s)}
-                          style={{ paddingVertical: 6, paddingHorizontal: 11, borderRadius: 13, backgroundColor: on ? colors.estimateBg : colors.track }}
-                        >
-                          <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 11.5 }} color={on ? colors.estimateInk : colors.muted}>
-                            {t(`export.section.${s}`)}
-                          </Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                  <Text variant="caption" color={colors.labelMuted}>{t("export.window")}</Text>
-                  <Pressable accessibilityRole="button" disabled={sections.length === 0 || busy} onPress={prepare} style={{ height: 44, borderRadius: 22, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", opacity: sections.length === 0 || busy ? 0.5 : 1, ...(sections.length === 0 || busy ? null : shadowCta(colors.accent)) }}>
-                    <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color="#FFF9F1">{busy ? t("export.preparing") : t("export.prepare")}</Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-          );
-        })}
-        <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>{t("export.footer")}</Text>
+        <Text variant="caption" style={{ fontSize: 12.5, lineHeight: 19 }} color={colors.muted}>
+          {t(`library.away.recipientNote.${recipient}`)}
+        </Text>
+
+        <Pressable
+          accessibilityRole="button"
+          disabled={busy}
+          onPress={create}
+          style={{ height: 48, borderRadius: 24, backgroundColor: colors.accent, alignItems: "center", justifyContent: "center", opacity: busy ? 0.5 : 1, ...shadowCta(colors.accent) }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize: 14.5 }} color="#FFF9F1">
+            {busy ? t("export.preparing") : t("library.away.createPdf")}
+          </Text>
+        </Pressable>
+        <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>{t("export.window")}</Text>
       </View>
     </SheetOverlay>
   );

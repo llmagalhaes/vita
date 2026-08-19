@@ -135,7 +135,9 @@ describe("VoiceOverlay rendering per state", () => {
   test("listening shows transcript and cancel hint", async () => {
     await render(<VoiceOverlay status="listening" {...base} transcript="had eggs" />);
     expect(screen.getByText("had eggs")).toBeOnTheScreen();
-    expect(screen.getByText("Slide to cancel")).toBeOnTheScreen();
+    // APP-104: the prototype's listening copy is the release hint; slide-to-cancel
+    // still exists and takes over the same line once the drag arms it (next test).
+    expect(screen.getByText("release the mic to finish")).toBeOnTheScreen();
   });
 
   test("listening + willCancel warns release-to-cancel", async () => {

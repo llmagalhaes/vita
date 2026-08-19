@@ -1,11 +1,32 @@
-import { useRef } from "react";
-import { Pressable, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { GestureDetector } from "react-native-gesture-handler";
 import Animated, { FadeIn, Keyframe } from "react-native-reanimated";
-import type { MealDetail, NewEntry, WaterDetail, WorkoutDetail } from "../api";
-import { Button, Card, Chip, EstimateTag, MorphBlob, SheetBackdrop, Text, colors, fonts, motion, spacing, useSheetTransition, useSheetPresence } from "../ui";
+import type { MealDetail, MealItem, NewEntry, WaterDetail, WorkoutDetail } from "../api";
+import {
+  Button,
+  Card,
+  Chip,
+  EstimateTag,
+  KeyboardLift,
+  MorphBlob,
+  PressScale,
+  SheetBackdrop,
+  Text,
+  colors,
+  fonts,
+  letterSpacing,
+  motion,
+  shadowCta,
+  shadowRow,
+  spacing,
+  useAccent,
+  useSheetTransition,
+  useSheetPresence,
+} from "../ui";
 import { useCapture } from "./CaptureContext";
+import type { PlanDelta } from "./delta";
 import { mealTotals, stepItem } from "./quantity";
 
 const timeOf = (iso: string) =>
@@ -211,6 +232,252 @@ export function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIn
   );
 }
 
+/** Uppercase micro-label above a card (`11/800 ls 1.2`, prototype lines 1000/1012). */
+function SectionLabel({ children }: { children: string }) {
+  return (
+    <Text
+      style={{ fontFamily: fonts.extraBold, fontSize: 11, letterSpacing: letterSpacing.micro, textTransform: "uppercase" }}
+      color={colors.faint}
+    >
+      {children}
+    </Text>
+  );
+}
+
+/** The `adjusted` / `done` / `skipped` pill next to the meal name. */
+function StateTag({ state }: { state: PlanDelta["state"] }) {
+  const { t } = useTranslation();
+  const tone =
+    state === "done"
+      ? { bg: colors.green.bg, ink: colors.green.ink }
+      : state === "adjusted"
+        ? { bg: colors.amber.bg, ink: colors.amber.ink }
+        : { bg: colors.sandChip, ink: colors.inkMuted };
+  return (
+    <View style={{ backgroundColor: tone.bg, borderRadius: 7, paddingVertical: 2, paddingHorizontal: 6 }}>
+      <Text
+        style={{ fontFamily: fonts.extraBold, fontSize: 9, letterSpacing: 0.7, textTransform: "uppercase" }}
+        color={tone.ink}
+      >
+        {t(`capture.delta.state.${state}`)}
+      </Text>
+    </View>
+  );
+}
+
+const itemLabel = (i: MealItem) => `${i.name}${i.quantity != null ? ` · ${i.quantity}${i.unit ? ` ${i.unit}` : ""}` : ""}`;
+
+/** `~~old~~ → new` + the signed kcal badge (green when fewer, amber when more). */
+function DeltaRow({ line }: { line: { from?: MealItem; to?: MealItem } }) {
+  const diff = Math.round((line.to?.kcal ?? 0) - (line.from?.kcal ?? 0));
+  const tone = diff < 0 ? colors.green : diff > 0 ? colors.amber : { bg: colors.sandChip, ink: colors.inkMuted };
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+      {line.from && (
+        <Text
+          style={{ fontFamily: fonts.semiBold, fontSize: 13, textDecorationLine: "line-through", flexShrink: 1 }}
+          color={colors.faint}
+          numberOfLines={1}
+        >
+          {itemLabel(line.from)}
+        </Text>
+      )}
+      {line.from && line.to && (
+        <Text style={{ fontSize: 13 }} color={colors.faint}>
+          →
+        </Text>
+      )}
+      {line.to && (
+        <Text style={{ fontFamily: fonts.semiBold, fontSize: 13, flexShrink: 1 }} color={colors.inkMuted} numberOfLines={1}>
+          {itemLabel(line.to)}
+        </Text>
+      )}
+      <View
+        style={{ marginLeft: "auto", backgroundColor: tone.bg, borderRadius: 9, paddingVertical: 3, paddingHorizontal: 7 }}
+      >
+        <Text style={{ fontFamily: fonts.extraBold, fontSize: 11 }} color={tone.ink}>
+          {diff > 0 ? "+" : diff < 0 ? "−" : "±"}
+          {Math.abs(diff)} kcal
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The plan-delta card (prototype `capParsedOn`, lines 998–1010). The parse gave the
+ * meal's full resulting composition; `delta.lines` are only what actually changed,
+ * and the closing line says the rest is unchanged — an estimate, labelled as one.
+ */
+export function PlanDeltaCard({ delta }: { delta: PlanDelta }) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ gap: spacing.md }}>
+      <SectionLabel>{t("capture.delta.matched")}</SectionLabel>
+      <View
+        style={[
+          {
+            backgroundColor: colors.card,
+            borderRadius: 20,
+            paddingVertical: 15,
+            paddingHorizontal: 16,
+            borderWidth: 1,
+            borderColor: colors.borderFaint,
+            gap: 9,
+          },
+          shadowRow,
+        ]}
+      >
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15.5 }} color={colors.inkHeading}>
+            {delta.title}
+          </Text>
+          <StateTag state={delta.state} />
+          <Text style={{ marginLeft: "auto", fontFamily: fonts.bold, fontSize: 12 }} color={colors.muted}>
+            ~{Math.round(delta.totals.kcal)} {t("common.kcal")}
+          </Text>
+        </View>
+        {delta.lines.map((line, i) => (
+          <DeltaRow key={`${line.from?.name ?? ""}-${line.to?.name ?? ""}-${i}`} line={line} />
+        ))}
+        <Text style={{ fontSize: 11 }} color={colors.faint}>
+          {t("capture.delta.rest")}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/**
+ * The photo path is a CONFIRMATION, never a delta (README §3): Vita says which plan
+ * meal it thinks the plate is, and the user confirms. `done`, not `adjusted`.
+ */
+function PhotoConfirmCard({ delta }: { delta: PlanDelta }) {
+  const { t } = useTranslation();
+  return (
+    <View style={{ gap: spacing.md }}>
+      <SectionLabel>{t("capture.photo.fromPhoto")}</SectionLabel>
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderRadius: 20,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          borderWidth: 1,
+          borderColor: colors.borderFaint,
+        }}
+      >
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5 }} color={colors.inkHeading}>
+          {t("capture.photo.looksLike", { meal: delta.title })}
+        </Text>
+        <Text style={{ fontSize: 11.5, marginTop: 1 }} color={colors.muted}>
+          {t("capture.photo.confirmSub", { kcal: Math.round(delta.totals.kcal) })}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+/** Discard | Record it — prototype h46 r23, ghost ink `#6E6355`, accent CTA shadow. */
+function DeltaActions({ confirmLabel, onDiscard, onConfirm }: { confirmLabel: string; onDiscard: () => void; onConfirm: () => void }) {
+  const { t } = useTranslation();
+  const accent = useAccent();
+  return (
+    <View style={{ flexDirection: "row", gap: spacing.sm + 2 }}>
+      <PressScale
+        accessibilityRole="button"
+        scale={0.98}
+        onPress={onDiscard}
+        style={{
+          flex: 1,
+          height: 46,
+          borderRadius: 23,
+          borderWidth: 1.5,
+          borderColor: colors.borderControlStrong,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color={colors.inkMuted}>
+          {t("common.discard")}
+        </Text>
+      </PressScale>
+      <PressScale
+        accessibilityRole="button"
+        scale={0.98}
+        onPress={onConfirm}
+        style={[
+          {
+            flex: 1.3,
+            height: 46,
+            borderRadius: 23,
+            backgroundColor: accent,
+            alignItems: "center",
+            justifyContent: "center",
+          },
+          shadowCta(accent),
+        ]}
+      >
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color="#FFF9F1">
+          {confirmLabel}
+        </Text>
+      </PressScale>
+    </View>
+  );
+}
+
+/** `Tell Vita what happened` — the prototype's text capture lives in the sheet. */
+function TextCapture({ prefill, onSend }: { prefill: string; onSend: (text: string) => void }) {
+  const { t } = useTranslation();
+  const accent = useAccent();
+  const [text, setText] = useState(prefill);
+  useEffect(() => setText(prefill), [prefill]);
+  const send = () => {
+    if (text.trim()) onSend(text);
+  };
+  return (
+    <View style={{ gap: spacing.md }}>
+      <Text style={{ fontFamily: fonts.bold, fontSize: 15.5 }} color={colors.inkHeading}>
+        {t("capture.textTitle")}
+      </Text>
+      <TextInput
+        value={text}
+        onChangeText={setText}
+        onSubmitEditing={send}
+        returnKeyType="send"
+        autoFocus
+        placeholder={t("capture.placeholder")}
+        placeholderTextColor={colors.faint}
+        accessibilityLabel={t("capture.placeholder")}
+        style={{
+          borderWidth: 1,
+          borderColor: colors.borderControlStrong,
+          backgroundColor: colors.card,
+          borderRadius: 16,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          fontFamily: fonts.semiBold,
+          fontSize: 14.5,
+          color: colors.ink,
+        }}
+      />
+      <PressScale
+        accessibilityRole="button"
+        scale={0.98}
+        onPress={send}
+        style={[
+          { height: 48, borderRadius: 24, backgroundColor: accent, alignItems: "center", justifyContent: "center" },
+          shadowCta(accent),
+        ]}
+      >
+        <Text style={{ fontFamily: fonts.bold, fontSize: 14.5 }} color="#FFF9F1">
+          {t("capture.matchIt")}
+        </Text>
+      </PressScale>
+    </View>
+  );
+}
+
 export function CaptureSheet() {
   const { t } = useTranslation();
   const capture = useCapture();
@@ -247,6 +514,8 @@ export function CaptureSheet() {
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end" }}>
       <SheetBackdrop onClose={capture.close} closeLabel={t("common.cancel")} style={backdropStyle} />
+      {/* Only the text state opens a keyboard; the lift is off for every other state. */}
+      <KeyboardLift enabled={view.status === "text"}>
       <GestureDetector gesture={dragGesture}>
       <Animated.View
         onLayout={onSheetLayout}
@@ -291,7 +560,26 @@ export function CaptureSheet() {
           </View>
         )}
 
-        {view.status === "review" && view.drafts[view.index] && (
+        {view.status === "text" && <TextCapture prefill={view.prefill} onSend={capture.submit} />}
+
+        {/* Plan-matched: the delta card (voice/text) or the photo confirmation. */}
+        {view.status === "review" && view.delta && (
+          <Animated.View key={`delta-${view.index}`} entering={resultPop} style={{ gap: spacing.md }}>
+            {current?.inputMethod === "photo" ? (
+              <PhotoConfirmCard delta={view.delta} />
+            ) : (
+              <PlanDeltaCard delta={view.delta} />
+            )}
+            <DeltaActions
+              confirmLabel={t(current?.inputMethod === "photo" ? "capture.photo.recordIt" : "capture.delta.recordIt")}
+              onDiscard={capture.discard}
+              onConfirm={capture.confirm}
+            />
+          </Animated.View>
+        )}
+
+        {/* No match in the plan → the v3 loose card; an off-plan meal is still recordable. */}
+        {view.status === "review" && !view.delta && view.drafts[view.index] && (
           <View style={{ gap: spacing.md }}>
             {view.phrase.length > 0 && (
               <Text
@@ -338,13 +626,14 @@ export function CaptureSheet() {
               {view.canRetry ? (
                 <Button label={t("common.tryAgain")} onPress={() => capture.submit(view.phrase)} />
               ) : (
-                <Button label={t("capture.photo.typeInstead")} onPress={capture.requestTextEntry} />
+                <Button label={t("capture.photo.typeInstead")} onPress={() => capture.requestTextEntry()} />
               )}
             </View>
           </View>
         )}
       </Animated.View>
       </GestureDetector>
+      </KeyboardLift>
     </View>
   );
 }

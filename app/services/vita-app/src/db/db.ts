@@ -25,8 +25,8 @@ CREATE INDEX IF NOT EXISTS idx_entries_occurredAt ON entries(occurredAt);
 
 CREATE TABLE IF NOT EXISTS outbox (
   seq INTEGER PRIMARY KEY AUTOINCREMENT,
-  entryId TEXT NOT NULL,             -- entries.id (create/update) OR pending_parse.id (interpret)
-  op TEXT NOT NULL DEFAULT 'create', -- create | update | interpret
+  entryId TEXT NOT NULL,             -- entries.id (create/update), pending_parse.id (interpret) OR the SERVER id (delete)
+  op TEXT NOT NULL DEFAULT 'create', -- create | update | interpret | delete
   attempts INTEGER NOT NULL DEFAULT 0,
   nextAttemptAt INTEGER NOT NULL DEFAULT 0   -- epoch ms; 0 = due now
 );

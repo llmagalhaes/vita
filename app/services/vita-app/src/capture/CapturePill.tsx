@@ -1,91 +1,107 @@
+/**
+ * v4 capture pill (APP-104) — the frosted, Samsung-Health-like bar floating over
+ * the Day panel. README §3 "Capture pill" + prototype lines 866–878 (`pillOn`):
+ * container `rgba(255,253,247,.55)` blur 20 saturate 1.5, border `rgba(255,253,247,.72)`,
+ * r32, shadow `0 12px 34px rgba(50,38,26,.25)`; entry `vtPillX` (max-width 54→280,
+ * .5s) with the Aa/camera buttons popping via `vtPillBtn` at .3s / .38s; Aa + camera
+ * 40px `rgba(69,62,53,.08)`, mic 52px accent + `0 8px 20px accent@40%`.
+ *
+ * The v3 three-shortcut nav row is GONE — the panel tabs own navigation now. Text
+ * capture moved into the sheet (prototype `capTextOn`), so the pill is exactly the
+ * prototype's three controls.
+ *
+ * Visible ONLY on today's Day panel with no sheet open (README §3).
+ */
 import { useEffect, useRef, useState } from "react";
-import { Pressable, TextInput, View } from "react-native";
-import { usePathname, useRouter } from "expo-router";
+import { Platform, Pressable, View } from "react-native";
+import { BlurView } from "expo-blur";
+import { usePathname } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import Animated, { Easing, FadeIn, ZoomIn, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import Svg, { Circle, Path } from "react-native-svg";
-import { Button, KeyboardLift, Text, colors, fonts, motion, spacing, useAccent, useAnySheetOpen } from "../ui";
+import Animated, {
+  Easing,
+  FadeIn,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withTiming,
+  runOnJS,
+} from "react-native-reanimated";
+import Svg, { Circle, Path, Rect } from "react-native-svg";
+import {
+  Button,
+  Text,
+  capturePill,
+  colors,
+  fonts,
+  motion,
+  shadowPill,
+  spacing,
+  useAccent,
+  useAnySheetOpen,
+} from "../ui";
 import { selectionTick } from "../lib/haptics";
+import { dayKey } from "../day/record";
+import { useSelectedDate } from "../day/selection";
 import { useCapture } from "./CaptureContext";
 import { PhotoSheet } from "./PhotoSheet";
 import { CANCEL_THRESHOLD, useVoiceCapture } from "./useVoiceCapture";
 import { VoiceOverlay } from "./VoiceOverlay";
 
-// A press shorter than this is a tap (toggle the text field); longer starts voice.
+// A press shorter than this is a tap (open the text field); longer starts voice.
 const HOLD_MS = 240;
 
-const FIELD_W = 208; // input + camera button
-const NAV_W = 198; // 3 × 66 shortcuts
+/** Same Android blur ladder as PanelTabs (APP-096 D1) — translucent fill ships first. */
+const ANDROID_BLUR = false;
+const blurOn = Platform.OS !== "android" || ANDROID_BLUR;
 
-const unfold = { duration: motion.unfold.durationMs, easing: Easing.bezier(...motion.unfold.bezier) };
+const pillX = { duration: motion.vtPillX.durationMs, easing: Easing.bezier(...motion.vtPillX.bezier) };
+const btnPop = { duration: motion.vtPillBtn.durationMs, easing: Easing.out(Easing.ease) };
 
-function NavButton({
+/** Aa / camera — 40px `rgba(69,62,53,.08)` circle popping in via `vtPillBtn`. */
+function SideButton({
   label,
-  active,
+  delayMs,
   onPress,
-  icon,
+  children,
 }: {
   label: string;
-  active: boolean;
+  delayMs: number;
   onPress: () => void;
-  icon: "today" | "trends" | "habits";
+  children: React.ReactNode;
 }) {
-  // Prototype active tab = calm brown tint + dark ink, NOT a solid accent pill.
-  const ink = active ? "#453E35" : "#6E6355";
+  const s = useSharedValue<number>(motion.vtPillBtn.fromScale);
+  useEffect(() => {
+    s.value = withDelay(delayMs, withTiming(1, btnPop));
+  }, [delayMs, s]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: s.value }], opacity: s.value }));
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={{
-        width: 66,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: active ? "rgba(120,100,75,0.12)" : "transparent",
-        alignItems: "center",
-        justifyContent: "center",
-        gap: 3,
-      }}
-    >
-      <Svg width={17} height={16} viewBox="0 0 17 16">
-        {icon === "today" && (
-          <Path d="M2 7.5 L8.5 2 L15 7.5 V14 H10.5 V10 H6.5 V14 H2 Z" fill="none" stroke={ink} strokeWidth={1.6} strokeLinejoin="round" />
-        )}
-        {icon === "trends" && (
-          <>
-            <Path d="M2 12.5 L6.5 7.5 L9.5 10 L15 3.5" fill="none" stroke={ink} strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" />
-            <Circle cx={15} cy={3.5} r={1.5} fill={ink} />
-          </>
-        )}
-        {icon === "habits" && (
-          <>
-            <Circle cx={8} cy={8} r={6.2} fill="none" stroke={ink} strokeWidth={1.6} />
-            <Path d="M5.4 8.3 l1.8 1.8 L10.9 6" fill="none" stroke={ink} strokeWidth={1.6} strokeLinecap="round" strokeLinejoin="round" />
-          </>
-        )}
-      </Svg>
-      <Text style={{ fontFamily: fonts.bold, fontSize: 10 }} color={ink}>
-        {label}
-      </Text>
-    </Pressable>
+    <Animated.View style={style}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        style={{
+          width: capturePill.buttonSize,
+          height: capturePill.buttonSize,
+          borderRadius: capturePill.buttonSize / 2,
+          backgroundColor: capturePill.buttonBg,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        {children}
+      </Pressable>
+    </Animated.View>
   );
 }
 
-/**
- * Capture pill v2 (CEO Round 5: the only chrome variant): mic bubble that
- * unfolds a text field, camera button, Today/Trends/Habits shortcuts.
- * Hold-to-talk lands with APP-012 — tap toggles the field for now.
- */
 export function CapturePill() {
   const { t } = useTranslation();
-  const router = useRouter();
   const pathname = usePathname();
   const capture = useCapture();
   const accent = useAccent();
-  const [expanded, setExpanded] = useState(false);
-  const [text, setText] = useState("");
-  const progress = useSharedValue(0);
+
   // Slide-to-cancel: UI-thread horizontal follow while recording (dragX ≤ 0),
   // plus flags the pan worklet reads without touching JS per frame.
   const dragX = useSharedValue(0);
@@ -93,7 +109,7 @@ export function CapturePill() {
   const armed = useSharedValue(0);
 
   // Slide the whole pill away while any sheet/pop-up is open — the prototype's
-  // floating menu disappears under a sheet (CEO #1, image 2).
+  // floating pill disappears under a sheet (README §3: "no sheet open").
   const anySheet = useAnySheetOpen();
   const hide = useSharedValue(0);
   useEffect(() => {
@@ -104,55 +120,25 @@ export function CapturePill() {
     opacity: 1 - hide.value,
   }));
 
+  // vtPillX — the shell grows 54 → 280 as it arrives.
+  const grow = useSharedValue(0);
   useEffect(() => {
-    progress.value = withTiming(expanded ? 1 : 0, unfold);
-  }, [expanded, progress]);
-
-  // Adjust flow: phrase comes back into the field for editing.
-  useEffect(() => {
-    if (capture.prefill) {
-      setText(capture.prefill);
-      setExpanded(true);
-      capture.clearPrefill();
-    }
-  }, [capture, capture.prefill]);
-
-  const fieldStyle = useAnimatedStyle(() => ({
-    maxWidth: progress.value * FIELD_W,
-    opacity: progress.value,
-  }));
-  const navStyle = useAnimatedStyle(() => ({
-    maxWidth: (1 - progress.value) * NAV_W,
-    opacity: 1 - progress.value,
+    grow.value = withTiming(1, pillX);
+  }, [grow]);
+  const growStyle = useAnimatedStyle(() => ({
+    maxWidth: motion.vtPillX.fromWidth + grow.value * (motion.vtPillX.toWidth - motion.vtPillX.fromWidth),
+    opacity: motion.vtPillX.fromOpacity + grow.value * (1 - motion.vtPillX.fromOpacity),
   }));
 
-  const send = () => {
-    if (!text.trim()) return;
-    capture.submit(text);
-    setText("");
-    setExpanded(false);
-  };
-
-  // Photo capture: tap the camera → the "Add from a photo" sheet (camera vs
-  // library, CEO #6). Each source picks → downscale → parse; calm decline/error.
+  // Photo capture: the camera button → "Add from a photo" (camera vs library).
   const [photoSheetOpen, setPhotoSheetOpen] = useState(false);
   const [photoNotice, setPhotoNotice] = useState<null | "denied" | "error">(null);
-  // "Type instead" from anywhere (photo decline, or the sheet's parse-fail) opens the field.
-  useEffect(() => {
-    if (capture.textEntryNonce > 0) {
-      setPhotoNotice(null);
-      setExpanded(true);
-    }
-  }, [capture.textEntryNonce]);
 
-  // Hold-to-talk: press-and-hold the mic → voice; a quick tap toggles the field.
+  // Hold-to-talk: press-and-hold the mic → voice; a quick tap opens the text field.
   const voice = useVoiceCapture((transcript) => capture.submit(transcript));
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const held = useRef(false);
 
-  // Tap-vs-hold detection + async voice start/stop stay on JS; the gesture
-  // worklets reach them via runOnJS — only on press-begin, threshold-cross and
-  // release, never per frame.
   const beginPress = () => {
     held.current = false;
     holdTimer.current = setTimeout(() => {
@@ -169,12 +155,12 @@ export function CapturePill() {
     if (holdTimer.current) clearTimeout(holdTimer.current);
     holdTimer.current = null;
     if (held.current) voice.holdEnd(); // reads willCancel → submit or abort
-    else setExpanded((e) => !e); // quick tap toggles the text field
+    else capture.requestTextEntry(); // quick tap opens the sheet's field
   };
 
-  // Slide-to-cancel (WhatsApp-idiomatic, leftward). The horizontal drag is
-  // tracked into dragX on the UI thread so the overlay's mic + hint follow the
-  // finger with zero JS round-trips; JS is touched only at the three edges above.
+  // Slide-to-cancel (WhatsApp-idiomatic, leftward). The horizontal drag is tracked
+  // into dragX on the UI thread so the overlay's mic + hint follow the finger with
+  // zero JS round-trips; JS is touched only at the three edges above.
   const micGesture = Gesture.Pan()
     .minDistance(0)
     .maxPointers(1)
@@ -200,8 +186,71 @@ export function CapturePill() {
       runOnJS(endPress)();
       recording.value = 0;
       armed.value = 0;
-      dragX.value = withTiming(0, unfold); // settle the mic back home
+      dragX.value = withTiming(0, { duration: motion.unfold.durationMs, easing: Easing.bezier(...motion.unfold.bezier) });
     });
+
+  // Today's Day panel only. Past days are a record, not a capture surface.
+  const selectedDate = useSelectedDate();
+  const onDay = pathname === "/day" || pathname === "/home"; // /home still redirects to /day (APP-108)
+  const visible = onDay && selectedDate === dayKey();
+
+  const shell = {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    borderRadius: capturePill.radius,
+    borderWidth: 1,
+    borderColor: capturePill.border,
+    overflow: "hidden",
+  } as const;
+
+  const inner = (
+    <>
+      <SideButton label={t("capture.textEntry")} delayMs={motion.vtPillBtn.delaysMs[0]} onPress={() => capture.requestTextEntry()}>
+        <Text style={{ fontFamily: fonts.extraBold, fontSize: 13 }} color={capturePill.buttonInk}>
+          Aa
+        </Text>
+      </SideButton>
+
+      <GestureDetector gesture={micGesture}>
+        <View
+          accessibilityRole="button"
+          accessibilityLabel={t("capture.log")}
+          accessibilityHint={t("capture.voice.a11yHint")}
+          onAccessibilityTap={() => capture.requestTextEntry()}
+          style={{
+            width: capturePill.micSize,
+            height: capturePill.micSize,
+            borderRadius: capturePill.micSize / 2,
+            backgroundColor: accent,
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: accent,
+            shadowOpacity: 0.4,
+            shadowRadius: 20,
+            shadowOffset: { width: 0, height: 8 },
+            elevation: 6,
+          }}
+        >
+          <Svg width={20} height={21} viewBox="0 0 20 21">
+            <Rect x={7.4} y={1.6} width={5.2} height={10} rx={2.6} fill="#FFF9F1" />
+            <Path d="M4 9.4 a6 6 0 0 0 12 0" fill="none" stroke="#FFF9F1" strokeWidth={1.8} strokeLinecap="round" />
+            <Path d="M10 16.2 v3" stroke="#FFF9F1" strokeWidth={1.8} strokeLinecap="round" />
+          </Svg>
+        </View>
+      </GestureDetector>
+
+      <SideButton label={t("capture.photo.a11yLabel")} delayMs={motion.vtPillBtn.delaysMs[1]} onPress={() => setPhotoSheetOpen(true)}>
+        <Svg width={17} height={15} viewBox="0 0 17 15">
+          <Rect x={1} y={3.4} width={15} height={10.4} rx={3} fill="none" stroke={capturePill.buttonInk} strokeWidth={1.5} />
+          <Path d="M6 3.4 L7.4 1.4 h2.2 L11 3.4" fill="none" stroke={capturePill.buttonInk} strokeWidth={1.5} strokeLinejoin="round" />
+          <Circle cx={8.5} cy={8.4} r={2.6} fill="none" stroke={capturePill.buttonInk} strokeWidth={1.5} />
+        </Svg>
+      </SideButton>
+    </>
+  );
 
   return (
     <>
@@ -212,7 +261,7 @@ export function CapturePill() {
         drag={dragX}
         onTypeInstead={() => {
           voice.dismiss();
-          setExpanded(true);
+          capture.requestTextEntry();
         }}
         onDismiss={voice.dismiss}
       />
@@ -261,122 +310,38 @@ export function CapturePill() {
                 label={t("capture.photo.typeInstead")}
                 onPress={() => {
                   setPhotoNotice(null);
-                  setExpanded(true);
+                  capture.requestTextEntry();
                 }}
               />
             </View>
           </Animated.View>
         </View>
       )}
-      <View
-        pointerEvents={anySheet ? "none" : "box-none"}
-        style={{ position: "absolute", left: 0, right: 0, bottom: 0, alignItems: "center", paddingBottom: 22 }}
-      >
-      {/* Lift the whole pill above the keyboard while its own field is open. */}
-      <KeyboardLift enabled={expanded}>
-      {/* vtPop — the pill pops in on mount like the prototype; slides away under a sheet */}
-      <Animated.View
-        entering={ZoomIn.duration(motion.pop.durationMs).easing(Easing.bezier(...motion.pop.bezier).factory())}
-        style={[hideStyle, {
-          flexDirection: "row",
-          alignItems: "center",
-          backgroundColor: "rgba(255,253,247,0.9)",
-          borderWidth: 1,
-          borderColor: colors.border,
-          borderRadius: 36,
-          padding: 6,
-          // prototype's soft floating lift `0 18px 44px rgba(105,84,60,.20)` — the
-          // radius was too tight (22) to read as a soft lift (APP-067). Active nav
-          // colours already match the prototype (accent bg + cream ink).
-          shadowColor: "#69543C",
-          shadowOpacity: 0.2,
-          shadowRadius: 30,
-          shadowOffset: { width: 0, height: 18 },
-          elevation: 9,
-        }]}
-      >
-        <GestureDetector gesture={micGesture}>
-          {(() => {
-            // Log is the capture CTA, not a nav destination — in the prototype
-            // its mic + label are always accent over a soft accent-tint bubble
-            // (CEO: keep it prototype-faithful). Only the active NAV tab softens.
-            const logInk = accent;
-            return (
-              <View
-                accessibilityRole="button"
-                accessibilityLabel={t("capture.log")}
-                accessibilityHint={t("capture.voice.a11yHint")}
-                onAccessibilityTap={() => setExpanded((e) => !e)}
-                style={{
-                  width: 66,
-                  height: 56,
-                  borderRadius: 28,
-                  backgroundColor: colors.estimateBg,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 3,
-                }}
-              >
-                <Svg width={16} height={18} viewBox="0 0 16 18">
-                  <Path d="M5.6 1.5 h4.8 a2.4 2.4 0 0 1 2.4 2.4 v3.6 a2.4 2.4 0 0 1 -2.4 2.4 h-4.8 a2.4 2.4 0 0 1 -2.4 -2.4 v-3.6 a2.4 2.4 0 0 1 2.4 -2.4 Z" fill={logInk} />
-                  <Path d="M3 8 a5 5 0 0 0 10 0" fill="none" stroke={logInk} strokeWidth={1.6} strokeLinecap="round" />
-                  <Path d="M8 14 v2.5" stroke={logInk} strokeWidth={1.6} strokeLinecap="round" />
-                </Svg>
-                <Text style={{ fontFamily: fonts.extraBold, fontSize: 10 }} color={logInk}>
-                  {t("capture.log")}
-                </Text>
-              </View>
-            );
-          })()}
-        </GestureDetector>
-
-        <Animated.View style={[{ flexDirection: "row", alignItems: "center", overflow: "hidden" }, fieldStyle]}>
-          <TextInput
-            value={text}
-            onChangeText={setText}
-            onSubmitEditing={send}
-            returnKeyType="send"
-            placeholder={t("capture.placeholder")}
-            placeholderTextColor={colors.labelMuted}
-            accessibilityLabel={t("capture.placeholder")}
-            style={{
-              width: 154,
-              paddingHorizontal: 8,
-              fontFamily: fonts.regular,
-              fontSize: 13.5,
-              color: colors.ink,
-            }}
-          />
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={t("capture.photo.a11yLabel")}
-            onPress={() => setPhotoSheetOpen(true)}
-            style={{
-              width: 42,
-              height: 42,
-              borderRadius: 21,
-              backgroundColor: "#F0EDE2",
-              alignItems: "center",
-              justifyContent: "center",
-              marginRight: 4,
-            }}
-          >
-            <Svg width={18} height={16} viewBox="0 0 18 16">
-              <Path d="M2.5 4.75 h13 a1 1 0 0 1 1 1 v8 a1 1 0 0 1 -1 1 h-13 a1 1 0 0 1 -1 -1 v-8 a1 1 0 0 1 1 -1 Z" fill="none" stroke="#6E6355" strokeWidth={1.5} />
-              <Path d="M6 4 L7.2 2 h3.6 L12 4" fill="none" stroke="#6E6355" strokeWidth={1.5} strokeLinejoin="round" />
-              <Circle cx={9} cy={9.2} r={2.6} fill="none" stroke="#6E6355" strokeWidth={1.5} />
-            </Svg>
-          </Pressable>
-        </Animated.View>
-
-        <Animated.View style={[{ flexDirection: "row", alignItems: "center", overflow: "hidden" }, navStyle]}>
-          <NavButton label={t("pill.today")} icon="today" active={pathname === "/home"} onPress={() => router.replace("/home")} />
-          <NavButton label={t("pill.trends")} icon="trends" active={pathname === "/trends"} onPress={() => router.replace("/trends")} />
-          <NavButton label={t("pill.habits")} icon="habits" active={pathname === "/habits"} onPress={() => router.replace("/habits")} />
-        </Animated.View>
-      </Animated.View>
-      </KeyboardLift>
-      </View>
+      {visible && (
+        <View
+          pointerEvents={anySheet ? "none" : "box-none"}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 26, alignItems: "center", zIndex: 55 }}
+        >
+          <Animated.View style={[hideStyle, shadowPill]}>
+            <Animated.View style={growStyle}>
+              {blurOn ? (
+                <BlurView
+                  intensity={capturePill.blur}
+                  tint="light"
+                  blurReductionFactor={1}
+                  experimentalBlurMethod="dimezisBlurView"
+                  style={[shell, { backgroundColor: capturePill.bg }]}
+                >
+                  {inner}
+                </BlurView>
+              ) : (
+                // Android fallback: same translucent fill, no blur (APP-096 pattern).
+                <View style={[shell, { backgroundColor: capturePill.bg }]}>{inner}</View>
+              )}
+            </Animated.View>
+          </Animated.View>
+        </View>
+      )}
     </>
   );
 }

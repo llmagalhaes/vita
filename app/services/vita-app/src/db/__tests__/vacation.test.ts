@@ -2,7 +2,17 @@ import { api } from "../../api";
 import { dayKey, vacationExcluder } from "../../trends/aggregate";
 import { setNotifier, stubNotifier } from "../../habits/notifier";
 import { resetDbForTests } from "../db";
-import { endVacation, getVacation, isVacationActive, saveVacation, syncVacation, vacationRanges } from "../vacation";
+import {
+  OPEN_ENDED_END,
+  endVacation,
+  getVacation,
+  isVacationActive,
+  saveVacation,
+  startVacation,
+  syncVacation,
+  vacationKeepsWater,
+  vacationRanges,
+} from "../vacation";
 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const dayOffset = (n: number) => {
@@ -20,20 +30,20 @@ beforeEach(() => {
 test("saveVacation persists the ranges to the backend (replace-on-write, D1)", () => {
   const spy = jest.spyOn(api, "putVacations");
   const ranges = [{ start: dayOffset(-1), end: dayOffset(2) }];
-  saveVacation({ ranges, keepCheckins: false, tripHabitIds: [] });
+  saveVacation({ ranges, duration: "thisWeek", keepWater: false });
   expect(spy).toHaveBeenCalledWith(ranges); // only the ranges leave the device
   expect(getVacation().ranges).toEqual(ranges); // and cached locally
 });
 
 test("isVacationActive is true when today is inside a stored range, false otherwise", () => {
-  saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], keepCheckins: false, tripHabitIds: [] });
+  saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], duration: "thisWeek", keepWater: false });
   expect(isVacationActive()).toBe(true);
-  saveVacation({ ranges: [{ start: dayOffset(-10), end: dayOffset(-5) }], keepCheckins: false, tripHabitIds: [] });
+  saveVacation({ ranges: [{ start: dayOffset(-10), end: dayOffset(-5) }], duration: "thisWeek", keepWater: false });
   expect(isVacationActive()).toBe(false);
 });
 
 test("the real ranges drive the trends vacation-day excluder", () => {
-  saveVacation({ ranges: [{ start: dayOffset(-2), end: dayOffset(0) }], keepCheckins: false, tripHabitIds: [] });
+  saveVacation({ ranges: [{ start: dayOffset(-2), end: dayOffset(0) }], duration: "thisWeek", keepWater: false });
   const isExcluded = vacationExcluder(vacationRanges());
   expect(isExcluded(dayKey(new Date()))).toBe(true); // today is in the trip → hidden
   const before = new Date();
@@ -42,7 +52,7 @@ test("the real ranges drive the trends vacation-day excluder", () => {
 });
 
 test("endVacation clears the ranges locally and on the server", () => {
-  saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], keepCheckins: true, tripHabitIds: [] });
+  saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], duration: "thisWeek", keepWater: true });
   const spy = jest.spyOn(api, "putVacations");
   endVacation();
   expect(spy).toHaveBeenCalledWith([]); // server range cleared
@@ -63,7 +73,7 @@ test("syncVacation hydrates ranges from the backend on mount", async () => {
 test("an offline vacation edit is not reverted by the next hydrate (dirty flag)", async () => {
   const local = [{ start: dayOffset(-1), end: dayOffset(2) }];
   jest.spyOn(api, "putVacations").mockRejectedValue(new Error("offline"));
-  saveVacation({ ranges: local, keepCheckins: false, tripHabitIds: [] }); // push fails → dirty
+  saveVacation({ ranges: local, duration: "thisWeek", keepWater: false }); // push fails → dirty
 
   const getSpy = jest
     .spyOn(api, "getVacations")
@@ -71,4 +81,48 @@ test("an offline vacation edit is not reverted by the next hydrate (dirty flag)"
   await syncVacation();
   expect(getSpy).not.toHaveBeenCalled(); // dirty → never fetched → never clobbered
   expect(getVacation().ranges).toEqual(local); // the offline edit is kept
+});
+
+// APP-103 / CEO Q7 — the duration chip IS the range, so expiry is structural: there
+// is no timer and no stale "on" flag to sweep. Day 7 is still the trip, day 8 isn't.
+test('"This week" covers 7 days and then expires by itself', () => {
+  const start = new Date();
+  startVacation("thisWeek", false, start);
+  const [range] = vacationRanges();
+  expect(range).toEqual({ start: dayKey(start), end: dayOffset(6) });
+
+  const day7 = new Date(start);
+  day7.setDate(start.getDate() + 6);
+  expect(isVacationActive(day7)).toBe(true);
+  const day8 = new Date(start);
+  day8.setDate(start.getDate() + 7);
+  expect(isVacationActive(day8)).toBe(false);
+});
+
+test('"Until I end it" never expires on its own — only End clears it', () => {
+  const start = new Date();
+  startVacation("untilEnded", false, start);
+  expect(vacationRanges()[0]!.end).toBe(OPEN_ENDED_END);
+  const wayLater = new Date(start);
+  wayLater.setFullYear(start.getFullYear() + 5);
+  expect(isVacationActive(wayLater)).toBe(true);
+
+  endVacation();
+  expect(isVacationActive()).toBe(false);
+});
+
+test("keepWater is only true while the trip is actually running", () => {
+  startVacation("thisWeek", true);
+  expect(getVacation().keepWater).toBe(true);
+  expect(vacationKeepsWater()).toBe(true);
+
+  endVacation(); // ranges gone → the flag stops meaning anything
+  expect(vacationKeepsWater()).toBe(false);
+});
+
+// A pre-v4 profile has neither field; reading it must not produce `undefined`.
+test("a config saved before v4 reads back with the v4 defaults", () => {
+  saveVacation({ ranges: [] } as never);
+  expect(getVacation().duration).toBe("thisWeek");
+  expect(getVacation().keepWater).toBe(false);
 });

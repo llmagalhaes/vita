@@ -7,7 +7,7 @@
  * Parse is deterministic keyword-matching so the CEO can demo capture offline.
  * Every numeric value is an estimate and flagged isEstimate: true.
  */
-import { buildMealRecord, emptyOverlay, toMealEntry } from "../day/record";
+import { buildMealRecord, emptyOverlay, minutesOf, toMealEntry } from "../day/record";
 import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
 import { uuid } from "../lib/uuid";
 import {
@@ -137,6 +137,26 @@ function mockPlanMeal(lower: string, plan: EatingPlanDraft, occurredAt: string, 
   const rec = buildMealRecord("", meal, adjusted ? "adjusted" : "done", ov);
   return { ...toMealEntry(rec, text), occurredAt, inputMethod: "text" };
 }
+
+// ─── APP-104 region ──────────────────────────────────────────────────────────
+/**
+ * Plan-aware PHOTO fixture. README §3: a photo yields a **confirmation** ("Looks
+ * like your plan's Lunch"), never a delta — so the draft is the plan meal's own
+ * composition with `planStatus:"done"`. Deterministic pick: the meal whose slot is
+ * closest to the capture time, which is what a plate photographed now most likely is.
+ */
+function mockPlanPhoto(plan: EatingPlanDraft, occurredAt: string): NewEntry | null {
+  const withIds = plan.meals.filter((m) => m.id != null);
+  if (withIds.length === 0) return null;
+  const at = new Date(occurredAt);
+  const nowMin = at.getHours() * 60 + at.getMinutes();
+  const meal = withIds.reduce((best, m) =>
+    Math.abs(minutesOf(m.time) - nowMin) < Math.abs(minutesOf(best.time) - nowMin) ? m : best,
+  );
+  const rec = buildMealRecord("", meal, "done");
+  return { ...toMealEntry(rec), occurredAt, inputMethod: "photo" };
+}
+// ─── end APP-104 region ──────────────────────────────────────────────────────
 
 export function mockParse(text: string, capturedAt?: string, plan?: EatingPlanDraft | null): ParseResult {
   const lower = text.toLowerCase();
@@ -617,7 +637,9 @@ export function createMockApi(): Api {
   const byIdempotencyKey = new Map<string, LogEntry>();
   // Persisted plan/program (in-memory for the session; POST/PUT store, GET reads).
   // Seed the v3 plan (ready) so the Eating Plan / Today screens are walkable.
-  let storedPlan: EatingPlanDraft | null = handoffPlanV3();
+  // Stamped, like a SAVED plan (0.8.0 "m-N" meal ids) — without them nothing can
+  // point at a plan meal and the plan-aware capture path is unreachable in mock mode.
+  let storedPlan: EatingPlanDraft | null = stampPlanIds(handoffPlanV3());
   let storedProgram: TrainingProgramDraft | null = null;
   // Sparse portion overlay for the current plan version (PUT /plan/portions).
   let storedPortions: PortionsMap = {};
@@ -672,6 +694,11 @@ export function createMockApi(): Api {
       const planned = caption ? mockParse(caption, capturedAt, storedPlan) : null;
       const first = planned?.drafts[0]?.detail as { planMealId?: string } | undefined;
       if (planned && first?.planMealId) return planned;
+      // APP-104: an uncaptioned plate against a saved plan → the confirmation path.
+      if (!caption && storedPlan) {
+        const draft = mockPlanPhoto(storedPlan, capturedAt ?? new Date().toISOString());
+        if (draft) return { drafts: [draft] };
+      }
       return mockPhotoParse(caption, capturedAt);
     },
     async startEatingPlanImport({ text }) {
@@ -795,6 +822,16 @@ export function createMockApi(): Api {
       }
       throw notFound();
     },
+    async deleteEntry(id) {
+      await delay(120);
+      // Idempotent like the real 204: deleting a missing entry is not an error.
+      for (const [key, e] of byIdempotencyKey) {
+        if (e.id === id) {
+          byIdempotencyKey.delete(key);
+          break;
+        }
+      }
+    },
     async listEntries({ date } = {}) {
       await delay(150);
       // SQLite is the app's source of truth, so this starts empty — but entries
@@ -816,6 +853,11 @@ export function createMockApi(): Api {
       await delay(100);
       me = { ...me, ...patch };
       return me;
+    },
+    async deleteAccount() {
+      await delay(100);
+      // 7-day grace: the server keeps the row until it lapses, so the mock only marks it.
+      me = { ...me, deletionEffectiveAt: new Date(Date.now() + 7 * 864e5).toISOString() };
     },
     async getVacations() {
       await delay(100);

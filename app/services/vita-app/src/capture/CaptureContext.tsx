@@ -1,18 +1,25 @@
-import { createContext, useCallback, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api, type NewEntry } from "../api";
-import { addLocalEntry, enqueueInterpretation } from "../db/entries";
+import { dayKey } from "../day/record";
+import { addLocalEntry, deleteEntry, enqueueInterpretation } from "../db/entries";
+import { getDayRecord, getOverlay, recordMeals } from "../db/dayRecord";
 import { logChanged } from "../db/notify";
 import { drainOutbox } from "../db/outbox";
+import { getCachedPlan } from "../db/plan";
 import { showToast } from "../ui/toast";
+import { applyDelta, planDelta, revertDelta, type PlanDelta } from "./delta";
 import { persistForQueue } from "./photo";
 
-export type CaptureStatus = "idle" | "parsing" | "review" | "error";
+/** "text" = the sheet's `Tell Vita what happened` field (prototype `capTextOn`). */
+export type CaptureStatus = "idle" | "text" | "parsing" | "review" | "error";
 
 type CaptureState = {
   status: CaptureStatus;
   phrase: string;
   drafts: NewEntry[];
+  /** Parallel to `drafts`: the plan delta for that draft, or null → v3 loose card. */
+  deltas: (PlanDelta | null)[];
   index: number;
   // error status payload: which message, and whether "Try again" (text) vs "Type instead" (photo).
   errorKey: string;
@@ -21,7 +28,7 @@ type CaptureState = {
 
 type CaptureContextValue = CaptureState & {
   prefill: string;
-  textEntryNonce: number;
+  delta: PlanDelta | null;
   submit: (text: string) => void;
   submitPhoto: (image: { uri: string }, caption?: string) => void;
   updateDraft: (next: NewEntry) => void;
@@ -29,9 +36,9 @@ type CaptureContextValue = CaptureState & {
   discard: () => void;
   adjust: () => void;
   close: () => void;
-  clearPrefill: () => void;
   showToast: (msg: string) => void;
-  requestTextEntry: () => void;
+  /** Open the sheet's text field (Aa button, photo decline, parse failure). */
+  requestTextEntry: (prefill?: string) => void;
   promptAdjust: (phrase: string) => void;
 };
 
@@ -39,10 +46,35 @@ const idle: CaptureState = {
   status: "idle",
   phrase: "",
   drafts: [],
+  deltas: [],
   index: 0,
   errorKey: "capture.parseError",
   canRetry: true,
 };
+
+/**
+ * APP-104 — "open this meal" signal for the Day timeline (APP-098). Recording a
+ * delta auto-expands the meal it touched, so the user lands on what just changed.
+ * ponytail: a 10-line module store, same shape as `ui/toast` — no context to thread,
+ * and the timeline reads it with one hook.
+ */
+let focused: string | null = null;
+const focusListeners = new Set<() => void>();
+export function signalExpandMeal(planMealId: string | null): void {
+  focused = planMealId;
+  focusListeners.forEach((l) => l());
+}
+export const getExpandedMeal = (): string | null => focused;
+export function useExpandedMeal(): string | null {
+  return useSyncExternalStore(
+    (cb) => {
+      focusListeners.add(cb);
+      return () => focusListeners.delete(cb);
+    },
+    getExpandedMeal,
+    getExpandedMeal,
+  );
+}
 
 /** ApiError status → user-facing error message key for the photo path. */
 function photoErrorKey(err: unknown): string {
@@ -53,13 +85,25 @@ function photoErrorKey(err: unknown): string {
   return "capture.photo.error";
 }
 
+/**
+ * PLAN R6: the parse hands back the matched meal's FULL composition — the delta is
+ * computed here, app-side, against the plan + today's overlay. A draft that matches
+ * nothing (off-plan meal, water, workout, stale pointer) yields null and keeps the
+ * v3 loose-draft card, so an off-plan meal is still recordable.
+ */
+function deltasFor(drafts: NewEntry[]): (PlanDelta | null)[] {
+  const meals = getCachedPlan()?.meals ?? [];
+  if (meals.length === 0) return drafts.map(() => null);
+  const overlay = getOverlay();
+  return drafts.map((d) => planDelta(d, meals, overlay));
+}
+
 const CaptureContext = createContext<CaptureContextValue | null>(null);
 
 export function CaptureProvider({ children }: { children: ReactNode }) {
   const { t } = useTranslation();
   const [state, setState] = useState<CaptureState>(idle);
   const [prefill, setPrefill] = useState("");
-  const [textEntryNonce, setTextEntryNonce] = useState(0);
 
   // Offline (no network to reach /parse): park the raw capture; the reconnect drain
   // interprets it later so nothing is lost. A reached-but-failing server (ApiError)
@@ -70,7 +114,13 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
       showToast(t("capture.offlineQueued"));
       setState(idle);
     },
-    [showToast, t],
+    [t],
+  );
+
+  const reviewed = useCallback(
+    (phrase: string, drafts: NewEntry[]) =>
+      setState({ ...idle, status: "review", phrase, drafts, deltas: deltasFor(drafts) }),
+    [],
   );
 
   const submit = useCallback(
@@ -81,7 +131,7 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
       setState({ ...idle, status: "parsing", phrase });
       api
         .parseText({ text: phrase, capturedAt })
-        .then((r) => setState({ ...idle, status: "review", phrase, drafts: r.drafts }))
+        .then((r) => reviewed(phrase, r.drafts))
         .catch((err) => {
           if (err instanceof ApiError) {
             setState({ ...idle, status: "error", phrase, errorKey: "capture.parseError", canRetry: true });
@@ -90,7 +140,7 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
           }
         });
     },
-    [queueOffline],
+    [queueOffline, reviewed],
   );
 
   const submitPhoto = useCallback(
@@ -99,7 +149,7 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
       setState({ ...idle, status: "parsing", phrase: caption ?? "" });
       api
         .parsePhoto({ image, caption, capturedAt })
-        .then((r) => setState({ ...idle, status: "review", phrase: caption ?? "", drafts: r.drafts }))
+        .then((r) => reviewed(caption ?? "", r.drafts))
         .catch((err) => {
           if (err instanceof ApiError) {
             setState({ ...idle, status: "error", phrase: caption ?? "", errorKey: photoErrorKey(err), canRetry: false });
@@ -112,20 +162,13 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
           }
         });
     },
-    [queueOffline],
+    [queueOffline, reviewed],
   );
 
-  const advance = useCallback(
-    (s: CaptureState, confirmed: boolean) => {
-      if (confirmed) showToast(t("capture.addedToast"));
-      if (s.index + 1 < s.drafts.length) {
-        setState({ ...s, index: s.index + 1 });
-      } else {
-        setState(idle);
-      }
-    },
-    [showToast, t],
-  );
+  const advance = useCallback((s: CaptureState) => {
+    if (s.index + 1 < s.drafts.length) setState({ ...s, index: s.index + 1 });
+    else setState(idle);
+  }, []);
 
   const updateDraft = useCallback((next: NewEntry) => {
     setState((s) =>
@@ -135,68 +178,96 @@ export function CaptureProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  const confirm = useCallback(() => {
-    if (state.status !== "review") return;
-    const draft = state.drafts[state.index]!;
-    // Local write always succeeds instantly; sync drains in the background.
-    addLocalEntry(draft);
-    logChanged();
+  const drain = useCallback(() => {
     void drainOutbox(api)
       .then(({ synced }) => {
         if (synced > 0) logChanged();
       })
       .catch(() => {});
-    advance(state, true);
-  }, [state, advance]);
+  }, []);
+
+  /**
+   * `Record it` — the delta lands on the DAY RECORD (one idempotent entry per plan
+   * meal per day), the touched meal auto-expands, and the toast's Undo restores the
+   * previous item *and* the previous meal state (or removes the record entirely when
+   * the meal was unrecorded before).
+   */
+  const recordDelta = useCallback(
+    (delta: PlanDelta, draft: NewEntry, phrase: string) => {
+      const date = dayKey(new Date(draft.occurredAt));
+      const { record, undo } = applyDelta(getDayRecord(date), delta, draft.occurredAt);
+      recordMeals([record], phrase || undefined);
+      signalExpandMeal(delta.planMealId);
+      showToast(t("capture.delta.toast", { meal: delta.title }), {
+        undo: () => {
+          const back = revertDelta(getDayRecord(date), undo);
+          if (back.restore) recordMeals([back.restore]);
+          else if (back.remove) {
+            deleteEntry(back.remove);
+            logChanged();
+            drain();
+          }
+          signalExpandMeal(delta.planMealId);
+        },
+      });
+    },
+    [drain, t],
+  );
+
+  const confirm = useCallback(() => {
+    if (state.status !== "review") return;
+    const draft = state.drafts[state.index]!;
+    const delta = state.deltas[state.index] ?? null;
+    if (delta) {
+      recordDelta(delta, draft, state.phrase);
+    } else {
+      // Off-plan / water / workout: the v3 path — local write, background drain.
+      addLocalEntry(draft);
+      logChanged();
+      drain();
+      showToast(t("capture.addedToast"));
+    }
+    advance(state);
+  }, [state, advance, drain, recordDelta, t]);
 
   const discard = useCallback(() => {
     if (state.status !== "review") return;
-    advance(state, false);
+    advance(state);
   }, [state, advance]);
 
-  const adjust = useCallback(() => {
-    setPrefill(state.phrase);
-    setState(idle);
-  }, [state.phrase]);
-
   const close = useCallback(() => setState(idle), []);
-  const clearPrefill = useCallback(() => setPrefill(""), []);
-  // Photo declined / parse failed → drop the sheet and open the text field.
-  const requestTextEntry = useCallback(() => {
-    setState(idle);
-    setTextEntryNonce((n) => n + 1);
-  }, []);
-  // Adjust an offline-review entry: reopen capture prefilled with its source phrase
-  // (mirrors the online adjust). The nonce guarantees the field opens even when the
-  // phrase is empty (e.g. a photo capture with no caption).
-  const promptAdjust = useCallback((phrase: string) => {
-    setState(idle);
-    setPrefill(phrase);
-    setTextEntryNonce((n) => n + 1);
+
+  // Reopen the text field, optionally carrying a phrase back into it (Adjust, or an
+  // offline-review entry). The prototype's text capture lives in the sheet, so this
+  // is one state change — no pill-side unfolding any more.
+  const requestTextEntry = useCallback((text = "") => {
+    setPrefill(text);
+    setState({ ...idle, status: "text", phrase: text });
   }, []);
 
-  return (
-    <CaptureContext.Provider
-      value={{
-        ...state,
-        prefill,
-        textEntryNonce,
-        submit,
-        submitPhoto,
-        updateDraft,
-        confirm,
-        discard,
-        adjust,
-        close,
-        clearPrefill,
-        showToast,
-        requestTextEntry,
-        promptAdjust,
-      }}
-    >
-      {children}
-    </CaptureContext.Provider>
+  const adjust = useCallback(() => requestTextEntry(state.phrase), [requestTextEntry, state.phrase]);
+  const promptAdjust = useCallback((phrase: string) => requestTextEntry(phrase), [requestTextEntry]);
+
+  const value = useMemo<CaptureContextValue>(
+    () => ({
+      ...state,
+      prefill,
+      delta: state.deltas[state.index] ?? null,
+      submit,
+      submitPhoto,
+      updateDraft,
+      confirm,
+      discard,
+      adjust,
+      close,
+      showToast,
+      requestTextEntry,
+      promptAdjust,
+    }),
+    [state, prefill, submit, submitPhoto, updateDraft, confirm, discard, adjust, close, requestTextEntry, promptAdjust],
   );
+
+  return <CaptureContext.Provider value={value}>{children}</CaptureContext.Provider>;
 }
 
 export function useCapture(): CaptureContextValue {

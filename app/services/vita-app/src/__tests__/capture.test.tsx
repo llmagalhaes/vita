@@ -14,6 +14,15 @@ jest.mock("expo-router", () => ({
 
 beforeEach(() => resetDbForTests());
 
+// APP-104: text capture lives in the sheet now — the pill's "Aa" opens it.
+const FIELD = "e.g. lunch as planned, rice → sweet potato";
+async function openField() {
+  const open = screen.queryByLabelText(FIELD);
+  if (open) return open;
+  await fireEvent.press(screen.getByLabelText("Type what happened"));
+  return await screen.findByLabelText(FIELD);
+}
+
 function Harness() {
   return (
     <CaptureProvider>
@@ -26,7 +35,7 @@ function Harness() {
 test("text capture: phrase → making sense → confirmation card → confirm writes via outbox", async () => {
   await render(<Harness />);
 
-  const input = screen.getByLabelText("Tell Vita what you had…");
+  const input = await openField();
   await fireEvent.changeText(input, "Had a banana and a handful of peanuts around 4");
   await fireEvent(input, "submitEditing");
 
@@ -55,7 +64,7 @@ test("text capture: phrase → making sense → confirmation card → confirm wr
 test("multiple drafts stack: meal + water confirmed one by one", async () => {
   await render(<Harness />);
 
-  const input = screen.getByLabelText("Tell Vita what you had…");
+  const input = await openField();
   await fireEvent.changeText(input, "had a sandwich and a big glass of water");
   await fireEvent(input, "submitEditing");
 
@@ -74,13 +83,13 @@ test("multiple drafts stack: meal + water confirmed one by one", async () => {
 test("adjust returns the phrase to the field; nothing is logged", async () => {
   await render(<Harness />);
 
-  const input = screen.getByLabelText("Tell Vita what you had…");
+  const input = await openField();
   await fireEvent.changeText(input, "banana");
   await fireEvent(input, "submitEditing");
 
   await waitFor(() => expect(screen.getByText("Adjust")).toBeOnTheScreen(), { timeout: 3000 });
   await fireEvent.press(screen.getByText("Adjust"));
 
-  expect(screen.getByLabelText("Tell Vita what you had…").props.value).toBe("banana");
+  expect((await openField()).props.value).toBe("banana");
   expect(entriesForDay(new Date())).toHaveLength(0);
 });

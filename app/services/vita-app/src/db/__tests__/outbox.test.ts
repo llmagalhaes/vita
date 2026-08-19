@@ -1,7 +1,7 @@
 import { ApiError, type Api, type LogEntry, type NewEntry } from "../../api/client";
 import { createMockApi } from "../../api/mock";
 import { resetDbForTests } from "../db";
-import { addLocalEntry, enqueueInterpretation, entriesForDay, getEntry, getPending, upsertCheckin } from "../entries";
+import { addLocalEntry, deleteEntry, enqueueInterpretation, entriesForDay, getEntry, getPending, upsertCheckin } from "../entries";
 import { backoffMs, drainOutbox, pendingCount } from "../outbox";
 
 // Parked-photo pre-flight (audit 1.2) reads the file system; keep it deterministic.
@@ -276,6 +276,75 @@ test("update op against a deleted server entry is dropped as failed, not stalled
   expect(getEntry(id)!.syncState).toBe("failed"); // terminal, not an eternal 'pending'
   expect(getEntry(good.id)!.syncState).toBe("synced");
   expect(pendingCount()).toBe(0);
+});
+
+// APP-112: deleting a synced entry must reach DELETE /entries/{id} — a local-only
+// delete would let a restore resurrect it (and keeps data the user asked us to drop).
+test("deleting a synced entry calls the server delete", async () => {
+  const e = addLocalEntry(water());
+  await drainOutbox(createMockApi());
+  const serverId = getEntry(e.id)!.serverId!;
+  const deleted: string[] = [];
+  const api: Api = { ...createMockApi(), deleteEntry: async (id) => { deleted.push(id); } };
+
+  deleteEntry(e.id);
+  expect(pendingCount()).toBe(1); // the delete op is queued
+  await drainOutbox(api);
+  expect(deleted).toEqual([serverId]);
+  expect(pendingCount()).toBe(0);
+});
+
+test("offline delete survives and drains exactly once on reconnect", async () => {
+  const e = addLocalEntry(water());
+  await drainOutbox(createMockApi());
+  const serverId = getEntry(e.id)!.serverId!;
+  const deleted: string[] = [];
+  const offline: Api = { ...createMockApi(), deleteEntry: () => Promise.reject(new TypeError("Network request failed")) };
+  const online: Api = { ...createMockApi(), deleteEntry: async (id) => { deleted.push(id); } };
+
+  deleteEntry(e.id);
+  await drainOutbox(offline);
+  expect(deleted).toHaveLength(0);
+  expect(pendingCount()).toBe(1); // backed off, not lost
+
+  await drainOutbox(online, () => Date.now() + 10_000);
+  expect(deleted).toEqual([serverId]);
+  expect(pendingCount()).toBe(0);
+
+  await drainOutbox(online, () => Date.now() + 20_000);
+  expect(deleted).toHaveLength(1); // exactly once — the op is gone
+});
+
+test("create then delete while offline never touches the server", async () => {
+  const offline: Api = { ...createMockApi(), createEntry: () => Promise.reject(new TypeError("offline")) };
+  const e = addLocalEntry(water());
+  await drainOutbox(offline); // create attempted, backed off, never synced
+
+  deleteEntry(e.id);
+  expect(pendingCount()).toBe(0); // the create was cancelled, no delete queued
+
+  let created = 0;
+  let deleted = 0;
+  const online: Api = {
+    ...createMockApi(),
+    createEntry: (k, entry) => { created++; return createMockApi().createEntry(k, entry); },
+    deleteEntry: async () => { deleted++; },
+  };
+  const { synced } = await drainOutbox(online, () => Date.now() + 10_000);
+  expect([synced, created, deleted]).toEqual([0, 0, 0]);
+});
+
+test("a 404 on delete counts as success (already gone), not poison", async () => {
+  const e = addLocalEntry(water());
+  await drainOutbox(createMockApi());
+  deleteEntry(e.id);
+  const good = addLocalEntry(water()); // queued behind the delete
+
+  const api: Api = { ...createMockApi(), deleteEntry: () => Promise.reject(problem(404)) };
+  const { synced } = await drainOutbox(api);
+  expect(synced).toBe(2); // delete + the following create
+  expect(pendingCount()).toBe(0);
+  expect(getEntry(good.id)!.syncState).toBe("synced");
 });
 
 test("items not yet due are skipped", async () => {

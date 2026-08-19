@@ -18,10 +18,13 @@ beforeEach(() => resetDbForTests());
 
 test("mounts Trends, Day and Library together, with the tabs and the hint", async () => {
   await render(<PanelShell />);
-  // Panel headings + tab labels → each label appears twice (panel title + tab).
+  // Placeholder panels still show their title next to the tab label; the Day panel
+  // is real now (APP-097) — it opens on the scenic greeting, not a "Today" heading,
+  // so its proof of mounting is the Overview zone label.
   expect(screen.getAllByText("Trends").length).toBeGreaterThanOrEqual(2);
-  expect(screen.getAllByText("Today").length).toBeGreaterThanOrEqual(2);
   expect(screen.getAllByText("Library").length).toBeGreaterThanOrEqual(2);
+  expect(screen.getByText("Today")).toBeTruthy(); // the tab
+  expect(screen.getByText("Overview")).toBeTruthy(); // the Day panel
   expect(screen.getByText(/swipe from an edge/i)).toBeTruthy();
 });
 

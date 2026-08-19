@@ -40,7 +40,7 @@ test("ending vacation asks for confirmation before actually ending it (APP-046)"
     d.setDate(d.getDate() + n);
     return d.toISOString().slice(0, 10);
   };
-  saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], keepCheckins: false, tripHabitIds: [] });
+  saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], duration: "thisWeek", keepWater: false });
   expect(isVacationActive()).toBe(true);
 
   await render(<Account />);

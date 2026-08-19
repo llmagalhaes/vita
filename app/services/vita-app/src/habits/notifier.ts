@@ -13,7 +13,7 @@
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import { listHabits, type Habit, type HabitKind } from "../db/habits";
 import { notificationsEnabled } from "../db/settings";
-import { isVacationActive, vacationKeepsCheckins } from "../db/vacation";
+import { isVacationActive, vacationKeepsWater } from "../db/vacation";
 import { getCachedPlan } from "../db/plan";
 import { planDigestBody } from "./digest";
 
@@ -180,19 +180,33 @@ export async function ensureNotificationPermission(): Promise<PermissionStatus> 
 }
 
 /**
- * Notifications pause when the master switch is off (APP-029) or during a trip
- * whose check-ins the user didn't choose to keep (APP-030) — one gate, both inputs.
+ * Notifications pause when the master switch is off (APP-029) or for the whole of
+ * a trip (APP-103 / CEO Q7: "everything else pauses") — one gate, both inputs.
  */
 export function notificationsPaused(): boolean {
-  if (!notificationsEnabled()) return true;
-  return isVacationActive() && !vacationKeepsCheckins();
+  return !notificationsEnabled() || isVacationActive();
+}
+
+/**
+ * The water reminder is the one thing a "keep the water card" trip keeps live.
+ * ponytail: the habit's name is the only water signal a Habit carries (plan setup
+ * creates it from `planSetup.waterHabit`); give Habit a `kind: "water"` if this
+ * ever needs to survive a rename or a second locale.
+ */
+const isWaterHabit = (h: Habit): boolean => /water|hydrat/i.test(h.name);
+
+/** Habits that should be scheduled right now (APP-103). */
+export function scheduledHabits(habits: Habit[] = listHabits()): Habit[] {
+  if (!notificationsEnabled()) return [];
+  if (!isVacationActive()) return habits;
+  return vacationKeepsWater() ? habits.filter(isWaterHabit) : [];
 }
 
 /** Reschedule from the current habit set. Best-effort — never throws into the UI. */
 export async function refreshNotifications(): Promise<void> {
   try {
-    // Paused → cancel everything by syncing an empty set.
-    await getNotifier().sync(notificationsPaused() ? [] : listHabits());
+    // Paused → cancel everything by syncing an empty set (keep-water keeps one).
+    await getNotifier().sync(scheduledHabits());
     // sync() calls cancelAllScheduledNotificationsAsync(), which also wipes tonight's
     // evening recap. Re-schedule it LAST so a habit change doesn't silently drop the
     // recap (ordering race). Lazy require breaks the notifier↔recap import cycle.

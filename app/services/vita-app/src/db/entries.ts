@@ -247,10 +247,15 @@ export function clearReview(id: string): void {
 }
 
 /**
- * Delete an entry locally and cancel any queued sync for it. Used by "Discard" on a
- * review card and by the failed-card dismiss (audit Q2). ponytail: local delete only —
- * there is no delete endpoint in the contract, and the local SQLite is the display
- * source (entries are never re-fetched), so a removed entry stays gone on the device.
+ * Delete an entry locally AND on the server (APP-112). Used by "Discard" on a review
+ * card and by the failed-card dismiss (audit Q2). Deleting cancels whatever was queued
+ * for this entry; if it had already synced, a `delete` op carries its SERVER id to
+ * DELETE /entries/{id} — so a restore can never resurrect it. Created and deleted while
+ * offline = the create is simply cancelled, zero server calls.
+ * ponytail: the delete op stores the server id in outbox.entryId because the local row
+ * is gone by drain time — there is nothing left to look it up from. Known gap: a create
+ * whose response was lost (server stored it, no local serverId) leaves a server orphan;
+ * closing that needs the create to complete first, which is more machinery than it earns.
  */
 export function deleteEntry(id: string): void {
   const db = getDb();
@@ -259,5 +264,8 @@ export function deleteEntry(id: string): void {
   db.withTransactionSync(() => {
     db.runSync(`DELETE FROM entries WHERE id = ?`, [id]);
     db.runSync(`DELETE FROM outbox WHERE entryId = ?`, [id]);
+    if (gone?.serverId) {
+      db.runSync(`INSERT INTO outbox (entryId, op) VALUES (?, 'delete')`, [gone.serverId]);
+    }
   });
 }

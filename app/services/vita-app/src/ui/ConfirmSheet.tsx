@@ -18,6 +18,8 @@ export function ConfirmSheet({
   message,
   confirmLabel,
   cancelLabel,
+  altLabel,
+  onAlt,
   onConfirm,
   onClose,
   destructive: _destructive = false,
@@ -27,6 +29,9 @@ export function ConfirmSheet({
   message?: string;
   confirmLabel: string;
   cancelLabel: string;
+  /** Optional third way out, shown between confirm and cancel ("Export first"). */
+  altLabel?: string;
+  onAlt?: () => void;
   onConfirm: () => void;
   onClose: () => void;
   destructive?: boolean;
@@ -41,6 +46,7 @@ export function ConfirmSheet({
           ) : null}
         </View>
         <Button label={confirmLabel} onPress={onConfirm} />
+        {altLabel && onAlt ? <Button label={altLabel} variant="ghost" onPress={onAlt} /> : null}
         <Button label={cancelLabel} variant="ghost" onPress={onClose} />
       </View>
     </SheetOverlay>
