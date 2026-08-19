@@ -157,11 +157,11 @@ test("boundsOf: server bounds win; fallback to portionRange when absent", () => 
   expect(boundsOf({ name: "n", quantity: 2 })).toEqual(portionRange(2));
 });
 
-test("tint: endpoints and a midpoint (sRGB lerp)", () => {
+test("tint: endpoints and a midpoint (oklab mix since APP-093)", () => {
   expect(tint("#C4704E", 100)).toBe("#C4704E");
   expect(tint("#C4704E", 0)).toBe("#FFFDF7");
-  // 50% between C4/70/4E and FF/FD/F7 → round each channel
-  expect(tint("#C4704E", 50)).toBe("#E2B7A3");
+  // 50% oklab mix of C4704E over FFFDF7 (independently computed reference)
+  expect(tint("#C4704E", 50)).toBe("#E4B6A1");
 });
 
 // ---- V3: effective (usual-swap) lens + usual composition ---------------------

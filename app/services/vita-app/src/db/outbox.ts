@@ -1,8 +1,6 @@
 import { ApiError, type Api, type LogEntry, type NewEntry } from "../api/client";
 import { getDb } from "./db";
 import { addLocalEntry, deletePending, getEntry, getPending, markFailed, markSynced, type LocalEntry } from "./entries";
-import { clearDirty } from "./kv";
-import { PORTIONS_KEY, getPortions, syncPlan } from "./plan";
 
 type OutboxRow = { seq: number; entryId: string; op: string; attempts: number; nextAttemptAt: number };
 
@@ -29,13 +27,10 @@ function isPoison(err: unknown, op?: string): boolean {
   if (err instanceof PoisonError) return true;
   if (!(err instanceof ApiError)) return false;
   if ([400, 409, 422].includes(err.status)) return true;
-  // `update` (PATCH) and `portions` (full-map PUT) treat 403/404 as poison too:
-  // a forbidden/absent target never recovers, so backing off would stall the drain.
-  return [403, 404].includes(err.status) && (op === "update" || op === "portions");
+  // `update` (PATCH) treats 403/404 as poison too: a forbidden/absent target never
+  // recovers, so backing off would stall the drain.
+  return [403, 404].includes(err.status) && op === "update";
 }
-
-/** A deterministic check-in id is `${habitId}:${dateKey}` (BE-024); plain entry ids are bare uuids. */
-const isCheckinId = (id: string): boolean => id.includes(":");
 
 /**
  * Parse a parked offline capture and turn its drafts into local entries (which
@@ -63,21 +58,39 @@ async function interpretPending(api: Api, pendingId: string): Promise<void> {
 }
 
 /**
- * A deterministic-id check-in create that 409s means the server already stored the
- * check-in under this Idempotency-Key (its first, response-lost answer). Instead of
- * dropping the newer answer (silent desync — audit 1.3), find the server entry and
- * PATCH it to the new detail so the re-answer actually lands.
+ * Entries written under a DETERMINISTIC id (upsertEntry): habit check-ins
+ * (`${habitId}:${date}`, BE-024) and day records (`meal|workout:${date}:…`,
+ * APP-094). Detected by TYPE, not by punctuation in the id — a `meal:` day-record
+ * key contains ":" too, and matching on that would send it down the check-in
+ * reconcile path and drop it as poison.
  */
-async function reconcileCheckin409(api: Api, entry: LocalEntry): Promise<void> {
-  const sep = entry.id.indexOf(":");
-  const habitId = entry.id.slice(0, sep);
-  const dateKey = entry.id.slice(sep + 1);
+const isDeterministic = (e: LocalEntry): boolean =>
+  e.type === "checkin" || (e.type === "meal" && (e.detail as { planMealId?: string }).planMealId != null) ||
+  (e.type === "workout" && (e.detail as { planDay?: string }).planDay != null);
+
+/** Does this server entry hold the same slot as the local deterministic-id one? */
+function sameSlot(server: LogEntry, local: LocalEntry): boolean {
+  if (server.type !== local.type) return false;
+  const s = server.detail as Record<string, unknown>;
+  const l = local.detail as Record<string, unknown>;
+  if (local.type === "checkin") return s.habitId === l.habitId;
+  if (local.type === "meal") return s.planMealId === l.planMealId;
+  return s.planDay === l.planDay;
+}
+
+/**
+ * A deterministic-id create that 409s means the server already stored something
+ * under this Idempotency-Key (its first, response-lost write). Instead of dropping
+ * the newer version (silent desync — audit 1.3), find that server entry and PATCH it
+ * to the new detail so the re-answer / re-record actually lands.
+ */
+async function reconcile409(api: Api, entry: LocalEntry): Promise<void> {
   const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const page = await api.listEntries({ date: dateKey, tz });
-  const server: LogEntry | undefined = page.items.find(
-    (e) => e.type === "checkin" && (e.detail as { habitId?: string }).habitId === habitId,
-  );
-  if (!server) throw new PoisonError("checkin 409 with no server entry to reconcile");
+  const d = new Date(entry.occurredAt);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const page = await api.listEntries({ date, tz });
+  const server = page.items.find((e) => sameSlot(e, entry));
+  if (!server) throw new PoisonError(`409 with no server entry to reconcile (${entry.type})`);
   const updated = await api.patchEntry(server.id, { detail: entry.detail, occurredAt: entry.occurredAt });
   markSynced(entry.id, updated);
 }
@@ -111,24 +124,6 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
           progressed = true;
           continue;
         }
-        if (item.op === "portions") {
-          // Coalesced overlay push — read the map FRESH so the last write wins.
-          // Drain-race guard (§2.6): if the map changed WHILE the PUT was in flight,
-          // the just-sent snapshot is stale — re-enqueue and keep the dirty flag so
-          // the newer write isn't lost; only clear dirty when nothing changed.
-          const sent = JSON.stringify(getPortions());
-          await api.putPlanPortions(getPortions());
-          db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
-          if (JSON.stringify(getPortions()) !== sent) {
-            // Re-enqueue a coalesced row (this same loop resends the newer map) and
-            // KEEP the dirty flag — clearing it now would strand the newer write.
-            db.runSync(`INSERT INTO outbox (entryId, op) SELECT 'plan.portions', 'portions' WHERE NOT EXISTS (SELECT 1 FROM outbox WHERE op = 'portions')`);
-          } else {
-            clearDirty(PORTIONS_KEY);
-          }
-          progressed = true;
-          continue;
-        }
         const entry = getEntry(item.entryId);
         if (!entry) {
           db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]); // entry gone — drop
@@ -155,13 +150,13 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
         synced++;
         progressed = true;
       } catch (err) {
-        // Check-in re-answer whose create 409s → reconcile via PATCH instead of dropping
-        // the new answer (audit 1.3). Reconcile failures: poison → drop below; network → back off.
-        if (err instanceof ApiError && err.status === 409 && item.op === "create" && isCheckinId(item.entryId)) {
+        // A deterministic-id create that 409s → reconcile via PATCH instead of dropping
+        // the newer write (audit 1.3). Reconcile failures: poison → drop below; network → back off.
+        if (err instanceof ApiError && err.status === 409 && item.op === "create") {
           const entry = getEntry(item.entryId);
-          if (entry) {
+          if (entry && isDeterministic(entry)) {
             try {
-              await reconcileCheckin409(api, entry);
+              await reconcile409(api, entry);
               db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
               synced++;
               progressed = true;
@@ -177,19 +172,6 @@ export async function drainOutbox(api: Api, now: () => number = Date.now): Promi
               }
               // reconcile is itself hopeless → fall through to the poison drop
             }
-          }
-        }
-        // Portions op: a rejected overlay push has no local entry to fail. Poison
-        // (403/404/422/400/409) drops the op; a 422 (stale plan version) also
-        // resyncs to re-hydrate the doc + server overlay (pruning the stale keys).
-        // Network/5xx falls through to the shared backoff below (ordered).
-        if (item.op === "portions") {
-          if (isPoison(err, item.op)) {
-            clearDirty(PORTIONS_KEY);
-            if (err instanceof ApiError && err.status === 422) void syncPlan();
-            db.runSync(`DELETE FROM outbox WHERE seq = ?`, [item.seq]);
-            progressed = true;
-            continue;
           }
         }
         // Non-retryable: drop the poison pill (and its parked input) and keep draining.

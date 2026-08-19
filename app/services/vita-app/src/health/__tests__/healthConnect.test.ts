@@ -20,7 +20,7 @@ import {
 
 const base: Settings = {
   name: "Sam",
-  keepTrack: { meals: true, water: true, workouts: true, habits: true, cycle: false },
+  domains: { meals: true, water: true, move: true, habits: true, weight: true },
 };
 
 beforeEach(() => {

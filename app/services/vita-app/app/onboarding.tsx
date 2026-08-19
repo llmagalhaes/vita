@@ -6,7 +6,7 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import Svg, { Circle, Ellipse } from "react-native-svg";
 import { api, type EatingPlanDraft, type TrainingProgramDraft } from "../src/api";
 import { adoptServerPlan, saveProgram } from "../src/db/plan";
-import { saveSettings, setOnboarded, type Settings } from "../src/db/settings";
+import { saveSettings, setOnboarded } from "../src/db/settings";
 import { PlanStep, unanswered, type ImportResult, type PlanAnswer } from "../src/onboarding/PlanStep";
 import { importPdf } from "../src/onboarding/planImport";
 import { Button, Card, Chip, KeyboardAvoider, MorphContainer, Text, colors, fonts, radii, spacing } from "../src/ui";
@@ -40,8 +40,9 @@ const SectionLabel = ({ children }: { children: string }) => (
   </Text>
 );
 
-type KeepTrackKey = keyof Settings["keepTrack"];
-const KEEP_TRACK_KEYS: KeepTrackKey[] = ["meals", "water", "workouts", "habits", "cycle"];
+// ponytail: v3 keep-track UI kept until APP-105 rebuilds onboarding; stores into the v4 `domains` flags.
+const KEEP_TRACK_KEYS = ["meals", "water", "workouts", "habits", "cycle"] as const;
+type KeepTrackKey = (typeof KEEP_TRACK_KEYS)[number];
 
 
 export default function Onboarding() {
@@ -49,7 +50,7 @@ export default function Onboarding() {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
-  const [keepTrack, setKeepTrack] = useState<Settings["keepTrack"]>({
+  const [keepTrack, setKeepTrack] = useState<Record<KeepTrackKey, boolean>>({
     meals: true,
     water: false,
     workouts: false,
@@ -78,7 +79,17 @@ export default function Onboarding() {
   };
 
   function finish() {
-    saveSettings({ name: name.trim(), keepTrack });
+    saveSettings({
+      name: name.trim(),
+      // v4 domains: workouts→move, cycle dropped (Flo removed), weight defaults on.
+      domains: {
+        meals: keepTrack.meals,
+        water: keepTrack.water,
+        move: keepTrack.workouts,
+        habits: keepTrack.habits,
+        weight: true,
+      },
+    });
     setOnboarded();
     // Offline-tolerant: profile sync is fire-and-forget; kv is the local truth.
     void api.patchMe({ name: name.trim() }).catch(() => {});

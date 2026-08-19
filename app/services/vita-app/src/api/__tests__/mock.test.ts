@@ -122,3 +122,74 @@ test("jobIdFromDetail: pulls the running jobId out of a 409 detail (#4)", () => 
   expect(jobIdFromDetail(undefined)).toBeNull();
   expect(jobIdFromDetail("")).toBeNull();
 });
+
+// ── 0.8.0 plan-aware parse (APP-094 / PLAN R6) ───────────────────────────────
+
+test("a matched plan meal returns its FULL composition — every item tagged, no delta object", () => {
+  const plan = handoffPlanV3();
+  const { drafts } = mockParse("lunch as planned, but I swapped the steamed corn for sweet potato", undefined, plan);
+  expect(drafts).toHaveLength(1);
+  const d = drafts[0]!.detail as MealDetail;
+  const lunch = plan.meals.find((m) => m.name === "Lunch")!;
+  expect(d.planMealId).toBe(lunch.id);
+  expect(d.planStatus).toBe("adjusted");
+  // FULL composition: one item per (non-skipped) plan item, each pointing at the plan item it stands for
+  expect(d.items).toHaveLength(lunch.items.length);
+  expect(d.items.every((i) => i.replacesItemId != null)).toBe(true);
+  const swapped = d.items.find((i) => i.replacesItemId === lunch.items[0]!.id)!;
+  expect(swapped.name).toBe("Sweet potato, boiled"); // the stand-in, priced in its own space
+  expect(d.items[1]!.name).toBe("Shredded chicken"); // unchanged items still carry their own id
+  expect(d.items[1]!.replacesItemId).toBe(lunch.items[1]!.id);
+  expect(drafts[0]).not.toHaveProperty("planDelta"); // the app subtracts locally (R6)
+});
+
+test("a plan meal eaten as planned is `done`; a skipped one is a record with ZERO items (R10)", () => {
+  const plan = handoffPlanV3();
+  const done = mockParse("had lunch", undefined, plan).drafts[0]!.detail as MealDetail;
+  expect(done.planStatus).toBe("done");
+  expect(done.items.length).toBeGreaterThan(0);
+
+  const skipped = mockParse("skipped dinner today", undefined, plan).drafts[0]!.detail as MealDetail;
+  expect(skipped.planStatus).toBe("skipped");
+  expect(skipped.items).toEqual([]);
+  expect(skipped.totals).toEqual({ kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 });
+});
+
+test("no plan, or nothing matched → 0.7.0 behaviour verbatim (loose draft, no plan fields)", () => {
+  const loose = mockParse("had a banana", undefined, handoffPlanV3()).drafts[0]!.detail as MealDetail;
+  expect(loose.planMealId).toBeUndefined();
+  expect(loose.items.map((i) => i.name)).toEqual(["Banana"]);
+});
+
+test("the mock stores and echoes the 0.8.0 entry fields", async () => {
+  const api = createMockApi();
+  const at = new Date().toISOString();
+  const created = await api.createEntry("meal:x:m-1", {
+    type: "meal",
+    occurredAt: at,
+    inputMethod: "tap",
+    isEstimate: true,
+    detail: { title: "Lunch", items: [{ name: "Corn", kcal: 172, replacesItemId: "it-3" }], planMealId: "m-1", planStatus: "adjusted", planOptionIndex: 0 },
+  });
+  const echoed = created.detail as MealDetail;
+  expect(echoed).toMatchObject({ planMealId: "m-1", planStatus: "adjusted", planOptionIndex: 0 });
+  expect(echoed.items[0]!.replacesItemId).toBe("it-3");
+
+  const day = `${new Date(at).getFullYear()}-${String(new Date(at).getMonth() + 1).padStart(2, "0")}-${String(new Date(at).getDate()).padStart(2, "0")}`;
+  const page = await api.listEntries({ date: day });
+  expect(page.items.map((e) => e.id)).toEqual([created.id]);
+  expect((await api.listEntries({ date: "1999-01-01" })).items).toEqual([]);
+});
+
+test("a weight entry round-trips (0.8.0 type)", async () => {
+  const api = createMockApi();
+  const e = await api.createEntry("weight:2026-08-19", {
+    type: "weight",
+    occurredAt: new Date().toISOString(),
+    inputMethod: "tap",
+    isEstimate: false,
+    detail: { kg: 74.2 },
+  });
+  expect(e.type).toBe("weight");
+  expect((e.detail as { kg: number }).kg).toBe(74.2);
+});

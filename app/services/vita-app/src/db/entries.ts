@@ -28,6 +28,18 @@ type Row = {
   needsReview: number;
 };
 
+/**
+ * Drop the derived day-record cache row for the day an entry belongs to (APP-094).
+ * Called from every write path here, so the cache can never disagree with `entries`
+ * — it just rebuilds on the next read. ponytail: invalidate-on-write beats any
+ * freshness check, which would cost the very query the cache exists to avoid.
+ */
+function invalidateDay(occurredAt: string): void {
+  const d = new Date(occurredAt);
+  const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  getDb().runSync(`DELETE FROM day_record WHERE date = ?`, [date]);
+}
+
 function rowToEntry(r: Row): LocalEntry {
   return {
     id: r.id,
@@ -72,6 +84,7 @@ export function addLocalEntry(entry: NewEntry, needsReview = false): LocalEntry 
     );
     db.runSync(`INSERT INTO outbox (entryId) VALUES (?)`, [id]);
   });
+  invalidateDay(occurredAt);
   return { ...entry, id, occurredAt, syncState: "pending", needsReview };
 }
 
@@ -125,15 +138,15 @@ export function deletePending(id: string): void {
 }
 
 /**
- * Write (or re-answer) a habit check-in. The entry id is deterministic —
- * `${habitId}:${dateKey}` — so it doubles as the Idempotency-Key (BE-024: one
- * check-in per habit per day). First answer enqueues a `create`; changing an
- * already-synced answer enqueues an `update` (PATCH). While a create is still
- * pending, we just rewrite the detail in place — the queued POST carries it.
+ * Write (or rewrite) an entry under a DETERMINISTIC id, which doubles as the
+ * Idempotency-Key: one check-in per habit per day (`${habitId}:${dateKey}`, BE-024),
+ * one day record per plan meal per day (`meal:${date}:${planMealId}`, APP-094).
+ * First write enqueues a `create`; changing an already-synced one enqueues an
+ * `update` (PATCH). While a create is still pending we just rewrite the detail in
+ * place — the queued POST carries it.
  */
-export function upsertCheckin(habitId: string, dateKey: string, entry: NewEntry): LocalEntry {
+export function upsertEntry(id: string, entry: NewEntry): LocalEntry {
   const db = getDb();
-  const id = `${habitId}:${dateKey}`;
   const occurredAt = new Date(entry.occurredAt).toISOString();
   const existing = getEntry(id);
   db.withTransactionSync(() => {
@@ -157,8 +170,13 @@ export function upsertCheckin(habitId: string, dateKey: string, entry: NewEntry)
       }
     }
   });
+  invalidateDay(occurredAt);
   return { ...entry, id, occurredAt, syncState: "pending" };
 }
+
+/** Habit check-in flavour of {@link upsertEntry} — the id is `${habitId}:${dateKey}`. */
+export const upsertCheckin = (habitId: string, dateKey: string, entry: NewEntry): LocalEntry =>
+  upsertEntry(`${habitId}:${dateKey}`, entry);
 
 /** Entries whose occurredAt falls on the given local calendar day, ascending. */
 export function entriesForDay(day: Date): LocalEntry[] {
@@ -202,6 +220,7 @@ export function markSynced(localId: string, server: LogEntry): void {
     `UPDATE entries SET serverId = ?, updatedAt = ?, syncState = 'synced' WHERE id = ?`,
     [server.id, server.updatedAt, localId],
   );
+  invalidateDay(server.occurredAt); // the day's `dirty` flag just changed
 }
 
 /** Terminal failure: the outbox dropped this entry's op as poison (audit 1.8). */
@@ -235,6 +254,8 @@ export function clearReview(id: string): void {
  */
 export function deleteEntry(id: string): void {
   const db = getDb();
+  const gone = getEntry(id);
+  if (gone) invalidateDay(gone.occurredAt);
   db.withTransactionSync(() => {
     db.runSync(`DELETE FROM entries WHERE id = ?`, [id]);
     db.runSync(`DELETE FROM outbox WHERE entryId = ?`, [id]);

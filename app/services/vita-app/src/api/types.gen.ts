@@ -469,6 +469,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the stored settings blob
+         * @description The blob as last written; `{}` if the user has never written one. Clients MUST call this before their first PUT (see below).
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The stored blob, verbatim. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        /**
+         * Replace the stored settings blob
+         * @description Replace-on-write, last-write-wins: the whole object is re-encrypted and replaces the previous value. No merge, no server-side interpretation, no schema — the only validation is "is a JSON object" and a ~64 KB size cap (larger → 400). Echoes what was stored.
+         *     CLIENT RULE (hydrate before push): a fresh install MUST GET first and adopt what it finds (or observe an empty `{}`) before it is allowed to PUT — otherwise an empty local state would overwrite the stored blob and defeat the whole point. Because this is last-write-wins with no merge, two devices editing concurrently would lose one side's edits; that is accepted (recovery-only scope, CEO Round 14). If concurrent multi-device editing ever becomes real, habits split out as their own resource keyed on the stable ids they already carry.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description The stored blob. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Body is not a JSON object, or exceeds the ~64 KB size cap. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/account": {
         parameters: {
             query?: never;
@@ -541,6 +627,14 @@ export interface paths {
          *         `type=meal,water,workout` (excludes check-ins); Habits sends
          *         `type=checkin`. `checkin` is accepted now and returns nothing until
          *         that entry type ships (BE-024).
+         *
+         *     0.8.0: `weight` joins the `type` enum, and this endpoint gains a second
+         *     role — it is the **restore read**. The log is persisted server-side and
+         *     encrypted, but until 0.8.0 no client ever read it back, so a reinstall
+         *     lost the whole log. The app now pages this endpoint backwards on a
+         *     device with an empty local log (12-month window, background, silent —
+         *     CEO Round 14) and inserts what it gets as already-synced rows. Nothing
+         *     changes server-side; it is the same paging contract.
          */
         get: {
             parameters: {
@@ -554,7 +648,7 @@ export interface paths {
                     /** @description Exclusive upper bound (occurredAt <). Not combinable with `date`. */
                     to?: string;
                     /** @description CSV allow-list of entry types to include. `checkin` is accepted forward-compatibly (BE-024) and matches nothing until then. */
-                    type?: ("meal" | "water" | "workout" | "checkin")[];
+                    type?: ("meal" | "water" | "workout" | "checkin" | "weight")[];
                     /** @description Opaque cursor from a previous response. */
                     cursor?: string;
                     limit?: number;
@@ -765,6 +859,19 @@ export interface paths {
          *     (possibly adjusted) draft to /entries. All numeric values are
          *     estimates. Rate-limited per user per day (abuse guard). On timeout the
          *     app falls back to manual entry.
+         *
+         *     0.8.0 — PLAN-AWARE. Request and response shapes are unchanged. When the
+         *     user has a current eating plan, the server injects a compact digest of
+         *     it (meal id/name/time → item id/name/quantity/unit/kcal-per-unit; swap
+         *     lists deliberately excluded) into the prompt, so a phrase like "lunch as
+         *     planned but I swapped the rice for sweet potato" comes back as the
+         *     matched meal's FULL resulting composition: `detail.planMealId`,
+         *     `detail.planStatus` ("done" when nothing differs, "adjusted"
+         *     otherwise), `planOptionIndex` when an option was eaten, and every item
+         *     tagged with `replacesItemId`. No plan, or nothing matches → identical
+         *     behaviour to 0.7.0 (a free-form meal draft with no plan fields); the
+         *     422 branch is unchanged. There is no separate "match it to my plan"
+         *     call and no delta object — the app subtracts locally.
          */
         post: {
             parameters: {
@@ -834,6 +941,12 @@ export interface paths {
          *     Multipart confirmed by app review (pt 4). The app downscales
          *     client-side to longest edge 1568 px, JPEG quality 0.8, before upload;
          *     the 5 MB limit is a server-side backstop only.
+         *
+         *     0.8.0 — PLAN-AWARE, exactly as /parse/text: same request and response
+         *     shapes, the plan digest is injected when the user has a current eating
+         *     plan, and a photo that matches a plan meal comes back with
+         *     `planMealId` / `planStatus` / `planOptionIndex` and per-item
+         *     `replacesItemId`. No plan or no match → 0.7.0 behaviour verbatim.
          */
         post: {
             parameters: {
@@ -1525,6 +1638,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/privacy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Privacy policy (public HTML page)
+         * @description 0.8.0 (BE-055). The store listings and the account screen need a public
+         *     privacy-policy URL. No domain is being bought (CEO Round 13, cheapest
+         *     option), so the page is served by this API under the same `/v1` base
+         *     path every other public route uses — the deployed URL is
+         *     `<publicBaseUrl>/v1/privacy`, exactly the `/v1/auth/link` pattern
+         *     (BE-035). Static HTML, no auth, no query parameters, no state, nothing
+         *     logged beyond the ordinary access log. Never called by the app; a human
+         *     or a store reviewer opens it in a browser. If a domain is bought later
+         *     the URL changes and this route stays as the origin.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description The privacy policy page. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/html": string;
+                    };
+                };
+                default: components["responses"]["Problem"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1586,10 +1747,10 @@ export interface components {
         /** @description Create payload for /entries — also exactly the draft shape returned by the parse endpoints, so a confirmed draft is POSTed as-is. */
         NewEntry: {
             /**
-             * @description `checkin` (BE-024) rides this same write path as a habit check-in result; Home reads exclude it, Habits reads select it (see GET /entries `type`).
+             * @description `checkin` (BE-024) rides this same write path as a habit check-in result; Home reads exclude it, Habits reads select it (see GET /entries `type`). `weight` (0.8.0) is a manually logged body-weight reading — see WeightDetail.
              * @enum {string}
              */
-            type: "meal" | "water" | "workout" | "checkin";
+            type: "meal" | "water" | "workout" | "checkin" | "weight";
             /**
              * Format: date-time
              * @description When it happened (user-adjustable), with offset.
@@ -1621,12 +1782,22 @@ export interface components {
             updatedAt: string;
         };
         /** @description Typed payload; discriminated by the sibling `type` field on the entry. */
-        EntryDetail: components["schemas"]["MealDetail"] | components["schemas"]["WaterDetail"] | components["schemas"]["WorkoutDetail"] | components["schemas"]["CheckinDetail"];
+        EntryDetail: components["schemas"]["MealDetail"] | components["schemas"]["WaterDetail"] | components["schemas"]["WorkoutDetail"] | components["schemas"]["CheckinDetail"] | components["schemas"]["WeightDetail"];
         MealDetail: {
             /** @description Short display title, e.g. "Banana & peanuts". */
             title?: string;
+            /** @description 0.8.0: may be EMPTY, but only when `planStatus` is "skipped" — a skipped plan meal is a real record of "I did not have this", with zero totals. Empty items with any other status is a 400. Every client summing `items` must therefore tolerate an empty array and an all-zero `totals`. */
             items: components["schemas"]["MealItem"][];
             totals?: components["schemas"]["MacroTotals"];
+            /** @description The PlanMeal.id ("m-1"…"m-N") this record fulfils. Absent for a free-form meal that isn't in the plan (the 0.7.0 behaviour). The record stays self-describing (title/items/totals) so it renders correctly after the plan is re-imported and this id goes stale — the server never validates it against the current plan (a retro record may legitimately outlive the plan version it points at). */
+            planMealId?: string;
+            /**
+             * @description The day-record status for this plan meal. "done" = eaten as planned; "adjusted" = eaten with swaps/portion changes/omissions; "skipped" = the user recorded not having it. There is NO "planned" value — a plan meal with no record is, by definition, unrecorded. Requires planMealId (sending it alone is a 400).
+             * @enum {string}
+             */
+            planStatus?: "done" | "adjusted" | "skipped";
+            /** @description Which MealOption of the plan meal was eaten (index into PlanMeal.options); absent = the meal's own `items`. Requires planMealId (sending it alone is a 400). */
+            planOptionIndex?: number;
         };
         MealItem: {
             name: string;
@@ -1638,6 +1809,8 @@ export interface components {
             carbsG?: number;
             fatG?: number;
             micros?: components["schemas"]["Micro"][];
+            /** @description 0.8.0. The PlanItem.id this item stands in for. Set by the plan-aware parse and by the app when the user swaps or re-portions a planned item, so the day record can render "White rice · 150g → Sweet potato · 200g · −23 kcal". An UNCHANGED planned item carries its own id here (a matched meal returns its full resulting composition, every item tagged). Absent for an item that isn't in the plan at all. Server-opaque — the kcal delta is computed client-side from the plan item and this item, never on the wire. */
+            replacesItemId?: string;
         };
         Micro: {
             /** @description Free-form name (e.g. "Vitamin C", "Iron") — the app renders it verbatim (app review pt 7). */
@@ -1667,6 +1840,13 @@ export interface components {
             /** @description Closed vocabulary — exactly the 11 silhouettes the body-map UI supports (app review pt 6). Backend maps model output onto this list and drops anything unmappable ("lats"/"traps" → back, "abs"/"obliques" → core). */
             muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves")[];
             exercises?: components["schemas"]["Exercise"][];
+            /** @description The ProgramDay.name this session fulfils ("Leg day"). Absent for an off-program workout. Programs have no stable day ids, so the name is the pointer — same staleness caveat as MealDetail.planMealId. */
+            planDay?: string;
+            /**
+             * @description Same semantics as MealDetail.planStatus ("adjusted" covers a session done with exercises dropped or changed; the per-exercise detail already rides `exercises`). Requires planDay.
+             * @enum {string}
+             */
+            planStatus?: "done" | "adjusted" | "skipped";
         };
         Exercise: {
             name: string;
@@ -1694,6 +1874,11 @@ export interface components {
             /** @description The user's single answer, e.g. "yes" / "not_quite". App-defined. */
             answer: string;
             note?: string;
+        };
+        /** @description 0.8.0. One manually logged body-weight reading. Health-Connect readings are NOT sent here — they stay device-local (ADR-0016 stands, CEO Round 14 #5); this endpoint only ever receives a value the user typed, which is why LogEntry.source stays "user". The Trends weight line therefore mixes two sources by design: typed readings survive a reinstall, Health-Connect ones re-sync from the device. Encrypted at rest in the entry detail like every other type. No goal, no delta, no judgement — a reading and its time. Idempotency is the app's choice: `weight:<date>` gives one reading per day (PATCH corrects it, same pattern as check-ins); a plain uuid allows several. The server imposes neither. */
+        WeightDetail: {
+            /** @description Always kilograms on the wire (metric-only, APP-071). Outside the range → 400. */
+            kg: number;
         };
         /** @description Never persisted server-side — response only (ADR-0005). */
         ParseResult: {
@@ -1759,6 +1944,8 @@ export interface components {
             supplements?: components["schemas"]["Supplement"][];
         };
         PlanMeal: {
+            /** @description 0.8.0. Server-generated stable meal id ("m-1"…"m-N" in document order), assigned when a plan version is saved — exactly the PlanItem.id rules: clients MUST round-trip it unchanged on PUT /plan, POST assigns fresh ones, duplicates are a 400, and there is NO backfill. Docs saved before 0.8.0 read back id-less and need one re-save or re-import before day records can point at them (the CEO re-imports the plan once after the v4 deploy). Absent on parse responses. This is the target of MealDetail.planMealId. */
+            id?: string;
             /** @description Meal slot label, e.g. "Breakfast", "Lunch", "Snack", "Dinner". */
             name: string;
             /** @description Local time-of-day (HH:MM) the plan suggests, when it states one. */

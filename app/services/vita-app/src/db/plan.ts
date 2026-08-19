@@ -10,23 +10,24 @@
  * overwritten (audit 1.4). `save*`/`update*` write the cache first (instant,
  * works offline) then push; a failed push leaves the doc dirty for next sync.
  *
- * Portions (APP-076): a sparse `{ itemId: qty }` overlay cached under
- * `plan.portions`, pushed via a single coalescing `portions` outbox op that
- * carries no payload (the drain reads the map fresh at send time — last write
- * wins). The overlay is a read-time lens over the doc; it never mutates it.
+ * Portions (APP-076 → APP-094): the sparse `{ itemId: qty }` overlay is no longer a
+ * kv map of its own with a coalescing server push — it is the `qty` half of the
+ * DAY RECORD's day-scoped overlay (src/db/dayRecord.ts), alongside item skips, item
+ * swaps and the option pick. One place, keyed by date, device-local. The server's
+ * `PUT /plan/portions` still exists in the contract; this app round stops calling it.
+ * The overlay remains a read-time lens over the doc; it never mutates it.
  */
-import { api } from "../api";
 import type { EatingPlanDraft, TrainingProgramDraft } from "../api/client";
+import { api } from "../api";
 import { ApiError } from "../api/client";
 import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
-import { getDb } from "./db";
+import { dayKey } from "../day/record";
+import { getOverlay, setOverlay } from "./dayRecord";
 import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "./kv";
 import { logChanged } from "./notify";
 
 const PLAN_KEY = "plan.current";
 const PROGRAM_KEY = "program.current";
-export const PORTIONS_KEY = "plan.portions";
-const PORTIONS_DATE_KEY = "plan.portionsDate"; // ISO day the overlay belongs to (§2.2)
 const META_KEY = "plan.meta";
 const DAY_SKIPS_KEY = "workout.daySkips";
 const DAY_SKIPS_DATE_KEY = "workout.daySkipsDate";
@@ -58,83 +59,39 @@ export const getCachedProgram = (): TrainingProgramDraft | null =>
 // ---- portion overlay (day-scoped, §2.2) --------------------------------------
 
 /**
- * The portion overlay only counts for TODAY — "tweak anything, tomorrow starts
- * fresh" (handoff). Reads through a day gate: when the stored map belongs to a
- * past day it returns `{}` and lazily resets (empties the local map + pushes an
- * empty map to the server, once, on the first touch of the new day). Pure date
- * compare — no timers. ponytail: the lazy-reset enqueue can nest a drain when
- * read mid-drain; it's one-shot (portionsDate is stamped today first) and
- * coalesced, so it settles — tighten only if a device pass shows churn.
+ * Today's portion overrides — the `qty` half of the day record's overlay. Day-scoping
+ * is now structural (the overlay is keyed by date), so yesterday's tweaks simply live
+ * under yesterday's key: no date stamp, no lazy reset, no empty PUT to the server.
  */
-export const getPortions = (): Record<string, number> => {
-  const map = kvGet<Record<string, number>>(PORTIONS_KEY) ?? {};
-  if (Object.keys(map).length === 0) return map;
-  if (kvGet<string>(PORTIONS_DATE_KEY) === todayISO()) return map;
-  // rolled into a new day → yesterday's adjustments don't count anymore
-  kvSet(PORTIONS_KEY, {});
-  kvSet(PORTIONS_DATE_KEY, todayISO());
-  setDirty(PORTIONS_KEY);
-  enqueuePortionsPush(); // empty the server map too (one coalesced PUT of {})
-  return {};
-};
+export const getPortions = (): Record<string, number> => getOverlay().qty;
 
 /**
  * Set (or clear) one item's portion override. Sparse: a qty equal to the item's
  * default `quantity` REMOVES the key (slider back to default = no override).
- * Synchronous kv write → the screen re-reads it on the next render; no network on
- * the interaction path. Enqueues a coalesced push + fires a drain when online.
- * Stamps today's date so the overlay is day-scoped (§2.2).
+ * Synchronous local write → the screen re-reads it on the next render; no network
+ * on the interaction path, and none afterwards either (APP-094: device-local).
  */
 export function setPortion(itemId: string, qty: number, itemDefault?: number): void {
-  const map = getPortions();
+  const map = { ...getPortions() };
   if (itemDefault != null && qty === itemDefault) delete map[itemId];
   else map[itemId] = qty;
-  kvSet(PORTIONS_KEY, map);
-  kvSet(PORTIONS_DATE_KEY, todayISO());
-  setDirty(PORTIONS_KEY);
-  logChanged(); // notify seam: screens re-read the overlay (live totals update)
-  enqueuePortionsPush();
+  setOverlay(dayKey(), { qty: map }); // logChanged: screens re-read, live totals update
 }
 
-/** Drop the whole overlay (new plan version resets it). */
+/** Drop today's portion overrides (new plan version resets them). */
 export function clearPortions(): void {
-  kvSet(PORTIONS_KEY, {});
-  clearDirty(PORTIONS_KEY);
+  setOverlay(dayKey(), { qty: {} });
 }
 
-/**
- * Revert today's portion tweaks AND clear the server overlay. Unlike
- * {@link clearPortions} (which drops dirty so nothing is pushed — right when a new
- * plan version already reset the server), this marks the empty map dirty and pushes
- * it, so a Today "Revert" doesn't get re-adopted from the server on the next sync.
- */
-export function clearPortionsAndPush(): void {
-  kvSet(PORTIONS_KEY, {});
-  kvSet(PORTIONS_DATE_KEY, todayISO());
-  setDirty(PORTIONS_KEY);
-  enqueuePortionsPush();
-}
-
-/**
- * Enqueue exactly ONE `portions` outbox row ever (coalescing): many slider
- * sessions collapse to one op, and the drain reads the live map at send time so
- * the last map wins. Fires a best-effort drain right after.
- */
-export function enqueuePortionsPush(): void {
-  getDb().runSync(
-    `INSERT INTO outbox (entryId, op) SELECT 'plan.portions', 'portions' WHERE NOT EXISTS (SELECT 1 FROM outbox WHERE op = 'portions')`,
-  );
-  // Lazy require breaks the plan↔outbox cycle (outbox reads the overlay from here).
-  const { drainOutbox } = require("./outbox") as typeof import("./outbox");
-  void drainOutbox(api).catch(() => {});
-}
+/** @deprecated APP-094 — nothing is pushed anymore; kept so v3 screens still build. */
+export const clearPortionsAndPush = clearPortions;
 
 /** Drop overlay keys whose itemId no longer appears in the doc (defensive prune).
  *  Options-aware: option items carry portion overrides too, so they must survive. */
 function pruneOverlayToDoc(doc: EatingPlanDraft): void {
   const ids = new Set<string>();
   for (const it of allPlanItems(doc)) if (it.id != null) ids.add(it.id);
-  const map = getPortions();
+  const map = { ...getPortions() };
   let changed = false;
   for (const key of Object.keys(map)) {
     if (!ids.has(key)) {
@@ -142,7 +99,7 @@ function pruneOverlayToDoc(doc: EatingPlanDraft): void {
       changed = true;
     }
   }
-  if (changed) kvSet(PORTIONS_KEY, map);
+  if (changed) setOverlay(dayKey(), { qty: map });
 }
 
 // ---- plan / program status (§2.1) --------------------------------------------
@@ -264,9 +221,7 @@ export async function updatePlan(doc: EatingPlanDraft): Promise<void> {
   if (oldDoc) {
     const after = pruneOverlayAfterEdit(oldDoc, doc, before);
     if (Object.keys(after).length !== Object.keys(before).length || Object.keys(after).some((k) => after[k] !== before[k])) {
-      kvSet(PORTIONS_KEY, after);
-      setDirty(PORTIONS_KEY);
-      enqueuePortionsPush();
+      setOverlay(dayKey(), { qty: after });
     }
   }
   await pushPlan().catch(() => {});
@@ -306,24 +261,16 @@ async function pushProgram(): Promise<void> {
 
 /**
  * Hydrate the cache from the server. A dirty local edit is re-pushed and kept —
- * NEVER overwritten (audit 1.4). GET /plan now also carries the sparse `portions`
- * overlay; the overlay follows its own dirty flag:
- *   1. doc dirty → re-push, skip hydrate.
- *   2. portions dirty → hydrate the doc, KEEP the local map (it re-pushes).
- *   3. both clean → adopt server doc + server portions.
- *   4. after any doc write → prune overlay keys absent from the doc.
+ * NEVER overwritten (audit 1.4). GET /plan still carries the server's `portions`
+ * overlay; APP-094 **ignores it** — today's tweaks are device-local day-record state
+ * now, and adopting a server map would resurrect the very asymmetry this ticket kills.
+ * After any doc write, overlay keys absent from the doc are pruned.
  */
 export async function syncPlan(): Promise<void> {
   if (isDirty(PLAN_KEY)) return void pushPlan().catch(() => {});
   try {
-    const { portions, ...doc } = await api.getPlan();
+    const { portions: _serverPortions, ...doc } = await api.getPlan();
     kvSet(PLAN_KEY, doc);
-    if (!isDirty(PORTIONS_KEY)) {
-      // The server map is only ever today's (the app empties it at rollover), so
-      // adopting it stamps today's date (§2.2 hydrate rule 3).
-      kvSet(PORTIONS_KEY, portions ?? {});
-      kvSet(PORTIONS_DATE_KEY, todayISO());
-    }
     pruneOverlayToDoc(doc);
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return; // never persisted yet

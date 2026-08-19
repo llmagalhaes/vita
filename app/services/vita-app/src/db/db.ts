@@ -41,6 +41,17 @@ CREATE TABLE IF NOT EXISTS pending_parse (
   capturedAt TEXT NOT NULL         -- when the user captured it (RFC 3339)
 );
 
+-- APP-094: DERIVED cache of a day's record — meals/workout/water rebuilt from the
+-- entries table, merged with the day-scoped plan overlay (which is authoritative and
+-- lives in kv, not here). Dropping a row is always safe: it rebuilds on read, and
+-- every writer in entries.ts deletes the affected day so the cache can't go stale.
+-- dirty = the day still has unsynced entries → a hydrate must not overwrite it.
+CREATE TABLE IF NOT EXISTS day_record (
+  date TEXT PRIMARY KEY,            -- local YYYY-MM-DD
+  json TEXT NOT NULL,               -- DayRecord
+  dirty INTEGER NOT NULL DEFAULT 0
+);
+
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

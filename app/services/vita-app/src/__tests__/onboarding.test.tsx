@@ -62,7 +62,7 @@ test("full onboarding: name → keep-track → plan → program → connect → 
   expect(isOnboarded()).toBe(true);
   const s = getSettings()!;
   expect(s.name).toBe("Ana");
-  expect(s.keepTrack).toMatchObject({ meals: true, water: true, workouts: true, habits: false, cycle: false });
+  expect(s.domains).toMatchObject({ meals: true, water: true, move: true, habits: false, weight: true });
   // Confirmed plan is POSTed and cached (kv is the offline display source);
   // program was declined → nothing persisted.
   expect(getCachedPlan()!.meals.length).toBeGreaterThan(0);

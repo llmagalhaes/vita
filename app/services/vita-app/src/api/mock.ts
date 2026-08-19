@@ -7,6 +7,7 @@
  * Parse is deterministic keyword-matching so the CEO can demo capture offline.
  * Every numeric value is an estimate and flagged isEstimate: true.
  */
+import { buildMealRecord, emptyOverlay, toMealEntry } from "../day/record";
 import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
 import { uuid } from "../lib/uuid";
 import {
@@ -98,10 +99,53 @@ export function anchorTime(text: string, fallbackIso: string): string {
   return d.toISOString();
 }
 
-export function mockParse(text: string, capturedAt?: string): ParseResult {
+/**
+ * 0.8.0 PLAN-AWARE parse (contract §parse prose). When the phrase names a meal the
+ * user's plan has, the draft is that meal's **FULL resulting composition** — never a
+ * delta object: `planMealId`, `planStatus`, `planOptionIndex` when an option was
+ * eaten, and EVERY item tagged with `replacesItemId` (an unchanged planned item
+ * carries its own id). The app subtracts locally.
+ *
+ * ponytail: deterministic string matching, like the rest of this mock — "swapped X
+ * for Y" and "skipped <meal>" are the two shapes the capture flow needs to exercise.
+ */
+function mockPlanMeal(lower: string, plan: EatingPlanDraft, occurredAt: string, text: string): NewEntry | null {
+  const meal = plan.meals.find((m) => m.id != null && lower.includes(m.name.toLowerCase()));
+  if (!meal) return null;
+
+  if (/\bskip(?:ped)?\b|\bdidn'?t have\b|\bnothing\b/.test(lower)) {
+    const rec = buildMealRecord("", meal, "skipped");
+    return { ...toMealEntry(rec, text), occurredAt, inputMethod: "text" };
+  }
+
+  const ov = emptyOverlay();
+  // "an option"/"option 2" → that composition; else the meal's own items.
+  const optM = /option\s*(\d)/.exec(lower);
+  if (optM && meal.options?.[Number(optM[1]) - 1]) ov.option[meal.id!] = Number(optM[1]) - 1;
+  // "swapped the rice for sweet potato" → today's stand-in, priced by the plan's own
+  // swap-equivalence lens (composeItems does the math).
+  const swapM = /(?:swap(?:ped)?|instead of|replaced)\s+(?:the\s+)?([a-zà-ú ]+?)\s+(?:for|with)\s+(?:the\s+)?([a-zà-ú ]+?)(?:[.,]|$)/.exec(lower);
+  if (swapM) {
+    const from = swapM[1]!.trim();
+    const to = swapM[2]!.trim();
+    const src = ov.option[meal.id!] != null ? meal.options![ov.option[meal.id!]!]!.items : meal.items;
+    const item = src.find((i) => i.name.toLowerCase().includes(from) || from.includes(i.name.toLowerCase().split(",")[0]!));
+    const swap = item?.swaps?.find((s) => s.name.toLowerCase().includes(to));
+    if (item?.id != null && swap) ov.swap[item.id] = swap;
+  }
+  const adjusted = Object.keys(ov.swap).length > 0;
+  const rec = buildMealRecord("", meal, adjusted ? "adjusted" : "done", ov);
+  return { ...toMealEntry(rec, text), occurredAt, inputMethod: "text" };
+}
+
+export function mockParse(text: string, capturedAt?: string, plan?: EatingPlanDraft | null): ParseResult {
   const lower = text.toLowerCase();
   const occurredAt = anchorTime(lower, capturedAt ?? new Date().toISOString());
   const drafts: NewEntry[] = [];
+
+  // Plan-aware branch first: a matched plan meal wins over loose keyword matching.
+  const planDraft = plan ? mockPlanMeal(lower, plan, occurredAt, text) : null;
+  if (planDraft) return { drafts: [planDraft] };
 
   // Water — a number of ml wins; "glass"/"bottle" are estimated sizes.
   const ml = lower.match(/(\d+)\s*ml/);
@@ -374,7 +418,8 @@ const BANANA_SWAPS: Sw[] = [
  */
 export function handoffPlanV3(): EatingPlanDraft {
   const per = (k: number, p: number, c: number, f: number) => ({ kcal: k, proteinG: p, carbsG: c, fatG: f });
-  return {
+  // stampPlanIds fills the "m-N" meal ids a SAVED plan always has (0.8.0).
+  return stampPlanIds({
     summary: "5-meal plan · pre-workout to dinner, with swaps, hydration and supplements",
     status: "ready",
     note: "Up to 2 meals a week can go off-plan — your nutritionist built that in. Plan valid for up to 6 months.",
@@ -495,7 +540,7 @@ export function handoffPlanV3(): EatingPlanDraft {
         ],
       },
     ],
-  };
+  });
 }
 
 export function mockParseProgram(text?: string): TrainingProgramDraft {
@@ -544,8 +589,11 @@ function stampPlanIds(doc: EatingPlanDraft, start = 0): EatingPlanDraft {
   const stamp = (it: PlanItem): PlanItem => ({ ...it, id: it.id ?? `it-${++n}` });
   return {
     ...doc,
-    meals: doc.meals.map((m) => ({
+    // 0.8.0 (BE-050): a saved plan also carries stable MEAL ids "m-1"…"m-N" — the
+    // target of MealDetail.planMealId. Positional, like the server's decorate().
+    meals: doc.meals.map((m, i) => ({
       ...m,
+      id: m.id ?? `m-${i + 1}`,
       items: m.items.map(stamp),
       ...(m.options ? { options: m.options.map((o) => ({ ...o, items: o.items.map(stamp) })) } : {}),
     })),
@@ -614,10 +662,16 @@ export function createMockApi(): Api {
     },
     async parseText({ text, capturedAt }) {
       await delay(LATENCY_MS);
-      return mockParse(text, capturedAt);
+      // 0.8.0: the server injects the stored plan's digest — the mock passes the doc.
+      return mockParse(text, capturedAt, storedPlan);
     },
     async parsePhoto({ caption, capturedAt }) {
       await delay(LATENCY_MS);
+      // A captioned photo naming a plan meal confirms it (README: photo → confirmation,
+      // not a delta); otherwise the canned plate/whiteboard draft.
+      const planned = caption ? mockParse(caption, capturedAt, storedPlan) : null;
+      const first = planned?.drafts[0]?.detail as { planMealId?: string } | undefined;
+      if (planned && first?.planMealId) return planned;
       return mockPhotoParse(caption, capturedAt);
     },
     async startEatingPlanImport({ text }) {
@@ -741,10 +795,18 @@ export function createMockApi(): Api {
       }
       throw notFound();
     },
-    async listEntries() {
+    async listEntries({ date } = {}) {
       await delay(150);
-      // SQLite is the app's source of truth; the mock server starts empty.
-      return { items: [] };
+      // SQLite is the app's source of truth, so this starts empty — but entries
+      // POSTed in-session are stored and echoed back (0.8.0 plan fields included),
+      // which is what the outbox's 409 reconcile needs to find its server twin.
+      // Local-day bucketing (the contract's date+tz pair) — the device's tz is the mock's.
+      const localDay = (iso: string) => {
+        const d = new Date(iso);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      };
+      const items = [...byIdempotencyKey.values()].filter((e) => !date || localDay(e.occurredAt) === date);
+      return { items };
     },
     async getMe() {
       await delay(100);

@@ -13,6 +13,11 @@ export type MealItem = Schemas["MealItem"];
 export type Micro = Schemas["Micro"];
 export type WaterDetail = Schemas["WaterDetail"];
 export type WorkoutDetail = Schemas["WorkoutDetail"];
+export type CheckinDetail = Schemas["CheckinDetail"];
+/** 0.8.0 — a manually typed body-weight reading (Health Connect stays device-local). */
+export type WeightDetail = Schemas["WeightDetail"];
+/** 0.8.0 — the day-record status a meal/workout entry carries. No "planned": that is the absence of a record. */
+export type PlanStatus = NonNullable<MealDetail["planStatus"]>;
 export type MacroTotals = Schemas["MacroTotals"];
 export type EatingPlanDraft = Schemas["EatingPlanDraft"];
 export type EatingPlanWithPortions = Schemas["EatingPlanWithPortions"];
@@ -140,7 +145,15 @@ export function fillDraftTotals(result: ParseResult): ParseResult {
     drafts: result.drafts.map((d) => {
       if (d.type !== "meal") return d;
       const detail = d.detail as MealDetail;
-      if (detail.totals || !detail.items?.length) return d;
+      if (detail.totals) return d;
+      // 0.8.0: a SKIPPED plan meal is a real record with an empty items array — it
+      // needs explicit ZERO totals, not absent ones, or every consumer summing
+      // `totals.kcal ?? 0` renders it as "not recorded" instead of "didn't have it" (R10).
+      if (!detail.items?.length) {
+        return detail.planStatus === "skipped"
+          ? { ...d, detail: { ...detail, totals: { kcal: 0, proteinG: 0, carbsG: 0, fatG: 0 } } }
+          : d;
+      }
       const totals = detail.items.reduce<MacroTotals>(
         (t, i) => ({
           kcal: t.kcal + (i.kcal ?? 0),

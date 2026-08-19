@@ -13,10 +13,7 @@ import {
   type Settings,
 } from "../settings";
 
-const base: Settings = {
-  name: "Sam",
-  keepTrack: { meals: true, water: true, workouts: true, habits: true, cycle: false },
-};
+const base: Settings = { name: "Sam" }; // composition flags: see domains.test.ts (APP-095)
 
 beforeEach(() => {
   resetDbForTests();

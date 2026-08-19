@@ -1,9 +1,9 @@
 import { api } from "../../api";
 import type { EatingPlanDraft } from "../../api/client";
 import { resetDbForTests } from "../db";
-import { getDb } from "../db";
-import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "../kv";
-import { drainOutbox, pendingCount } from "../outbox";
+import { getOverlay } from "../dayRecord";
+import { clearDirty, kvGet, kvSet } from "../kv";
+import { pendingCount } from "../outbox";
 import {
   clearPortions,
   dismissIntPrompt,
@@ -34,51 +34,17 @@ beforeEach(() => {
   clearPortions();
 });
 
-// ── §2.2 day-scoped portions overlay ──────────────────────────────────────────
-test("getPortions: a stale day returns {} and lazily resets (one empty push)", async () => {
-  setPortion("a", 3); // stamps today
-  expect(getPortions()).toEqual({ a: 3 });
-  // simulate a rollover: the map is from yesterday
-  kvSet("plan.portionsDate", yesterday());
+// ── APP-094: portions are the day record's overlay, keyed by date ─────────────
+test("portions are day-scoped BY KEY — yesterday's tweak never leaks, nothing is pushed", async () => {
   const spy = api.putPlanPortions as jest.Mock;
-  spy.mockClear();
-  expect(getPortions()).toEqual({}); // yesterday's tweak no longer counts
-  expect(kvGet("plan.portions")).toEqual({}); // cleared on disk
+  setPortion("a", 3);
+  expect(getPortions()).toEqual({ a: 3 });
+  // yesterday's overlay is simply a different key — no rollover logic, no reset push
+  expect(getOverlay(yesterday()).qty).toEqual({});
   await flush();
-  expect(spy).toHaveBeenCalledWith({}); // server map emptied too
-  // idempotent: a second read this session does not roll over again
-  spy.mockClear();
-  expect(getPortions()).toEqual({});
+  expect(spy).not.toHaveBeenCalled(); // the server overlay is no longer written to
+  expect(pendingCount()).toBe(0); // and nothing was enqueued for it
 });
-
-// ── §2.6 portions drain-race ──────────────────────────────────────────────────
-test("drain-race: a write during the in-flight PUT is re-sent, not lost", async () => {
-  let calls = 0;
-  const spy = jest.spyOn(api, "putPlanPortions").mockImplementation(async () => {
-    calls++;
-    if (calls === 1) {
-      // a newer local write lands WHILE the first (stale) PUT is in flight
-      kvSet("plan.portions", { a: 9 });
-      kvSet("plan.portionsDate", todayISO());
-    }
-  });
-  // seed a dirty {a:3} overlay + exactly one portions row, no auto-drain
-  kvSet("plan.portions", { a: 3 });
-  kvSet("plan.portionsDate", todayISO());
-  setDirty("plan.portions");
-  getDb().runSync(`INSERT INTO outbox (entryId, op) VALUES ('plan.portions', 'portions')`);
-
-  await drainOutbox(api);
-  await flush();
-  expect(calls).toBe(2); // stale send detected the change → forced a re-send
-  expect(spy.mock.calls[1]![0]).toEqual({ a: 9 }); // the newer value reached the server
-  expect(pendingCount()).toBe(0); // settled
-  expect(isDirty("plan.portions")).toBe(false); // dirty cleared only after the newer write landed
-});
-
-function todayISO(d = new Date()): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
 
 // ── §2.3 day workout skips + selected day ─────────────────────────────────────
 test("day skips: toggle on/off, reset on a new day; selectedDay persists undated", () => {
