@@ -15,11 +15,12 @@
  * This file owns the rail + the row chrome + the pure node list; the four cards are
  * their own files.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import type { PlanMeal, ProgramDay } from "../../api/client";
+import { signalExpandMeal, useExpandedMeal } from "../../capture/CaptureContext";
 import { applyClose, getDayRecord, isDayClosed, recordWorkout, setDayClosed } from "../../db/dayRecord";
 import { useDomains } from "../../db/domains";
 import { deleteEntry } from "../../db/entries";
@@ -153,6 +154,16 @@ export function Timeline() {
   const [open, setOpen] = useState<string | null>(null);
   // "Leave open" is a dismissal, not a record — session-only, exactly like the prototype.
   const [dismissed, setDismissed] = useState(false);
+
+  // APP-104: recording (or undoing) a capture delta auto-expands the meal it touched,
+  // so the user lands on what just changed. The signal is consumed once and cleared,
+  // which is what lets the same meal be signalled again by the toast's Undo.
+  const focused = useExpandedMeal();
+  useEffect(() => {
+    if (!focused) return;
+    setOpen(`meal:${focused}`);
+    signalExpandMeal(null);
+  }, [focused]);
 
   const d = useMemo(() => {
     const now = new Date();

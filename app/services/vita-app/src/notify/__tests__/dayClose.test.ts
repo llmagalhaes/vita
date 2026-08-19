@@ -133,11 +133,11 @@ describe("syncDayClose drives the notifier seam", () => {
 
   test("'Close as planned' records the due meals and closes the day; anything else records nothing", async () => {
     const date = dayKey(at(20));
-    applyDayCloseAction("expo.modules.notifications.actions.DEFAULT", at(20)); // OS dropped the buttons
+    applyDayCloseAction("expo.modules.notifications.actions.DEFAULT", date, at(20)); // OS dropped the buttons
     expect(getEntry(mealEntryId(date, "m-1"))).toBeNull();
     expect(isDayClosed(date)).toBe(false);
 
-    applyDayCloseAction(DAY_CLOSE_ACTION.close, at(20));
+    applyDayCloseAction(DAY_CLOSE_ACTION.close, date, at(20));
     expect(getEntry(mealEntryId(date, "m-1"))).not.toBeNull();
     expect(getEntry(mealEntryId(date, "m-2"))).not.toBeNull();
     expect(isDayClosed(date)).toBe(true);
@@ -150,5 +150,41 @@ describe("syncDayClose drives the notifier seam", () => {
 
     await syncDayClose(at(12));
     expect(stub.calls.dayClose[0]!.at.getHours()).toBe(21);
+  });
+});
+
+// ── M4: the notification is about ONE day, and acting on it must close THAT day ──
+
+describe("the notification carries its own day", () => {
+  beforeEach(() => {
+    resetDbForTests();
+    kvSet("plan.current", PLAN);
+  });
+
+  test("the scheduled payload names the day it is about", () => {
+    expect(plan()!.date).toBe(DATE);
+  });
+
+  test("'Close as planned' tapped the next morning closes YESTERDAY, not the new day", () => {
+    const yesterday = dayKey(new Date(2026, 7, 19));
+    const today = dayKey(new Date(2026, 7, 20));
+    const nextMorning = new Date(2026, 7, 20, 7, 30, 0);
+
+    applyDayCloseAction(DAY_CLOSE_ACTION.close, yesterday, nextMorning);
+
+    // the day the notification was about is closed, every meal on it recorded…
+    expect(isDayClosed(yesterday)).toBe(true);
+    expect(getEntry(mealEntryId(yesterday, "m-1"))).not.toBeNull();
+    expect(getEntry(mealEntryId(yesterday, "m-2"))).not.toBeNull();
+    // …and today is untouched — breakfast at 07:30 has NOT been confirmed by anyone.
+    expect(isDayClosed(today)).toBe(false);
+    expect(getEntry(mealEntryId(today, "m-1"))).toBeNull();
+  });
+
+  test("acting on today's notification still records only the meals already due", () => {
+    const today = dayKey(new Date(2026, 7, 20));
+    applyDayCloseAction(DAY_CLOSE_ACTION.close, today, new Date(2026, 7, 20, 12, 0, 0));
+    expect(getEntry(mealEntryId(today, "m-1"))).not.toBeNull(); // 08:00, due
+    expect(getEntry(mealEntryId(today, "m-2"))).toBeNull(); // 19:00, has not happened
   });
 });

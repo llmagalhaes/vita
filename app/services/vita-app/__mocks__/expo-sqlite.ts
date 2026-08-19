@@ -13,8 +13,11 @@ class MockDatabase {
   execSync(sql: string): void {
     this.db.exec(sql);
   }
-  runSync(sql: string, params: Param[] = []): void {
-    this.db.prepare(sql).run(...params);
+  // Mirrors expo-sqlite's SQLiteRunResult — `changes` is how a caller tells an
+  // INSERT OR IGNORE that landed from one that was skipped (src/db/restore.ts).
+  runSync(sql: string, params: Param[] = []): { lastInsertRowId: number; changes: number } {
+    const r = this.db.prepare(sql).run(...params);
+    return { lastInsertRowId: Number(r.lastInsertRowid), changes: r.changes };
   }
   getAllSync<T>(sql: string, params: Param[] = []): T[] {
     return this.db.prepare(sql).all(...params) as T[];

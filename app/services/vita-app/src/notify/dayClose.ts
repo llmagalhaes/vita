@@ -61,6 +61,7 @@ export function plannedDayClose(args: {
     title: t("title"),
     body: `${head} ${t("tail")}\n${t("footer")}`,
     at,
+    date: dayKey(now),
     actions: { close: t("close"), adjust: t("adjust") },
   };
 }
@@ -87,14 +88,20 @@ export async function syncDayClose(now: Date = new Date()): Promise<void> {
  * as `closeDay` would from the timeline card and marks the day closed; "I'll adjust"
  * — and a plain tap, which is what an OS that dropped the buttons gives us — records
  * NOTHING and just opens the Day.
+ *
+ * `date` comes from the notification's own payload. It is load-bearing: a local
+ * notification sits on the lock screen until dismissed, so "Close as planned" tapped
+ * at 07:30 the next morning used to close TODAY — recording breakfast, a meal the user
+ * had not confirmed happened, while yesterday stayed unrecorded. A past day is over,
+ * so every meal on it is due (retro-close, R10a).
  */
-export function applyDayCloseAction(actionId: string, now: Date = new Date()): void {
-  const date = dayKey(now);
+export function applyDayCloseAction(actionId: string, date: string = dayKey(), now: Date = new Date()): void {
   if (actionId === DAY_CLOSE_ACTION.close) {
     // Lazy require: applyClose pulls the api/outbox chain; this file must stay loadable
     // from the notification handler without dragging React in.
     const { applyClose } = require("../db/dayRecord") as typeof import("../db/dayRecord");
-    applyClose(closeDay(getDayRecord(date), getCachedPlan()?.meals ?? [], now.getHours() * 60 + now.getMinutes()));
+    const nowMin = date === dayKey(now) ? now.getHours() * 60 + now.getMinutes() : 24 * 60;
+    applyClose(closeDay(getDayRecord(date), getCachedPlan()?.meals ?? [], nowMin));
     setDayClosed(date, true);
   }
   const { setSelectedDate } = require("../day/selection") as typeof import("../day/selection");
@@ -115,7 +122,7 @@ export function startDayClose(): () => void {
   });
   const offResp =
     getNotifier().onResponse?.((r) => {
-      if (r.data?.dayClose) applyDayCloseAction(r.actionId);
+      if (r.data?.dayClose) applyDayCloseAction(r.actionId, typeof r.data.date === "string" ? r.data.date : undefined);
     }) ?? (() => {});
   return () => {
     offLog();

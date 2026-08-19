@@ -34,10 +34,11 @@ const PAGE = 100;
 /**
  * The local id a restored entry must take. Deterministic-id entries (check-ins
  * `habitId:date` — BE-024; day records `meal:date:planMealId` / `workout:date` —
- * APP-094) rebuild their key from the detail, so a later local write lands on the
- * SAME row instead of creating a duplicate slot (and a queued create for that slot
- * is detected as "taken" below). A plain entry keys on the server uuid — its
- * original local uuid's only job was the Idempotency-Key, which is spent.
+ * APP-094; body weight `weight:date` — APP-097) rebuild their key from the detail,
+ * so a later local write lands on the SAME row instead of creating a duplicate slot
+ * (and a queued create for that slot is detected as "taken" below). A plain entry
+ * keys on the server uuid — its original local uuid's only job was the
+ * Idempotency-Key, which is spent.
  */
 function localIdFor(e: LogEntry): string {
   const d = e.detail as { planMealId?: string; planDay?: string; habitId?: string };
@@ -45,6 +46,7 @@ function localIdFor(e: LogEntry): string {
   if (e.type === "meal" && d.planMealId) return mealEntryId(date, d.planMealId);
   if (e.type === "workout" && d.planDay) return workoutEntryId(date);
   if (e.type === "checkin" && d.habitId) return `${d.habitId}:${date}`;
+  if (e.type === "weight") return `weight:${date}`; // src/day/weight.ts weightEntryId
   return e.id;
 }
 
@@ -64,8 +66,12 @@ function insertRestored(e: LogEntry): boolean {
     [e.id],
   );
   if ((deleting?.n ?? 0) > 0) return false;
-  db.runSync(
-    `INSERT INTO entries (id, serverId, type, occurredAt, inputMethod, sourcePhrase, isEstimate, detail, updatedAt, syncState)
+  // OR IGNORE, not a bare INSERT: two server rows can map to ONE localIdFor slot
+  // (a pre-0.8.0 meal and its re-recorded twin). A UNIQUE violation would escape
+  // restoreLog, leaving `restore.done` unset and the cursor parked — the restore
+  // would then fail identically on every launch, permanently.
+  const res = db.runSync(
+    `INSERT OR IGNORE INTO entries (id, serverId, type, occurredAt, inputMethod, sourcePhrase, isEstimate, detail, updatedAt, syncState)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'synced')`,
     [
       id,
@@ -79,6 +85,7 @@ function insertRestored(e: LogEntry): boolean {
       e.updatedAt ?? null,
     ],
   );
+  if (res.changes === 0) return false;
   invalidateDay(e.occurredAt); // every derivation (day record, statuses, trends) rebuilds from entries
   return true;
 }

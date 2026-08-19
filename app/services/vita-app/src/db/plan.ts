@@ -21,7 +21,7 @@ import type { EatingPlanDraft, TrainingProgramDraft } from "../api/client";
 import { api } from "../api";
 import { ApiError } from "../api/client";
 import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
-import { dayKey } from "../day/record";
+import { dayKey, emptyOverlay } from "../day/record";
 import { getOverlay, setOverlay } from "./dayRecord";
 import { clearDirty, isDirty, kvGet, kvSet, setDirty } from "./kv";
 import { logChanged } from "./notify";
@@ -80,28 +80,49 @@ export function setPortion(itemId: string, qty: number, itemDefault?: number): v
   setOverlay(dayKey(), { qty: map }); // logChanged: screens re-read, live totals update
 }
 
-/** Drop today's portion overrides (new plan version resets them). */
+/**
+ * Drop today's WHOLE overlay — a new plan version resets it.
+ *
+ * All four maps, not just `qty`: plan ids are POSITIONAL and reassigned on every POST
+ * (contract 0.8.0 — "m-1…m-N in document order… POST assigns fresh ones"), so a
+ * surviving `skip["it-7"]` re-binds to whatever food is 7th in the NEW document. That
+ * wrong composition then gets written into a permanent, self-describing record at
+ * close-the-day — the one thing v4 says a later plan change can never rewrite.
+ */
 export function clearPortions(): void {
-  setOverlay(dayKey(), { qty: {} });
+  setOverlay(dayKey(), emptyOverlay());
 }
 
 /** @deprecated APP-094 — nothing is pushed anymore; kept so v3 screens still build. */
 export const clearPortionsAndPush = clearPortions;
 
-/** Drop overlay keys whose itemId no longer appears in the doc (defensive prune).
- *  Options-aware: option items carry portion overrides too, so they must survive. */
+/**
+ * What the overlay's positional keys BIND to: each id together with the thing it names.
+ * Same binding ⇒ the ids still mean what they meant when the overlay was written; any
+ * difference ⇒ a re-import or a foreign edit moved them and the overlay is void.
+ */
+const planBinding = (doc: EatingPlanDraft): string =>
+  [...doc.meals.map((m) => `${m.id}=${m.name}`), ...allPlanItems(doc).map((i) => `${i.id}=${i.name}`)].join("|");
+
+/** Drop overlay keys whose id no longer appears in the doc (defensive prune) — across
+ *  ALL four maps. Options-aware: option items carry overrides too, so they must survive. */
 function pruneOverlayToDoc(doc: EatingPlanDraft): void {
-  const ids = new Set<string>();
-  for (const it of allPlanItems(doc)) if (it.id != null) ids.add(it.id);
-  const map = { ...getPortions() };
-  let changed = false;
-  for (const key of Object.keys(map)) {
-    if (!ids.has(key)) {
-      delete map[key];
-      changed = true;
-    }
-  }
-  if (changed) setOverlay(dayKey(), { qty: map });
+  const itemIds = new Set<string>();
+  for (const it of allPlanItems(doc)) if (it.id != null) itemIds.add(it.id);
+  const mealIds = new Set(doc.meals.map((m) => m.id).filter((id): id is string => id != null));
+  const ov = getOverlay();
+  const keep = <T,>(map: Record<string, T>, ids: Set<string>): Record<string, T> =>
+    Object.fromEntries(Object.entries(map).filter(([k]) => ids.has(k)));
+  const next = {
+    option: keep(ov.option, mealIds),
+    qty: keep(ov.qty, itemIds),
+    skip: keep(ov.skip, itemIds),
+    swap: keep(ov.swap, itemIds),
+  };
+  const shrunk = (["option", "qty", "skip", "swap"] as const).some(
+    (k) => Object.keys(next[k]).length !== Object.keys(ov[k]).length,
+  );
+  if (shrunk) setOverlay(dayKey(), next);
 }
 
 // ---- plan / program status (§2.1) --------------------------------------------
@@ -226,6 +247,7 @@ export async function updatePlan(doc: EatingPlanDraft): Promise<void> {
       setOverlay(dayKey(), { qty: after });
     }
   }
+  pruneOverlayToDoc(doc); // an edit that removes an item must drop its skip/swap/option too
   await pushPlan().catch(() => {});
 }
 export async function updateProgram(doc: TrainingProgramDraft): Promise<void> {
@@ -272,8 +294,12 @@ export async function syncPlan(): Promise<void> {
   if (isDirty(PLAN_KEY)) return void pushPlan().catch(() => {});
   try {
     const { portions: _serverPortions, ...doc } = await api.getPlan();
+    const before = getCachedPlan();
     kvSet(PLAN_KEY, doc);
-    pruneOverlayToDoc(doc);
+    // A version imported elsewhere re-binds every positional id, and the ids still
+    // EXIST — so pruning by id would keep them all, now pointing at different foods.
+    if (before && planBinding(before) !== planBinding(doc)) clearPortions();
+    else pruneOverlayToDoc(doc);
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) return; // never persisted yet
     // network/other: keep the cached doc (offline-tolerant)

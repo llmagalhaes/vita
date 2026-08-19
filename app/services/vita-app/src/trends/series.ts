@@ -53,6 +53,7 @@ export type Bucket = {
   kcal: number;
   waterMl: number;
   moveKcal: number;
+  /** Workout records that actually happened — a `skipped` one is a record, not a session. */
   workouts: number;
   /** The user recorded SOMETHING that period (meal · water · workout). */
   recorded: boolean;
@@ -78,7 +79,7 @@ export function readBuckets(range: TrendRange, today: Date = new Date()): Bucket
             ${sumJson("meal", "$.totals.kcal")} AS kcal,
             ${sumJson("water", "$.amountMl")} AS waterMl,
             ${sumJson("workout", "$.kcal")} AS moveKcal,
-            SUM(CASE WHEN type = 'workout' THEN 1 ELSE 0 END) AS workouts,
+            SUM(CASE WHEN type = 'workout' AND COALESCE(json_extract(detail, '$.planStatus'), '') != 'skipped' THEN 1 ELSE 0 END) AS workouts,
             SUM(CASE WHEN type IN ('meal', 'water', 'workout') THEN 1 ELSE 0 END) AS records
        FROM entries
       WHERE occurredAt >= ? AND occurredAt < ?

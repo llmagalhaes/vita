@@ -6,7 +6,7 @@
  * a future meal offers nothing to confirm, confirming writes a REAL day-record entry
  * under its deterministic id, and Close-the-day records only the meals that are DUE.
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../../../i18n";
 import i18n from "../../../i18n";
 import type { EatingPlanDraft, PlanMeal, TrainingProgramDraft } from "../../../api/client";
@@ -15,12 +15,15 @@ import { resetDbForTests } from "../../../db/db";
 import { getEntry } from "../../../db/entries";
 import { kvSet } from "../../../db/kv";
 import { saveSettings, type Settings } from "../../../db/settings";
+import { PopHost } from "../../../ui";
 import { getToast } from "../../../ui/toast";
-import { getDayRecord, setOverlay } from "../../../db/dayRecord";
+import { getDayRecord, recordMeals, setOverlay } from "../../../db/dayRecord";
+import { getExpandedMeal, signalExpandMeal } from "../../../capture/CaptureContext";
+import { readBuckets } from "../../../trends/series";
 import { dayKey, emptyDay, emptyOverlay, mealEntryId, type DayRecord } from "../../record";
 import { isDayClosed } from "../../../db/dayRecord";
 import { Timeline, dotColor, timelineNodes } from "../Timeline";
-import { itemRows } from "../MealNode";
+import { itemRows, recordRows } from "../MealNode";
 import { workoutState } from "../WorkoutNode";
 
 jest.mock("expo-router", () => ({
@@ -224,6 +227,92 @@ test("ticking exercises records the session: some ⇒ adjusted, all ⇒ done", a
 
   fireEvent.press(await screen.findByLabelText("Leg press"));
   await waitFor(() => expect(getDayRecord(today()).workout!.state).toBe("done"));
+});
+
+// ── M1: a recorded meal renders FROM ITS RECORD ──────────────────────────────
+
+/** What a voice capture leaves behind: "sweet potato instead of the rice" on Dinner. */
+const CAPTURED = {
+  entryId: mealEntryId(dayKey(), "m-2"),
+  planMealId: "m-2",
+  title: "Dinner",
+  state: "adjusted" as const,
+  items: [
+    { name: "Sweet potato", quantity: 1, unit: "serving", kcal: 277, proteinG: 4, carbsG: 60, fatG: 1, replacesItemId: "i-3" },
+  ],
+  totals: { kcal: 277, proteinG: 4, carbsG: 60, fatG: 1 },
+  at: new Date().toISOString(),
+};
+
+test("record rows come from the record's own items, priced per unit, and mark the swap", () => {
+  const rows = recordRows(CAPTURED, PLAN.meals[1]!);
+  expect(rows.map((r) => [r.lens.name, r.kcal, r.swapped])).toEqual([["Sweet potato", 277, true]]);
+  // per-unit is totals ÷ qty, so the slider re-prices correctly
+  expect(rows[0]!.lens.nutritionPerUnit).toMatchObject({ kcal: 277 });
+});
+
+test("a recorded meal's card shows the RECORD, not the plan under the overlay", async () => {
+  recordMeals([CAPTURED]);
+  await render(<Timeline />);
+  // The capture never wrote the overlay: the plan still says Rice / ~300 for Dinner.
+  expect(await screen.findByText(t("timeline.kcal", { n: "277" }))).toBeTruthy();
+
+  fireEvent.press(await screen.findByLabelText("Dinner"));
+  // The captured item is the row; "Rice" (the plan's) is gone. (Sweet potato also names
+  // an option chip, hence findAllByText.)
+  expect(await screen.findAllByText("Sweet potato")).not.toHaveLength(0);
+  expect(screen.queryByText("Rice")).toBeNull(); // the swap was invisible before the fix
+  expect(screen.getByText(t("timeline.swapped"))).toBeTruthy();
+});
+
+test("adjusting a recorded meal edits the record — a captured swap is never rebuilt from the plan", async () => {
+  const twoItems = {
+    ...CAPTURED,
+    items: [...CAPTURED.items, { name: "Salad", quantity: 1, unit: "serving", kcal: 40, proteinG: 1, carbsG: 6, fatG: 1 }],
+    totals: { kcal: 317, proteinG: 5, carbsG: 66, fatG: 2 },
+  };
+  recordMeals([twoItems]);
+  // PortionPop rides PopOverlay, which portals to the app-root PopHost.
+  await render(
+    <>
+      <Timeline />
+      <PopHost />
+    </>,
+  );
+  fireEvent.press(await screen.findByLabelText("Dinner"));
+  fireEvent.press(await screen.findByLabelText("Salad")); // opens the portion pop
+  fireEvent.press(await screen.findByText(t("timeline.portion.skip")));
+
+  await waitFor(() => expect(getDayRecord(today()).meals[0]!.items).toHaveLength(1));
+  const rec = getDayRecord(today()).meals[0]!;
+  expect(rec.items.map((i) => i.name)).toEqual(["Sweet potato"]); // NOT back to "Rice"
+  expect(rec.totals.kcal).toBe(277);
+  expect(getToast()?.undo).toBeInstanceOf(Function);
+});
+
+// ── M5: recording a delta auto-expands the meal it touched ───────────────────
+
+test("signalExpandMeal opens that meal's card, then clears itself", async () => {
+  await render(<Timeline />);
+  expect(screen.queryByText("Rice")).toBeNull();
+  await act(async () => signalExpandMeal("m-2"));
+  expect(await screen.findByText("Rice")).toBeTruthy();
+  expect(getExpandedMeal()).toBeNull(); // consumed, so the same meal can be signalled again
+});
+
+// ── m8: an emptied session is not a session ──────────────────────────────────
+
+test("unticking the last exercise records a SKIPPED workout, not an empty 'adjusted' one", async () => {
+  await render(<Timeline />);
+  fireEvent.press(await screen.findByLabelText("Leg day"));
+  fireEvent.press(await screen.findByLabelText("Squat"));
+  await waitFor(() => expect(getDayRecord(today()).workout!.state).toBe("adjusted"));
+
+  fireEvent.press(await screen.findByLabelText("Squat")); // untick the only one
+  await waitFor(() => expect(getDayRecord(today()).workout!.state).toBe("skipped"));
+  expect(getDayRecord(today()).workout!.exercises).toEqual([]);
+  // …and Trends stops counting it as a session on the movement chart.
+  expect(readBuckets("W").at(-1)!.workouts).toBe(0);
 });
 
 test("the day overlay is date-keyed, so 'only counts for today' needs no rollover reset", () => {

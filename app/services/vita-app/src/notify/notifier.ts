@@ -45,6 +45,9 @@ export type PlannedDayClose = {
   title: string;
   body: string;
   at: Date;
+  /** The day this notification is ABOUT (local YYYY-MM-DD) — it rides in the payload
+   *  so acting on it the next morning still closes that day, not the new one. */
+  date: string;
   actions: { close: string; adjust: string };
 };
 
@@ -145,7 +148,7 @@ function createExpoNotifier(): Notifier {
           title: planned.title,
           body: planned.body,
           categoryIdentifier: DAY_CLOSE_CATEGORY,
-          data: { dayClose: true },
+          data: { dayClose: true, date: planned.date },
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: planned.at },
       });

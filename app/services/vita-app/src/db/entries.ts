@@ -173,11 +173,15 @@ export function upsertEntry(id: string, entry: NewEntry): LocalEntry {
         `UPDATE entries SET occurredAt = ?, inputMethod = ?, sourcePhrase = ?, isEstimate = ?, detail = ?, syncState = 'pending' WHERE id = ?`,
         [occurredAt, entry.inputMethod, entry.sourcePhrase ?? null, entry.isEstimate ? 1 : 0, JSON.stringify(entry.detail), id],
       );
-      // Only enqueue a PATCH if the create already synced AND nothing is queued;
-      // a still-pending create will send the fresh detail on its own.
+      // Only enqueue if nothing is queued; a still-pending create sends the fresh
+      // detail on its own. A `failed` row has NO op left behind it (the poison drop
+      // removed it), so re-recording it must queue one too — otherwise the row goes
+      // back to `pending` with nothing to send and sits at "waiting to sync" forever,
+      // the exact lie `failed` was introduced to stop (audit 1.8). It re-creates when
+      // the server never got it (no serverId) and PATCHes when it did.
       const queued = db.getFirstSync<{ seq: number }>(`SELECT seq FROM outbox WHERE entryId = ? LIMIT 1`, [id]);
-      if (existing.syncState === "synced" && !queued) {
-        db.runSync(`INSERT INTO outbox (entryId, op) VALUES (?, 'update')`, [id]);
+      if (!queued && (existing.syncState === "synced" || existing.syncState === "failed")) {
+        db.runSync(`INSERT INTO outbox (entryId, op) VALUES (?, ?)`, [id, existing.serverId ? "update" : "create"]);
       }
     }
   });

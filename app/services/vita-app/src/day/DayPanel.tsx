@@ -36,6 +36,7 @@ import { WaterCard } from "./overview/WaterCard";
 import { WeightCard } from "./overview/WeightCard";
 import { dayCounters } from "./state";
 import { ZERO, dayKey, dayMeals } from "./record";
+import { DayBanners } from "./DayBanners";
 import { DayDock } from "./dock/DayDock";
 import { PastDay } from "./PastDay";
 import { useSelectedDate } from "./selection";
@@ -138,6 +139,10 @@ export function DayPanel() {
       />
 
       <SwipeHint />
+
+      {/* Offline-review + "your meal plan is in" — the two surfaces the deleted v3 Home
+          owned. Today only: both are about what is waiting for you right now. */}
+      {selectedDate === dayKey() && <DayBanners />}
 
       {/* APP-099 — day travel: label row + dock sit between the header and Overview,
           past-day cards right below (prototype lines 336–429). */}

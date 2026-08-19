@@ -132,8 +132,13 @@ export function WorkoutNode({
     }
   };
 
+  // Unticking the LAST exercise is not "adjusted with nothing in it" — it is the day
+  // you didn't train, so it records `skipped` (the state whose copy already exists in
+  // PastDay/recapLine and which no other v4 surface could write). That also stops
+  // Trends counting an emptied session as a workout.
   const commit = (exercises: Exercise[], toast: string) => {
-    recordWorkout(buildWorkoutRecord(date, program, exercises, exercises.length === all.length ? "done" : "adjusted"));
+    const state: RecordedState = exercises.length === 0 ? "skipped" : exercises.length === all.length ? "done" : "adjusted";
+    recordWorkout(buildWorkoutRecord(date, program, exercises, state));
     showToast(toast, { undo: restore });
   };
 

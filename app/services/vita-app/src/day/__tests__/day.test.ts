@@ -119,11 +119,20 @@ test("close never overwrites an existing record", () => {
   expect(mealState(after, PLAN[0]!)).toBe("adjusted");
 });
 
-test("isRetro: derived from loggedAt landing on a later day (no closed{} on the wire)", () => {
+test("isRetro: derived from loggedAt landing on a later LOCAL day (no closed{} on the wire)", () => {
   const rec = record(PLAN[0]!, "done");
+  // Both sides go through dayKey, so the assertions below hold in EVERY zone. The old
+  // ISO-slice compared UTC days: it read every 21:00+ close in Brazil as retro and, in
+  // a positive-offset zone, a genuine next-day close near midnight as same-day.
+  const localAt = (dayOffset: number, h: number, m = 0) => {
+    const d = new Date(`${DATE}T00:00:00`);
+    d.setDate(d.getDate() + dayOffset);
+    d.setHours(h, m, 0, 0);
+    return d.toISOString();
+  };
   expect(isRetro(rec)).toBe(false); // unsynced — nothing to derive from yet
-  expect(isRetro({ ...rec, loggedAt: `${DATE}T22:00:00.000Z` })).toBe(false);
-  expect(isRetro({ ...rec, loggedAt: "2026-08-21T09:00:00.000Z" })).toBe(true);
+  expect(isRetro({ ...rec, loggedAt: localAt(0, 21, 30) })).toBe(false); // closed the same evening
+  expect(isRetro({ ...rec, loggedAt: localAt(1, 9) })).toBe(true);
 });
 
 // ── self-describing records (risk R7) ────────────────────────────────────────

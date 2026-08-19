@@ -70,8 +70,11 @@ export function CalendarSheet({
   const { t } = useTranslation();
   const accent = useAccent();
   const todayKey = dayKey(today);
-  // Read the month's entries once, when the sheet is actually up.
-  const cells = useMemo(() => (visible ? monthCells(today, monthStatuses(today)) : []), [visible, today]);
+  // Read the month's entries once, when the sheet is actually up. Keyed on the DAY,
+  // not on the `today` object: it is a default parameter, so a fresh Date identity
+  // every render made this memo never hit and re-ran two ranged scans per render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const cells = useMemo(() => (visible ? monthCells(today, monthStatuses(today)) : []), [visible, todayKey]);
 
   const legend = (color: string | null, label: string) => (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>

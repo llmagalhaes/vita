@@ -33,6 +33,7 @@ import { usePortal } from "../ui/popHost";
 import { cardSurface, MicroLabel } from "./overview/parts";
 import { retroClose } from "./close";
 import { atMinutes, dayMeals, workoutEntryId, type DayRecord } from "./record";
+import { setSelectedOffset } from "./selection";
 import { dayCounters, dayIsRetro, dayStatus } from "./state";
 
 /** One bullet row = fragments joined by " · ", each an i18n key + params. */
@@ -100,7 +101,12 @@ export function PastDay({ date }: { date: string }) {
       sessions={session ? [session] : []}
       range="week"
       onClose={() => setMuscle(null)}
-      onOpenDay={() => setMuscle(null)}
+      // `dayOffset` is days back from TODAY (muscleData.dayOffsetOf), which is exactly
+      // what the dock speaks — travel there instead of only closing the sheet.
+      onOpenDay={(offset) => {
+        setSelectedOffset(offset);
+        setMuscle(null);
+      }}
     />,
   );
 

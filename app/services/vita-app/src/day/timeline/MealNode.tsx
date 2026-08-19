@@ -12,16 +12,22 @@
  *
  * Every write goes through the APP-094 model: state changes are `recordMeals`
  * (deterministic entry ids, idempotent), composition tweaks are `setOverlay` — the
- * **day-scoped** overlay, never `PUT /plan/portions`. Changing the composition of a
- * meal that is already recorded re-records it as `adjusted`, so the record and what
- * the card shows can never drift apart. Undo on every one of them.
+ * **day-scoped** overlay, never `PUT /plan/portions`. Undo on every one of them.
+ *
+ * **Two rendering modes, and the split is the whole correctness story.** Before a meal
+ * is recorded the card renders the PLAN under today's overlay (`composeItems`) — the
+ * overlay is the pre-record tweak surface. Once it HAS a record, the card renders the
+ * record: a record is self-describing (R7), and for a capture delta it is the only
+ * place the swap the user spoke exists at all — `src/capture/delta.ts` deliberately
+ * never writes the overlay. Adjusting a recorded meal therefore edits its own items;
+ * re-deriving from the plan would silently put the white rice back.
  */
 import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
-import type { MacroTotals, PlanItem, PlanMeal } from "../../api/client";
+import type { MacroTotals, MealItem, PlanItem, PlanMeal } from "../../api/client";
 import { recordMeals, setOverlay } from "../../db/dayRecord";
 import { deleteEntry } from "../../db/entries";
 import { logChanged } from "../../db/notify";
@@ -77,6 +83,64 @@ export type ItemRowData = {
   swapped: boolean;
 };
 
+/** Every plan item of a meal (base + options) by its stable id. */
+function planItemsById(meal: PlanMeal): Map<string, PlanItem> {
+  const by = new Map<string, PlanItem>();
+  for (const src of [meal.items, ...(meal.options ?? []).map((o) => o.items)]) {
+    for (const it of src) if (it.id != null) by.set(it.id, it);
+  }
+  return by;
+}
+
+/**
+ * The rows of a meal that HAS a record — read straight off the record's own items, so
+ * the card's kcal is the same number the hero, MacrosCard and Trends read, and a
+ * captured swap shows as the food that was actually eaten.
+ *
+ * The synthetic `lens` exists only so the shared row/PortionPop rendering keeps working:
+ * a record item stores TOTALS at its recorded quantity, so per-unit is totals ÷ qty.
+ * ponytail: no `portion` bounds are carried over — the plan item's bounds are in the
+ * PLAN item's unit space and a swapped item lives in another; `portionRange(qty)` is
+ * always coherent with the number on screen.
+ */
+export function recordRows(rec: MealRecord, meal: PlanMeal): ItemRowData[] {
+  const planned = planItemsById(meal);
+  return rec.items.map((it) => {
+    const qty = it.quantity ?? 1;
+    const per = (v: number | undefined) => (qty > 0 ? (v ?? 0) / qty : 0);
+    const base = it.replacesItemId != null ? planned.get(it.replacesItemId) : undefined;
+    const lens: PlanItem = {
+      name: it.name,
+      quantity: qty,
+      ...(it.unit ? { unit: it.unit } : {}),
+      nutritionPerUnit: { kcal: per(it.kcal), proteinG: per(it.proteinG), carbsG: per(it.carbsG), fatG: per(it.fatG) },
+      ...(it.replacesItemId != null ? { id: it.replacesItemId } : {}),
+    };
+    return {
+      lens,
+      ...(it.replacesItemId != null ? { id: it.replacesItemId } : {}),
+      qty,
+      kcal: Math.round(it.kcal ?? 0),
+      skipped: false, // a record lists what happened; a skipped item simply isn't in it
+      swapped: base != null && effectiveName(base) !== it.name,
+    };
+  });
+}
+
+/** One record item re-priced to a new quantity (its macros are totals, so they scale). */
+const scaleItem = (it: MealItem, qty: number): MealItem => {
+  const q0 = it.quantity ?? 1;
+  const f = q0 > 0 ? qty / q0 : 0;
+  return {
+    ...it,
+    quantity: qty,
+    kcal: (it.kcal ?? 0) * f,
+    proteinG: (it.proteinG ?? 0) * f,
+    carbsG: (it.carbsG ?? 0) * f,
+    fatG: (it.fatG ?? 0) * f,
+  };
+};
+
 /** The rows of a meal's composition today: the picked option, with swaps/qty/skips applied. */
 export function itemRows(meal: PlanMeal, ov: DayOverlay): ItemRowData[] {
   const oi = optionIndexFor(meal, ov);
@@ -130,11 +194,21 @@ export function MealNode({
 }) {
   const { t } = useTranslation();
   const accent = useAccent();
-  const [sel, setSel] = useState<{ row: number; openQty: number } | null>(null);
+  // `qty` is the LIVE slider value. For a recorded meal the write happens once, on
+  // close (one undoable action) — the overlay is not the store any more.
+  const [sel, setSel] = useState<{ row: number; openQty: number; qty: number } | null>(null);
 
-  const rows = itemRows(meal, overlay);
-  const oi = optionIndexFor(meal, overlay);
-  const kcal = Math.round(sumTotals(composeItems(meal, overlay)).kcal);
+  // A recorded meal renders from its record; only a still-unrecorded one renders the
+  // plan under the overlay. A `skipped` record has no items, so the card still lists
+  // what was planned (struck through) while every number reads 0 — which is the truth.
+  const fromRecord = record != null && record.items.length > 0;
+  const rows = fromRecord ? recordRows(record, meal) : itemRows(meal, overlay);
+  const oi = record
+    ? record.planOptionIndex != null && meal.options?.[record.planOptionIndex]
+      ? record.planOptionIndex
+      : undefined
+    : optionIndexFor(meal, overlay);
+  const kcal = Math.round(record ? record.totals.kcal : sumTotals(composeItems(meal, overlay)).kcal);
   const tag = state === "planned" ? null : TAG[state];
   const selRow = sel ? rows[sel.row] : null;
 
@@ -182,25 +256,47 @@ export function MealNode({
       t("timeline.meal.adjustedToast", { name: meal.name }),
     );
 
-  const changeQty = (itemId: string, qty: number) => setOverlay(date, { qty: { ...overlay.qty, [itemId]: qty } });
+  /**
+   * Re-record a meal that ALREADY has a record, from its own items. Never
+   * `buildMealRecord` — that re-derives from the plan composition and would throw away
+   * a swap the user captured by voice (the capture path never touches the overlay).
+   */
+  const writeRecordItems = (items: MealItem[], toast: string) => {
+    const before = record!;
+    recordMeals([{ ...before, state: items.length === 0 ? "skipped" : "adjusted", items, totals: sumTotals(items) }]);
+    showToast(toast, { undo: () => recordMeals([before]) });
+  };
+
+  const changeQty = (qty: number) => {
+    setSel((s) => (s ? { ...s, qty } : s));
+    // Pre-record: the overlay IS the store, and writing it live keeps the plan's daily
+    // totals card in the pop moving with the slider.
+    if (!fromRecord && selRow?.id != null) setOverlay(date, { qty: { ...overlay.qty, [selRow.id]: qty } });
+  };
 
   const skipItem = (item: ItemRowData) => {
-    if (item.id == null) return;
+    const row = sel?.row;
     setSel(null);
-    patchOverlay(
-      { skip: { ...overlay.skip, [item.id]: true } },
-      t("timeline.portion.skippedToast", { name: effectiveName(item.lens) }),
-    );
+    const toast = t("timeline.portion.skippedToast", { name: effectiveName(item.lens) });
+    if (fromRecord && row != null) return writeRecordItems(record!.items.filter((_, i) => i !== row), toast);
+    if (item.id == null) return;
+    patchOverlay({ skip: { ...overlay.skip, [item.id]: true } }, toast);
   };
 
   /** Closing the modal is where a portion change becomes one undoable action. */
   const closePortion = () => {
     // `overlay` is the parent's fresh prop — every slider commit re-rendered this node.
-    if (sel && selRow && selRow.id != null) {
-      if (selRow.qty !== sel.openQty) {
+    if (sel && selRow && sel.qty !== sel.openQty) {
+      const toast = t("timeline.meal.adjustedToast", { name: meal.name });
+      if (fromRecord) {
+        writeRecordItems(
+          record!.items.map((it, i) => (i === sel.row ? scaleItem(it, sel.qty) : it)),
+          toast,
+        );
+      } else if (selRow.id != null) {
         const before = { ...emptyOverlay(), ...overlay, qty: { ...overlay.qty, [selRow.id]: sel.openQty } };
         if (state === "done" || state === "adjusted") write("adjusted");
-        showToast(t("timeline.meal.adjustedToast", { name: meal.name }), {
+        showToast(toast, {
           undo: () => {
             setOverlay(date, before);
             if (record) recordMeals([record]);
@@ -357,14 +453,16 @@ export function MealNode({
           ) : null}
 
           {rows.map((r, i) => {
-            const tappable = r.id != null && !r.skipped && !isAdLib(r.lens);
+            // Record rows are addressed by position, so an off-plan item (no plan id)
+            // in a recorded meal is still adjustable.
+            const tappable = (fromRecord || r.id != null) && !r.skipped && !isAdLib(r.lens);
             return (
               <Pressable
                 key={r.id ?? i}
                 accessibilityRole="button"
                 accessibilityLabel={effectiveName(r.lens)}
                 disabled={!tappable}
-                onPress={() => setSel({ row: i, openQty: r.qty })}
+                onPress={() => setSel({ row: i, openQty: r.qty, qty: r.qty })}
                 style={({ pressed }) => ({
                   flexDirection: "row",
                   alignItems: "center",
@@ -418,12 +516,12 @@ export function MealNode({
         {sel && selRow ? (
           <PortionPop
             item={selRow.lens}
-            qty={selRow.qty}
+            qty={sel.qty}
             openQty={sel.openQty}
             mealName={meal.name}
             {...(meal.time ? { mealTime: meal.time } : {})}
             dailyTotals={dailyTotals}
-            onChangeQty={(next) => selRow.id != null && changeQty(selRow.id, next)}
+            onChangeQty={changeQty}
             onSkip={() => skipItem(selRow)}
             onClose={closePortion}
           />

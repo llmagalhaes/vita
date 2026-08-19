@@ -18,7 +18,7 @@ import { getToast } from "../../ui/toast";
 import { PastDay, pastRows } from "../PastDay";
 import { monthCells, dotStyle } from "../CalendarSheet";
 import { dayStatuses, recentStatuses } from "../statuses";
-import { dateForOffset, getSelectedDate, getSelectedOffset, offsetForDate, setSelectedOffset } from "../selection";
+import { dateForOffset, getSelectedDate, getSelectedOffset, offsetForDate, rollOverToToday, setSelectedOffset } from "../selection";
 import { atMinutes, dayKey, emptyDay, mealEntryId, workoutEntryId } from "../record";
 import { dotBase } from "../dock/DockDatePicker";
 
@@ -108,6 +108,23 @@ test("offsets and date keys convert both ways, and the setter travels the panel"
   setSelectedOffset(3);
   expect(getSelectedDate()).toBe(back(3));
   expect(getSelectedOffset()).toBe(3);
+});
+
+// m1 — `selected` was frozen at module load: an app left open overnight woke up on a
+// "past day" the user never navigated to, with every today-only zone and the capture
+// pill gone.
+test("midnight rollover moves a panel sitting on today, and leaves a travelled one alone", () => {
+  const tomorrow = new Date(TODAY.getFullYear(), TODAY.getMonth(), TODAY.getDate() + 1, 8, 0, 0);
+
+  setSelectedOffset(0); // on today
+  expect(rollOverToToday(TODAY)).toBe(false); // same day — nothing to do
+  expect(rollOverToToday(tomorrow)).toBe(true);
+  expect(getSelectedDate()).toBe(dayKey(tomorrow));
+
+  setSelectedOffset(2); // the user travelled: their day must stay put
+  expect(rollOverToToday(tomorrow)).toBe(false);
+  expect(getSelectedDate()).toBe(back(2));
+  setSelectedOffset(0);
 });
 
 // ── past-day rows ────────────────────────────────────────────────────────────

@@ -5,7 +5,7 @@
  */
 import i18n from "../i18n";
 import type { DayMeal, DayRecord, MealRecord, MealState, WorkoutRecord } from "./record";
-import { mealRecord, minutesOf } from "./record";
+import { dayKey, mealRecord, minutesOf } from "./record";
 
 /** Composition flags, structurally typed so this file never imports src/db/domains. */
 export type Domains = Partial<Record<"meals" | "water" | "move" | "habits" | "weight", boolean>>;
@@ -31,9 +31,17 @@ export function dayCounters(day: DayRecord, meals: DayMeal[] = []): DayCounters 
   return c;
 }
 
-/** Recorded later than the day it describes ⇒ "closed later, by you" (PLAN R2). */
+/**
+ * Recorded later than the day it describes ⇒ "closed later, by you" (PLAN R2).
+ *
+ * Both sides go through `dayKey`, i.e. the DEVICE's calendar day. `at` is a local
+ * wall-clock slot and `loggedAt` is the server's UTC receive time, so slicing the
+ * ISO strings compared UTC days: in Brazil (UTC−3) every close after 21:00 crossed
+ * UTC midnight and falsely read as retro — on the one row where the product makes
+ * an honesty claim.
+ */
 export const isRetro = (rec: MealRecord | WorkoutRecord): boolean =>
-  rec.loggedAt != null && rec.loggedAt.slice(0, 10) > rec.at.slice(0, 10);
+  rec.loggedAt != null && dayKey(new Date(rec.loggedAt)) > dayKey(new Date(rec.at));
 
 export const dayIsRetro = (day: DayRecord): boolean =>
   [...day.meals, ...(day.workout ? [day.workout] : [])].some(isRetro);

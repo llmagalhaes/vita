@@ -96,7 +96,15 @@
       "overview": "Overview",
       "yourDay": "Your day"
     },
-    "macros": {}
+    "macros": {},
+    "banner": {
+      "reviewOne": "1 entry Vita added while you were offline",
+      "reviewMany": "{{count}} entries Vita added while you were offline",
+      "reviewSub": "Keep it, adjust it, or drop it — your call",
+      "planTitle": "Your meal plan is in",
+      "planSub": "{{n}} meals read — finish setup whenever you like",
+      "dismiss": "Not now"
+    }
   },
   "overview": {
     "water": {

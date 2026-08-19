@@ -76,3 +76,53 @@ test("clearPortions empties today's overrides and pushes nothing", async () => {
   expect(getPortions()).toEqual({});
   expect(spy).not.toHaveBeenCalled();
 });
+
+// ── M2: the overlay must never survive a plan version that re-binds its ids ──
+
+/** Plan ids are POSITIONAL and reassigned on every POST (contract 0.8.0). */
+const doc = (meal: string, itemA: string, itemB: string) => ({
+  summary: "s",
+  meals: [{ id: "m-1", name: meal, items: [{ id: "it-1", name: itemA }, { id: "it-2", name: itemB }] }],
+});
+
+test("a re-import drops the WHOLE overlay — a stale skip must not re-bind to another food", async () => {
+  jest.spyOn(api, "createPlan").mockImplementation(async (d) => d);
+  await savePlan(doc("Lunch", "Chicken", "Banana"));
+  setOverlay(dayKey(), { qty: { "it-1": 2 }, skip: { "it-2": true }, option: { "m-1": 0 }, swap: { "it-1": { name: "Tofu" } } });
+
+  // The CEO re-imports: same ids, different foods behind them.
+  await savePlan(doc("Lunch", "Rice", "Chicken"));
+  expect(getOverlay()).toEqual({ option: {}, qty: {}, skip: {}, swap: {} });
+});
+
+test("a plan version imported elsewhere and synced down drops the overlay too", async () => {
+  jest.spyOn(api, "createPlan").mockImplementation(async (d) => d);
+  await savePlan(doc("Lunch", "Chicken", "Banana"));
+  setOverlay(dayKey(), { skip: { "it-2": true } }); // "didn't have the banana today"
+
+  jest.spyOn(api, "getPlan").mockResolvedValue(doc("Lunch", "Rice", "Chicken") as never);
+  await syncPlan();
+  // it-2 still EXISTS in the new doc — pruning by id would have kept it, now pointing
+  // at Chicken, and close-the-day would write that wrong composition permanently.
+  expect(getOverlay().skip).toEqual({});
+});
+
+test("the same plan coming back unchanged keeps every overlay map", async () => {
+  jest.spyOn(api, "createPlan").mockImplementation(async (d) => d);
+  await savePlan(doc("Lunch", "Chicken", "Banana"));
+  setOverlay(dayKey(), { qty: { "it-1": 2 }, skip: { "it-2": true }, option: { "m-1": 0 } });
+
+  jest.spyOn(api, "getPlan").mockResolvedValue(doc("Lunch", "Chicken", "Banana") as never);
+  await syncPlan();
+  expect(getOverlay()).toMatchObject({ qty: { "it-1": 2 }, skip: { "it-2": true }, option: { "m-1": 0 } });
+});
+
+test("prune drops skip/swap/option keys the doc no longer has, not just qty", async () => {
+  jest.spyOn(api, "createPlan").mockImplementation(async (d) => d);
+  await savePlan(doc("Lunch", "Chicken", "Banana"));
+  setOverlay(dayKey(), { skip: { ghost: true }, swap: { ghost2: { name: "x" } }, option: { "m-9": 1 }, qty: { "it-1": 2 } });
+
+  jest.spyOn(api, "getPlan").mockResolvedValue(doc("Lunch", "Chicken", "Banana") as never);
+  await syncPlan();
+  expect(getOverlay()).toEqual({ option: {}, qty: { "it-1": 2 }, skip: {}, swap: {} });
+});

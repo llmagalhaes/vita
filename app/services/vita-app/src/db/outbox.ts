@@ -60,13 +60,15 @@ async function interpretPending(api: Api, pendingId: string): Promise<void> {
 
 /**
  * Entries written under a DETERMINISTIC id (upsertEntry): habit check-ins
- * (`${habitId}:${date}`, BE-024) and day records (`meal|workout:${date}:…`,
- * APP-094). Detected by TYPE, not by punctuation in the id — a `meal:` day-record
- * key contains ":" too, and matching on that would send it down the check-in
- * reconcile path and drop it as poison.
+ * (`${habitId}:${date}`, BE-024), day records (`meal|workout:${date}:…`,
+ * APP-094) and body weight (`weight:${date}`, APP-097 — one reading per day,
+ * corrections rewrite the same row). Detected by TYPE, not by punctuation in the
+ * id — a `meal:` day-record key contains ":" too, and matching on that would send
+ * it down the check-in reconcile path and drop it as poison.
  */
 const isDeterministic = (e: LocalEntry): boolean =>
-  e.type === "checkin" || (e.type === "meal" && (e.detail as { planMealId?: string }).planMealId != null) ||
+  e.type === "checkin" || e.type === "weight" ||
+  (e.type === "meal" && (e.detail as { planMealId?: string }).planMealId != null) ||
   (e.type === "workout" && (e.detail as { planDay?: string }).planDay != null);
 
 /** Does this server entry hold the same slot as the local deterministic-id one? */
@@ -76,6 +78,8 @@ function sameSlot(server: LogEntry, local: LocalEntry): boolean {
   const l = local.detail as Record<string, unknown>;
   if (local.type === "checkin") return s.habitId === l.habitId;
   if (local.type === "meal") return s.planMealId === l.planMealId;
+  // Weight's slot IS the day, and reconcile409 already listed only that day.
+  if (local.type === "weight") return true;
   return s.planDay === l.planDay;
 }
 

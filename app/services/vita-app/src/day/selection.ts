@@ -12,14 +12,43 @@ import { useSyncExternalStore } from "react";
 import { dayKey } from "./record";
 
 let selected: string = dayKey();
+/**
+ * The calendar day that was "today" when `selected` was last chosen. It is what tells
+ * a user sitting on today apart from one who travelled: only the former must roll over
+ * when the app is left open across midnight.
+ */
+let anchor: string = selected;
 const listeners = new Set<() => void>();
 
 export const getSelectedDate = (): string => selected;
 
 export function setSelectedDate(date: string): void {
+  anchor = dayKey();
   if (date === selected) return;
   selected = date;
   listeners.forEach((l) => l());
+}
+
+/**
+ * Midnight rollover. `selected` was frozen at module load, so an app backgrounded
+ * overnight woke up on "yesterday": PastDay instead of the day, every today-only zone
+ * hidden and no capture pill. Returns true when it moved. Travelling is respected —
+ * a day the user navigated to stays put.
+ */
+export function rollOverToToday(now: Date = new Date()): boolean {
+  const today = dayKey(now);
+  if (selected === today || selected !== anchor) return false;
+  setSelectedDate(today);
+  return true;
+}
+
+/** Mount-time wiring: roll over whenever the app comes back to the foreground. */
+export function startDayRollover(): () => void {
+  const { AppState } = require("react-native") as typeof import("react-native");
+  const sub = AppState.addEventListener("change", (s) => {
+    if (s === "active") rollOverToToday();
+  });
+  return () => sub.remove();
 }
 
 export function useSelectedDate(): string {

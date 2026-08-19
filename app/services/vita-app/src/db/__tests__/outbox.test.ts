@@ -1,7 +1,7 @@
 import { ApiError, type Api, type LogEntry, type NewEntry } from "../../api/client";
 import { createMockApi } from "../../api/mock";
 import { resetDbForTests } from "../db";
-import { addLocalEntry, deleteEntry, enqueueInterpretation, entriesForDay, getEntry, getPending, upsertCheckin } from "../entries";
+import { addLocalEntry, deleteEntry, enqueueInterpretation, entriesForDay, getEntry, getPending, upsertCheckin, upsertEntry } from "../entries";
 import { backoffMs, drainOutbox, pendingCount } from "../outbox";
 
 // Parked-photo pre-flight (audit 1.2) reads the file system; keep it deterministic.
@@ -354,4 +354,70 @@ test("items not yet due are skipped", async () => {
   const { synced } = await drainOutbox(createMockApi()); // immediately after: not due
   expect(synced).toBe(0);
   expect(pendingCount()).toBe(1);
+});
+
+// m2 — `weight:<date>` is a deterministic slot too (one reading per day, corrections
+// rewrite the same row). It was missing from isDeterministic/sameSlot, so a lost-response
+// create plus a corrected reading 409'd straight into poison and the correction vanished
+// (audit 1.3, re-opened for the new entry type).
+test("a corrected weight reading that 409s is reconciled via PATCH, not dropped as poison", async () => {
+  const id = "weight:2026-07-14";
+  const w = (kg: number): NewEntry => ({
+    type: "weight",
+    occurredAt: "2026-07-14T07:00:00.000Z",
+    inputMethod: "tap",
+    isEstimate: false,
+    detail: { kg },
+  });
+  upsertEntry(id, w(78.4)); // create op — its response was lost
+  upsertEntry(id, w(77.9)); // correction while still pending → same op, new body
+
+  const serverWeight: LogEntry = {
+    ...w(78.4),
+    id: "srv-w",
+    source: "user",
+    loggedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  let patched: { id: string; detail: unknown } | null = null;
+  const api: Api = {
+    ...createMockApi(),
+    createEntry: () => Promise.reject(problem(409)),
+    listEntries: async () => ({ items: [serverWeight] }),
+    patchEntry: async (sid, patch) => {
+      patched = { id: sid, detail: patch.detail };
+      return { ...serverWeight, ...patch, updatedAt: new Date().toISOString() };
+    },
+  };
+
+  await drainOutbox(api);
+  expect(patched!.id).toBe("srv-w");
+  expect((patched!.detail as { kg: number }).kg).toBe(77.9); // the correction landed
+  expect(getEntry(id)!.syncState).toBe("synced");
+});
+
+// m3 — a poison drop removes the outbox op and marks the row `failed`. Re-recording it
+// set syncState back to 'pending' but queued NOTHING, so the row sat at "waiting to
+// sync" forever with no op behind it — the exact lie `failed` was added to stop.
+test("re-recording a failed row queues an op again instead of lying about pending", async () => {
+  const id = "meal:2026-07-14:m-1";
+  const m = (kcal: number): NewEntry => ({
+    type: "meal",
+    occurredAt: "2026-07-14T12:00:00.000Z",
+    inputMethod: "tap",
+    isEstimate: true,
+    detail: { title: "Lunch", planMealId: "m-1", planStatus: "done", items: [], totals: { kcal } },
+  });
+  upsertEntry(id, m(700));
+
+  // The server rejects it for good → dropped as poison, row marked failed, outbox empty.
+  const rejecting: Api = { ...createMockApi(), createEntry: () => Promise.reject(problem(400)) };
+  await drainOutbox(rejecting);
+  expect(getEntry(id)!.syncState).toBe("failed");
+  expect(pendingCount()).toBe(0);
+
+  upsertEntry(id, m(650)); // the user records it again
+  expect(pendingCount()).toBe(1); // …and there is a real op behind "pending"
+  await drainOutbox(createMockApi());
+  expect(getEntry(id)!.syncState).toBe("synced");
 });

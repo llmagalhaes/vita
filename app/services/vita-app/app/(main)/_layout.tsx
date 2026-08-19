@@ -4,7 +4,9 @@ import { useAuth } from "../../src/auth/useAuth";
 import { CaptureProvider } from "../../src/capture/CaptureContext";
 import { CapturePill } from "../../src/capture/CapturePill";
 import { CaptureSheet } from "../../src/capture/CaptureSheet";
+import { startAppSync } from "../../src/db/bootstrap";
 import { startReconnectDrain } from "../../src/db/reconnect";
+import { startDayRollover } from "../../src/day/selection";
 import { startDayClose } from "../../src/notify/dayClose";
 import { PanelShell } from "../../src/nav/PanelShell";
 import { ReviewSheet } from "../../src/review/ReviewSheet";
@@ -19,6 +21,14 @@ export default function MainLayout() {
   // APP-106: schedule today's day-close notification, keep its body in step with the
   // log, and route its two actions. One notification a day — nothing else is pushed.
   useEffect(() => startDayClose(), []);
+  // Left open across midnight, the Day panel must wake up on the new day, not on the
+  // one it was frozen at.
+  useEffect(() => startDayRollover(), []);
+  // Launch-time hydration (plan/program/vacation/log restore). Gated on the session:
+  // firing it before the bearer is in memory would just 401 into a backoff (APP-061).
+  useEffect(() => {
+    if (authed) startAppSync();
+  }, [authed]);
   if (!authed) return <Redirect href="/auth" />;
 
   return (
