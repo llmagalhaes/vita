@@ -1,5 +1,6 @@
 export * from "./tokens";
 export * from "./accent";
+export * from "./scene";
 export * from "./Text";
 export * from "./Card";
 export * from "./Button";

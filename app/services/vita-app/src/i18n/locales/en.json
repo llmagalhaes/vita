@@ -445,7 +445,8 @@
       "w11": "Eleventh week in a row of showing up — steady beats perfect.",
       "w12": "Twelfth week in a row of showing up — steady beats perfect.",
       "many": "Week after week of showing up — steady beats perfect."
-    }
+    },
+    "subtitle": "retrospective counters — never targets"
   },
   "habits": {
     "title": "Habits & check-ins",
@@ -688,7 +689,13 @@
   },
   "nav": {
     "today": "TODAY",
-    "swipe": "SWIPE"
+    "swipe": "SWIPE",
+    "panels": {
+      "trends": "Trends",
+      "day": "Today",
+      "library": "Library"
+    },
+    "swipeHint": "◂ Swipe from an edge · Trends — Library ▸"
   },
   "workoutHub": {
     "title": "Workout"

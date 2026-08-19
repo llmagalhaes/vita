@@ -259,6 +259,15 @@ export const shadowTab = {
   elevation: 3,
 } as const;
 
+/** Floating panel-tab container (`0 8px 22px rgba(50,38,26,.12)`, prototype line 119). */
+export const shadowPanelTabs = {
+  shadowColor: "#32261A",
+  shadowOpacity: 0.12,
+  shadowRadius: 22,
+  shadowOffset: { width: 0, height: 8 },
+  elevation: 4,
+} as const;
+
 /** Capture pill (`0 12px 34px rgba(50,38,26,.25)`). */
 export const shadowPill = {
   shadowColor: "#32261A",

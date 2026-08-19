@@ -6,8 +6,7 @@ import { CapturePill } from "../../src/capture/CapturePill";
 import { CaptureSheet } from "../../src/capture/CaptureSheet";
 import { startReconnectDrain } from "../../src/db/reconnect";
 import { CheckinSheet } from "../../src/habits/CheckinSheet";
-import { NavDots } from "../../src/nav/NavDots";
-import { TabsPager } from "../../src/nav/TabsPager";
+import { PanelShell } from "../../src/nav/PanelShell";
 import { ReviewSheet } from "../../src/review/ReviewSheet";
 import { colors, ToastHost } from "../../src/ui";
 
@@ -25,8 +24,8 @@ export default function MainLayout() {
           prototype's screen grammar: every detail screen uses `vtIn` (fade +
           translateY 16→0 over .3s), NOT a lateral slide (APP-064 — the lateral
           `vtSlideIn` is only the prototype's fake tab nav, which our real pager
-          replaces). The three top-level tabs stay `animation:"none"` placeholders —
-          TabsPager renders them above this Stack and owns the swipe, untouched. */}
+          replaces). The three panels stay `animation:"none"` placeholders —
+          PanelShell renders them above this Stack and owns the swipe, untouched. */}
       <Stack
         screenOptions={{
           headerShown: false,
@@ -34,9 +33,13 @@ export default function MainLayout() {
           contentStyle: { backgroundColor: colors.bg },
         }}
       >
+        <Stack.Screen name="trends" options={{ animation: "none" }} />
+        <Stack.Screen name="day" options={{ animation: "none" }} />
+        <Stack.Screen name="library" options={{ animation: "none" }} />
+        {/* v3 routes still reachable from not-yet-rewritten call sites; they
+            redirect to /day (APP-108 removes them). */}
         <Stack.Screen name="today" options={{ animation: "none" }} />
         <Stack.Screen name="home" options={{ animation: "none" }} />
-        <Stack.Screen name="trends" options={{ animation: "none" }} />
         <Stack.Screen name="habits" options={{ animation: "none" }} />
         <Stack.Screen name="integrations" options={{ animation: "none" }} />
         {/* Account: prototype opens it with `vtIn` (fade + translateY 16→0, .3s ease).
@@ -47,8 +50,7 @@ export default function MainLayout() {
             reproduce vtIn exactly. Scoped here so other detail screens keep `fade_from_bottom`. */}
         <Stack.Screen name="account" options={{ animation: "fade", animationDuration: 300 }} />
       </Stack>
-      <TabsPager />
-      <NavDots />
+      <PanelShell />
       <CapturePill />
       <CaptureSheet />
       <CheckinSheet />

@@ -1,6 +1,8 @@
-// Route placeholder: /home keeps its URL (deep links, redirects, pill active
-// state) but the real Today screen is rendered by the always-mounted TabsPager
-// in _layout.tsx (co-mounted with Trends/Habits for swipe). See src/nav/TabsPager.
+// v3 route, kept alive only so existing `router.replace` call sites still land
+// somewhere real while v4 lands: everything this screen showed now lives in the Day
+// panel. APP-108 deletes this file and its call sites.
+import { Redirect } from "expo-router";
+
 export default function HomeRoute() {
-  return null;
+  return <Redirect href="/day" />;
 }

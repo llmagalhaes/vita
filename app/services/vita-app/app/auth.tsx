@@ -72,7 +72,7 @@ export default function Auth() {
   const [notice, setNotice] = useState<string | null>(null);
 
   // A completed deep-link exchange (or OIDC) flips auth → leave the sign-in screen.
-  if (authed) return <Redirect href={isOnboarded() ? "/home" : "/onboarding"} />;
+  if (authed) return <Redirect href={isOnboarded() ? "/day" : "/onboarding"} />;
 
   const providerName = (p: Provider) => t(`auth.${p}_provider`);
 

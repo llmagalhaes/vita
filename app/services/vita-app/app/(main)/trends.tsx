@@ -1,5 +1,5 @@
-// Route placeholder: real Trends screen is rendered by TabsPager (_layout.tsx).
-// See app/(main)/home.tsx / src/nav/TabsPager.
+// Route placeholder: the Trends panel is rendered by PanelShell (_layout.tsx).
+// See app/(main)/day.tsx / src/nav/PanelShell.
 export default function TrendsRoute() {
   return null;
 }
