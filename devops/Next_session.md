@@ -1,5 +1,35 @@
 # DevOps — Next session
 
+## 2026-08-19 — OPS-025 + BE-052: V4 backend DEPLOYED to prod (image 05c5e6b → task-def vita:10, Flyway v012, probes GREEN)
+Ledger: `Progress/OPS-025-v4-deploy-Progress.md` (every command + output).
+- **Image** `vita-api:05c5e6b` (arm64, digest `sha256:cda12085427c6225ba5884fbcd44d95aea5377479cbdc22e3bd0699900cc8fee`,
+  151.7 MB). Same recipe as BE-046 (host bootJar → `Dockerfile.runtime` over a staged minimal context →
+  buildx --push, scoped `DOCKER_CONFIG` + `cliPluginsExtraDirs`). **New gotcha: pass
+  `--provenance=false --sbom=false`** — buildx now defaults to an OCI *image index* with an attestation
+  manifest, unlike every previously deployed image (plain manifest v2). Fixed by deleting the just-pushed
+  index (ECR tags are immutable, so delete-then-push) and re-pushing with those flags.
+- **Terraform**: one line, `envs/prod-eu/variables.tf app_image_tag 2ca6def→05c5e6b`. Plan was exactly
+  **1 add / 1 change / 1 destroy** (task-def replace — only forcing diff is the image — + service update +
+  old-rev deregister). Applied → **task-def vita:10**, rollout COMPLETED 1/1, vita:9 drained.
+- **Migrations V010 (weight CHECK widened) + V012 (user_settings) are expand-only** → no CEO
+  drop/recreate approval needed. V011 does not exist; the gap is fine (Flyway ignores gaps —
+  boot line reads `applied 2 migrations … now at version v012`).
+- **Rollback rehearsal PASS (done before the apply)**: local postgres, V001..V012 applied, then booted with
+  the V001..V009 migration set only → Flyway 11 WARNs about the future version and boots
+  (`ignoreMigrationPatterns` default `*:future:ignore`). Rollback = revert the tag + apply, no extra config.
+  Caveat: delete any `weight` entries first if rolling back after real ones exist (see ledger §3).
+- **Probes GREEN**: `/health` 200 · privacy page 200 text/html no auth · weight POST/GET/PATCH +
+  idempotency (identical body → 200 same id, different body → 409) · skipped plan meal with EMPTY items
+  201 and verbatim readback · `/me/settings` blob round-trip · **PDF money path** vs the real
+  `docs/v4/meal-plan.pdf`: 202 → `state:done` (~2.5 min) → `GET /plan` status `review`, 5 meals with the new
+  **`m-1`…`m-5` ids**, 42 items, 2500 ml, 3 supplements, 1716/188.6/153.4/47.9 (identical to v3 + ids) ·
+  **plan-aware capture live**: "troquei o milho por batata doce" → `planMealId m-3`, `planStatus adjusted`,
+  `replacesItemId it-3` on the sweet potato · cost INFO lines queryable (plan 32822/15972; capture 3491/574).
+- Probe gotcha for next time: the parse job poll field is **`state`**, not `status`.
+- Probe entries deleted; disposable probe account left in the prod DB (A2 precedent).
+- **Left dirty for the orchestrator**: `variables.tf` (tag bump), this file, the OPS-025 ledger.
+- Next: fresh APK with the prod URL baked (app team / CEO — devops verifies the baked URL only).
+
 ## 2026-07-23 — BE-046 V3 backend DEPLOYED to prod (image 2ca6def → task-def vita:9, probe GREEN)
 DevOps-executed deploy of the V3 backend round (async eating-plan import). Ledger:
 `Progress/BE-046-v3-deploy-Progress.md`.

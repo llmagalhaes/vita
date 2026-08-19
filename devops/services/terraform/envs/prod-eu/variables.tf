@@ -25,7 +25,7 @@ variable "rds_backup_retention_days" {
 variable "app_image_tag" {
   description = "ECR image tag deployed to ECS (git SHA). Bump + apply to roll a new backend build."
   type        = string
-  default     = "2ca6def"
+  default     = "05c5e6b"
 }
 
 variable "mail_from_address" {
