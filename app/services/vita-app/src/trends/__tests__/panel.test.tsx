@@ -33,7 +33,7 @@ const seed = () => {
 
 test("the panel is one list: rail, record counter and every domain's card", async () => {
   seed();
-  createHabit({ name: "Creatine", days: [true, true, true, true, true, true, true], time: "21:00", enabled: true, kind: "plain" });
+  createHabit({ name: "Creatine", days: [true, true, true, true, true, true, true], time: "21:00", enabled: true });
   await render(<TrendsPanel />);
 
   for (const r of ["W", "M", "Y"]) expect(screen.getByText(t(`trends.range.${r}`))).toBeOnTheScreen();

@@ -16,7 +16,7 @@ import Svg, { Path } from "react-native-svg";
 import { Text, Toggle, colors, fonts, showToast } from "../../ui";
 import { integrationEnabled, setIntegrationEnabled } from "../../db/settings";
 import { logChanged, useLogVersion } from "../../db/notify";
-import { clearHealthSnapshot, connectHealthConnect, openHealthConnectStore } from "../../health/healthConnect";
+import { clearHealthSnapshot, connectHealthConnect, openHealthConnectStore, todaysHealthSnapshot } from "../../health/healthConnect";
 import { IconWell, ListCard, SectionLabel } from "../parts";
 
 /** Prototype's 18×18 "link" glyph. */
@@ -36,6 +36,10 @@ export function Sources() {
   const { t } = useTranslation();
   const version = useLogVersion();
   const on = useMemo(() => integrationEnabled("healthConnect"), [version]); // eslint-disable-line react-hooks/exhaustive-deps
+  // APP-107 honesty: the pref only says "we asked and were granted at connect time".
+  // Claim data actually flows in only when today's snapshot proves it; a granted-but-
+  // silent source (Samsung Health sync off, permission revoked later) says so instead.
+  const flowing = useMemo(() => on && !!todaysHealthSnapshot(), [on, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (Platform.OS !== "android") return null; // CEO Q3 — hidden entirely, not empty
 
@@ -51,18 +55,21 @@ export function Sources() {
     }
     void connectHealthConnect().then((res) => {
       if (res.ok) {
-        showToast(res.hasData ? t("library.sources.onToast") : t("integrations.healthConnectNoData"));
+        showToast(res.hasData ? t("library.sources.onToast") : t("library.sources.onNoData"));
         return;
       }
       setIntegrationEnabled("healthConnect", false);
       logChanged();
+      // APP-107 diagnostic build: release strips console, so the raw SDK status and the
+      // caught message ride the toast. APP-109 removes the suffix with the DIAG flag.
+      const say = (key: string) => showToast(t(key) + (res.diag ? ` [${res.diag}]` : ""));
       if (res.reason === "denied") {
-        showToast(t("integrations.healthConnectDenied"));
+        say("library.sources.errDenied");
       } else if (res.reason === "not_installed" || res.reason === "update_required") {
-        showToast(t(res.reason === "not_installed" ? "integrations.healthConnectInstall" : "integrations.healthConnectUpdate"));
+        say(res.reason === "not_installed" ? "library.sources.errInstall" : "library.sources.errUpdate");
         openHealthConnectStore();
       } else {
-        showToast(t("integrations.healthConnectUnavailable"));
+        say("library.sources.errUnavailable");
       }
     });
   };
@@ -76,10 +83,10 @@ export function Sources() {
         </IconWell>
         <View style={{ flex: 1 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14.5 }} color={colors.inkHeading}>
-            {t("integrations.source.healthConnect")}
+            {t("library.sources.healthConnect")}
           </Text>
           <Text style={{ fontSize: 11.5, marginTop: 1 }} color={colors.muted}>
-            {on ? t("library.sources.hcOn") : t("library.sources.hcOff")}
+            {flowing ? t("library.sources.hcOn") : on ? t("library.sources.hcOnNoData") : t("library.sources.hcOff")}
           </Text>
         </View>
         <Toggle
@@ -87,7 +94,7 @@ export function Sources() {
           onToggle={() => toggle(!on)}
           onColor={colors.green.fill}
           offColor={colors.sandLight}
-          accessibilityLabel={t("integrations.source.healthConnect")}
+          accessibilityLabel={t("library.sources.healthConnect")}
         />
       </ListCard>
     </>

@@ -204,10 +204,10 @@ export function seedDemoDataOnce(): void {
         ],
       );
     }
-    // A demo habit so Habits/Today and the Home "N waiting" banner have life.
+    // A demo habit so the Day overview's habit row has life.
     db.runSync(
-      `INSERT INTO habits (id, name, days, time, enabled, kind, planMealName, createdAt)
-       VALUES (?, ?, ?, ?, 1, 'plain', NULL, ?)`,
+      `INSERT INTO habits (id, name, days, time, enabled, createdAt)
+       VALUES (?, ?, ?, ?, 1, ?)`,
       [uuid(), "Take creatine", JSON.stringify([true, true, true, true, true, true, true]), "21:00", new Date().toISOString()],
     );
   });

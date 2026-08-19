@@ -1,21 +1,23 @@
 /**
- * Local habit notifications (APP-026). Notifications stay 100% on-device (CEO:
- * no server push in v1). The `Notifier` interface isolates the native module so
- * Jest and the mock build never touch it, and so the ONE untrusted slice —
- * interactive lock-screen Yes/No actions — can degrade gracefully: scheduling
- * itself works in Expo Go SDK 56, but the action buttons need a dev build
- * (APP-007). If they don't render, the tap still opens the app to the in-app
- * check-in stack, which is the guaranteed working path.
+ * The one native-notification seam (was `src/habits/notifier.ts`, APP-026 → APP-106).
  *
- * Note: src/db/notify.ts is a log-change signal despite its name — it does NOT
- * overlap with this file, so nothing there is folded in.
+ * Two things are scheduled, and only two:
+ *  1. **Per-habit daily reminders** — the Library's per-habit switch owns them, one
+ *     weekly alarm per enabled weekday. They stay in v4.
+ *  2. **The day-close notification** — exactly one per day at `recapStartHour`, built
+ *     by `dayClose.ts`. It replaces v3's evening recap AND the per-meal check-in
+ *     notifications (plan/digest habits no longer notify — APP-106).
+ *
+ * The `Notifier` interface isolates `expo-notifications` so Jest and the mock build
+ * never touch it, and so the untrusted slice — interactive lock-screen actions —
+ * degrades gracefully: if the OS drops the buttons, the tap still opens the app.
+ *
+ * Note: src/db/notify.ts is a log-change signal despite its name.
  */
 import Constants, { ExecutionEnvironment } from "expo-constants";
-import { listHabits, type Habit, type HabitKind } from "../db/habits";
+import { listHabits, type Habit } from "../db/habits";
 import { notificationsEnabled } from "../db/settings";
 import { isVacationActive, vacationKeepsWater } from "../db/vacation";
-import { getCachedPlan } from "../db/plan";
-import { planDigestBody } from "./digest";
 
 /**
  * Expo Go (SDK 53+) removed expo-notifications' scheduling/permission APIs — calling
@@ -32,43 +34,49 @@ export type PermissionStatus = "granted" | "denied" | "undetermined";
 export type PlannedNotification = {
   habitId: string;
   title: string;
-  /** Notification body — a digest reads back the plan meal; others prompt a check-in. */
   body: string;
-  kind: HabitKind;
   weekday: number; // 1 = Sunday … 7 = Saturday (expo-notifications convention)
   hour: number;
   minute: number;
 };
 
+/** Everything the day-close one-shot needs — strings resolved by the caller (i18n). */
+export type PlannedDayClose = {
+  title: string;
+  body: string;
+  at: Date;
+  actions: { close: string; adjust: string };
+};
+
+/** What a tapped notification hands back. `actionId` is the OS default on a plain tap. */
+export type NotificationResponse = { actionId: string; data: Record<string, unknown> };
+
 export interface Notifier {
   getPermission(): Promise<PermissionStatus>;
   requestPermission(): Promise<PermissionStatus>;
-  /** Cancel all and (re)schedule for the given habits. */
+  /** Cancel all and (re)schedule the per-habit reminders. */
   sync(habits: Habit[]): Promise<void>;
-  /**
-   * Schedule (body given) or cancel (null) the single evening-recap notification
-   * for today at 20:30 (APP-089). Optional so pre-existing Notifier literals stay
-   * valid; the recap subscriber calls it best-effort.
-   */
-  syncRecap?(planned: { body: string } | null): Promise<void>;
+  /** Schedule (or cancel, with null) today's single day-close notification. */
+  syncDayClose?(planned: PlannedDayClose | null): Promise<void>;
+  /** Subscribe to notification taps / action buttons. Returns an unsubscribe. */
+  onResponse?(cb: (r: NotificationResponse) => void): () => void;
 }
 
-/** Identifier for the one-shot evening recap (so it can be replaced/cancelled). */
-export const RECAP_ID = "evening-recap";
-
-/** Category id carrying the interactive Yes/No actions (best-effort, dev-build). */
-export const CHECKIN_CATEGORY = "vita-checkin";
+/** Identifier for the one-shot day-close notification (so it can be replaced/cancelled). */
+export const DAY_CLOSE_ID = "day-close";
+/** Category carrying the two lock-screen buttons (best-effort — dev build only). */
+export const DAY_CLOSE_CATEGORY = "vita-day-close";
+export const DAY_CLOSE_ACTION = { close: "close-as-planned", adjust: "adjust" } as const;
 
 /**
  * Pure: expand habits into concrete alarms. days index 0 = Sunday maps to expo
  * weekday 1; a bad/empty time is skipped rather than scheduled at 00:00.
- * `digestBody(habit)` resolves a digest habit's notification body (macros + example
- * foods) from the plan; injected so this stays pure/testable.
+ *
+ * Every habit is the same kind now: the v3 per-meal check-in and digest habits are
+ * gone with the notifications they existed for (APP-106 → the single day-close
+ * notification), and the `kind` field with them (APP-108).
  */
-export function plannedNotifications(
-  habits: Habit[],
-  digestBody: (h: Habit) => string | null = () => null,
-): PlannedNotification[] {
+export function plannedNotifications(habits: Habit[], body: (h: Habit) => string): PlannedNotification[] {
   const out: PlannedNotification[] = [];
   for (const h of habits) {
     if (!h.enabled) continue;
@@ -77,12 +85,8 @@ export function plannedNotifications(
     const hour = Number(m[1]);
     const minute = Number(m[2]);
     if (hour > 23 || minute > 59) continue;
-    const body =
-      h.kind === "digest"
-        ? (digestBody(h) ?? `${h.name} — from your plan`)
-        : `${h.name} — a quick check-in`;
     h.days.forEach((on, i) => {
-      if (on) out.push({ habitId: h.id, title: "Vita", body, kind: h.kind, weekday: i + 1, hour, minute });
+      if (on) out.push({ habitId: h.id, title: "Vita", body: body(h), weekday: i + 1, hour, minute });
     });
   }
   return out;
@@ -105,25 +109,11 @@ function createExpoNotifier(): Notifier {
     },
     async sync(habits) {
       const Notifications = N();
-      // Best-effort interactive actions — render only in a dev build (APP-007).
-      try {
-        await Notifications.setNotificationCategoryAsync(CHECKIN_CATEGORY, [
-          { identifier: "yes", buttonTitle: "Yes" },
-          { identifier: "no", buttonTitle: "No" },
-        ]);
-      } catch {
-        // ponytail: categories unsupported in Expo Go → skip; tap-to-open still works.
-      }
+      const { habitBody } = require("./dayClose") as typeof import("./dayClose");
       await Notifications.cancelAllScheduledNotificationsAsync();
-      for (const p of plannedNotifications(habits, (h) => planDigestBody(getCachedPlan(), h.planMealName))) {
+      for (const p of plannedNotifications(habits, habitBody)) {
         await Notifications.scheduleNotificationAsync({
-          content: {
-            title: p.title,
-            body: p.body,
-            // Digests are informational — no Yes/No actions; check-ins get the category.
-            ...(p.kind === "digest" ? {} : { categoryIdentifier: CHECKIN_CATEGORY }),
-            data: { habitId: p.habitId },
-          },
+          content: { title: p.title, body: p.body, data: { habitId: p.habitId } },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
             weekday: p.weekday,
@@ -133,21 +123,39 @@ function createExpoNotifier(): Notifier {
         });
       }
     },
-    async syncRecap(planned) {
+    async syncDayClose(planned) {
       const Notifications = N();
-      // Cancel first, then reschedule — the body is recomputed from the log each
-      // time, so a repeating trigger would freeze stale content (spec §9). A Date
-      // trigger is a one-shot for TODAY only.
-      await Notifications.cancelScheduledNotificationAsync(RECAP_ID).catch(() => {});
+      // Cancel first, then reschedule — the body is recomputed from the day record each
+      // time, so a repeating trigger would freeze stale content. A DATE trigger is a
+      // one-shot for TODAY only, which is also what makes "exactly one per day" true.
+      await Notifications.cancelScheduledNotificationAsync(DAY_CLOSE_ID).catch(() => {});
       if (!planned) return;
-      const at = new Date();
-      at.setHours(20, 30, 0, 0);
+      try {
+        await Notifications.setNotificationCategoryAsync(DAY_CLOSE_CATEGORY, [
+          { identifier: DAY_CLOSE_ACTION.close, buttonTitle: planned.actions.close },
+          { identifier: DAY_CLOSE_ACTION.adjust, buttonTitle: planned.actions.adjust },
+        ]);
+      } catch {
+        // ponytail: categories unsupported here → the buttons just don't render and the
+        // tap opens the Day. That degradation IS the acceptance criterion.
+      }
       await Notifications.scheduleNotificationAsync({
-        identifier: RECAP_ID,
-        content: { title: "Evening recap", body: planned.body },
-        // Typed DATE one-shot for tonight — SDK 56 may reject a bare Date trigger.
-        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: at },
+        identifier: DAY_CLOSE_ID,
+        content: {
+          title: planned.title,
+          body: planned.body,
+          categoryIdentifier: DAY_CLOSE_CATEGORY,
+          data: { dayClose: true },
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: planned.at },
       });
+    },
+    onResponse(cb) {
+      const sub = N().addNotificationResponseReceivedListener(
+        (r: { actionIdentifier: string; notification: { request: { content: { data?: Record<string, unknown> } } } }) =>
+          cb({ actionId: r.actionIdentifier, data: r.notification?.request?.content?.data ?? {} }),
+      );
+      return () => sub.remove();
     },
   };
 }
@@ -208,20 +216,25 @@ export async function refreshNotifications(): Promise<void> {
     // Paused → cancel everything by syncing an empty set (keep-water keeps one).
     await getNotifier().sync(scheduledHabits());
     // sync() calls cancelAllScheduledNotificationsAsync(), which also wipes tonight's
-    // evening recap. Re-schedule it LAST so a habit change doesn't silently drop the
-    // recap (ordering race). Lazy require breaks the notifier↔recap import cycle.
-    const { syncRecapFromLog } = require("./recap") as typeof import("./recap");
-    await syncRecapFromLog();
+    // day-close one-shot. Re-schedule it LAST so a habit change doesn't silently drop
+    // it (ordering race). Lazy require breaks the notifier↔dayClose import cycle.
+    const { syncDayClose } = require("./dayClose") as typeof import("./dayClose");
+    await syncDayClose();
   } catch {
     // Expo Go may warn on Android; scheduling is non-critical to the in-app flow.
   }
 }
 
 /** A no-op recorder — the STT/OIDC-style stub for environments without the native module. */
-export function stubNotifier(): Notifier & { calls: { sync: Habit[][]; recap: ({ body: string } | null)[] } } {
-  const calls = { sync: [] as Habit[][], recap: [] as ({ body: string } | null)[] };
+export function stubNotifier(): Notifier & {
+  calls: { sync: Habit[][]; dayClose: (PlannedDayClose | null)[] };
+  fire: (r: NotificationResponse) => void;
+} {
+  const calls = { sync: [] as Habit[][], dayClose: [] as (PlannedDayClose | null)[] };
+  const subs = new Set<(r: NotificationResponse) => void>();
   return {
     calls,
+    fire: (r) => subs.forEach((cb) => cb(r)),
     async getPermission() {
       return "granted";
     },
@@ -231,8 +244,12 @@ export function stubNotifier(): Notifier & { calls: { sync: Habit[][]; recap: ({
     async sync(habits) {
       calls.sync.push(habits);
     },
-    async syncRecap(planned) {
-      calls.recap.push(planned);
+    async syncDayClose(planned) {
+      calls.dayClose.push(planned);
+    },
+    onResponse(cb) {
+      subs.add(cb);
+      return () => subs.delete(cb);
     },
   };
 }

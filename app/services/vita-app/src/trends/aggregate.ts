@@ -2,16 +2,12 @@
  * Day bucketing for the PDF export and the local-day key everything else shares.
  *
  * The v4 Trends panel does NOT read this file: its series come from SQL (`series.ts`,
- * plan risk R6 — a year of rows is never mapped in JS), and the v3 15-day window
- * (`WINDOW_DAYS.F`) died with the Food/Activity tabs. What survives here is the pure
- * math the export still needs, plus `dayKey`/`vacationExcluder`, which half the app
- * imports.
+ * plan risk R6 — a year of rows is never mapped in JS), and the v3 W/F/M window table
+ * died with the Food/Activity tabs. What survives is the pure math the export still
+ * needs, plus `dayKey`/`vacationExcluder`, which half the app imports.
  */
 import type { MealDetail, WaterDetail, WorkoutDetail } from "../api/client";
 import type { LocalEntry } from "../db/entries";
-
-export type TrendWindow = "W" | "M";
-export const WINDOW_DAYS: Record<TrendWindow, number> = { W: 7, M: 30 };
 
 /** Local YYYY-MM-DD key — buckets an instant into its calendar day (device tz). */
 export function dayKey(d: Date): string {
@@ -20,9 +16,8 @@ export function dayKey(d: Date): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
-/** The window's days at local midnight, oldest→newest, ending today (inclusive). */
-export function windowDays(win: TrendWindow, today: Date = new Date()): Date[] {
-  const n = WINDOW_DAYS[win];
+/** N days at local midnight, oldest→newest, ending today (inclusive). */
+function windowDays(n: number, today: Date): Date[] {
   const end = new Date(today);
   end.setHours(0, 0, 0, 0);
   return Array.from({ length: n }, (_, i) => {
@@ -30,15 +25,6 @@ export function windowDays(win: TrendWindow, today: Date = new Date()): Date[] {
     d.setDate(end.getDate() - (n - 1 - i));
     return d;
   });
-}
-
-/** Half-open [start, end) covering the window — hand to entriesInRange. */
-export function windowRange(win: TrendWindow, today: Date = new Date()): { start: Date; end: Date } {
-  const days = windowDays(win, today);
-  const start = days[0]!;
-  const end = new Date(days[days.length - 1]!);
-  end.setDate(end.getDate() + 1);
-  return { start, end };
 }
 
 /** Vacation-day filter hook. */
@@ -62,14 +48,14 @@ export type DayBucket = {
   excluded: boolean; // vacation day — kept in the series but dropped from stats
 };
 
-/** Bucket entries into one DayBucket per window day (missing days stay zeroed). */
+/** Bucket entries into one DayBucket per day of the last `n` days (missing days stay zeroed). */
 export function aggregateDays(
   entries: LocalEntry[],
-  win: TrendWindow,
+  n: number,
   today: Date = new Date(),
   isExcluded?: ExcludeDay,
 ): DayBucket[] {
-  const days = windowDays(win, today);
+  const days = windowDays(n, today);
   const buckets = new Map<string, DayBucket>();
   for (const date of days) {
     const key = dayKey(date);
@@ -105,6 +91,3 @@ export function aggregateDays(
   }
   return days.map((d) => buckets.get(dayKey(d))!);
 }
-
-/** Non-vacation days only. */
-export const visibleDays = (days: DayBucket[]): DayBucket[] => days.filter((d) => !d.excluded);

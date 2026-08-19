@@ -63,8 +63,9 @@ CREATE TABLE IF NOT EXISTS habits (
   days TEXT NOT NULL,              -- JSON boolean[7]; index 0 = Sunday (Date.getDay())
   time TEXT NOT NULL,             -- HH:MM local
   enabled INTEGER NOT NULL DEFAULT 1,
-  kind TEXT NOT NULL DEFAULT 'plain',  -- 'plain' | 'plan'
-  planMealName TEXT,              -- set when kind = 'plan' (links to a plan meal by name)
+  -- APP-108: the v3 kind / planMealName columns are gone from fresh databases. An
+  -- older device still has them (kind is NOT NULL DEFAULT 'plain', planMealName is
+  -- nullable) so the column-named INSERTs in db/habits.ts keep working either way.
   createdAt TEXT NOT NULL
 );
 `;

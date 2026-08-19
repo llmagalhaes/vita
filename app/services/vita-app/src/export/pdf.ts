@@ -19,7 +19,6 @@ export type Section = "meals" | "water" | "workouts" | "energy" | "macros";
 /** Per-reader defaults — each export includes only what its reader needs. */
 export type Audience = { id: string; sections: Section[] };
 export const AUDIENCES: Audience[] = [
-  { id: "doctor", sections: ["meals", "water", "energy"] },
   { id: "trainer", sections: ["workouts", "energy"] },
   { id: "nutritionist", sections: ["meals", "macros", "water"] },
   { id: "myself", sections: ["meals", "water", "workouts", "energy", "macros"] },
@@ -37,48 +36,58 @@ const dateLabel = (iso: string) =>
   " " +
   new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-const est = '<span class="est">estimate</span>';
+/** Every user-visible word in the PDF comes from the locale file (no literals here). */
+export type Tr = (k: string, v?: Record<string, unknown>) => string;
 
-function mealsSection(entries: LocalEntry[]): string {
+function mealsSection(entries: LocalEntry[], t: Tr): string {
+  const est = `<span class="est">${esc(t("common.estimate"))}</span>`;
   const rows = entries
     .filter((e) => e.type === "meal")
     .map((e) => {
       const d = e.detail as MealDetail;
       const kcal = Math.round(d.totals?.kcal ?? 0);
-      return `<tr><td>${esc(dateLabel(e.occurredAt))}</td><td>${esc(d.title ?? "Meal")}</td><td class="num">${kcal} kcal ${est}</td></tr>`;
+      return `<tr><td>${esc(dateLabel(e.occurredAt))}</td><td>${esc(d.title ?? t("export.pdf.meal"))}</td><td class="num">${kcal} ${esc(t("common.kcal"))} ${est}</td></tr>`;
     })
     .join("");
-  return rows ? section("Meals", `<table>${rows}</table>`) : "";
+  return rows ? section(esc(t("export.section.meals")), `<table>${rows}</table>`) : "";
 }
 
-function workoutsSection(entries: LocalEntry[]): string {
+function workoutsSection(entries: LocalEntry[], t: Tr): string {
+  const est = `<span class="est">${esc(t("common.estimate"))}</span>`;
   const rows = entries
     .filter((e) => e.type === "workout")
     .map((e) => {
       const d = e.detail as WorkoutDetail;
-      const bits = [d.durationMin != null ? `${d.durationMin} min` : "", d.kcal != null ? `${Math.round(d.kcal)} kcal ${est}` : ""].filter(Boolean).join(" · ");
-      return `<tr><td>${esc(dateLabel(e.occurredAt))}</td><td>${esc(d.title ?? "Workout")}</td><td class="num">${bits}</td></tr>`;
+      const bits = [
+        d.durationMin != null ? `${d.durationMin} ${esc(t("common.min"))}` : "",
+        d.kcal != null ? `${Math.round(d.kcal)} ${esc(t("common.kcal"))} ${est}` : "",
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return `<tr><td>${esc(dateLabel(e.occurredAt))}</td><td>${esc(d.title ?? t("export.pdf.workout"))}</td><td class="num">${bits}</td></tr>`;
     })
     .join("");
-  return rows ? section("Workouts", `<table>${rows}</table>`) : "";
+  return rows ? section(esc(t("export.section.workouts")), `<table>${rows}</table>`) : "";
 }
 
-function dailySection(entries: LocalEntry[], today: Date, kind: "water" | "energy" | "macros", t?: (k: string) => string): string {
-  const tr = t ?? ((k: string) => (k === "common.ml" ? "ml" : k === "common.l" ? "L" : k));
+function dailySection(entries: LocalEntry[], today: Date, kind: "water" | "energy" | "macros", t: Tr): string {
+  const est = `<span class="est">${esc(t("common.estimate"))}</span>`;
   // 30-day buckets; only days with data print.
-  const buckets = aggregateDays(entries, "M", today).filter((b) => b.consumedKcal || b.waterMl || b.spentKcal);
+  const buckets = aggregateDays(entries, EXPORT_DAYS, today).filter((b) => b.consumedKcal || b.waterMl || b.spentKcal);
   if (buckets.length === 0) return "";
   const rows = buckets
     .map((b) => {
       const day = esc(b.date.toLocaleDateString(undefined, { month: "short", day: "numeric" }));
-      if (kind === "water") return `<tr><td>${day}</td><td class="num">${esc(formatVolume(b.waterMl, tr))}</td></tr>`;
-      if (kind === "macros")
-        return `<tr><td>${day}</td><td class="num">P ${Math.round(b.protein)} · C ${Math.round(b.carbs)} · F ${Math.round(b.fat)} g ${est}</td></tr>`;
-      return `<tr><td>${day}</td><td class="num">${Math.round(b.consumedKcal)} in · ${Math.round(b.spentKcal)} out kcal ${est}</td></tr>`;
+      if (kind === "water") return `<tr><td>${day}</td><td class="num">${esc(formatVolume(b.waterMl, t))}</td></tr>`;
+      if (kind === "macros") {
+        const line = t("export.pdf.macroLine", { p: Math.round(b.protein), c: Math.round(b.carbs), f: Math.round(b.fat) });
+        return `<tr><td>${day}</td><td class="num">${esc(line)} ${est}</td></tr>`;
+      }
+      const line = t("export.pdf.energyLine", { in: Math.round(b.consumedKcal), out: Math.round(b.spentKcal) });
+      return `<tr><td>${day}</td><td class="num">${esc(line)} ${est}</td></tr>`;
     })
     .join("");
-  const title = kind === "water" ? "Water" : kind === "macros" ? "Macros" : "Energy";
-  return section(title, `<table>${rows}</table>`);
+  return section(esc(t(`export.section.${kind}`)), `<table>${rows}</table>`);
 }
 
 const section = (title: string, body: string) => `<h2>${title}</h2>${body}`;
@@ -87,21 +96,24 @@ export type ExportOpts = {
   audienceLabel: string;
   sections: Section[];
   today?: Date;
-  t?: (k: string) => string;
+  t: Tr;
 };
 
 /** Build the export HTML from local entries. Pure — no DB, no native modules. */
 export function buildExportHtml(entries: LocalEntry[], opts: ExportOpts): string {
   const today = opts.today ?? new Date();
+  const t = opts.t;
   const inc = (s: Section) => opts.sections.includes(s);
   const parts = [
-    inc("meals") ? mealsSection(entries) : "",
-    inc("workouts") ? workoutsSection(entries) : "",
-    inc("water") ? dailySection(entries, today, "water", opts.t) : "",
-    inc("macros") ? dailySection(entries, today, "macros", opts.t) : "",
-    inc("energy") ? dailySection(entries, today, "energy", opts.t) : "",
+    inc("meals") ? mealsSection(entries, t) : "",
+    inc("workouts") ? workoutsSection(entries, t) : "",
+    inc("water") ? dailySection(entries, today, "water", t) : "",
+    inc("macros") ? dailySection(entries, today, "macros", t) : "",
+    inc("energy") ? dailySection(entries, today, "energy", t) : "",
   ].filter(Boolean);
-  const body = parts.length ? parts.join("") : `<p class="empty">No entries in the last ${EXPORT_DAYS} days.</p>`;
+  const body = parts.length
+    ? parts.join("")
+    : `<p class="empty">${esc(t("export.pdf.empty", { days: EXPORT_DAYS }))}</p>`;
   const generated = esc(today.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }));
   return `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body{font-family:-apple-system,Helvetica,Arial,sans-serif;color:#4A4238;padding:34px 30px;line-height:1.5}
@@ -116,11 +128,11 @@ export function buildExportHtml(entries: LocalEntry[], opts: ExportOpts): string
     .empty{color:#8A7E70}
     footer{margin-top:26px;color:#B7AB9C;font-size:10.5px}
   </style></head><body>
-    <h1>Vita — your log</h1>
-    <p class="sub">Prepared for ${esc(opts.audienceLabel)} · last ${EXPORT_DAYS} days · generated ${generated}</p>
-    <p class="note">Every number is an estimate from what you told Vita — Vita sets no goals and gives no advice.</p>
+    <h1>${esc(t("export.pdf.title"))}</h1>
+    <p class="sub">${esc(t("export.pdf.preparedFor", { who: opts.audienceLabel, days: EXPORT_DAYS, date: today.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" }) }))}</p>
+    <p class="note">${esc(t("export.pdf.note"))}</p>
     ${body}
-    <footer>Exported on device from Vita. Nothing was uploaded.</footer>
+    <footer>${esc(t("export.pdf.footer"))}</footer>
   </body></html>`;
 }
 

@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { api } from "../src/api";
-import { DOMAIN_KEYS, DOMAIN_NAMES } from "../src/db/domains";
+import { DOMAIN_KEYS } from "../src/db/domains";
 import { saveSettings, setOnboarded, type Domains } from "../src/db/settings";
 import {
   BackButton,
@@ -115,7 +115,7 @@ export default function Onboarding() {
                 {DOMAIN_KEYS.map((k, i) => (
                   <Animated.View key={k} entering={FadeIn.duration(motion.vtFade.longMs).delay(i * motion.vtFade.staggerMs)}>
                     <DomainRow
-                      name={DOMAIN_NAMES[k]}
+                      name={t(`library.keeps.row.${k}`)}
                       desc={t(`onboarding.keep.desc.${k}`)}
                       on={domains[k]}
                       accent={accent}

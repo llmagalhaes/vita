@@ -37,7 +37,7 @@ function MiniBars({ totals }: { totals: Required<MacroTotals> }) {
         return (
           <View key={m.key} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
             <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 11, width: 52 }} color="#6E6355">
-              {t(`plan.${m.key === "proteinG" ? "protein" : m.key === "carbsG" ? "carbs" : "fat"}`)}
+              {t(`common.${m.key === "proteinG" ? "protein" : m.key === "carbsG" ? "carbs" : "fat"}`)}
             </Text>
             <View style={{ flex: 1, height: 6, borderRadius: 4, backgroundColor: colors.track, overflow: "hidden" }}>
               <View style={{ height: "100%", width: `${barPct(g, totals.proteinG, totals.carbsG, totals.fatG)}%`, borderRadius: 4, backgroundColor: m.color }} />
@@ -59,7 +59,7 @@ function DeltaBadge({ perKcal, qty, openQty }: { perKcal: number; qty: number; o
   const d = Math.round(perKcal * qty) - Math.round(perKcal * openQty);
   const style =
     d === 0
-      ? { ink: colors.labelMuted, bg: "#F0EDE2", text: t("today.noChange") }
+      ? { ink: colors.labelMuted, bg: "#F0EDE2", text: t("timeline.portion.noChange") }
       : d > 0
         ? { ink: "#A66A3F", bg: "#F7E7D4", text: `+${d} ${t("common.kcal")}` }
         : { ink: "#5F7A61", bg: "#E7EDE1", text: `−${-d} ${t("common.kcal")}` };
@@ -170,7 +170,7 @@ export function PortionPop({
                   <DeltaBadge perKcal={perKcal} qty={qty} openQty={openQty} />
                   {onSkip ? null : (
                     <Text variant="caption" style={{ fontSize: 10.5 }} color={colors.labelMuted}>
-                      {t("today.forTodayOnly")}
+                      {t("timeline.portion.forTodayOnly")}
                     </Text>
                   )}
                 </>

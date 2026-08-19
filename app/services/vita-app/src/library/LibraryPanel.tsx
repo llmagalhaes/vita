@@ -49,7 +49,7 @@ export function LibraryPanel() {
       >
         <View style={{ paddingHorizontal: 2 }}>
           <Text style={{ fontFamily: fonts.bold, fontSize: typeScale.screenTitle }} color={colors.inkHeading}>
-            {t("nav.panels.library")}
+            {t("shell.panels.library")}
           </Text>
           <Text style={{ fontSize: 13, marginTop: 1 }} color={colors.muted}>{t("library.subtitle", { name })}</Text>
         </View>

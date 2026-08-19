@@ -79,17 +79,17 @@ test("a habit's sub-line reads its own schedule", () => {
 test("every Overview card renders when its flag is on", async () => {
   await render(<DayPanel />);
   expect(screen.getByText(t("day.zones.overview"))).toBeOnTheScreen();
-  expect(screen.getByText(t("day.water.label"))).toBeOnTheScreen();
-  expect(screen.getByText(t("day.macros.label"))).toBeOnTheScreen();
-  expect(screen.getByText(t("day.weight.label"))).toBeOnTheScreen();
+  expect(screen.getByText(t("overview.water.label"))).toBeOnTheScreen();
+  expect(screen.getByText(t("overview.macros.label"))).toBeOnTheScreen();
+  expect(screen.getByText(t("overview.weight.label"))).toBeOnTheScreen();
 });
 
 test("a flag turned off hides its card — and only its card", async () => {
   saveSettings(settings({ ...ALL, water: false, weight: false }));
   await render(<DayPanel />);
-  expect(screen.queryByText(t("day.water.label"))).toBeNull();
-  expect(screen.queryByText(t("day.weight.label"))).toBeNull();
-  expect(screen.getByText(t("day.macros.label"))).toBeOnTheScreen();
+  expect(screen.queryByText(t("overview.water.label"))).toBeNull();
+  expect(screen.queryByText(t("overview.weight.label"))).toBeNull();
+  expect(screen.getByText(t("overview.macros.label"))).toBeOnTheScreen();
 });
 
 test("with every flag off the Overview zone label goes too", async () => {
@@ -119,17 +119,17 @@ test("quick-add logs a drink, and the weight modal accepts a TYPED value (dual i
       <PopHost />
     </>,
   );
-  expect(screen.getByText(t("day.water.value", { ml: "500" }))).toBeOnTheScreen();
-  expect(screen.getByText(t("day.weight.sourceNone"))).toBeOnTheScreen();
+  expect(screen.getByText(t("overview.water.value", { ml: "500" }))).toBeOnTheScreen();
+  expect(screen.getByText(t("overview.weight.sourceNone"))).toBeOnTheScreen();
 
-  fireEvent.press(screen.getByText(t("day.water.quickAdd", { ml: 250 })));
-  expect(await screen.findByText(t("day.water.value", { ml: "750" }))).toBeOnTheScreen();
+  fireEvent.press(screen.getByText(t("overview.water.quickAdd", { ml: 250 })));
+  expect(await screen.findByText(t("overview.water.value", { ml: "750" }))).toBeOnTheScreen();
 
-  fireEvent.press(screen.getByLabelText(t("day.weight.modalTitle")));
-  fireEvent.changeText(await screen.findByLabelText(t("day.weight.typedLabel")), "81.3");
+  fireEvent.press(screen.getByLabelText(t("overview.weight.modalTitle")));
+  fireEvent.changeText(await screen.findByLabelText(t("overview.weight.typedLabel")), "81.3");
   // The typed value has to reach the pop's own tree before Save can carry it.
   expect(await screen.findByDisplayValue("81.3")).toBeOnTheScreen();
-  fireEvent.press(screen.getByText(t("day.weight.save")));
+  fireEvent.press(screen.getByText(t("overview.weight.save")));
 
   await waitFor(() => expect(getEntry(weightEntryId(dayKey()))).not.toBeNull());
   const rec = getEntry(weightEntryId(dayKey()));

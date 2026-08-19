@@ -3,13 +3,14 @@
  *
  * `react-native-health-connect`'s own plugin only adds the permissions-rationale
  * intent-filter. Reading data also needs, in the generated AndroidManifest:
- *   - the health READ permissions we actually use (active energy, steps, exercise)
+ *   - the health READ permissions we actually use (active energy, steps, exercise, weight)
  *   - a <queries> entry so the app can see/launch the Health Connect package
+ *   - the Android-14+ <activity-alias> privacy entry point (APP-107, see below)
  * and Health Connect requires minSdk 26. Because we use CNG (android/ is
  * gitignored and regenerated), these must live in a plugin, not a hand edit.
  *
- * Read-only scope on purpose (ponytail): only the three record types the Energy
- * card surfaces. Add more permissions here when a screen actually reads more.
+ * Read-only scope on purpose (ponytail): only the record types a screen surfaces.
+ * Add more permissions here when a screen actually reads more.
  */
 const {
   withAndroidManifest,
@@ -22,13 +23,50 @@ const READ_PERMISSIONS = [
   "android.permission.health.READ_ACTIVE_CALORIES_BURNED",
   "android.permission.health.READ_STEPS",
   "android.permission.health.READ_EXERCISE",
+  "android.permission.health.READ_WEIGHT", // APP-107: Library promises "weight & workouts"
 ];
 
 const HEALTH_CONNECT_PACKAGE = "com.google.android.apps.healthdata";
 
+/**
+ * APP-107 — Android 14+ privacy-policy entry point.
+ *
+ * Pre-14, Health Connect launched the rationale via the legacy
+ * `androidx.health.ACTION_SHOW_PERMISSIONS_RATIONALE` intent-filter on MainActivity
+ * (react-native-health-connect's own plugin adds only that one). From Android 14 the
+ * provider is a platform module and the framework instead looks for an
+ * <activity-alias> answering VIEW_PERMISSION_USAGE + category HEALTH_PERMISSIONS.
+ * Without it the system has nothing to launch — the exact symptom on the CEO's
+ * Android 15 SM_S942B (no dialog, no logcat line, toggle reverts). Both filters ship;
+ * the legacy one still serves Android 13 and below.
+ */
+const ALIAS_NAME = "ViewPermissionUsageActivity";
+
+function addAlias(manifest) {
+  const app = (manifest.application || [])[0];
+  if (!app) return;
+  app["activity-alias"] = app["activity-alias"] || [];
+  if (app["activity-alias"].some((a) => a.$["android:name"] === ALIAS_NAME)) return;
+  app["activity-alias"].push({
+    $: {
+      "android:name": ALIAS_NAME,
+      "android:exported": "true",
+      "android:targetActivity": ".MainActivity",
+      "android:permission": "android.permission.START_VIEW_PERMISSION_USAGE",
+    },
+    "intent-filter": [
+      {
+        action: [{ $: { "android:name": "android.intent.action.VIEW_PERMISSION_USAGE" } }],
+        category: [{ $: { "android:name": "android.intent.category.HEALTH_PERMISSIONS" } }],
+      },
+    ],
+  });
+}
+
 function addPermissionsAndQueries(config) {
   return withAndroidManifest(config, (cfg) => {
     const manifest = cfg.modResults.manifest;
+    addAlias(manifest);
 
     // <uses-permission> for each read scope (idempotent).
     manifest["uses-permission"] = manifest["uses-permission"] || [];

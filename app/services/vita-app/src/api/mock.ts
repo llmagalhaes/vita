@@ -647,6 +647,8 @@ export function createMockApi(): Api {
   const parseJobs = new Map<string, { state: "done" | "failed"; failureReason?: string }>();
   // Vacation ranges — opaque blob to the server (D1); the mock just echoes them.
   let storedVacations: VacationRange[] = [];
+  // The user_settings blob (APP-110): opaque to the server, `{}` until first written.
+  let storedSettings: Record<string, unknown> = {};
   const notFound = () =>
     new ApiError(404, { type: "about:blank", title: "Not found", status: 404 });
 
@@ -867,6 +869,15 @@ export function createMockApi(): Api {
       await delay(100);
       storedVacations = ranges;
       return ranges;
+    },
+    async getSettings() {
+      await delay(100);
+      return storedSettings;
+    },
+    async putSettings(blob) {
+      await delay(100);
+      storedSettings = blob; // replace-on-write, stored verbatim
+      return blob;
     },
   };
 }

@@ -1,6 +1,7 @@
 /**
  * APP-094 — the pure day-record logic. No db, no React, no clock.
  */
+import "../../i18n"; // recapLine reads its fragments from the locale file
 import type { PlanMeal } from "../../api/client";
 import { closeDay, retroClose } from "../close";
 import {
@@ -15,7 +16,7 @@ import {
   toMealEntry,
   type DayRecord,
 } from "../record";
-import { closeLine, dayCounters, dayStatus, isDue, isRetro, mealState, pendingMeals, recapLine } from "../state";
+import { dayCounters, dayStatus, isDue, isRetro, mealState, pendingMeals, recapLine } from "../state";
 
 const DATE = "2026-08-19";
 
@@ -210,9 +211,8 @@ test("recapLine: counters only, domain-gated, empty when nothing was recorded", 
   expect(recapLine(day())).toBe("");
 });
 
-test("closeLine names what is still planned AND due", () => {
-  expect(closeLine(day(), dayMeals(PLAN), 14 * 60)).toBe(
-    "Breakfast and Lunch are still marked planned — everything else is confirmed.",
-  );
-  expect(closeLine(day(), dayMeals(PLAN), 7 * 60)).toBe("Everything is confirmed — close the day whenever you like.");
+test("pendingMeals names what is still planned AND due", () => {
+  // The Close card and the day-close notification both build their sentence from this.
+  expect(pendingMeals(day(), dayMeals(PLAN), 14 * 60).map((m) => m.name)).toEqual(["Breakfast", "Lunch"]);
+  expect(pendingMeals(day(), dayMeals(PLAN), 7 * 60)).toEqual([]);
 });

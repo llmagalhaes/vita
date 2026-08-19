@@ -5,7 +5,7 @@ import Account from "../../app/(main)/account";
 import { resetDbForTests } from "../db/db";
 import { saveSettings, type Settings } from "../db/settings";
 import { isVacationActive, saveVacation } from "../db/vacation";
-import { setNotifier, stubNotifier } from "../habits/notifier";
+import { setNotifier, stubNotifier } from "../notify/notifier";
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: () => true }),

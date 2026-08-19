@@ -97,7 +97,7 @@ export function EatingPlan() {
       if (out.status === "ready") {
         router.push(`/plan-setup?mode=parse&fileRef=${encodeURIComponent(out.fileRef)}`);
       } else if (out.status !== "cancelled") {
-        showToast(t("today.importError"));
+        showToast(t("library.plan.importError"));
       }
     } finally {
       setBusy(false);
@@ -177,7 +177,7 @@ export function EatingPlan() {
         <View style={{ flexDirection: "row", gap: 8 }}>
           <PillButton label={t("library.plan.addMeal")} onPress={openForm} flex={1} />
           <PillButton
-            label={busy ? t("today.importing") : doc ? t("library.plan.replacePdf") : t("today.importPdf")}
+            label={busy ? t("common.importing") : doc ? t("library.plan.replacePdf") : t("common.importPdf")}
             onPress={() => void replace()}
             tone="tinted"
             accent={accent}

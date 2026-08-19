@@ -17,6 +17,7 @@ import { useAuthReady } from "../src/auth/useAuth";
 import { getDb } from "../src/db/db";
 import { drainOutbox } from "../src/db/outbox";
 import { seedDemoDataOnce } from "../src/db/seed";
+import { syncSettings } from "../src/db/settingsSync";
 import { colors, PopHost } from "../src/ui";
 import "../src/i18n";
 
@@ -40,6 +41,7 @@ export default function RootLayout() {
     if (isMockApi) seedDemoDataOnce();
     void loadSession().finally(() => {
       void drainOutbox(api).catch(() => {});
+      void syncSettings(); // APP-110: GET the settings blob before any local write can push
     });
   });
 

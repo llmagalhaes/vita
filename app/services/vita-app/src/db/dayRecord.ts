@@ -153,3 +153,15 @@ function drain(): void {
 export const applyClose = (result: { written: MealRecord[] }): void => recordMeals(result.written);
 
 export type { DayOverlay, DayRecord, MealRecord, WorkoutRecord };
+
+// ── "closed" is a device-local day flag ───────────────────────────────────────
+// APP-094 deliberately put no `closed` field on the wire (R2: "closed later, by you"
+// is DERIVED from loggedAt). But Close-the-day vs Reopen is a real UI state that no
+// record can express — a day where every meal happens to be confirmed is not the same
+// as a day you closed. Keyed by date like the overlay, so there is no rollover dance.
+const closedKey = (date: string) => `day.closed.${date}`;
+export const isDayClosed = (date: string): boolean => kvGet<boolean>(closedKey(date)) === true;
+export function setDayClosed(date: string, closed: boolean): void {
+  kvSet(closedKey(date), closed);
+  logChanged();
+}

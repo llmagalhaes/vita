@@ -10,7 +10,7 @@ import { useState } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { MacroTotals } from "../../api/client";
-import { MacrosSheet, type MacroMeal } from "../../tabs/MacrosSheet";
+import { MacrosSheet, type MacroMeal } from "./MacrosSheet";
 import { Bar, Text, colors, fonts } from "../../ui";
 import { MicroLabel, cardSurfaceRaised } from "./parts";
 
@@ -38,24 +38,24 @@ export function MacrosCard({
 
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel={t("day.macros.label")} onPress={() => setOpen(true)} style={{ flex: 1.35 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("overview.macros.label")} onPress={() => setOpen(true)} style={{ flex: 1.35 }}>
         <View style={{ ...cardSurfaceRaised, padding: 15, gap: 10, justifyContent: "center" }}>
-          <MicroLabel>{t("day.macros.label")}</MicroLabel>
+          <MicroLabel>{t("overview.macros.label")}</MicroLabel>
           {rows.map(([key, g, planG, color]) => (
             <View key={key} style={{ gap: 4 }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.inkMuted}>
-                  {t(`day.macros.${key}`)}
+                  {t(`common.${key}`)}
                 </Text>
                 <Text style={{ fontSize: 12.5 }} color={colors.muted}>
-                  {t("day.macros.grams", { recorded: Math.round(g), plan: Math.round(planG) })}
+                  {t("overview.macros.grams", { recorded: Math.round(g), plan: Math.round(planG) })}
                 </Text>
               </View>
               <Bar pct={macroPct(g, planG)} color={color} />
             </View>
           ))}
           <Text style={{ fontSize: 10 }} color={colors.faint}>
-            {t("day.macros.footer")}
+            {t("overview.macros.footer")}
           </Text>
         </View>
       </Pressable>

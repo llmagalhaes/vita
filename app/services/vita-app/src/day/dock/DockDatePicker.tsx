@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from "react";
 import { View, type LayoutChangeEvent } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -213,6 +214,7 @@ export function DockDatePicker({
   /** Per-dot record status (dot i → statuses[i]); omitted = the neutral v3 dock. */
   statuses?: (DayStatus | undefined)[];
 }) {
+  const { t } = useTranslation();
   const accent = useAccent();
   const rowWidth = useSharedValue(0);
   const fingerX = useSharedValue(0);
@@ -273,7 +275,7 @@ export function DockDatePicker({
       <View
         onLayout={onLayout}
         accessibilityRole="adjustable"
-        accessibilityLabel="Select a day"
+        accessibilityLabel={t("calendar.selectDay")}
         style={{ flexDirection: "row", alignItems: "flex-end", height: ROW_H, paddingHorizontal: 6, overflow: "visible" }}
       >
         {Array.from({ length: NDAYS }, (_, i) => (

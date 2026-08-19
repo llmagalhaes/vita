@@ -16,7 +16,7 @@ jest.mock("expo-router", () => ({
   useLocalSearchParams: () => mockParams,
 }));
 // The recap notifier subscribes to logChanged; keep it inert in these unit tests.
-jest.mock("../habits/notifier", () => ({ refreshNotifications: jest.fn() }));
+jest.mock("../notify/notifier", () => ({ refreshNotifications: jest.fn() }));
 
 beforeEach(() => {
   resetDbForTests();
@@ -91,7 +91,7 @@ test("Finish setup creates a habit per ON toggle, PUTs status ready + usuals, na
   await waitFor(() => expect(listHabits().length).toBe(5));
   await waitFor(() => expect(putSpy).toHaveBeenCalled());
   expect(putSpy.mock.calls[0]![0].status).toBe("ready");
-  expect(mockReplace).toHaveBeenCalledWith("/today");
+  expect(mockReplace).toHaveBeenCalledWith("/day");
   expect(getToast()?.text).toMatch(/Plan ready — 5 meals · 5 new check-ins/);
   putSpy.mockRestore();
 });

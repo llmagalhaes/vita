@@ -42,6 +42,7 @@ async function persist(pair: TokenPair | null): Promise<void> {
   } else {
     current = null;
     await SecureStore.deleteItemAsync(KEY);
+    require("../db/settingsSync").resetSettingsSync(); // APP-110: never PUT one account's blob under the next
   }
   notify();
 }

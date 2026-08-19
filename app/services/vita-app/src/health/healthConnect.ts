@@ -46,10 +46,14 @@ export type HealthSnapshot = {
  */
 export type HealthAvailability = "available" | "update_required" | "not_installed";
 
-/** Result of the Integrations connect flow — drives the honest toast/deep-link. */
+/**
+ * Result of the Integrations connect flow — drives the honest toast/deep-link.
+ * `diag` (APP-107) rides only the failure paths and only while DIAG is on: release
+ * builds strip console, so the toast is the CEO's one window on what actually happened.
+ */
 export type ConnectResult =
   | { ok: true; hasData: boolean }
-  | { ok: false; reason: "denied" | "update_required" | "not_installed" | "error" };
+  | { ok: false; reason: "denied" | "update_required" | "not_installed" | "error"; diag?: string };
 
 /** One Health Connect ExerciseSession, mapped for the workout history list (APP-081). */
 export type HcSession = {
@@ -69,7 +73,20 @@ export interface HealthReader {
   readToday(today?: Date): Promise<HealthSnapshot | null>;
   /** Exercise sessions in a range, for the workout history list. Stub → []. */
   readSessions(start: Date, end: Date): Promise<HcSession[]>;
+  /** Latest Weight record in kg, or null when none/ungranted. Device-local (ADR-0016). */
+  readWeight(): Promise<number | null>;
 }
+
+/**
+ * APP-107 diagnostic switch. ON for the diagnostic build: connect failures carry the
+ * raw getSdkStatus() value and the caught error message into the toast. APP-109 flips
+ * this to false once the permission dialog is verified on the CEO's device.
+ */
+const DIAG = true;
+
+/** Raw getSdkStatus() the last availability() call saw — diagnostic only. */
+let lastSdkStatus: number | null = null;
+export const getLastSdkStatus = (): number | null => lastSdkStatus;
 
 /**
  * Map react-native-health-connect's numeric SdkAvailabilityStatus to our states.
@@ -126,6 +143,9 @@ export function stubHealthReader(): HealthReader {
     async readSessions() {
       return []; // honest absence (Expo Go / iOS / jest) — captured workouts only (A8)
     },
+    async readWeight() {
+      return null;
+    },
   };
 }
 
@@ -137,6 +157,7 @@ function createHealthConnectReader(): HealthReader {
     { accessType: "read", recordType: "ActiveCaloriesBurned" },
     { accessType: "read", recordType: "Steps" },
     { accessType: "read", recordType: "ExerciseSession" },
+    { accessType: "read", recordType: "Weight" }, // APP-107
   ];
 
   return {
@@ -145,6 +166,7 @@ function createHealthConnectReader(): HealthReader {
       // on Android 14+ too — the platform ships HC under that same package — so we
       // read getSdkStatus() and honestly map 3/2/other instead of forcing a boolean.
       const status = await HC().getSdkStatus();
+      lastSdkStatus = typeof status === "number" ? status : null;
       return mapSdkStatus(status);
     },
     async requestPermissions() {
@@ -176,6 +198,21 @@ function createHealthConnectReader(): HealthReader {
           exerciseType: r.exerciseType ?? null,
         }),
       );
+    },
+    async readWeight() {
+      await HC().initialize();
+      // Newest-first, one record: HC has no "latest" call, so order + pageSize is it.
+      // 90-day window because readRecords requires a time filter and a scale reading
+      // older than that is not "current weight" any more.
+      const end = new Date();
+      const start = new Date(end.getTime() - 90 * 24 * 60 * 60 * 1000);
+      const res = await HC().readRecords("Weight", {
+        timeRangeFilter: { operator: "between", startTime: start.toISOString(), endTime: end.toISOString() },
+        ascendingOrder: false,
+        pageSize: 1,
+      });
+      const kg = (res.records ?? [])[0]?.weight?.inKilograms;
+      return typeof kg === "number" ? kg : null;
     },
   };
 }
@@ -240,16 +277,18 @@ export async function refreshHealthConnect(today: Date = new Date()): Promise<vo
  * synced data yet (Samsung Health sync off).
  */
 export async function connectHealthConnect(): Promise<ConnectResult> {
+  const diag = (extra?: unknown) =>
+    DIAG ? `sdk=${lastSdkStatus ?? "?"}${extra === undefined ? "" : ` ${String(extra)}`}` : undefined;
   try {
     const r = getHealthReader();
     const avail = await r.availability();
-    if (avail !== "available") return { ok: false, reason: avail };
+    if (avail !== "available") return { ok: false, reason: avail, diag: diag() };
     const granted = await r.requestPermissions();
-    if (!granted) return { ok: false, reason: "denied" };
+    if (!granted) return { ok: false, reason: "denied", diag: diag() };
     await refreshHealthConnect();
     return { ok: true, hasData: !!todaysHealthSnapshot() };
-  } catch {
-    return { ok: false, reason: "error" };
+  } catch (e) {
+    return { ok: false, reason: "error", diag: diag((e as Error)?.message ?? e) };
   }
 }
 

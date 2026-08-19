@@ -103,6 +103,9 @@ export interface Api {
   listEntries(params: {
     date?: string;
     tz?: string;
+    /** Half-open `[from, to)` occurredAt window (0.4.0). Not combinable with `date`. */
+    from?: string;
+    to?: string;
     cursor?: string;
     limit?: number;
   }): Promise<EntriesPage>;
@@ -113,7 +116,14 @@ export interface Api {
   /** Vacation ranges (D1): device-owned, opaque to the server. Replace-on-write. */
   getVacations(): Promise<VacationRange[]>;
   putVacations(ranges: VacationRange[]): Promise<VacationRange[]>;
+  /** 0.8.0 — the opaque settings blob; `{}` when never written. GET before the first PUT. */
+  getSettings(): Promise<SettingsBlob>;
+  /** Replace-on-write, last-write-wins, no merge, no server-side interpretation. */
+  putSettings(blob: SettingsBlob): Promise<SettingsBlob>;
 }
+
+/** Opaque JSON object stored verbatim under `/me/settings` (see src/db/settingsSync.ts). */
+export type SettingsBlob = Record<string, unknown>;
 
 /** Token access for the http client: attach a bearer + refresh once on 401. */
 export type AuthHooks = {
@@ -305,6 +315,8 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     deleteAccount: () => request("DELETE", "/account"),
     getVacations: () => request("GET", "/me/vacations"),
     putVacations: (ranges) => request("PUT", "/me/vacations", { body: ranges }),
+    getSettings: () => request("GET", "/me/settings"),
+    putSettings: (blob) => request("PUT", "/me/settings", { body: blob }),
   };
 }
 

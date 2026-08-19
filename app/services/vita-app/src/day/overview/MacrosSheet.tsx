@@ -8,7 +8,7 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Path } from "react-native-svg";
-import { Bar, PopOverlay, Text, colors, fonts, shadowPop, spacing } from "../ui";
+import { Bar, PopOverlay, Text, colors, fonts, shadowPop, spacing } from "../../ui";
 
 export type MacroMeal = { id: string; title: string; proteinG: number; carbsG: number; fatG: number; kcal: number; at: string };
 
@@ -49,10 +49,10 @@ export function MacrosSheet({
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
           <View>
             <Text variant="title" style={{ fontSize: 17 }}>
-              {t("home.macrosSheetTitle")}
+              {t("overview.macrosPop.title")}
             </Text>
             <Text variant="caption" style={{ fontSize: 11.5, marginTop: 1 }} color={colors.muted}>
-              {meals.length === 1 ? t("home.macrosMealsOne") : t("home.macrosMealsMany", { count: meals.length })}
+              {meals.length === 1 ? t("overview.macrosPop.mealsOne") : t("overview.macrosPop.mealsMany", { count: meals.length })}
             </Text>
           </View>
           <Pressable
@@ -72,7 +72,7 @@ export function MacrosSheet({
           <View key={key} style={{ gap: 4 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
               <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color="#6E6355">
-                {t(`home.${key}`)}
+                {t(`common.${key}`)}
               </Text>
               <Text variant="caption" style={{ fontSize: 12.5 }} color={colors.muted}>
                 {Math.round(grams)} g
@@ -85,7 +85,7 @@ export function MacrosSheet({
         {meals.length > 0 && (
           <View style={{ borderTopWidth: 1, borderStyle: "dashed", borderTopColor: "rgba(120,100,75,0.18)", paddingTop: 11, gap: 7 }}>
             <Text style={{ fontFamily: fonts.extraBold, fontSize: 10.5, letterSpacing: 1.2, textTransform: "uppercase" }} color={colors.labelMuted}>
-              {t("home.macrosFromMeals")}
+              {t("overview.macrosPop.fromMeals")}
             </Text>
             {meals.map((m) => (
               <View key={m.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingVertical: 8, paddingHorizontal: 11, borderRadius: 14, backgroundColor: colors.sheet }}>
@@ -94,7 +94,7 @@ export function MacrosSheet({
                     {m.title}
                   </Text>
                   <Text variant="caption" style={{ fontSize: 10.5, marginTop: 1 }} color={colors.muted}>
-                    {Math.round(m.proteinG)} {t("home.protein")} · {Math.round(m.carbsG)} {t("home.carbs")} · {Math.round(m.fatG)} {t("home.fat")}
+                    {Math.round(m.proteinG)} {t("common.protein")} · {Math.round(m.carbsG)} {t("common.carbs")} · {Math.round(m.fatG)} {t("common.fat")}
                   </Text>
                 </View>
                 <View style={{ alignItems: "flex-end" }}>
@@ -111,7 +111,7 @@ export function MacrosSheet({
         )}
 
         <Text variant="caption" style={{ fontSize: 10.5, textAlign: "center" }} color={colors.labelMuted}>
-          {t("home.macrosSheetFooter")}
+          {t("overview.macrosPop.footer")}
         </Text>
       </View>
     </PopOverlay>

@@ -191,8 +191,7 @@ export function CapturePill() {
 
   // Today's Day panel only. Past days are a record, not a capture surface.
   const selectedDate = useSelectedDate();
-  const onDay = pathname === "/day" || pathname === "/home"; // /home still redirects to /day (APP-108)
-  const visible = onDay && selectedDate === dayKey();
+  const visible = pathname === "/day" && selectedDate === dayKey();
 
   const shell = {
     flexDirection: "row",

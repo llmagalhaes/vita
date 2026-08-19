@@ -8,24 +8,17 @@
  * object, so the later user_settings sync (APP-110) can wrap this module instead of
  * reshaping it.
  */
+import i18n from "../i18n";
 import { showToast } from "../ui/toast";
 import { useLogVersion } from "./notify";
 import { getSettings, patch, type Domains } from "./settings";
 
 export type DomainKey = keyof Domains;
 
-/** Row names (prototype `domRows`) — also the subject of the toggle toasts. */
-// ponytail: literal copy until the round's i18n sweep moves the whole app's strings
-// into `t()` (app-plan §"i18n"); the acceptance test pins the exact prototype wording.
-export const DOMAIN_NAMES: Record<DomainKey, string> = {
-  meals: "Meals & eating plan",
-  water: "Water",
-  move: "Movement",
-  habits: "Habits",
-  weight: "Body weight",
-};
+export const DOMAIN_KEYS: DomainKey[] = ["meals", "water", "move", "habits", "weight"];
 
-export const DOMAIN_KEYS = Object.keys(DOMAIN_NAMES) as DomainKey[];
+/** Row name (prototype `domRows`) — also the subject of the toggle toasts. */
+export const domainName = (key: DomainKey): string => i18n.t(`library.keeps.row.${key}`);
 
 /** Persisted flags, per-key default ON (absent field = pre-v4 profile = everything on). */
 export function getDomains(): Domains {
@@ -67,7 +60,7 @@ export function setDomains(next: Partial<Domains>): void {
 /** One row toggled in Library → write + the prototype's toast. Never deletes data. */
 export function setDomain(key: DomainKey, on: boolean): void {
   setDomains({ [key]: on });
-  showToast(on ? `${DOMAIN_NAMES[key]} is back` : `${DOMAIN_NAMES[key]} hidden — history stays`);
+  showToast(i18n.t(on ? "library.keeps.onToast" : "library.keeps.offToast", { name: domainName(key) }));
 }
 
 export const toggleDomain = (key: DomainKey): void => setDomain(key, !getDomains()[key]);

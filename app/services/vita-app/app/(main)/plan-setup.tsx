@@ -23,7 +23,7 @@ import { ApiError, jobIdFromDetail, type EatingPlanDraft, type PlanItem, type Pl
 import { getCachedPlan, syncPlan, updatePlan } from "../../src/db/plan";
 import { logChanged } from "../../src/db/notify";
 import { createHabit } from "../../src/db/habits";
-import { refreshNotifications } from "../../src/habits/notifier";
+import { refreshNotifications } from "../../src/notify/notifier";
 import { applyUsuals, compItems, compKcal, compLabel, supplementTime, setupFindings } from "../../src/plan/setup";
 import { planDailyTotals } from "../../src/plan/compute";
 import { SwapSheet, SwapRadioRow, swapLabel, swapQty } from "../../src/plan/SwapSheet";
@@ -91,7 +91,7 @@ function ErrorCard({ onRetry, onType }: { onRetry: () => void; onType: () => voi
         {t("planSetup.parseError")}
       </Text>
       <Button label={t("planSetup.retry")} onPress={onRetry} />
-      <Button label={t("today.typeOrSpeak")} variant="ghost" onPress={onType} />
+      <Button label={t("common.typeOrSpeak")} variant="ghost" onPress={onType} />
     </View>
   );
 }
@@ -177,8 +177,8 @@ export default function PlanSetupScreen() {
     return (
       <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 22 }}>
         <ErrorCard
-          onRetry={isParse ? () => (setFindings([]), setPhase("parsing")) : () => router.replace("/today")}
-          onType={() => router.replace("/today")}
+          onRetry={isParse ? () => (setFindings([]), setPhase("parsing")) : () => router.replace("/day")}
+          onType={() => router.replace("/day")}
         />
       </View>
     );
@@ -208,7 +208,7 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
   });
 
   const back = () => {
-    if (step === 0) return router.canGoBack() ? router.back() : router.replace("/today");
+    if (step === 0) return router.canGoBack() ? router.back() : router.replace("/day");
     setSwapOpen(null);
     setStep((s) => s - 1);
   };
@@ -247,12 +247,12 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
     // 1. Habits for every ON toggle (daily). Water at 10:00, supplements by timing.
     let created = 0;
     if (doc.hydration && habToggles.water) {
-      createHabit({ name: t("planSetup.waterHabit", { ml: doc.hydration.mlPerDay.toLocaleString("en-US") }), days: EVERY_DAY, time: "10:00", enabled: true, kind: "plain" });
+      createHabit({ name: t("planSetup.waterHabit", { ml: doc.hydration.mlPerDay.toLocaleString("en-US") }), days: EVERY_DAY, time: "10:00", enabled: true });
       created++;
     }
     doc.supplements?.forEach((s, i) => {
       if (!habToggles[`s${i}`]) return;
-      createHabit({ name: s.name, days: EVERY_DAY, time: supplementTime(s.timing), enabled: true, kind: "plain" });
+      createHabit({ name: s.name, days: EVERY_DAY, time: supplementTime(s.timing), enabled: true });
       created++;
     });
     void refreshNotifications();
@@ -267,7 +267,7 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
 
     // 3. Navigate + toast.
     const n = next.meals.length;
-    router.replace("/today");
+    router.replace("/day");
     if (created > 0) showToast(t("planSetup.planReady", { n, m: created }));
     else showToast(t("planSetup.planReadyKcal", { n, kcal: Math.round(planDailyTotals(next).kcal) }));
   };

@@ -44,7 +44,7 @@ type Row = {
  * — it just rebuilds on the next read. ponytail: invalidate-on-write beats any
  * freshness check, which would cost the very query the cache exists to avoid.
  */
-function invalidateDay(occurredAt: string): void {
+export function invalidateDay(occurredAt: string): void {
   const d = new Date(occurredAt);
   const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   getDb().runSync(`DELETE FROM day_record WHERE date = ?`, [date]);

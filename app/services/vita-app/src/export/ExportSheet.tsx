@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { SheetOverlay, Text, colors, fonts, shadowCta } from "../ui";
 import { AUDIENCES, exportPdf } from "./pdf";
 
-/** The prototype's three chips, in order — `doctor` is not a v4 recipient. */
+/** The prototype's three chips, in order. */
 const RECIPIENTS = ["nutritionist", "trainer", "myself"] as const;
 type Recipient = (typeof RECIPIENTS)[number];
 

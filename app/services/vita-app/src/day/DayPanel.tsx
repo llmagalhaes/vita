@@ -28,7 +28,7 @@ import { getSettings } from "../db/settings";
 import { planDailyTotals } from "../plan/compute";
 import { SwipeHint } from "../nav/PanelTabs";
 import { Text, colors, fonts, letterSpacing, typeScale, useSceneName } from "../ui";
-import type { MacroMeal } from "../tabs/MacrosSheet";
+import type { MacroMeal } from "./overview/MacrosSheet";
 import { ScenicHeader } from "./ScenicHeader";
 import { HabitsCard } from "./overview/HabitsCard";
 import { MacrosCard } from "./overview/MacrosCard";

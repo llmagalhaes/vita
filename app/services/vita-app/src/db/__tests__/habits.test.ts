@@ -6,26 +6,18 @@ const input = (over: Partial<HabitInput> = {}): HabitInput => ({
   days: [true, true, true, true, true, true, true],
   time: "21:00",
   enabled: true,
-  kind: "plain",
   ...over,
 });
 
 beforeEach(() => resetDbForTests());
 
-test("create → read round-trips the shape (days json, enabled, kind)", () => {
+test("create → read round-trips the shape (days json, enabled)", () => {
   const h = createHabit(input());
   expect(h.id).toBeTruthy();
   const got = getHabit(h.id)!;
   expect(got.name).toBe("Take creatine");
   expect(got.days).toEqual([true, true, true, true, true, true, true]);
   expect(got.enabled).toBe(true);
-  expect(got.kind).toBe("plain");
-  expect(got.planMealName).toBeUndefined();
-});
-
-test("plan habit keeps its plan-meal link", () => {
-  const h = createHabit(input({ kind: "plan", planMealName: "Lunch" }));
-  expect(getHabit(h.id)!.planMealName).toBe("Lunch");
 });
 
 test("partial update only touches passed fields", () => {

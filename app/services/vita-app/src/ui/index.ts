@@ -11,7 +11,6 @@ export * from "./Toggle";
 export * from "./Slider";
 export * from "./EditableText";
 export * from "./Donut";
-export * from "./BodyMap";
 export * from "./WaveIllustration";
 export * from "./keyboard";
 export * from "./useSheetDrag";

@@ -18,7 +18,8 @@ import { saveSettings, type Settings } from "../../../db/settings";
 import { getToast } from "../../../ui/toast";
 import { getDayRecord, setOverlay } from "../../../db/dayRecord";
 import { dayKey, emptyDay, emptyOverlay, mealEntryId, type DayRecord } from "../../record";
-import { Timeline, dotColor, isDayClosed, timelineNodes } from "../Timeline";
+import { isDayClosed } from "../../../db/dayRecord";
+import { Timeline, dotColor, timelineNodes } from "../Timeline";
 import { itemRows } from "../MealNode";
 import { workoutState } from "../WorkoutNode";
 

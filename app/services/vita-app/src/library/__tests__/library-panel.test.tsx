@@ -10,7 +10,7 @@ import { LibraryPanel } from "../LibraryPanel";
 import { resetDbForTests } from "../../db/db";
 import { createHabit, listHabits } from "../../db/habits";
 import { saveSettings, type Settings } from "../../db/settings";
-import { setNotifier, stubNotifier } from "../../habits/notifier";
+import { setNotifier, stubNotifier } from "../../notify/notifier";
 import { getToast, runToastUndo } from "../../ui/toast";
 
 jest.mock("expo-router", () => ({
@@ -53,7 +53,7 @@ test("renders every section, and the on-device footer", async () => {
 // The v3 Integrations screen listed sources Vita cannot read. v4 has exactly one.
 test("no fake source row — Health Connect is the only one, and it is Android-only", async () => {
   await render(<LibraryPanel />);
-  expect(screen.getByText(t("integrations.source.healthConnect"))).toBeOnTheScreen();
+  expect(screen.getByText(t("library.sources.healthConnect"))).toBeOnTheScreen();
   for (const fake of ["Garmin", "Strava", "Flo", "Apple Health"]) {
     expect(screen.queryByText(fake)).toBeNull();
   }
@@ -65,7 +65,7 @@ test("on iOS the Connected-sources section is not rendered at all", async () => 
   setPlatform("ios");
   await render(<LibraryPanel />);
   expect(screen.queryByText(t("library.sources.title"))).toBeNull();
-  expect(screen.queryByText(t("integrations.source.healthConnect"))).toBeNull();
+  expect(screen.queryByText(t("library.sources.healthConnect"))).toBeNull();
   expect(screen.getByText(t("library.footer"))).toBeOnTheScreen(); // the rest still renders
 });
 
@@ -81,7 +81,7 @@ test("a domain turned off hides its section here too (it never deletes it)", asy
 });
 
 test("removing a habit is undoable and says history stays", async () => {
-  createHabit({ name: "Walk the dog", days: Array(7).fill(true), time: "08:00", enabled: true, kind: "plain" });
+  createHabit({ name: "Walk the dog", days: Array(7).fill(true), time: "08:00", enabled: true });
   await render(<LibraryPanel />);
 
   await fireEvent.press(screen.getByLabelText(t("library.habits.removeLabel", { name: "Walk the dog" })));

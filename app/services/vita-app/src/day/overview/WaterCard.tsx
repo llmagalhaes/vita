@@ -86,7 +86,7 @@ function ExactWaterPop({ visible, onClose, onAdd }: { visible: boolean; onClose:
     <PopOverlay visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
       <View style={{ backgroundColor: colors.card, borderRadius: radii.modal, padding: 17, borderWidth: 1, borderColor: "rgba(120,100,75,0.08)", gap: 13, ...shadowModal }}>
         <Text variant="title" style={{ fontSize: 16 }}>
-          {t("day.water.exactTitle")}
+          {t("overview.water.exactTitle")}
         </Text>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ flex: 1 }}>
@@ -97,14 +97,14 @@ function ExactWaterPop({ visible, onClose, onAdd }: { visible: boolean; onClose:
               max={WATER_SLIDER.max}
               step={WATER_SLIDER.step}
               onCommit={commit}
-              accessibilityLabel={t("day.water.exactTitle")}
+              accessibilityLabel={t("overview.water.exactTitle")}
             />
           </View>
           <TextInput
             value={String(ml)}
             keyboardType="number-pad"
             onChangeText={(txt) => commit(clampTypedMl(Number(txt.replace(/[^0-9]/g, "")) || 0))}
-            accessibilityLabel={t("day.water.typedLabel")}
+            accessibilityLabel={t("overview.water.typedLabel")}
             style={{
               borderWidth: 1,
               borderColor: colors.borderControlStrong,
@@ -138,7 +138,7 @@ function ExactWaterPop({ visible, onClose, onAdd }: { visible: boolean; onClose:
             style={{ flex: 1.2, height: 44, borderRadius: 22, backgroundColor: accent, alignItems: "center", justifyContent: "center" }}
           >
             <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color="#FFF9F1">
-              {t("day.water.add")}
+              {t("overview.water.add")}
             </Text>
           </PressScale>
         </View>
@@ -155,21 +155,21 @@ export function WaterCard({ totalMl, drinks }: { totalMl: number; drinks: LocalE
 
   const log = (ml: number) => {
     addWater(ml);
-    showToast(t("day.water.added", { ml: ml.toLocaleString("en-US"), total: (totalMl + ml).toLocaleString("en-US") }));
+    showToast(t("overview.water.added", { ml: ml.toLocaleString("en-US"), total: (totalMl + ml).toLocaleString("en-US") }));
   };
 
   return (
     <>
-      <Pressable accessibilityRole="button" accessibilityLabel={t("day.water.label")} onPress={() => setOpen((o) => !o)} style={{ flex: 1.05 }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={t("overview.water.label")} onPress={() => setOpen((o) => !o)} style={{ flex: 1.05 }}>
         <Animated.View layout={LinearTransition.duration(220)} style={{ ...cardSurfaceRaised, padding: 15, gap: 12 }}>
           <View style={{ flexDirection: "row", gap: 13, alignItems: "center" }}>
             <Vessel ml={totalMl} />
             <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                <MicroLabel>{t("day.water.label")}</MicroLabel>
+                <MicroLabel>{t("overview.water.label")}</MicroLabel>
                 <Chevron open={open} flip />
               </View>
-              <BigValue>{t("day.water.value", { ml: totalMl.toLocaleString("en-US") })}</BigValue>
+              <BigValue>{t("overview.water.value", { ml: totalMl.toLocaleString("en-US") })}</BigValue>
               <PressScale
                 accessibilityRole="button"
                 onPress={() => log(WATER_QUICK_ML)}
@@ -177,7 +177,7 @@ export function WaterCard({ totalMl, drinks }: { totalMl: number; drinks: LocalE
                 style={{ alignSelf: "flex-start", paddingVertical: 8, paddingHorizontal: 13, borderRadius: radii.chip, backgroundColor: colors.green.bg }}
               >
                 <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.green.ink}>
-                  {t("day.water.quickAdd", { ml: WATER_QUICK_ML })}
+                  {t("overview.water.quickAdd", { ml: WATER_QUICK_ML })}
                 </Text>
               </PressScale>
             </View>
@@ -192,7 +192,7 @@ export function WaterCard({ totalMl, drinks }: { totalMl: number; drinks: LocalE
                 <View key={w.id} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                   <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.green.fill }} />
                   <Text variant="caption" numberOfLines={1} style={{ fontFamily: fonts.semiBold, fontSize: 11.5, flex: 1, minWidth: 0 }} color={colors.inkMuted}>
-                    {t("day.water.value", { ml: ((w.detail as WaterDetail).amountMl ?? 0).toLocaleString("en-US") })}
+                    {t("overview.water.value", { ml: ((w.detail as WaterDetail).amountMl ?? 0).toLocaleString("en-US") })}
                   </Text>
                   <Text variant="caption" style={{ fontSize: 11.5, flexShrink: 0 }} color={colors.faint}>
                     {timeOf(w.occurredAt)}
@@ -201,7 +201,7 @@ export function WaterCard({ totalMl, drinks }: { totalMl: number; drinks: LocalE
               ))}
               <Pressable accessibilityRole="button" onPress={() => setExact(true)} style={{ alignSelf: "flex-start" }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={accent}>
-                  {t("day.water.exactLink")}
+                  {t("overview.water.exactLink")}
                 </Text>
               </Pressable>
             </Animated.View>

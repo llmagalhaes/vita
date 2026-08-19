@@ -66,7 +66,7 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
   const save = () => {
     const { undo } = recordWeight(kg);
     onClose();
-    showToast(t("day.weight.savedToast", { kg: kg.toFixed(1) }), { undo });
+    showToast(t("overview.weight.savedToast", { kg: kg.toFixed(1) }), { undo });
   };
 
   return (
@@ -74,10 +74,10 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
       <View style={{ backgroundColor: colors.card, borderRadius: radii.modal, padding: 17, borderWidth: 1, borderColor: "rgba(120,100,75,0.08)", gap: 13, ...shadowModal }}>
         <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between" }}>
           <Text variant="title" style={{ fontSize: 16 }}>
-            {t("day.weight.modalTitle")}
+            {t("overview.weight.modalTitle")}
           </Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color={colors.inkHeading}>
-            {t("day.weight.value", { kg: kg.toFixed(1) })}
+            {t("overview.weight.value", { kg: kg.toFixed(1) })}
           </Text>
         </View>
         <Slider
@@ -87,14 +87,14 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
           max={WEIGHT_SLIDER.max}
           step={WEIGHT_SLIDER.step}
           onCommit={commit}
-          accessibilityLabel={t("day.weight.modalTitle")}
+          accessibilityLabel={t("overview.weight.modalTitle")}
         />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TextInput
             value={String(kg)}
             keyboardType="decimal-pad"
             onChangeText={(txt) => commit(clampTypedKg(Number(txt.replace(",", ".").replace(/[^0-9.]/g, "")) || 0))}
-            accessibilityLabel={t("day.weight.typedLabel")}
+            accessibilityLabel={t("overview.weight.typedLabel")}
             style={{
               borderWidth: 1,
               borderColor: colors.borderControlStrong,
@@ -109,7 +109,7 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
             }}
           />
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, flex: 1 }} color={colors.muted}>
-            {t("day.weight.dualHint")}
+            {t("overview.weight.dualHint")}
           </Text>
         </View>
         <View style={{ flexDirection: "row", gap: 10 }}>
@@ -128,7 +128,7 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
             style={{ flex: 1.2, height: 44, borderRadius: 22, backgroundColor: accent, alignItems: "center", justifyContent: "center" }}
           >
             <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color="#FFF9F1">
-              {t("day.weight.save")}
+              {t("overview.weight.save")}
             </Text>
           </PressScale>
         </View>
@@ -150,17 +150,17 @@ export function WeightCard({ latest }: { latest: WeightReading | null }) {
           <ScaleGlyph />
         </View>
         <View style={{ flex: 1, minWidth: 0 }}>
-          <MicroLabel>{t("day.weight.label")}</MicroLabel>
+          <MicroLabel>{t("overview.weight.label")}</MicroLabel>
           <View style={{ marginTop: 2 }}>
-            <BigValue>{latest ? t("day.weight.value", { kg: latest.kg.toFixed(1) }) : "—"}</BigValue>
+            <BigValue>{latest ? t("overview.weight.value", { kg: latest.kg.toFixed(1) }) : "—"}</BigValue>
           </View>
           <Text style={{ fontSize: 11, marginTop: 1 }} color={colors.faint}>
-            {latest ? t("day.weight.sourceManual", { time: timeOf(latest.at) }) : t("day.weight.sourceNone")}
+            {latest ? t("overview.weight.sourceManual", { time: timeOf(latest.at) }) : t("overview.weight.sourceNone")}
           </Text>
         </View>
         <PressScale
           accessibilityRole="button"
-          accessibilityLabel={t("day.weight.modalTitle")}
+          accessibilityLabel={t("overview.weight.modalTitle")}
           onPress={() => setOpen(true)}
           scale={0.9}
           style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.well, alignItems: "center", justifyContent: "center" }}

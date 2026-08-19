@@ -9,12 +9,14 @@ export function logChanged(): void {
   listeners.forEach((l) => l());
 }
 
+/** Non-React subscriber (APP-110's settings push rides this). Returns an unsubscribe. */
+export function onChange(l: () => void): () => void {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+}
+
 export function useLogVersion(): number {
-  return useSyncExternalStore(
-    (cb) => {
-      listeners.add(cb);
-      return () => listeners.delete(cb);
-    },
-    () => version,
-  );
+  return useSyncExternalStore(onChange, () => version);
 }

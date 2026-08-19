@@ -3,6 +3,7 @@
  * `planned` is the absence of a record; "unrecorded" is the absence of ANY
  * meal/workout record (water alone never closes a day — PLAN R1).
  */
+import i18n from "../i18n";
 import type { DayMeal, DayRecord, MealRecord, MealState, WorkoutRecord } from "./record";
 import { mealRecord, minutesOf } from "./record";
 
@@ -48,13 +49,11 @@ export function dayStatus(day: DayRecord): "asPlanned" | "adjusted" | "unrecorde
   return recs.every((r) => r.state === "done") ? "asPlanned" : "adjusted";
 }
 
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+const t = (k: string, v?: Record<string, unknown>) => i18n.t(`timeline.recap.${k}`, v ?? {});
 
 /**
  * The evening recap / past-day summary line — counters only, never a verdict.
  * Empty string when nothing was recorded; the caller renders the honest empty copy.
- * ponytail: English-shaped here because it is a *count* sentence; APP-108 moves the
- * fragments into i18n when it restructures en.json.
  */
 export function recapLine(day: DayRecord, domains: Domains = {}): string {
   const on = (k: keyof Domains) => domains[k] !== false;
@@ -62,28 +61,18 @@ export function recapLine(day: DayRecord, domains: Domains = {}): string {
   if (on("meals")) {
     const c = dayCounters(day);
     if (c.done || c.adjusted || c.skipped) {
-      bits.push(
-        plural(c.done, "meal", "meals") +
-          " as planned" +
-          (c.adjusted ? ` · ${c.adjusted} adjusted` : "") +
-          (c.skipped ? ` · ${c.skipped} skipped` : ""),
-      );
+      bits.push(t(c.done === 1 ? "mealsOne" : "mealsMany", { n: c.done }));
+      if (c.adjusted) bits.push(t("adjusted", { n: c.adjusted }));
+      if (c.skipped) bits.push(t("skipped", { n: c.skipped }));
     }
   }
   if (on("move") && day.workout) {
-    bits.push(`${day.workout.title} ${day.workout.state === "skipped" ? "skipped" : "done"}`);
+    bits.push(t(day.workout.state === "skipped" ? "workoutSkipped" : "workoutDone", { title: day.workout.title }));
   }
-  if (on("water") && day.waterMl > 0) bits.push(`${day.waterMl.toLocaleString("en-US")} ml of water`);
-  return bits.join(" · ");
+  if (on("water") && day.waterMl > 0) bits.push(t("water", { ml: day.waterMl.toLocaleString("en-US") }));
+  return bits.join(t("sep"));
 }
 
 /** Meals still marked planned AND already due — what Close the day would record. */
 export const pendingMeals = (day: DayRecord, meals: DayMeal[], nowMin: number): DayMeal[] =>
   meals.filter((m) => !mealRecord(day, m.id) && isDue(m, nowMin));
-
-/** The close-the-day card's line (prototype `closeLine`). */
-export function closeLine(day: DayRecord, meals: DayMeal[], nowMin: number): string {
-  const pend = pendingMeals(day, meals, nowMin);
-  if (pend.length === 0) return "Everything is confirmed — close the day whenever you like.";
-  return `${pend.map((m) => m.name).join(" and ")} ${pend.length > 1 ? "are" : "is"} still marked planned — everything else is confirmed.`;
-}

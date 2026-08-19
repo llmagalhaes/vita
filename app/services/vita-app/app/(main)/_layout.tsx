@@ -5,7 +5,7 @@ import { CaptureProvider } from "../../src/capture/CaptureContext";
 import { CapturePill } from "../../src/capture/CapturePill";
 import { CaptureSheet } from "../../src/capture/CaptureSheet";
 import { startReconnectDrain } from "../../src/db/reconnect";
-import { CheckinSheet } from "../../src/habits/CheckinSheet";
+import { startDayClose } from "../../src/notify/dayClose";
 import { PanelShell } from "../../src/nav/PanelShell";
 import { ReviewSheet } from "../../src/review/ReviewSheet";
 import { colors, ToastHost } from "../../src/ui";
@@ -16,6 +16,9 @@ export default function MainLayout() {
   const authed = useAuth();
   // Drain the outbox on regained connectivity (parked writes + offline interpretations).
   useEffect(() => startReconnectDrain(), []);
+  // APP-106: schedule today's day-close notification, keep its body in step with the
+  // log, and route its two actions. One notification a day — nothing else is pushed.
+  useEffect(() => startDayClose(), []);
   if (!authed) return <Redirect href="/auth" />;
 
   return (
@@ -36,12 +39,6 @@ export default function MainLayout() {
         <Stack.Screen name="trends" options={{ animation: "none" }} />
         <Stack.Screen name="day" options={{ animation: "none" }} />
         <Stack.Screen name="library" options={{ animation: "none" }} />
-        {/* v3 routes still reachable from not-yet-rewritten call sites; they
-            redirect to /day (APP-108 removes them). */}
-        <Stack.Screen name="today" options={{ animation: "none" }} />
-        <Stack.Screen name="home" options={{ animation: "none" }} />
-        <Stack.Screen name="habits" options={{ animation: "none" }} />
-        <Stack.Screen name="integrations" options={{ animation: "none" }} />
         {/* Account: prototype opens it with `vtIn` (fade + translateY 16→0, .3s ease).
             A plain native `fade` dropped the rise (CEO: still "estranha"); `fade_from_bottom`
             was too heavy. Fix = native `fade` owns the opacity (push AND pop, so back gets a
@@ -53,7 +50,6 @@ export default function MainLayout() {
       <PanelShell />
       <CapturePill />
       <CaptureSheet />
-      <CheckinSheet />
       <ReviewSheet />
       <ToastHost />
     </CaptureProvider>

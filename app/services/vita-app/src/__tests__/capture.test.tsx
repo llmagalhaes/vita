@@ -9,7 +9,7 @@ import { pendingCount } from "../db/outbox";
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ replace: jest.fn() }),
-  usePathname: () => "/home",
+  usePathname: () => "/day",
 }));
 
 beforeEach(() => resetDbForTests());

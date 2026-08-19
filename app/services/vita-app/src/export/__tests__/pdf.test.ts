@@ -1,10 +1,12 @@
+import i18n from "../../i18n";
 import { resetDbForTests } from "../../db/db";
 import { addLocalEntry, entriesInRange } from "../../db/entries";
 import { buildExportHtml } from "../pdf";
 
 beforeEach(() => resetDbForTests());
 
-const t = (k: string) => (k === "common.ml" ? "ml" : k === "common.l" ? "L" : k);
+// The real locale file — the PDF must carry no literal of its own (APP-108).
+const t = (k: string, v?: Record<string, unknown>) => i18n.t(k, v ?? {});
 
 function seed() {
   addLocalEntry({ type: "meal", occurredAt: new Date().toISOString(), inputMethod: "text", isEstimate: true, detail: { title: "Chicken & rice", items: [], totals: { kcal: 620, proteinG: 42, carbsG: 68, fatG: 22 } } });
@@ -28,12 +30,12 @@ function allEntries() {
 
 test("builds HTML from local SQLite entries with the selected sections", () => {
   seed();
-  const html = buildExportHtml(allEntries(), { audienceLabel: "My doctor", sections: ["meals", "water", "energy"], t });
+  const html = buildExportHtml(allEntries(), { audienceLabel: "My nutritionist", sections: ["meals", "water", "energy"], t });
   expect(html).toContain("Chicken &amp; rice"); // meal from SQLite
   expect(html).toContain("620 kcal");
-  expect(html).toContain("Water");
-  expect(html).toContain("Energy");
-  expect(html).toContain("My doctor");
+  expect(html).toContain(t("export.section.water"));
+  expect(html).toContain(t("export.section.energy"));
+  expect(html).toContain("My nutritionist");
 });
 
 test("estimates are labeled in the PDF", () => {

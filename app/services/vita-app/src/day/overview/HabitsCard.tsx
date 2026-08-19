@@ -51,7 +51,7 @@ export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; to
 
   const answer = (habit: Habit, yes: boolean) => {
     answerCheckin(habit, yes ? "yes" : "not_quite", today);
-    showToast(yes ? t("day.habits.doneToast", { name: habit.name }) : t("day.habits.notTodayToast"), {
+    showToast(yes ? t("overview.habits.doneToast", { name: habit.name }) : t("overview.habits.notTodayToast"), {
       undo: () => {
         // The check-in is written under `${habitId}:${date}` — deleting it puts the
         // row back to unanswered and cancels/reverses whatever the outbox queued.
@@ -64,9 +64,9 @@ export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; to
   return (
     <View style={{ ...cardSurface, paddingVertical: 15, paddingHorizontal: 16, gap: 4 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8, paddingBottom: 6 }}>
-        <MicroLabel>{t("day.habits.label")}</MicroLabel>
+        <MicroLabel>{t("overview.habits.label")}</MicroLabel>
         <Text style={{ fontFamily: fonts.bold, fontSize: 10.5 }} color={colors.disabled}>
-          {t("day.habits.count", { n: rows.length })}
+          {t("overview.habits.count", { n: rows.length })}
         </Text>
       </View>
 
@@ -88,7 +88,7 @@ export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; to
             <>
               <PressScale
                 accessibilityRole="button"
-                accessibilityLabel={t("day.habits.yes", { name: habit.name })}
+                accessibilityLabel={t("overview.habits.yes", { name: habit.name })}
                 onPress={() => answer(habit, true)}
                 scale={0.9}
                 style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: mixOklab(accent, 12, colors.card), alignItems: "center", justifyContent: "center" }}
@@ -97,7 +97,7 @@ export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; to
               </PressScale>
               <PressScale
                 accessibilityRole="button"
-                accessibilityLabel={t("day.habits.no", { name: habit.name })}
+                accessibilityLabel={t("overview.habits.no", { name: habit.name })}
                 onPress={() => answer(habit, false)}
                 scale={0.9}
                 style={{ width: 38, height: 38, borderRadius: 19, borderWidth: 1.5, borderColor: colors.borderControlStrong, alignItems: "center", justifyContent: "center" }}
@@ -120,7 +120,7 @@ export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; to
                 style={{ fontFamily: fonts.extraBold, fontSize: 11, letterSpacing: 0.5, textTransform: "uppercase" }}
                 color={a === "yes" ? colors.green.ink : colors.muted}
               >
-                {a === "yes" ? t("day.habits.answeredDone") : t("day.habits.answeredNot")}
+                {a === "yes" ? t("overview.habits.answeredDone") : t("overview.habits.answeredNot")}
               </Text>
             </View>
           )}
@@ -128,7 +128,7 @@ export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; to
       ))}
 
       <Text style={{ fontSize: 10.5, paddingTop: 6 }} color={colors.faint}>
-        {t("day.habits.footer")}
+        {t("overview.habits.footer")}
       </Text>
     </View>
   );

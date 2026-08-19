@@ -78,27 +78,6 @@ export function dayWorkoutKcal(day: ProgramDay, skips: Record<string, Record<str
   return Math.round((day.kcalEstimate * active) / total);
 }
 
-// ── §9 recap line (Home card + notification body) ─────────────────────────────
-
-/** "A, B and C" / "A and B" / "A" from present segments. */
-function joinSegments(parts: string[]): string {
-  if (parts.length <= 1) return parts[0] ?? "";
-  return `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
-}
-
-/**
- * "2 meals, a workout and 1,250 ml of water — logged, not judged." Segments omit
- * at zero; all-zero → "" (callers hide). Pluralization lives in the locale file.
- */
-export function recapLine(nMeals: number, nWorkouts: number, waterMl: number): string {
-  const parts: string[] = [];
-  if (nMeals > 0) parts.push(nMeals === 1 ? i18n.t("home.recapMealOne") : i18n.t("home.recapMealMany", { n: nMeals }));
-  if (nWorkouts > 0) parts.push(nWorkouts === 1 ? i18n.t("home.recapWorkout") : i18n.t("home.recapWorkoutMany", { n: nWorkouts }));
-  if (waterMl > 0) parts.push(i18n.t("home.recapWater", { ml: waterMl.toLocaleString("en-US") }));
-  if (parts.length === 0) return "";
-  return `${joinSegments(parts)} — ${i18n.t("home.recapTail")}`;
-}
-
 // ── §5.6 supplement timing heuristic ──────────────────────────────────────────
 
 /** Map a supplement's free-text timing to a habit time (reference PDF → 10:00/13:00/13:00). */

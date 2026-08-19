@@ -252,7 +252,7 @@ export function TrendsPanel() {
         <TrendsReplayContext.Provider value={epoch}>
           <View style={{ paddingHorizontal: 2 }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: typeScale.screenTitle }} color={colors.inkHeading}>
-              {t("nav.panels.trends")}
+              {t("shell.panels.trends")}
             </Text>
             <Text style={{ fontSize: 13, marginTop: 1 }} color={colors.muted}>
               {t("trends.subtitle")}

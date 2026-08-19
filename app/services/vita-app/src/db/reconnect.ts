@@ -1,6 +1,7 @@
 import { api } from "../api";
 import { logChanged } from "./notify";
 import { drainOutbox } from "./outbox";
+import { syncSettings } from "./settingsSync";
 
 /**
  * Drain the outbox whenever the network comes back. Covers both parked entry
@@ -16,6 +17,8 @@ export function startReconnectDrain(): () => void {
   return NetInfo.addEventListener((state: { isConnected: boolean | null }) => {
     const connected = state.isConnected !== false;
     if (connected && !wasConnected) {
+      // APP-110: hydrate if the launch GET failed offline, else re-push an unpushed blob.
+      void syncSettings();
       void drainOutbox(api)
         .then(({ synced }) => {
           if (synced > 0) logChanged();

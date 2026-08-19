@@ -15,7 +15,7 @@ import Animated, { FadeIn } from "react-native-reanimated";
 import { Text, Toggle, colors, fonts, radii, shadowCard, showToast, useAccent } from "../../ui";
 import { createHabit, deleteHabit, listHabits, restoreHabit, updateHabit, type Habit } from "../../db/habits";
 import { logChanged, useLogVersion } from "../../db/notify";
-import { ensureNotificationPermission, refreshNotifications } from "../../habits/notifier";
+import { ensureNotificationPermission, refreshNotifications } from "../../notify/notifier";
 import { CardNote, FormInput, ListCard, ListRow, PillButton, SectionLabel, tinted } from "../parts";
 
 /** Display order Mon→Sun over Sunday-first storage. */
@@ -44,7 +44,7 @@ function AddForm({ onDone }: { onDone: () => void }) {
   const save = () => {
     const trimmed = name.trim();
     if (!trimmed) return;
-    createHabit({ name: trimmed, days, time: time.trim() || "08:00", enabled: true, kind: "plain" });
+    createHabit({ name: trimmed, days, time: time.trim() || "08:00", enabled: true });
     void ensureNotificationPermission();
     afterChange();
     onDone();

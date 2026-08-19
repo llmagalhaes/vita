@@ -51,6 +51,8 @@ export type PlanMeta = { source: PlanSource; importedAt: string };
 export const getPlanMeta = (): PlanMeta | null => kvGet<PlanMeta>(META_KEY);
 export const setPlanMeta = (source: PlanSource): void =>
   kvSet(META_KEY, { source, importedAt: new Date().toISOString() });
+/** Adopt a restored meta verbatim (APP-110 blob hydrate) — keeps the original importedAt. */
+export const adoptPlanMeta = (meta: PlanMeta): void => kvSet(META_KEY, meta);
 
 export const getCachedPlan = (): EatingPlanDraft | null => kvGet<EatingPlanDraft>(PLAN_KEY);
 export const getCachedProgram = (): TrainingProgramDraft | null =>

@@ -37,7 +37,7 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
   // A parse/upload failure used to drop silently back to the chooser — tell the user.
   const fail = () => {
     setPhase("choose");
-    showToast(t("today.programParseError"));
+    showToast(t("library.programs.parseError"));
   };
 
   const runPdf = async () => {
@@ -64,7 +64,7 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
     if (!draft) return;
     void saveProgram(draft).then(() => logChanged());
     onClose();
-    showToast(t("today.programImported", { n: draft.days.length }));
+    showToast(t("library.programs.importedToast", { n: draft.days.length }));
   };
 
   return (
@@ -72,38 +72,38 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
       {phase === "choose" ? (
         <View style={{ gap: 10 }}>
           <Text variant="title" style={{ fontSize: 17 }}>
-            {t("today.wkNoneTitle")}
+            {t("library.programs.importTitle")}
           </Text>
-          <Button label={t("today.importPdf")} onPress={runPdf} />
-          <Button label={t("today.typeOrSpeak")} variant="ghost" onPress={() => setPhase("describing")} />
+          <Button label={t("common.importPdf")} onPress={runPdf} />
+          <Button label={t("common.typeOrSpeak")} variant="ghost" onPress={() => setPhase("describing")} />
         </View>
       ) : null}
 
       {phase === "describing" ? (
         <View style={{ gap: 12 }}>
           <Text variant="title" style={{ fontSize: 17 }}>
-            {t("today.typeOrSpeak")}
+            {t("common.typeOrSpeak")}
           </Text>
           <TextInput
             value={text}
             onChangeText={setText}
-            placeholder={t("onboarding.program.inputPlaceholder")}
+            placeholder={t("library.programs.inputPlaceholder")}
             placeholderTextColor={colors.labelMuted}
             multiline
-            accessibilityLabel={t("today.typeOrSpeak")}
+            accessibilityLabel={t("common.typeOrSpeak")}
             style={{ borderWidth: 1, borderColor: "rgba(120,100,75,0.16)", backgroundColor: colors.card, borderRadius: 18, padding: 16, minHeight: 96, fontFamily: fonts.semiBold, fontSize: 15, color: colors.ink, textAlignVertical: "top" }}
           />
           <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={t("onboarding.planShared.dictate")}
+              accessibilityLabel={t("common.dictate")}
               onPress={onMic}
               style={{ width: 50, height: 50, borderRadius: 25, borderWidth: 1.5, borderColor: "rgba(120,100,75,0.16)", backgroundColor: colors.card, alignItems: "center", justifyContent: "center" }}
             >
               <Text style={{ fontSize: 18 }}>🎙</Text>
             </Pressable>
             <View style={{ flex: 1 }}>
-              <Button label={t("onboarding.planShared.readBack")} disabled={text.trim() === ""} onPress={() => runText(text.trim())} />
+              <Button label={t("common.readBack")} disabled={text.trim() === ""} onPress={() => runText(text.trim())} />
             </View>
           </View>
         </View>
@@ -113,7 +113,7 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 8 }}>
           <ActivityIndicator color={colors.accent} />
           <Text variant="label" color={colors.muted}>
-            {t("onboarding.planShared.reading")}
+            {t("common.reading")}
           </Text>
         </View>
       ) : null}
@@ -128,12 +128,12 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
               <View key={d.name} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
                 <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.greens[1] }} />
                 <Text variant="label" style={{ flex: 1 }} color="#6E6355">
-                  {d.name} · {d.exercises.length} {t("today.exercisesWord")}
+                  {d.name} · {d.exercises.length} {t("library.programs.exercisesWord")}
                 </Text>
               </View>
             ))}
           </View>
-          <Button label={t("today.saveProgram")} onPress={save} />
+          <Button label={t("library.programs.save")} onPress={save} />
           <Button label={t("common.adjust")} variant="ghost" onPress={() => setPhase("describing")} />
         </View>
       ) : null}

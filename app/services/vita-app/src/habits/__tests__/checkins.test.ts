@@ -1,10 +1,9 @@
-import type { Api, EatingPlanDraft, NewEntry } from "../../api/client";
+import type { Api, NewEntry } from "../../api/client";
 import { createMockApi } from "../../api/mock";
 import { resetDbForTests } from "../../db/db";
-import { entriesForDay, getEntry, upsertCheckin } from "../../db/entries";
+import { getEntry, upsertCheckin } from "../../db/entries";
 import { drainOutbox } from "../../db/outbox";
 import { createHabit, type HabitInput } from "../../db/habits";
-import { kvSet } from "../../db/kv";
 import { answerCheckin, answeredCheckins, dateKey, getCheckin, habitDots, pendingCheckins } from "../checkins";
 
 const everyDay = [true, true, true, true, true, true, true];
@@ -13,7 +12,6 @@ const habitInput = (over: Partial<HabitInput> = {}): HabitInput => ({
   days: everyDay,
   time: "21:00",
   enabled: true,
-  kind: "plain",
   ...over,
 });
 
@@ -61,27 +59,6 @@ test("change answer re-answers the same day and PATCHes once synced", async () =
   const spy: Api = { ...mock, patchEntry: (id, patch) => { patched++; return mock.patchEntry(id, patch); } };
   await drainOutbox(spy);
   expect(patched).toBe(1); // update op, not a duplicate create
-});
-
-test("plan check-in answered yes auto-logs the plan's meal", () => {
-  const plan: EatingPlanDraft = {
-    summary: "demo",
-    meals: [
-      {
-        name: "Lunch",
-        items: [{ name: "Chicken", quantity: 150, unit: "g", nutritionPerUnit: { kcal: 1.65, proteinG: 0.31, carbsG: 0, fatG: 0.036 } }],
-      },
-    ],
-  };
-  kvSet("plan.current", plan);
-  const h = createHabit(habitInput({ kind: "plan", planMealName: "Lunch" }));
-
-  const { loggedMeal } = answerCheckin(h, "yes");
-  expect(loggedMeal).toBe(true);
-
-  const meals = entriesForDay(new Date()).filter((e) => e.type === "meal");
-  expect(meals).toHaveLength(1);
-  expect((meals[0]!.detail as { title?: string }).title).toBe("Lunch");
 });
 
 test("pending → answered flip and today's dot fills on yes", () => {

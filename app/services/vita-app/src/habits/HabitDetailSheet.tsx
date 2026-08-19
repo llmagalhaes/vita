@@ -171,7 +171,7 @@ export function HabitDetailSheet({
       ? ""
       : [
           shown.days.every(Boolean)
-            ? t("habits.everyDay")
+            ? t("library.habits.everyDay")
             : MON_FIRST.filter((wd) => shown.days[wd])
                 .map((wd) => weekdayLabel(wd, "narrow"))
                 .join(" "),

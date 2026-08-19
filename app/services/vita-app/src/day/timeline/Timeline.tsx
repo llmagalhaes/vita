@@ -20,10 +20,9 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import type { PlanMeal, ProgramDay } from "../../api/client";
-import { applyClose, getDayRecord, recordWorkout } from "../../db/dayRecord";
+import { applyClose, getDayRecord, isDayClosed, recordWorkout, setDayClosed } from "../../db/dayRecord";
 import { useDomains } from "../../db/domains";
 import { deleteEntry } from "../../db/entries";
-import { kvGet, kvSet } from "../../db/kv";
 import { logChanged, useLogVersion } from "../../db/notify";
 import { getCachedPlan, getCachedProgram, getSelectedDay } from "../../db/plan";
 import { recapStartHour } from "../../db/settings";
@@ -135,18 +134,6 @@ export function TimelineRow({
       <View style={{ flex: 1, minWidth: 0, paddingBottom: 12 }}>{children}</View>
     </View>
   );
-}
-
-// ── "closed" is a device-local day flag ───────────────────────────────────────
-// APP-094 deliberately put no `closed` field on the wire (R2: "closed later, by you"
-// is DERIVED from loggedAt). But Close-the-day vs Reopen is a real UI state that no
-// record can express — a day where every meal happens to be confirmed is not the same
-// as a day you closed. Keyed by date like the overlay, so there is no rollover dance.
-const closedKey = (date: string) => `day.closed.${date}`;
-export const isDayClosed = (date: string): boolean => kvGet<boolean>(closedKey(date)) === true;
-export function setDayClosed(date: string, closed: boolean): void {
-  kvSet(closedKey(date), closed);
-  logChanged();
 }
 
 /** vtFade: 8px rise + fade, `both`, staggered per node. */

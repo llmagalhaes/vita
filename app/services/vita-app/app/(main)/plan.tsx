@@ -61,7 +61,7 @@ export default function EatingPlanScreen() {
   const [working, setWorking] = useState<EatingPlanDraft | null>(null);
   const [sel, setSel] = useState<{ mi: number; ii: number } | null>(null);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/home"));
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/day"));
   const view = editing && working ? working : saved;
   const activePortions = editing ? {} : portions; // edit mode edits doc quantities directly
 

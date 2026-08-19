@@ -11,8 +11,9 @@
  * The email comes from GET /me and is cached, so the row still reads right offline.
  */
 import { useEffect, useState } from "react";
-import { View } from "react-native";
+import { Pressable, View} from "react-native";
 import { useTranslation } from "react-i18next";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { ConfirmSheet, Text, colors, fonts, showToast, useAccent } from "../../ui";
 import { api } from "../../api";
@@ -73,7 +74,14 @@ export function Account({ onExport }: { onExport: () => void }) {
 
   return (
     <ListCard style={{ paddingVertical: 15, gap: 12 }}>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+      {/* The row pushes the surviving /account screen — notification settings
+          (master switch, day-close hour) live there and nowhere else. */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t("library.account.open")}
+        onPress={() => router.push("/account")}
+        style={{ flexDirection: "row", alignItems: "center", gap: 12 }}
+      >
         <LinearGradient
           // prototype `linear-gradient(135deg,#E8B48C,var(--accent))`
           colors={[colors.peachSoft, accent]}
@@ -91,7 +99,8 @@ export function Account({ onExport }: { onExport: () => void }) {
             <Text style={{ fontSize: 11.5, marginTop: 1 }} numberOfLines={1} color={colors.muted}>{email}</Text>
           ) : null}
         </View>
-      </View>
+        <Text style={{ fontSize: 16 }} color={colors.faint}>›</Text>
+      </Pressable>
       <View style={{ flexDirection: "row", gap: 8 }}>
         <PillButton label={t("library.account.signOut")} onPress={() => void signOut()} height={42} flex={1} />
         <PillButton label={t("library.account.delete")} onPress={() => setConfirmOpen(true)} tone="danger" height={42} flex={1} />

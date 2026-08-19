@@ -1,5 +1,5 @@
 import type { LocalEntry } from "../../db/entries";
-import { WINDOW_DAYS, aggregateDays, dayKey, vacationExcluder, visibleDays, windowDays, windowRange } from "../aggregate";
+import { aggregateDays, dayKey, vacationExcluder } from "../aggregate";
 import { indexFromX, nearestIndexFromX } from "../scrub";
 
 // Fixed anchor so day math is deterministic (local noon avoids tz day-flip).
@@ -24,29 +24,6 @@ function entry(type: LocalEntry["type"], occurredAt: string, detail: unknown): L
   };
 }
 
-describe("windowing", () => {
-  test("windowDays returns N local-midnight days ending today, oldest→newest", () => {
-    const days = windowDays("W", TODAY);
-    expect(days).toHaveLength(WINDOW_DAYS.W);
-    expect(days).toHaveLength(7);
-    expect(dayKey(days[6]!)).toBe("2026-06-15");
-    expect(dayKey(days[0]!)).toBe("2026-06-09");
-    for (const d of days) expect([d.getHours(), d.getMinutes()]).toEqual([0, 0]);
-  });
-
-  // The v3 15-day window (WINDOW_DAYS.F) died with the Food/Activity tabs (APP-100).
-  test("only W and M survive; M is 30 days", () => {
-    expect(Object.keys(WINDOW_DAYS)).toEqual(["W", "M"]);
-    expect(windowDays("M", TODAY)).toHaveLength(30);
-  });
-
-  test("windowRange is half-open [firstDay, dayAfterToday)", () => {
-    const { start, end } = windowRange("W", TODAY);
-    expect(dayKey(start)).toBe("2026-06-09");
-    expect(dayKey(end)).toBe("2026-06-16"); // exclusive upper bound = tomorrow
-  });
-});
-
 describe("aggregateDays bucketing", () => {
   const entries: LocalEntry[] = [
     entry("meal", daysAgo(0, 8), { totals: { kcal: 500, proteinG: 30, carbsG: 40, fatG: 10 } }),
@@ -58,7 +35,7 @@ describe("aggregateDays bucketing", () => {
   ];
 
   test("sums meals/water/workouts into the right day; ignores out-of-window", () => {
-    const days = aggregateDays(entries, "W", TODAY);
+    const days = aggregateDays(entries, 7, TODAY);
     const today = days.find((d) => d.key === "2026-06-15")!;
     expect(today.consumedKcal).toBe(800);
     expect(today.protein).toBe(40);
@@ -74,7 +51,7 @@ describe("aggregateDays bucketing", () => {
   });
 
   test("missing days stay zeroed, not dropped", () => {
-    const days = aggregateDays(entries, "W", TODAY);
+    const days = aggregateDays(entries, 7, TODAY);
     expect(days).toHaveLength(7);
     const empty = days.find((d) => d.key === "2026-06-11")!;
     expect(empty.consumedKcal).toBe(0);
@@ -85,14 +62,13 @@ describe("aggregateDays bucketing", () => {
 describe("vacation-day exclusion", () => {
   const entries = [entry("meal", daysAgo(1, 8), { totals: { kcal: 700 } })];
 
-  test("predicate flags the day; visibleDays drops it; bucket still holds the data", () => {
+  test("predicate flags the day; the bucket still holds the data", () => {
     const isEx = vacationExcluder([{ start: daysAgo(1), end: daysAgo(1) }]);
-    const days = aggregateDays(entries, "W", TODAY, isEx);
+    const days = aggregateDays(entries, 7, TODAY, isEx);
     const vac = days.find((d) => d.key === dayKey(new Date(daysAgo(1))))!;
     expect(vac.excluded).toBe(true);
     expect(vac.consumedKcal).toBe(700); // still bucketed
-    expect(visibleDays(days).some((d) => d.excluded)).toBe(false);
-    expect(visibleDays(days)).toHaveLength(6);
+    expect(days.filter((d) => !d.excluded)).toHaveLength(6);
   });
 
   test("range covering multiple days excludes each; ISO datetime bounds work", () => {

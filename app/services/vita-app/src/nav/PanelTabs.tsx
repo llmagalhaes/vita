@@ -73,7 +73,7 @@ export function PanelTabs({ panel, dark, onPick }: { panel: number; dark: boolea
   const inner = (
     <>
       {TAB_KEYS.map((k, i) => (
-        <Tab key={k} label={t(`nav.panels.${k}`)} active={panel === i} dark={dark} accent={accent} onPress={() => onPick(i)} />
+        <Tab key={k} label={t(`shell.panels.${k}`)} active={panel === i} dark={dark} accent={accent} onPress={() => onPick(i)} />
       ))}
     </>
   );
@@ -131,7 +131,7 @@ export function SwipeHint() {
         }}
         color={colors.faint}
       >
-        {t("nav.swipeHint")}
+        {t("shell.swipeHint")}
       </Text>
     </Animated.View>
   );

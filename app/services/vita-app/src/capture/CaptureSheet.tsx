@@ -116,14 +116,14 @@ export function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIn
   const headline = (() => {
     if (draft.type === "water") {
       const d = draft.detail as WaterDetail;
-      return { title: t("home.waterEntry"), big: `${d.amountMl}`, unit: t("common.ml") };
+      return { title: t("capture.card.water"), big: `${d.amountMl}`, unit: t("common.ml") };
     }
     if (draft.type === "workout") {
       const d = draft.detail as WorkoutDetail;
       return { title: d.title, big: `${d.kcal ?? 0}`, unit: t("common.kcal") };
     }
     const d = draft.detail as MealDetail;
-    return { title: d.title ?? t("home.meal"), big: `${Math.round(d.totals?.kcal ?? 0)}`, unit: t("common.kcal") };
+    return { title: d.title ?? t("capture.card.meal"), big: `${Math.round(d.totals?.kcal ?? 0)}`, unit: t("common.kcal") };
   })();
 
   const meal = draft.type === "meal" ? (draft.detail as MealDetail) : null;
@@ -154,9 +154,9 @@ export function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIn
 
       {meal?.totals && (
         <View style={{ flexDirection: "row", gap: spacing.sm }}>
-          <MacroBox label={t("home.protein")} grams={meal.totals.proteinG} />
-          <MacroBox label={t("home.carbs")} grams={meal.totals.carbsG} />
-          <MacroBox label={t("home.fat")} grams={meal.totals.fatG} />
+          <MacroBox label={t("common.protein")} grams={meal.totals.proteinG} />
+          <MacroBox label={t("common.carbs")} grams={meal.totals.carbsG} />
+          <MacroBox label={t("common.fat")} grams={meal.totals.fatG} />
         </View>
       )}
 
@@ -207,7 +207,7 @@ export function DraftCard({ draft, onStep }: { draft: NewEntry; onStep?: (itemIn
               </View>
             )}
             {(workout.muscles ?? []).map((m) => (
-              <Chip key={m} label={t(`muscles.${m}`)} />
+              <Chip key={m} label={t(`muscle.contract.${m}`)} />
             ))}
           </View>
           {(workout.exercises ?? []).length > 0 && (

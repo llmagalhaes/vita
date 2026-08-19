@@ -10,12 +10,11 @@ import { useRouter } from "expo-router";
 import Animated, { Easing, FadeIn, withTiming } from "react-native-reanimated";
 import { BackButton, Card, Chevron, ConfirmSheet, KeyboardAvoider, PressScale, Text, Toggle, colors, fonts, shadowCta, showToast, spacing } from "../../src/ui";
 import { getSettings, notificationsEnabled, recapEnabled, recapStartHour, setName, setNotificationsEnabled, setRecapEnabled, setRecapStartHour } from "../../src/db/settings";
-import { syncRecapFromLog } from "../../src/habits/recap";
+import { syncDayClose } from "../../src/notify/dayClose";
 import { useLogVersion } from "../../src/db/notify";
 import { getVacation, isVacationActive, endVacation } from "../../src/db/vacation";
-import { refreshNotifications } from "../../src/habits/notifier";
+import { refreshNotifications } from "../../src/notify/notifier";
 import { getCachedPlan, getCachedProgram } from "../../src/db/plan";
-import { listHabits } from "../../src/db/habits";
 import { VacationSheet } from "../../src/vacation/VacationSheet";
 import { ExportSheet } from "../../src/export/ExportSheet";
 import { signOut } from "../../src/auth/session";
@@ -102,18 +101,17 @@ export default function Account() {
 
   const plan = getCachedPlan();
   const program = getCachedProgram();
-  const habitCount = listHabits().length;
 
   const notifOn = notificationsEnabled();
   const toggleNotif = () => {
     setNotificationsEnabled(!notifOn);
     void refreshNotifications();
-    void syncRecapFromLog();
+    void syncDayClose();
   };
   const recapOn = recapEnabled();
   const toggleRecap = () => {
     setRecapEnabled(!recapOn);
-    void syncRecapFromLog();
+    void syncDayClose();
   };
   const [recapHour, setRecapHourState] = useState(recapStartHour());
   const changeRecapHour = (h: number) => {
@@ -130,7 +128,7 @@ export default function Account() {
     <KeyboardAvoider>
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 22, paddingTop: 60, paddingBottom: 150, gap: 13 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <BackButton onPress={() => router.replace("/home")} label={t("account.back")} />
+        <BackButton onPress={() => router.replace("/day")} label={t("account.back")} />
         <Label>{t("account.title")}</Label>
       </View>
 
@@ -165,10 +163,10 @@ export default function Account() {
 
       {/* your setup — deep links */}
       <Label>{t("account.yourSetup")}</Label>
-      <SetupRow glyph="❧" bg="#E7EDE1" ink="#5F7A61" title={t("home.eatingPlan")} sub={plan ? (plan.summary ?? t("account.setupPlanSet")) : t("account.setupNone")} onPress={() => router.push("/plan")} delay={50} />
-      <SetupRow glyph="⟐" bg={colors.estimateBg} ink={colors.accent} title={t("home.trainingProgram")} sub={program ? (program.splitDescription ?? t("account.setupProgramSet")) : t("account.setupNone")} onPress={() => router.push("/program")} delay={100} />
-      <SetupRow glyph="≋" bg="#F0EDE2" ink="#6E6355" title={t("account.integrations")} sub={t("account.integrationsSub")} onPress={() => router.replace("/integrations")} delay={150} />
-      <SetupRow glyph="✓" bg={colors.estimateBg} ink={colors.accent} title={t("habits.title")} sub={t("account.habitsSub", { count: habitCount })} onPress={() => router.push("/habits")} delay={200} />
+      <SetupRow glyph="❧" bg="#E7EDE1" ink="#5F7A61" title={t("library.plan.title")} sub={plan ? (plan.summary ?? t("account.setupPlanSet")) : t("account.setupNone")} onPress={() => router.push("/plan")} delay={50} />
+      <SetupRow glyph="⟐" bg={colors.estimateBg} ink={colors.accent} title={t("library.programs.title")} sub={program ? (program.splitDescription ?? t("account.setupProgramSet")) : t("account.setupNone")} onPress={() => router.push("/program")} delay={100} />
+      {/* APP-108: the Integrations screen and the Habits tab are gone — Library owns
+          the one Health Connect row and the habit list now. */}
 
       {/* notifications */}
       <Label>{t("account.notifications")}</Label>

@@ -132,13 +132,13 @@ export function ReviewSheet() {
                 {t("review.allDone")}
               </Text>
               <View style={{ marginTop: spacing.sm }}>
-                <Button label={t("mealDetail.back")} variant="ghost" onPress={closeReview} />
+                <Button label={t("common.back")} variant="ghost" onPress={closeReview} />
               </View>
             </Card>
           )}
           {current ? (
             <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>
-              {t("habits.swipeDown")}
+              {t("common.swipeDown")}
             </Text>
           ) : null}
         </Animated.View>

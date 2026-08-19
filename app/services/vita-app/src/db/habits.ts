@@ -2,15 +2,16 @@
  * Habit definitions — device-local (standing decision D1). The habit's SCHEDULE
  * (days/time/enabled) never leaves the phone; a check-in RESULT does persist
  * server-side as a `checkin` entry, and that entry ships the habit's id, name and
- * kind inside its (encrypted) detail — see src/habits/checkins.ts + CheckinDetail.
+ * name inside its (encrypted) detail — see src/habits/checkins.ts + CheckinDetail.
  * No streaks, no scores — a habit is just a name, a schedule and an on/off switch.
+ *
+ * APP-108: v4 has ONE kind of habit. The v3 `kind` ("plain" | "plan" | "digest") and
+ * its `planMealName` link are gone with the per-meal check-in notifications; the two
+ * columns survive in older databases (both nullable-or-defaulted) and are simply never
+ * read or written again — no migration needed.
  */
 import { uuid } from "../lib/uuid";
 import { getDb } from "./db";
-
-// "plain" = yes/no check-in · "plan" = plan check-in (yes auto-logs the meal) ·
-// "digest" = notification only, sends that plan meal's macros + example foods (no answer).
-export type HabitKind = "plain" | "plan" | "digest";
 
 export type Habit = {
   id: string;
@@ -19,9 +20,6 @@ export type Habit = {
   days: boolean[];
   time: string; // HH:MM
   enabled: boolean;
-  kind: HabitKind;
-  /** Plan-meal link (by meal name) when kind === "plan" or "digest". */
-  planMealName?: string;
   createdAt: string;
 };
 
@@ -33,8 +31,6 @@ type Row = {
   days: string;
   time: string;
   enabled: number;
-  kind: string;
-  planMealName: string | null;
   createdAt: string;
 };
 
@@ -44,37 +40,29 @@ const rowToHabit = (r: Row): Habit => ({
   days: JSON.parse(r.days) as boolean[],
   time: r.time,
   enabled: r.enabled === 1,
-  kind: r.kind as HabitKind,
-  planMealName: r.planMealName ?? undefined,
   createdAt: r.createdAt,
 });
 
+// Named columns, not `*`: an older database still carries the dead `kind`/`planMealName`
+// columns and this way they never reach the app again.
+const COLS = `id, name, days, time, enabled, createdAt`;
+
 export function listHabits(): Habit[] {
   return getDb()
-    .getAllSync<Row>(`SELECT * FROM habits ORDER BY createdAt ASC`)
+    .getAllSync<Row>(`SELECT ${COLS} FROM habits ORDER BY createdAt ASC`)
     .map(rowToHabit);
 }
 
 export function getHabit(id: string): Habit | null {
-  const r = getDb().getFirstSync<Row>(`SELECT * FROM habits WHERE id = ?`, [id]);
+  const r = getDb().getFirstSync<Row>(`SELECT ${COLS} FROM habits WHERE id = ?`, [id]);
   return r ? rowToHabit(r) : null;
 }
 
 export function createHabit(input: HabitInput): Habit {
   const habit: Habit = { ...input, id: uuid(), createdAt: new Date().toISOString() };
   getDb().runSync(
-    `INSERT INTO habits (id, name, days, time, enabled, kind, planMealName, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      habit.id,
-      habit.name,
-      JSON.stringify(habit.days),
-      habit.time,
-      habit.enabled ? 1 : 0,
-      habit.kind,
-      habit.planMealName ?? null,
-      habit.createdAt,
-    ],
+    `INSERT INTO habits (${COLS}) VALUES (?, ?, ?, ?, ?, ?)`,
+    [habit.id, habit.name, JSON.stringify(habit.days), habit.time, habit.enabled ? 1 : 0, habit.createdAt],
   );
   return habit;
 }
@@ -85,16 +73,8 @@ export function updateHabit(id: string, patch: Partial<HabitInput>): void {
   if (!cur) return;
   const next = { ...cur, ...patch };
   getDb().runSync(
-    `UPDATE habits SET name = ?, days = ?, time = ?, enabled = ?, kind = ?, planMealName = ? WHERE id = ?`,
-    [
-      next.name,
-      JSON.stringify(next.days),
-      next.time,
-      next.enabled ? 1 : 0,
-      next.kind,
-      next.planMealName ?? null,
-      id,
-    ],
+    `UPDATE habits SET name = ?, days = ?, time = ?, enabled = ? WHERE id = ?`,
+    [next.name, JSON.stringify(next.days), next.time, next.enabled ? 1 : 0, id],
   );
 }
 
@@ -105,17 +85,7 @@ export function deleteHabit(id: string): void {
 /** Re-insert a removed habit verbatim (preserves id + createdAt) — powers toast Undo. */
 export function restoreHabit(habit: Habit): void {
   getDb().runSync(
-    `INSERT OR REPLACE INTO habits (id, name, days, time, enabled, kind, planMealName, createdAt)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      habit.id,
-      habit.name,
-      JSON.stringify(habit.days),
-      habit.time,
-      habit.enabled ? 1 : 0,
-      habit.kind,
-      habit.planMealName ?? null,
-      habit.createdAt,
-    ],
+    `INSERT OR REPLACE INTO habits (${COLS}) VALUES (?, ?, ?, ?, ?, ?)`,
+    [habit.id, habit.name, JSON.stringify(habit.days), habit.time, habit.enabled ? 1 : 0, habit.createdAt],
   );
 }

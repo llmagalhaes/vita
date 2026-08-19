@@ -1,6 +1,6 @@
 import { api } from "../../api";
 import { dayKey, vacationExcluder } from "../../trends/aggregate";
-import { setNotifier, stubNotifier } from "../../habits/notifier";
+import { setNotifier, stubNotifier } from "../../notify/notifier";
 import { resetDbForTests } from "../db";
 import {
   OPEN_ENDED_END,

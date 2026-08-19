@@ -62,7 +62,7 @@ function persist(cfg: VacationConfig): void {
   setVacationAccent(isVacationActive());
   logChanged();
   // Reschedule through the single notifier gate (lazy require breaks the cycle).
-  void require("../habits/notifier").refreshNotifications();
+  void require("../notify/notifier").refreshNotifications();
   // Ranges are the only server-persisted part (D1) — replace-on-write.
   void pushVacations();
 }
@@ -75,6 +75,14 @@ async function pushVacations(): Promise<void> {
   } catch {
     /* offline — stays dirty, re-pushed on next sync */
   }
+}
+
+/**
+ * Adopt the device-local prefs restored from the settings blob (APP-110). Ranges are
+ * left alone — they have their own resource — and nothing is pushed back.
+ */
+export function adoptVacationPrefs(prefs: Partial<Pick<VacationConfig, "keepWater" | "duration">>): void {
+  kvSet(KEY, { ...getVacation(), ...prefs });
 }
 
 /** Save the whole config (dates + local prefs). */

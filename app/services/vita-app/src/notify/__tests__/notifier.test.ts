@@ -1,5 +1,7 @@
+import "../../i18n";
 import { resetDbForTests } from "../../db/db";
 import { createHabit, type Habit, type HabitInput } from "../../db/habits";
+import { habitBody } from "../dayClose";
 import {
   ensureNotificationPermission,
   plannedNotifications,
@@ -15,7 +17,6 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
   days: [false, true, false, false, false, false, false], // Monday only
   time: "07:30",
   enabled: true,
-  kind: "plain",
   createdAt: new Date().toISOString(),
   ...over,
 });
@@ -25,46 +26,30 @@ const input = (over: Partial<HabitInput> = {}): HabitInput => ({
   days: [true, true, true, true, true, true, true],
   time: "09:00",
   enabled: true,
-  kind: "plain",
   ...over,
 });
 
 test("plannedNotifications maps day index 0=Sunday to expo weekday 1", () => {
-  const [n, ...rest] = plannedNotifications([habit()]);
+  const [n, ...rest] = plannedNotifications([habit()], habitBody);
   expect(rest).toHaveLength(0);
   expect(n).toEqual({
     habitId: "h1",
     title: "Vita",
     body: "Take creatine — a quick check-in",
-    kind: "plain",
     weekday: 2,
     hour: 7,
     minute: 30,
   });
 });
 
-test("a plan-digest alarm carries the resolved digest body and kind (CEO #7)", () => {
-  const digest = habit({ id: "d1", name: "Lunch digest", kind: "digest", planMealName: "Lunch" });
-  const [n] = plannedNotifications([digest], (h) =>
-    h.kind === "digest" ? `${h.planMealName}, from your plan · 40 g protein` : null,
-  );
-  expect(n!.kind).toBe("digest");
-  expect(n!.body).toBe("Lunch, from your plan · 40 g protein");
-});
-
-test("a digest with no resolvable body falls back to a neutral line, never a check-in prompt", () => {
-  const [n] = plannedNotifications([habit({ kind: "digest", name: "Lunch" })]);
-  expect(n!.body).toBe("Lunch — from your plan");
-});
-
 test("plannedNotifications skips disabled habits and invalid times", () => {
-  expect(plannedNotifications([habit({ enabled: false })])).toHaveLength(0);
-  expect(plannedNotifications([habit({ time: "" })])).toHaveLength(0);
-  expect(plannedNotifications([habit({ time: "25:00" })])).toHaveLength(0);
+  expect(plannedNotifications([habit({ enabled: false })], habitBody)).toHaveLength(0);
+  expect(plannedNotifications([habit({ time: "" })], habitBody)).toHaveLength(0);
+  expect(plannedNotifications([habit({ time: "25:00" })], habitBody)).toHaveLength(0);
 });
 
 test("an every-day habit expands to seven alarms", () => {
-  expect(plannedNotifications([habit({ days: [true, true, true, true, true, true, true] })])).toHaveLength(7);
+  expect(plannedNotifications([habit({ days: [true, true, true, true, true, true, true] })], habitBody)).toHaveLength(7);
 });
 
 test("refreshNotifications drives the injected Notifier with the live habit set", async () => {
@@ -77,6 +62,8 @@ test("refreshNotifications drives the injected Notifier with the live habit set"
   await refreshNotifications();
   expect(stub.calls.sync).toHaveLength(1);
   expect(stub.calls.sync[0]!.map((h) => h.name)).toEqual(["Stretch", "Water"]);
+  // The day-close one-shot is re-scheduled after the cancel-all inside sync().
+  expect(stub.calls.dayClose).toHaveLength(1);
 });
 
 test("ensureNotificationPermission only prompts when undetermined", async () => {

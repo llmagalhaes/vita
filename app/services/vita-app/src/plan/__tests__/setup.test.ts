@@ -1,7 +1,7 @@
 import "../../i18n";
 import type { EatingPlanDraft, ProgramDay } from "../../api/client";
 import { effectiveName, effectivePerUnit, effectiveQuantity, effectiveUnit } from "../compute";
-import { applyUsuals, changesToday, dayWorkoutKcal, recapLine, setupFindings, supplementTime } from "../setup";
+import { applyUsuals, changesToday, dayWorkoutKcal, setupFindings, supplementTime } from "../setup";
 
 // A meal with a base composition (2 items, one swappable) + one option (1 item,
 // swappable). Banana carries the equivalence-tested swap; "as much as you like"
@@ -72,13 +72,6 @@ test("dayWorkoutKcal: scales by active/total; null when no estimate", () => {
   expect(dayWorkoutKcal(day, {})).toBe(430);
   expect(dayWorkoutKcal(day, { "Leg day": { A: true, B: true } })).toBe(Math.round((430 * 2) / 4));
   expect(dayWorkoutKcal({ name: "X", exercises: [{ name: "A" }] }, {})).toBeNull();
-});
-
-test("recapLine: pluralization + omission matrix", () => {
-  expect(recapLine(2, 1, 1250)).toBe("2 meals, a workout and 1,250 ml of water — logged, not judged.");
-  expect(recapLine(1, 0, 0)).toBe("1 meal — logged, not judged.");
-  expect(recapLine(0, 2, 500)).toBe("2 workouts and 500 ml of water — logged, not judged.");
-  expect(recapLine(0, 0, 0)).toBe("");
 });
 
 test("supplementTime: lunch/dinner → 13:00, morning → 08:00, else 10:00", () => {

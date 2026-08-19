@@ -25,7 +25,7 @@ export default function TrainingProgramScreen() {
   const [editing, setEditing] = useState(false);
   const [working, setWorking] = useState<TrainingProgramDraft | null>(null);
 
-  const back = () => (router.canGoBack() ? router.back() : router.replace("/home"));
+  const back = () => (router.canGoBack() ? router.back() : router.replace("/day"));
   const view = editing && working ? working : saved;
 
   const mutate = (fn: (d: TrainingProgramDraft) => void) =>
