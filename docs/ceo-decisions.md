@@ -2,6 +2,13 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-08-24 — Round 16 (v4.2 manual setup, session 23)
+
+On the v4.2 handoff's "Fill in the calories for me" and the exercise catalog:
+
+1. **Kcal estimation is HYBRID, table-first**: a pre-seeded food table on our side is consulted first; **Claude is asked only for items the table misses** ("perguntar para o Claude somente o que for necessário"). Seed the table from a public database to cut costs (PT-BR coverage matters — CEO types food names in Portuguese).
+2. **Same model for exercises**: the handoff's EXCAT is the starting seed; enrich from a public exercise DB, Claude fallback for unknown names → muscle weights.
+
 ## 2026-08-24 — Round 15 (v4.1 open questions, session 23)
 
 Answers to the two open items the v4.1 handoff round surfaced:
