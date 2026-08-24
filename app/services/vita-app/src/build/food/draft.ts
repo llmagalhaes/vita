@@ -9,7 +9,7 @@
  */
 import type { EatingPlanDraft } from "../../api/client";
 import type { EstimateItem } from "../../plan/estimateKcal";
-import { skel } from "../parts";
+import { numOf, skel } from "../parts";
 
 export type BuildItem = {
   /** Name, as typed. */
@@ -43,24 +43,38 @@ export const dayTotal = (meals: BuildMeal[]): number =>
 export const anyK = (meals: BuildMeal[]): boolean =>
   meals.some((m) => m.items.some((it) => it.k != null));
 
+/** WHERE an estimate was asked for, next to WHAT was asked — the merge's key. */
+export type EmptySlot = { mi: number; ii: number; item: EstimateItem };
+
 /** Every item still without a kcal, flat and in order — the estimate request. */
-export const emptyItems = (meals: BuildMeal[]): EstimateItem[] =>
-  meals.flatMap((m) => m.items.filter((it) => it.k == null).map((it) => ({ name: it.n, quantity: it.q, unit: it.u })));
+export const emptySlots = (meals: BuildMeal[]): EmptySlot[] =>
+  meals.flatMap((m, mi) =>
+    m.items.flatMap((it, ii) => (it.k == null ? [{ mi, ii, item: { name: it.n, quantity: it.q, unit: it.u } }] : [])),
+  );
 
 /**
- * Fold an index-aligned answer back onto the same flat order `emptyItems` produced.
+ * Fold an index-aligned answer back onto the slots it was asked for.
  *
- * A number the user typed is NEVER overwritten (criterion 11) — that is structural
- * here, not a check: an item with a `k` was never sent and never consumes an answer.
- * A `null` answer leaves the dash alone rather than substituting a zero.
+ * Positional alignment holds only while nothing moved: the list is editable and
+ * the pass takes seconds, so the answer is merged BY KEY (meal, item, name) and
+ * anything that no longer matches is dropped silently — an estimate on the wrong
+ * food is worse than no estimate.
+ *
+ * A number the user typed is NEVER overwritten (criterion 11): the slot must
+ * still be empty. A `null` answer leaves the dash alone rather than a zero.
  */
-export function mergeEstimates(meals: BuildMeal[], values: (number | null)[]): BuildMeal[] {
-  let i = 0;
-  return meals.map((m) => ({
+export function mergeEstimates(meals: BuildMeal[], slots: EmptySlot[], values: (number | null)[]): BuildMeal[] {
+  const hit = new Map<string, number>();
+  slots.forEach((s, i) => {
+    const v = values[i];
+    const target = meals[s.mi]?.items[s.ii];
+    if (v != null && target && target.k == null && target.n === s.item.name) hit.set(`${s.mi}-${s.ii}`, v);
+  });
+  if (hit.size === 0) return meals;
+  return meals.map((m, mi) => ({
     ...m,
-    items: m.items.map((it) => {
-      if (it.k != null) return it;
-      const v = values[i++];
+    items: m.items.map((it, ii) => {
+      const v = hit.get(`${mi}-${ii}`);
       return v == null ? it : { ...it, k: v, est: true };
     }),
   }));
@@ -78,7 +92,7 @@ export function saveEdit(meals: BuildMeal[], key: string, raw: string): BuildMea
   const [mi, ii] = key.split("-").map(Number);
   const item = meals[mi!]?.items[ii!];
   if (!item) return meals;
-  const v = Number(raw);
+  const v = numOf(raw);
   if (raw.trim() === "" || !Number.isFinite(v) || v < 0) return meals;
   return meals.map((m, x) =>
     x !== mi ? m : { ...m, items: m.items.map((it, y) => (y !== ii ? it : { ...it, k: Math.round(v), est: false })) },
@@ -93,6 +107,17 @@ export function saveEdit(meals: BuildMeal[], key: string, raw: string): BuildMea
  * A meal (or a day) whose numbers are not all in yet gets NO total: half a sum is
  * a wrong number, and Vita would rather show nothing than a wrong number.
  */
+/**
+ * The meal time as the contract will take it (`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
+ * — the field is free text, so "7:00" and " 12:30 " are normalised and anything
+ * that is still not a clock time simply doesn't travel (`time` is optional).
+ */
+export function wireTime(raw: string): string | undefined {
+  const m = /^(\d{1,2}):([0-5]\d)$/.exec((raw ?? "").replace(/\s/g, ""));
+  const h = m ? Number(m[1]) : 24;
+  return m && h < 24 ? `${String(h).padStart(2, "0")}:${m[2]}` : undefined;
+}
+
 export function toDraft(meals: BuildMeal[], summary: string): EatingPlanDraft {
   const complete = (m: BuildMeal) => m.items.length > 0 && m.items.every((it) => it.k != null);
   const all = meals.flatMap((m) => m.items);
@@ -102,7 +127,7 @@ export function toDraft(meals: BuildMeal[], summary: string): EatingPlanDraft {
     ...(all.length > 0 && all.every((it) => it.k != null) ? { dailyTotals: { kcal: dayTotal(meals) } } : null),
     meals: meals.map((m) => ({
       name: m.n,
-      time: m.t,
+      ...(wireTime(m.t) ? { time: wireTime(m.t) } : null),
       ...(complete(m) ? { kcal: mealTotal(m) } : null),
       items: m.items.map((it) => ({
         name: it.n,

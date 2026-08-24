@@ -8,6 +8,7 @@
 import type { Exercise, Muscle, TrainingProgramDraft, WorkoutKcalRequest } from "../../api/client";
 import type { ExWeights, Family } from "../../workout/exerciseCatalog";
 import { tierOf, type MuscleKey } from "../../muscle/muscleData";
+import { numOf } from "../parts";
 
 /**
  * One exercise as the builder holds it. `sets`/`reps`/`min` are ALL kept as the
@@ -68,7 +69,7 @@ export function rolesOf(mus: ExWeights): NonNullable<Exercise["muscleRoles"]> {
 
 /** A typed field that never made it to a usable number just doesn't go on the wire. */
 const num = (s: string): number | undefined => {
-  const n = Number(s);
+  const n = numOf(s);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 };
 

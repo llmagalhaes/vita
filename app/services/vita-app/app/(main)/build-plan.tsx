@@ -23,7 +23,7 @@ import { BuilderShell } from "../../src/build/parts";
 import { CountPhase } from "../../src/build/food/CountPhase";
 import { MealsPhase } from "../../src/build/food/MealsPhase";
 import { ReviewPhase } from "../../src/build/food/ReviewPhase";
-import { emptyItems, mealsFromSkel, mergeEstimates, saveEdit, toDraft, type BuildItem, type BuildMeal } from "../../src/build/food/draft";
+import { emptySlots, mealsFromSkel, mergeEstimates, saveEdit, toDraft, type BuildItem, type BuildMeal } from "../../src/build/food/draft";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -56,6 +56,7 @@ export default function BuildPlanScreen() {
 
   // One button is both "back a step" and "leave" — the phase decides (§2.1).
   const back = () => {
+    if (busy) return; // the estimate pass owns the list until it lands
     if (phase === "review") {
       setStep(Math.max(0, meals.length - 1));
       return go("meals");
@@ -75,12 +76,19 @@ export default function BuildPlanScreen() {
   const addItem = (item: BuildItem) => patchMeal({ items: [...(meals[step]?.items ?? []), item] });
   const removeItem = (index: number) => patchMeal({ items: (meals[step]?.items ?? []).filter((_, i) => i !== index) });
 
+  /**
+   * The pass is a snapshot: the request is the empty slots as they are NOW, and
+   * the answer merges back by that same key. The screen is held still while it
+   * runs (back and "Edit" are inert), and `mergeEstimates` drops anything that
+   * moved anyway — a number on the wrong food is worse than no number.
+   */
   const estimate = async () => {
     setBusy(true);
+    const slots = emptySlots(meals);
     // 1.5s is a FLOOR, not a fake timer: a slower answer simply takes longer.
-    const [values] = await Promise.all([estimateKcal(emptyItems(meals)), sleep(1500)]);
+    const [values] = await Promise.all([estimateKcal(slots.map((s) => s.item)), sleep(1500)]);
     if (!mounted.current) return; // criterion 12 — leaving mid-pass throws nothing
-    setMeals((ms) => mergeEstimates(ms, values));
+    setMeals((ms) => mergeEstimates(ms, slots, values));
     setBusy(false);
   };
 
@@ -165,6 +173,7 @@ export default function BuildPlanScreen() {
             }}
             onEstimate={() => void estimate()}
             onEditMeal={(i) => {
+              if (busy) return; // same reason as `back` — nothing moves mid-pass
               setStep(i);
               setForm(false);
               go("meals");

@@ -148,9 +148,9 @@ export function ReviewPhase({
               <Text
                 accessibilityRole="button"
                 accessibilityLabel={`${t("build.plan.review.edit")} ${m.n}`}
-                onPress={() => onEditMeal(mi)}
+                onPress={() => !busy && onEditMeal(mi)}
                 style={{ fontFamily: fonts.semiBold, fontSize: 11.5, textDecorationLine: "underline" }}
-                color={colors.labelMuted}
+                color={busy ? colors.disabled : colors.labelMuted}
               >
                 {t("build.plan.review.edit")}
               </Text>

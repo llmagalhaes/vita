@@ -787,13 +787,13 @@
       "pdf": "Import a PDF",
       "pdfSub": "replaces the plan you have now",
       "here": "Build it here",
-      "hereSub": "meal by meal — no document needed",
+      "hereSub": "meal by meal — replaces the plan you have now",
       "one": "Add a single meal",
       "oneSub": "on top of what is already there"
     },
     "trainingSheet": {
       "here": "Build it here",
-      "hereSub": "session by session — lifting, classes, sport"
+      "hereSub": "session by session — replaces your current program"
     },
     "stepOf": "{{n}} of {{total}}",
     "plan": {
@@ -871,8 +871,6 @@
       "dayKcalUnit": "kcal",
       "dayKcalEstimate": "Work it out for me",
       "dayKcalWorking": "Working it out…",
-      "dayKcalEstimated": "~{{kcal}}",
-      "dayKcalNone": "—",
       "dayKcalHint": "A rough number for this session — type your own, or have it worked out from what is in it.",
       "pick": {
         "title": "Add to {{day}}",

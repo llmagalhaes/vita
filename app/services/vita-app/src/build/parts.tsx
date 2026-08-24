@@ -261,6 +261,13 @@ export function EstimateAction({
 }
 
 /**
+ * A number as a person typed it. A PT-BR keyboard puts a comma on the decimal
+ * key, and `Number("1,5")` is NaN — which used to drop the quantity, the sets,
+ * the reps or the minutes silently. NaN for anything that is still not a number.
+ */
+export const numOf = (s: string): number => Number((s ?? "").replace(",", ".").trim());
+
+/**
  * Meal slots by priority (handoff §2.2). Not a table per count: `n` meals are
  * the `n` highest-priority slots, handed back in clock order — so every count
  * from 3 to 10 produces names a person recognises, instead of "Meal 7".

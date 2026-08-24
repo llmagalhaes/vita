@@ -191,6 +191,7 @@ describe("day card and finish", () => {
     await fireEvent.press(screen.getByText("Next day"));
     await fireEvent.press(screen.getByText("Next day"));
     await fireEvent.press(screen.getByText("Finish setup"));
+    await fireEvent.press(screen.getByText("Finish setup")); // double tap saves once
 
     const doc = getCachedProgram()!;
     expect(doc.summary).toBe("My program"); // untitled → the fallback
@@ -199,7 +200,7 @@ describe("day card and finish", () => {
     expect(doc.days[0]!.exercises).toEqual([
       { name: "Squat", sets: 3, reps: 10, muscleRoles: [{ name: "quads", role: "primary" }, { name: "glutes", role: "primary" }, { name: "core", role: "secondary" }] },
     ]);
-    expect(mockBack).toHaveBeenCalled();
+    expect(mockBack).toHaveBeenCalledTimes(1);
   });
 });
 

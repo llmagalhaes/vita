@@ -10,7 +10,7 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { selectionTick } from "../../lib/haptics";
 import { Button, PressScale, Text, colors, fonts, shadowWaterCard } from "../../ui";
-import { useFieldVisible } from "../parts";
+import { numOf, useFieldVisible } from "../parts";
 import { UNITS, type BuildItem, type BuildMeal } from "./draft";
 
 const dashedField = {
@@ -98,7 +98,7 @@ export function MealsPhase({
 
   const add = () => {
     if (!name.trim()) return;
-    onAdd({ n: name.trim(), q: Number(qty) || 0, u: unit, k: null, est: false });
+    onAdd({ n: name.trim(), q: numOf(qty) || 0, u: unit, k: null, est: false });
     // Stack and clear, form stays open — the next food is the likeliest next act.
     setName("");
     setQty("");

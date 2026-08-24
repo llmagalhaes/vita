@@ -81,6 +81,14 @@ describe("toProgramDraft", () => {
     expect(e.reps).toBeUndefined();
   });
 
+  // MINOR-7: a PT-BR keyboard's decimal key is a comma — `Number("1,5")` is NaN,
+  // and the minutes/sets/reps used to vanish without a word.
+  it("takes a decimal comma", () => {
+    const doc = toProgramDraft("", [day("Day A", [ex("Muay thai", { min: "42,5" })]), { n: "Day B", ex: [], kcal: "420,5" }], "My program");
+    expect(doc.days[0]!.exercises[0]!.durationMin).toBe(42.5);
+    expect(doc.days[1]!.kcalEstimate).toBe(420.5);
+  });
+
   it("carries a day kcal through when one is set (Round-16 #4, APP-135)", () => {
     // CEO decision 4: typed and estimated alike land in `kcalEstimate` — the field
     // is an estimate by name, and a hand-typed session kcal is one too.

@@ -2,7 +2,21 @@
  * APP-121/122/123 — the food builder's pure half: the estimate merge, the inline
  * editor's save, and the conversion to the wire document (handoff v4.2 §2.4, §4).
  */
-import { anyK, dayTotal, emptyItems, mealsFromSkel, mealTotal, mergeEstimates, saveEdit, toDraft, type BuildMeal } from "../draft";
+import {
+  anyK,
+  dayTotal,
+  emptySlots,
+  mealsFromSkel,
+  mealTotal,
+  mergeEstimates,
+  saveEdit,
+  toDraft,
+  wireTime,
+  type BuildMeal,
+} from "../draft";
+
+/** The whole pass as the screen runs it: snapshot the empty slots, then merge. */
+const merge = (meals: BuildMeal[], values: (number | null)[]) => mergeEstimates(meals, emptySlots(meals), values);
 
 const item = (n: string, q: number, k: number | null = null, est = false) => ({ n, q, u: "g", k, est });
 
@@ -34,35 +48,65 @@ describe("totals", () => {
 });
 
 describe("estimate pass", () => {
-  it("only sends the items that are still empty", () => {
-    expect(emptyItems(sample())).toEqual([
-      { name: "Oats", quantity: 60, unit: "g" },
-      { name: "Rice", quantity: 150, unit: "g" },
+  it("only sends the items that are still empty, and remembers where they were", () => {
+    expect(emptySlots(sample())).toEqual([
+      { mi: 0, ii: 0, item: { name: "Oats", quantity: 60, unit: "g" } },
+      { mi: 1, ii: 0, item: { name: "Rice", quantity: 150, unit: "g" } },
     ]);
   });
 
   it("folds the answer back index-aligned and marks each one an estimate", () => {
-    const next = mergeEstimates(sample(), [235, 195]);
+    const next = merge(sample(), [235, 195]);
     expect(next[0]!.items[0]).toEqual({ n: "Oats", q: 60, u: "g", k: 235, est: true });
     expect(next[1]!.items[0]).toEqual({ n: "Rice", q: 150, u: "g", k: 195, est: true });
   });
 
   it("never overwrites a number the user typed (criterion 11)", () => {
-    const next = mergeEstimates(sample(), [235, 195]);
+    const next = merge(sample(), [235, 195]);
     expect(next[0]!.items[1]).toEqual({ n: "Egg", q: 2, u: "g", k: 160, est: false });
     // Re-running the pass on the result changes nothing at all.
-    expect(mergeEstimates(next, [])).toEqual(next);
+    expect(merge(next, [])).toEqual(next);
   });
 
   it("leaves the dash alone when nothing could answer", () => {
-    const next = mergeEstimates(sample(), [null, 195]);
+    const next = merge(sample(), [null, 195]);
     expect(next[0]!.items[0]!.k).toBeNull();
     expect(next[1]!.items[0]!.k).toBe(195);
+  });
+
+  // MAJOR-1: the list is editable while the pass is in flight. Whatever moved
+  // under the snapshot loses its estimate rather than taking someone else's.
+  describe("the list changed mid-flight", () => {
+    it("an item inserted ahead of the snapshot does not shift the answers", () => {
+      const before = sample();
+      const slots = emptySlots(before); // [Oats 0-0, Rice 1-0]
+      const after = before.map((m, i) => (i === 0 ? { ...m, items: [item("Coffee", 1), ...m.items] } : m));
+      const next = mergeEstimates(after, slots, [235, 195]);
+      expect(next[0]!.items[0]).toEqual(item("Coffee", 1)); // untouched — not Oats' 235
+      expect(next[0]!.items[1]!.k).toBeNull(); // Oats moved: no estimate at all
+      expect(next[1]!.items[0]!.k).toBe(195); // Rice never moved
+    });
+
+    it("an item removed mid-flight drops its answer instead of sliding it up", () => {
+      const before = sample();
+      const slots = emptySlots(before);
+      const after = before.map((m, i) => (i === 0 ? { ...m, items: m.items.slice(1) } : m)); // Oats gone
+      const next = mergeEstimates(after, slots, [235, 195]);
+      expect(next[0]!.items[0]).toEqual(item("Egg", 2, 160)); // the typed number survives
+      expect(next[1]!.items[0]!.k).toBe(195);
+    });
+
+    it("a number typed mid-flight is never overwritten", () => {
+      const before = sample();
+      const slots = emptySlots(before);
+      const after = saveEdit(before, "0-0", "400");
+      expect(mergeEstimates(after, slots, [235, 195])[0]!.items[0]).toEqual(item("Oats", 60, 400));
+    });
   });
 });
 
 describe("saveEdit", () => {
-  const meals = mergeEstimates(sample(), [235, 195]);
+  const meals = merge(sample(), [235, 195]);
 
   it("a valid number lands and stops being an estimate (criterion 10)", () => {
     const next = saveEdit(meals, "0-0", "300");
@@ -74,15 +118,43 @@ describe("saveEdit", () => {
     for (const bad of ["", "   ", "abc", "-5"]) expect(saveEdit(meals, "0-0", bad)).toEqual(meals);
   });
 
+  // MINOR-7: a PT-BR keyboard types the decimal key as a comma.
+  it("takes a decimal comma", () => {
+    expect(saveEdit(meals, "0-0", "300,4")[0]!.items[0]!.k).toBe(300);
+  });
+
   it("a stale key changes nothing", () => {
     expect(saveEdit(meals, "9-9", "300")).toBe(meals);
     expect(saveEdit(meals, "2-0", "300")).toBe(meals); // Supper has no items
   });
 });
 
+// MAJOR-3: the meal time is a free text field; the contract wants HH:MM exactly.
+describe("wireTime", () => {
+  it("pads a single-digit hour and ignores whitespace", () => {
+    expect(wireTime("7:00")).toBe("07:00");
+    expect(wireTime("  12:30 ")).toBe("12:30");
+    expect(wireTime("23:59")).toBe("23:59");
+    expect(wireTime("00:00")).toBe("00:00");
+  });
+
+  it("drops anything that is not a time of day", () => {
+    for (const bad of ["", "morning", "7", "7h", "24:00", "25:10", "12:60", "12:5", "7:00 pm"]) {
+      expect(wireTime(bad)).toBeUndefined();
+    }
+  });
+
+  it("a meal whose time makes no sense saves with no time at all", () => {
+    const meals: BuildMeal[] = [{ n: "Breakfast", t: "whenever", items: [] }, { n: "Lunch", t: "7:00", items: [] }];
+    const doc = toDraft(meals, "s");
+    expect(doc.meals[0]).toEqual({ name: "Breakfast", items: [] });
+    expect(doc.meals[1]!.time).toBe("07:00");
+  });
+});
+
 describe("toDraft", () => {
   it("carries kcal + the estimate mark, and omits the totals it cannot complete", () => {
-    const doc = toDraft(mergeEstimates(sample(), [235, null]), "Built here");
+    const doc = toDraft(merge(sample(), [235, null]), "Built here");
     expect(doc.summary).toBe("Built here");
     expect(doc.status).toBe("ready");
     expect(doc.dailyTotals).toBeUndefined(); // Rice is still empty
@@ -106,7 +178,7 @@ describe("toDraft", () => {
   });
 
   it("gives the day a total only once every item has one", () => {
-    const doc = toDraft(mergeEstimates(sample(), [235, 195]), "s");
+    const doc = toDraft(merge(sample(), [235, 195]), "s");
     expect(doc.dailyTotals).toEqual({ kcal: 590 });
   });
 

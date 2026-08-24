@@ -130,6 +130,24 @@ test("review: the estimate pass fills the empty numbers, marked, and a typed one
   expect(screen.getByTestId("kcal-0-0").props.children).toBe("300"); // solid, no `~`
 }, 30000);
 
+test("nothing moves the list while the estimate pass is in flight", async () => {
+  await startWith(3);
+  await addFood("Oats", "60");
+  await toReview(3);
+  await fireEvent.press(screen.getByText("Fill in the calories for me"));
+
+  // Back and the per-meal "edit" link are both inert until the numbers land —
+  // an edit mid-flight is what used to land an estimate on the wrong food.
+  await fireEvent.press(screen.getByLabelText("Back"));
+  await fireEvent.press(screen.getByLabelText("edit Breakfast"));
+  expect(screen.getByText("Working through the list…")).toBeTruthy();
+
+  await screen.findByText("~235", {}, { timeout: 8000 });
+  // …and it works again the moment the pass is done.
+  await fireEvent.press(screen.getByLabelText("edit Breakfast"));
+  await screen.findByDisplayValue("Breakfast");
+}, 30000);
+
 test("leaving mid-pass throws nothing (criterion 12)", async () => {
   const err = jest.spyOn(console, "error").mockImplementation(() => {});
   await startWith(3);

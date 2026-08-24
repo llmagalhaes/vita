@@ -50,7 +50,7 @@ export default function BuildProgramScreen() {
   const back = () => {
     if (phase === "days" && step > 0) return setStep(step - 1);
     if (phase === "days") return setPhase("shape");
-    router.back();
+    return router.canGoBack() ? router.back() : router.replace("/library");
   };
 
   const patch = (fn: (d: BwDay) => BwDay) => setDays((all) => all.map((d, i) => (i === step ? fn(d) : d)));
@@ -81,11 +81,15 @@ export default function BuildProgramScreen() {
     }
   };
 
+  const savedRef = useRef(false);
   const finish = () => {
+    if (savedRef.current) return; // double-tap guard — no duplicate program version
+    savedRef.current = true;
     const doc = toProgramDraft(name, days, t("build.program.fallbackName"));
     void saveProgram(doc).then(() => logChanged());
     showToast(t("build.program.saved", { name: doc.summary, count: doc.days.length }));
-    router.back();
+    if (router.canGoBack()) router.back();
+    else router.replace("/day");
   };
 
   return (
