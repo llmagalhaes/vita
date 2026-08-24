@@ -9,6 +9,7 @@ import {
   intensitiesOf,
   muF,
   muT,
+  muscleStats,
   programChips,
   sessionRows,
   sessionsFromEntries,
@@ -109,18 +110,25 @@ describe("chips", () => {
     ]);
   });
 
-  it("trend chips: over .15, strongest first, top 6 of the first 8 muscles", () => {
+  it("trend chips: over .15, strongest first, up to 8 of the first 8 muscles", () => {
     const chips = trendChips(WEEK);
-    expect(chips).toHaveLength(6);
-    expect(chips.map((c) => c.key)).toEqual(["qu", "ch", "bk", "gl", "ha", "sh"]);
+    expect(chips).toHaveLength(8);
+    expect(chips.map((c) => c.key)).toEqual(["qu", "ch", "bk", "gl", "ha", "sh", "ar", "ca"]);
     // Shoulders land at .7*2/4 = .35 — ranked, but under the .4 tint threshold.
-    expect(chips.map((c) => c.tinted)).toEqual([true, true, true, true, true, false]);
+    expect(chips.map((c) => c.tinted)).toEqual([true, true, true, true, true, false, false, false]);
   });
 
-  it("trend chips label a session COUNT — sessions where the muscle was at least secondary", () => {
+  it("trend chips label muCnt — every session that touched the muscle, whatever the intensity", () => {
     const chips = trendChips(WEEK);
     expect(chips.find((c) => c.key === "qu")!.sessions).toBe(2); // the two leg days
     expect(chips.find((c) => c.key === "ch")!.sessions).toBe(2); // the two upper days
+    // Calves ride at .55 and arms at .6 — the old ≥ .4 rule counted arms but not calves.
+    expect(chips.find((c) => c.key === "ca")!.sessions).toBe(2);
+    expect(chips.find((c) => c.key === "ar")!.sessions).toBe(2);
+  });
+
+  it("trend chip counts match the sheet's Sessions card", () => {
+    for (const c of trendChips(WEEK)) expect(c.sessions).toBe(muscleStats(WEEK, c.key, "week").sessions);
   });
 
   it("drops the barely-touched and tints only from .4", () => {
@@ -178,6 +186,41 @@ describe("sessionRows", () => {
   it("drops a session with intensity but no attributable exercise", () => {
     // Workout-level muscles only: the map still tints, but the sheet has nothing honest to list.
     expect(sessionRows([{ title: "Push A", at: at(1), muscles: ["chest"] }], "ch", TODAY)).toEqual([]);
+  });
+});
+
+describe("muscleStats", () => {
+  it("counts sessions that touched the muscle, and those that had it as a main target", () => {
+    expect(muscleStats(WEEK, "qu", "week")).toMatchObject({ sessions: 2, primary: 2 }); // quads at 1
+    expect(muscleStats(WEEK, "ca", "week")).toMatchObject({ sessions: 2, primary: 0 }); // calves at .55
+    expect(muscleStats(WEEK, "sh", "week")).toMatchObject({ sessions: 2, primary: 2 }); // shoulders at .7 — the boundary
+    expect(muscleStats(WEEK, "co", "week")).toMatchObject({ sessions: 4, primary: 0 }); // both programs, .25
+  });
+
+  it("is all zeros for a muscle nothing worked", () => {
+    expect(muscleStats([leg(1), leg(2)], "ch", "week")).toMatchObject({ sessions: 0, primary: 0, perWeek: "0" });
+  });
+
+  it("divides per week by the range's weeks and drops a trailing .0", () => {
+    const month = [...Array(10)].map((_, i) => leg(i)).concat([...Array(8)].map((_, i) => upper(i)));
+    expect(muscleStats(month, "qu", "month").perWeek).toBe("2.3"); // 10 / 4.3
+    expect(muscleStats(WEEK, "qu", "week").perWeek).toBe("2"); // 2 / 1 → "2.0" → "2"
+    expect(muscleStats([...Array(52)].map((_, i) => leg(i)), "qu", "year").perWeek).toBe("1"); // 52 / 52
+    expect(muscleStats([...Array(26)].map((_, i) => leg(i)), "qu", "year").perWeek).toBe("0.5");
+  });
+
+  it("earlier = sessions minus the rows the sheet listed — never contradicts the Sessions card", () => {
+    const six = [...Array(6)].map((_, i) => leg(i + 1));
+    expect(muscleStats(six, "qu", "week")).toMatchObject({ sessions: 6, earlier: 6 });
+    expect(muscleStats(six, "qu", "week", 4).earlier).toBe(2);
+    expect(muscleStats(six, "qu", "week", 6).earlier).toBe(0);
+  });
+
+  it("counts a session the sheet cannot list (intensity but no named exercise) as earlier", () => {
+    const sessions: WorkoutSession[] = [leg(1), { title: "Push A", at: at(2), muscles: ["quads"] }];
+    const rows = sessionRows(sessions, "qu", TODAY);
+    expect(rows).toHaveLength(1); // the workout-level session has no attributable exercise
+    expect(muscleStats(sessions, "qu", "week", rows.length)).toMatchObject({ sessions: 2, earlier: 1 });
   });
 });
 

@@ -139,9 +139,10 @@ export const programChips = (mu: Intensities): ProgramChip[] =>
 export type TrendChip = { key: MuscleKey; intensity: number; sessions: number; tinted: boolean };
 
 /**
- * Trends chips: the first 8 muscles with an aggregate over .15, strongest first, top 6.
- * The label is a session COUNT (sessions where that muscle was at least secondary),
- * and the chip tints at the .4 threshold — not the .75 the per-program chips use.
+ * Trends chips: the first 8 muscles with an aggregate over .15, strongest first, up to 8.
+ * The label is the same session COUNT the sheet's "Sessions" card shows (any intensity —
+ * the old ≥ .4 criterion under-counted and contradicted the sheet), and the chip tints
+ * at the .4 threshold — not the .75 the per-program chips use.
  */
 export function trendChips(sessions: WorkoutSession[]): TrendChip[] {
   const agg = muT(sessions);
@@ -149,13 +150,45 @@ export function trendChips(sessions: WorkoutSession[]): TrendChip[] {
   return MUSCLE_KEYS.slice(0, 8)
     .filter((k) => (agg[k] ?? 0) > 0.15)
     .sort((a, b) => agg[b]! - agg[a]!)
-    .slice(0, 6)
     .map((k) => ({
       key: k,
       intensity: agg[k]!,
-      sessions: per.filter((mu) => (mu[k] ?? 0) >= 0.4).length,
+      sessions: per.filter((mu) => (mu[k] ?? 0) > 0).length,
       tinted: agg[k]! >= 0.4,
     }));
+}
+
+export type MuscleRange = "week" | "month" | "year";
+
+/** Weeks a range spans — the divisor of the sheet's "Per week" card (prototype `rngWks`). */
+const RANGE_WEEKS: Record<MuscleRange, number> = { week: 1, month: 4.3, year: 52 };
+
+export type MuscleStats = {
+  /** Sessions in the range that touched the muscle at all (`muCnt`). */
+  sessions: number;
+  /** …of those, the ones that had it as a main target, intensity ≥ .7 (`muPri`). */
+  primary: number;
+  /** `sessions / weeks`, one decimal, trailing ".0" dropped. */
+  perWeek: string;
+  /** Sessions beyond the `shown` listed rows — by construction never more than `sessions`. */
+  earlier: number;
+};
+
+/** The three numbers above the muscle sheet's session list, plus its footer's remainder. */
+export function muscleStats(
+  sessions: WorkoutSession[],
+  key: MuscleKey,
+  range: MuscleRange,
+  shown = 0,
+): MuscleStats {
+  const per = sessions.map((s) => intensitiesOf(s)[key] ?? 0);
+  const count = per.filter((v) => v > 0).length;
+  return {
+    sessions: count,
+    primary: per.filter((v) => v >= 0.7).length,
+    perWeek: (count / RANGE_WEEKS[range]).toFixed(1).replace(".0", ""),
+    earlier: count - shown,
+  };
 }
 
 /** Days back from `today`, local calendar days (0 = today). */

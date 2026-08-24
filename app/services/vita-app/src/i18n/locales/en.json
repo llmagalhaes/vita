@@ -287,11 +287,6 @@
     "habitsLabel": "Habits · {{when}}",
     "weight": "Weight",
     "today": "Today",
-    "noAvg": "—",
-    "avgKcal": "avg {{v}} kcal/day",
-    "avgMl": "avg {{v}} ml/day",
-    "litresIn": "{{v}} L in {{n}} days",
-    "workoutsIn": "{{n}} workouts {{when}}",
     "kcalV": "{{v}} kcal",
     "mlV": "{{v}} ml",
     "kcalApprox": "~{{v}} kcal",
@@ -311,13 +306,33 @@
     "weightFirst": "first in range",
     "weightSource": "entered by you",
     "detail": {
-      "avg": "range average {{v}}",
-      "highLow": "highest {{hi}} · lowest {{lo}}",
-      "periods": "{{n}} of {{m}} periods with a record",
       "todayMeals": "{{done}} meals confirmed · {{adjusted}} adjusted · {{planned}} still planned",
       "todayWater": "{{v}} ml so far",
       "retro": "Closed as planned — later, by you",
       "none": "No record — Vita assumed nothing"
+    },
+    "clear": "Clear",
+    "unit": {
+      "days": "days",
+      "months": "months"
+    },
+    "head": {
+      "avgDay": "average a day",
+      "avgRecordedDay": "average a recorded day",
+      "avgDayByMonth": "average a day, by month",
+      "avgMonth": "average a month",
+      "coverage": "{{recorded}} of {{n}} {{unit}} recorded",
+      "rank": "{{ord}} highest of {{n}} recorded {{unit}}",
+      "noRecord": "no record",
+      "vsAvg": "{{sign}}{{v}} vs avg"
+    },
+    "stat": {
+      "total": "Total",
+      "perWeek": "Per week",
+      "highest": "Highest",
+      "lowest": "Lowest",
+      "thisYear": "this year",
+      "recorded": "recorded"
     }
   },
   "muscle": {
@@ -347,8 +362,16 @@
     },
     "sessionCount": "{{n}}×",
     "sheetSub": "{{range}} · sessions that worked it",
+    "stats": {
+      "sessions": "Sessions",
+      "primary": "As primary",
+      "primarySub": "main target",
+      "perWeek": "Per week",
+      "perWeekSub": "average"
+    },
     "openDay": "Open this day →",
-    "earlier": "+ {{n}} earlier sessions in this range",
+    "earlier_one": "+ {{count}} earlier session in this range",
+    "earlier_other": "+ {{count}} earlier sessions in this range",
     "none": "No recorded session worked this muscle in this range.",
     "footer": "Exercises from your recorded sessions — coverage, never a score.",
     "contract": {

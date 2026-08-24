@@ -57,13 +57,49 @@ test("a composition flag off hides that card — it never deletes the data", asy
   expect(screen.getByText(t("trends.energy"))).toBeOnTheScreen(); // the rest stays
 });
 
-test("switching range re-labels the counters (and the pin cannot survive it)", async () => {
+test("switching range re-labels the coverage line (and the pin cannot survive it)", async () => {
   seed();
   await render(<TrendsPanel />);
-  // Week shows litres over 7 days; Month shows an average per day.
-  expect(screen.getByText(/L in 7 days/)).toBeOnTheScreen();
+  // Level 1 with nothing pinned: the average + how much of the range is recorded.
+  expect(screen.getAllByText(/average a recorded day · 1 of 7 days recorded/)).toHaveLength(3);
 
   await fireEvent.press(screen.getByText(t("trends.range.Y")));
-  expect(screen.queryByText(/L in 7 days/)).toBeNull();
-  expect(screen.getByText(t("trends.record.sub"))).toBeOnTheScreen();
+  expect(screen.queryByText(/of 7 days recorded/)).toBeNull();
+  expect(screen.getAllByText(/of 12 months recorded/)).toHaveLength(3);
+});
+
+/**
+ * §3's correctness rule: only movement-on-Year is additive. kcal/water Year bars are
+ * daily averages by month, and summing twelve of those is a number with no meaning —
+ * so those two cards must not offer a Total.
+ */
+test("Year: Movement totals its sessions, Energy/Water only average", async () => {
+  seed();
+  await render(<TrendsPanel />);
+  await fireEvent.press(screen.getByText(t("trends.range.Y")));
+
+  expect(screen.getAllByText(t("trends.stat.total"))).toHaveLength(1); // movement only
+  expect(screen.getAllByText(/average a day, by month/)).toHaveLength(2); // energy + water
+  expect(screen.getByText(/average a month/)).toBeOnTheScreen(); // movement
+  expect(screen.queryByText(t("trends.stat.perWeek"))).toBeNull(); // a Month card
+});
+
+test("Month: every card carries Per week, and none carries a Total", async () => {
+  seed();
+  await render(<TrendsPanel />);
+  await fireEvent.press(screen.getByText(t("trends.range.M")));
+
+  expect(screen.getAllByText(t("trends.stat.perWeek"))).toHaveLength(3);
+  expect(screen.queryByText(t("trends.stat.total"))).toBeNull();
+});
+
+test("a stat card is navigation: tapping Highest pins that bar", async () => {
+  seed();
+  await render(<TrendsPanel />);
+  await fireEvent.press(screen.getByText(t("trends.range.M")));
+  expect(screen.queryByText(t("trends.clear"))).toBeNull(); // nothing pinned yet
+
+  await fireEvent.press(screen.getAllByText(t("trends.stat.highest"))[0]!);
+  expect(screen.getAllByText(t("trends.clear"))).toHaveLength(1); // ONE pin, one card
+  expect(screen.getByText(/1st highest of 1 recorded days/)).toBeOnTheScreen();
 });

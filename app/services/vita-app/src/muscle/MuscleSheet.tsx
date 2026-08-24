@@ -8,12 +8,12 @@
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SheetOverlay, Text, colors, fonts, mixOklab, useAccent } from "../ui";
-import { sessionRows, type MuscleKey, type Tier, type WorkoutSession } from "./muscleData";
+import { muscleStats, sessionRows, type MuscleKey, type MuscleRange, type Tier, type WorkoutSession } from "./muscleData";
+
+export type { MuscleRange };
 
 /** The prototype shows four rows and counts the rest as "earlier sessions". */
 const MAX_ROWS = 4;
-
-export type MuscleRange = "week" | "month" | "year";
 
 const dateLabel = (d: Date) => d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 
@@ -35,8 +35,9 @@ export function MuscleSheet({
 }) {
   const { t } = useTranslation();
   const accent = useAccent();
-  const rows = muscle ? sessionRows(sessions, muscle) : [];
-  const earlier = rows.length - MAX_ROWS;
+  const rows = muscle ? sessionRows(sessions, muscle).slice(0, MAX_ROWS) : [];
+  // The footer counts from the same muCnt the "Sessions" card shows, so the two agree.
+  const stats = muscle ? muscleStats(sessions, muscle, range, rows.length) : null;
   const chip = (tier: Tier) =>
     tier === "primary"
       ? { bg: mixOklab(accent, 16, colors.card), ink: accent }
@@ -55,13 +56,50 @@ export function MuscleSheet({
             </Text>
           </View>
 
+          {stats && (
+            <View style={{ flexDirection: "row", gap: 7 }}>
+              {[
+                { k: t("muscle.stats.sessions"), v: stats.sessions, s: t(`muscle.range.${range}`) },
+                { k: t("muscle.stats.primary"), v: stats.primary, s: t("muscle.stats.primarySub") },
+                { k: t("muscle.stats.perWeek"), v: stats.perWeek, s: t("muscle.stats.perWeekSub") },
+              ].map((ms) => (
+                <View
+                  key={ms.k}
+                  style={{
+                    flex: 1,
+                    backgroundColor: colors.card,
+                    borderRadius: 16,
+                    paddingVertical: 11,
+                    paddingHorizontal: 12,
+                    borderWidth: 1,
+                    borderColor: "rgba(120,100,75,0.08)",
+                    gap: 1,
+                  }}
+                >
+                  <Text
+                    style={{ fontFamily: fonts.extraBold, fontSize: 9, letterSpacing: 0.8, textTransform: "uppercase" }}
+                    color={colors.faint}
+                  >
+                    {ms.k}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.light, fontSize: 20, letterSpacing: -0.5 }} color={colors.inkHeading}>
+                    {t("muscle.sessionCount", { n: ms.v })}
+                  </Text>
+                  <Text style={{ fontFamily: fonts.semiBold, fontSize: 10 }} color={colors.faint}>
+                    {ms.s}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
+
           {rows.length === 0 && (
             <Text style={{ fontSize: 12 }} color={colors.muted}>
               {t("muscle.none")}
             </Text>
           )}
 
-          {rows.slice(0, MAX_ROWS).map((r) => {
+          {rows.map((r) => {
             const c = chip(r.tier);
             return (
               <View
@@ -121,9 +159,9 @@ export function MuscleSheet({
             );
           })}
 
-          {earlier > 0 && (
+          {stats != null && stats.earlier > 0 && (
             <Text style={{ fontFamily: fonts.bold, fontSize: 11.5, textAlign: "center" }} color={colors.faint}>
-              {t("muscle.earlier", { n: earlier })}
+              {t("muscle.earlier", { count: stats.earlier })}
             </Text>
           )}
 

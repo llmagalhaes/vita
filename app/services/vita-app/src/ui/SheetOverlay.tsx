@@ -40,7 +40,8 @@ export function SheetOverlay({
   return usePortal(
     !rendered ? null : (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end", zIndex: 50 }}>
-      <SheetBackdrop onClose={onClose} closeLabel={closeLabel} style={backdropStyle} />
+      {/* Handoff v4.1 §6: bottom sheets take the DARK scrim (light stays for centered pops). */}
+      <SheetBackdrop onClose={onClose} closeLabel={closeLabel} scrim="dark" style={backdropStyle} />
       <KeyboardLift enabled={lift}>
         <GestureDetector gesture={dragGesture}>
           <Animated.View

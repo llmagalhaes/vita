@@ -1,20 +1,21 @@
 /**
- * APP-097 — the scenic Day header (README §2 "Scenic scenes", prototype lines 295–330).
+ * APP-097 — the scenic Day header (README §2 "Scenic scenes", handoff v4.1 §1–§2).
  *
- * A 180deg A/B/C gradient per daytime with a sun (moon at evening), two hill paths and
- * 8 stars that fade in on the dark scene, then the "sheet cap" seam that rolls the
- * canvas over the scene. Every value comes from `tokens.scenes` / `tokens.scenic` —
- * nothing is redefined here.
+ * A 180deg A/B/C gradient per daytime with a positional sun (crescent moon at evening),
+ * a landscape and 8 stars that fade in on the dark scene, then the "sheet cap" seam that
+ * rolls the canvas over the scene. With a trip running the landscape is a BEACH and the
+ * palette is `beachScenes` — same gradient/ink/status-bar mechanism, different scenery.
+ * Every value comes from `tokens.scenes|scenic` / `ui/scene` — nothing is redefined here.
  *
  * **Parallax runs entirely on the UI thread**: the panel's `useAnimatedScrollHandler`
- * writes `scrollY`, and the sun/hill/star layers read it in a worklet
- * (`translateY = min(340, y) × 0.38`). The prototype's 1px-threshold `setState` is
- * deliberately NOT ported (plan risk R2) — there is zero per-frame React work here.
+ * writes `scrollY`, and the four layers (sky 0.70 · sun 0.60 · mid 0.40 · near 0.16 +
+ * scale) read it in worklets. The prototype's 1px-threshold `setState` is deliberately
+ * NOT ported (plan risk R2) — there is zero per-frame React work here.
  */
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, { Circle, Path } from "react-native-svg";
+import Svg, { Circle, Ellipse, Path } from "react-native-svg";
 import Animated, {
   useAnimatedStyle,
   useDerivedValue,
@@ -22,14 +23,22 @@ import Animated, {
   type SharedValue,
 } from "react-native-reanimated";
 import { useTranslation } from "react-i18next";
+import { useLogVersion } from "../db/notify";
+import { isVacationActive } from "../db/vacation";
 import {
   PressScale,
   Text,
+  beachScenes,
   fonts,
   letterSpacing,
+  parallaxLayers,
+  scenePalette,
+  scenery,
   scenes,
   scenic,
   shadowCap,
+  sunFade,
+  sunPos,
   typeScale,
   type SceneName,
 } from "../ui";
@@ -73,14 +82,42 @@ export function ScenicHeader({
 }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const sc = scenes[scene];
+  const version = useLogVersion();
+  void version; // starting/ending a trip bumps it — the scene is derived, nothing to reload
+  const beach = isVacationActive();
+  const sc = scenePalette(scene, beach);
+  const hills = scenes[scene]; // hill1/hill2 always come from SCN — the beach never uses them
+  const bp = beachScenes[scene]; // sea/sand tones live only on the beach palette
+  const sun = sunPos(scene, beach);
+  const P = parallaxLayers;
 
-  // min(340, y) × 0.38 — imagery exits at ~0.62× scroll speed, the cap slides over it.
-  const parallax = useAnimatedStyle(() => ({
-    transform: [{ translateY: Math.min(scenic.parallax.maxScroll, scrollY.value) * scenic.parallax.factor }],
+  // s = min(340, scrollTop). A bigger factor lags more = reads as more distant.
+  const skyStyle = useAnimatedStyle(() => {
+    const s = Math.min(P.maxScroll, scrollY.value);
+    return { transform: [{ translateX: s * P.sky.x }, { translateY: s * P.sky.y }] };
+  });
+  const sunStyle = useAnimatedStyle(() => {
+    const s = Math.min(P.maxScroll, scrollY.value);
+    return { opacity: sunFade(s), transform: [{ translateX: s * P.sun.x }, { translateY: s * P.sun.y }] };
+  });
+  const midStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: Math.min(P.maxScroll, scrollY.value) * P.mid.y }],
   }));
+  const nearStyle = useAnimatedStyle(() => {
+    const s = Math.min(P.maxScroll, scrollY.value);
+    return { transform: [{ translateY: s * P.near.y }, { scale: 1 + s * P.near.scale }] };
+  });
   const starOpacity = useDerivedValue(() => withTiming(sc.dark ? 1 : 0, { duration: scenic.stars.fadeMs }), [sc.dark]);
   const starStyle = useAnimatedStyle(() => ({ opacity: starOpacity.value }));
+
+  /** Both landscape layers share this box: bottom-anchored, 390×120, edge to edge. */
+  const layer = { position: "absolute", left: 0, right: 0, bottom: 0, height: scenic.hills.viewBox.height } as const;
+  const svg = {
+    width: "100%",
+    height: scenic.hills.viewBox.height,
+    viewBox: `0 0 ${scenic.hills.viewBox.width} ${scenic.hills.viewBox.height}`,
+    preserveAspectRatio: "none",
+  } as const;
 
   return (
     <View>
@@ -90,9 +127,10 @@ export function ScenicHeader({
         // Cancels the panel's 88/20 content padding so the scene bleeds edge to edge.
         style={{ marginTop: -88, marginHorizontal: -20, overflow: "hidden" }}
       >
+        {/* 1 — sky / stars (0.70, drifts right) */}
         <Animated.View
           pointerEvents="none"
-          style={[{ position: "absolute", left: 0, top: 0, right: 0, height: 80 }, parallax, starStyle]}
+          style={[{ position: "absolute", left: 0, top: 0, right: 0, height: 80 }, skyStyle, starStyle]}
         >
           <Svg width="100%" height={80} viewBox="0 0 390 80">
             {STARS.map((s) => (
@@ -101,20 +139,52 @@ export function ScenicHeader({
           </Svg>
         </Animated.View>
 
-        <Animated.View
-          pointerEvents="none"
-          style={[{ position: "absolute", left: 0, right: 0, bottom: 0, height: scenic.hills.viewBox.height }, parallax]}
-        >
-          <Svg
-            width="100%"
-            height={scenic.hills.viewBox.height}
-            viewBox={`0 0 ${scenic.hills.viewBox.width} ${scenic.hills.viewBox.height}`}
-            preserveAspectRatio="none"
-          >
-            <Circle cx={scenic.sun.cx} cy={scenic.sun.cy} r={scenic.sun.haloR} fill={sc.sun} opacity={scenic.sun.haloOpacity} />
-            <Circle cx={scenic.sun.cx} cy={scenic.sun.cy} r={scenic.sun.r} fill={sc.sun} opacity={scenic.sun.opacity} />
-            <Path d={scenic.hills.front.d} fill={sc.hill1} opacity={scenic.hills.front.opacity} />
-            <Path d={scenic.hills.back.d} fill={sc.hill2} />
+        {/* 2 — sun / moon (0.60, drifts left, fades to ~0.45) */}
+        <Animated.View pointerEvents="none" style={[layer, sunStyle]}>
+          <Svg {...svg}>
+            <Circle cx={sun.x} cy={sun.y} r={scenery.sun.haloR} fill={sc.sun} opacity={scenery.sun.haloOpacity} />
+            <Circle cx={sun.x} cy={sun.y} r={scenery.sun.r} fill={sc.sun} opacity={scenery.sun.opacity} />
+            {/* Evening: a sky-top disc bites the moon into a crescent. */}
+            {sc.dark && <Circle cx={sun.moonX} cy={sun.moonY} r={scenery.sun.moonR} fill={sc.a} />}
+          </Svg>
+        </Animated.View>
+
+        {/* 3 — far hills / sea (0.40) */}
+        <Animated.View pointerEvents="none" style={[layer, midStyle]}>
+          <Svg {...svg}>
+            {beach ? (
+              <>
+                <Path d={scenery.beach.sea} fill={bp.sea} />
+                {scenery.beach.glints.map((g) => (
+                  <Ellipse key={g.cy} cx={sun.x} cy={g.cy} rx={g.rx} ry={g.ry} fill={sc.sun} opacity={g.opacity} />
+                ))}
+                <Path d={scenery.beach.sail.d} fill={scenery.beach.sail.fill} opacity={scenery.beach.sail.opacity} />
+                <Path d={scenery.beach.hull.d} fill={scenery.beach.hull.fill} opacity={scenery.beach.hull.opacity} />
+                <Path d={scenery.beach.wave.d} fill={bp.sea2} opacity={scenery.beach.wave.opacity} />
+              </>
+            ) : (
+              scenery.hillsFar.map((h) => <Path key={h.d} d={h.d} fill={hills.hill1} opacity={h.opacity} />)
+            )}
+          </Svg>
+        </Animated.View>
+
+        {/* 4 — front hill / sand (0.16 + scale from the bottom edge) */}
+        <Animated.View pointerEvents="none" style={[layer, { transformOrigin: "50% 100%" }, nearStyle]}>
+          <Svg {...svg}>
+            {beach ? (
+              <>
+                <Path d={scenery.beach.sand} fill={bp.sand} />
+                <Path
+                  d={scenery.beach.foam.d}
+                  fill="none"
+                  stroke={scenery.beach.foam.stroke}
+                  strokeWidth={scenery.beach.foam.width}
+                  opacity={scenery.beach.foam.opacity}
+                />
+              </>
+            ) : (
+              <Path d={scenic.hills.back.d} fill={hills.hill2} />
+            )}
           </Svg>
         </Animated.View>
 

@@ -6,12 +6,14 @@ import { resetDbForTests } from "../../db/db";
 import { addLocalEntry, upsertEntry } from "../../db/entries";
 import {
   RANGE_N,
+  avgLinePct,
   barGap,
   barHeightPct,
+  chartStats,
+  ordinal,
   rangeDates,
   rangeEnd,
   readBuckets,
-  recordedAverage,
   tipLeftPct,
   weightPoints,
   weightSeries,
@@ -87,15 +89,22 @@ describe("readBuckets (one GROUP BY, never a JS map over a year)", () => {
     expect(b.reduce((s, x) => s + x.kcal, 0)).toBe(800); // the 20-day-old meal is out
   });
 
-  test("Y buckets by month", () => {
+  // A month bar is a DAILY AVERAGE, not a monthly sum: twelve summed kcal totals are
+  // a number with no physical meaning, and the divisor is recorded days — a day
+  // nobody logged never dilutes the average (handoff v4.1 §3).
+  test("Y buckets by month and averages over the days that carry the metric", () => {
     meal(0, 400);
-    meal(40, 600); // ~May
+    meal(40, 600); // ~May 6
+    meal(41, 800); // ~May 5 — a second recorded May day
+    meal(41, 200); // same day: 1000 that day, still ONE recorded day
+    water(40, 2000);
     const b = readBuckets("Y", TODAY);
     expect(b).toHaveLength(12);
     expect(b[11]!.key).toBe("2026-06");
-    expect(b[11]!.kcal).toBe(400);
+    expect(b[11]!.kcal).toBe(400); // one recorded day → that day's total
     expect(b[10]!.key).toBe("2026-05");
-    expect(b[10]!.kcal).toBe(600);
+    expect(b[10]!.kcal).toBe(800); // (600 + 1000) / 2 recorded days, not 1600
+    expect(b[10]!.waterMl).toBe(2000); // one water day in May, not 2000/31
   });
 
   test("a day with only a weight reading is not a 'record' bucket", () => {
@@ -172,9 +181,25 @@ describe("chart geometry (README §3)", () => {
     expect(tipLeftPct(6, 7)).toBeCloseTo((6.5 / 7) * 100, 5);
   });
 
-  test("the average skips unrecorded days AND the still-open last bucket", () => {
-    expect(recordedAverage([100, 0, 300, 999], [true, false, true, true])).toBe(200);
-    expect(recordedAverage([0, 500], [false, true])).toBeNull(); // only today has data
+  test("the dashed average line uses the raw ratio (no 4% floor, no rounding)", () => {
+    expect(avgLinePct(500, 1000)).toBe(48);
+    expect(avgLinePct(0, 0)).toBe(0);
+  });
+
+  test("ordinal reads 1st/2nd/3rd/4th, and 11th–13th are not 'st/nd/rd'", () => {
+    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 101, 111].map(ordinal)).toEqual([
+      "1st",
+      "2nd",
+      "3rd",
+      "4th",
+      "11th",
+      "12th",
+      "13th",
+      "21st",
+      "22nd",
+      "101st",
+      "111th",
+    ]);
   });
 
   test("weight polyline spans 57→13 and flattens when every reading is equal", () => {
@@ -183,5 +208,55 @@ describe("chart geometry (README §3)", () => {
     expect(pts[1]).toEqual({ x: 306, y: 13 });
     expect(weightPoints([78, 78], 306).map((p) => p.y)).toEqual([57, 57]);
     expect(weightPoints([78], 306)[0]!.x).toBe(153); // a lone reading sits centred
+  });
+});
+
+/**
+ * The card's whole point is that the numbers can't lie about days nobody recorded
+ * (handoff v4.1 §3). Every assertion here is the FORMULA — the prototype's literals
+ * belong to its mock arrays, not to a real user's series.
+ */
+describe("chartStats", () => {
+  // The handoff's own worked example, generated instead of pasted: 18 recorded
+  // workout days in 30, 405 kcal each.
+  const moveMonth = Array.from({ length: 30 }, (_, i) => (i % 5 === 0 || i % 5 === 1 || i % 5 === 2 ? 405 : 0));
+
+  test("the average is over RECORDED buckets — an unrecorded day never becomes a zero", () => {
+    const s = chartStats([100, 0, 300, 0]);
+    expect(s.avg).toBe(200); // not 100
+    expect(s.recorded).toBe(2);
+    expect(s.n).toBe(4);
+  });
+
+  test("per week is total ÷ calendar weeks, NEVER avg × 7", () => {
+    const s = chartStats(moveMonth);
+    expect(s.recorded).toBe(18);
+    expect(s.total).toBe(7290);
+    expect(s.avg).toBe(405); // per session day
+    expect(s.perWeek).toBeCloseTo(7290 / (30 / 7), 6); // 1701
+    expect(s.perWeek).not.toBeCloseTo(s.avg * 7, 0); // 2835 would claim 7 sessions a week
+  });
+
+  test("the lowest is the lowest RECORDED value — a zero is an absence, not a low", () => {
+    const s = chartStats([0, 900, 300, 700]);
+    expect(s.loValue).toBe(300);
+    expect(s.loIndex).toBe(2);
+    expect(s.hiValue).toBe(900);
+    expect(s.hiIndex).toBe(1);
+  });
+
+  test("rank counts down the recorded buckets; a zero bucket has none", () => {
+    const s = chartStats([0, 900, 300, 700]);
+    expect(s.rank(1)).toBe(1);
+    expect(s.rank(3)).toBe(2);
+    expect(s.rank(2)).toBe(3);
+    expect(s.rank(0)).toBeNull(); // no record → no rank, and no deviation pill
+    expect(s.rank(9)).toBeNull(); // out of range
+  });
+
+  test("an empty range has no average, no peak and still scales", () => {
+    const s = chartStats([0, 0, 0]);
+    expect([s.avg, s.recorded, s.total, s.hiValue, s.loValue]).toEqual([0, 0, 0, 0, 0]);
+    expect(s.max).toBe(1); // no NaN in the bar math
   });
 });

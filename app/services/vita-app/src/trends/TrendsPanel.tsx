@@ -38,13 +38,23 @@ import { HabitDetailSheet } from "../habits/HabitDetailSheet";
 import { BodyMap } from "../muscle/BodyMap";
 import { MuscleSheet, type MuscleRange } from "../muscle/MuscleSheet";
 import { muT, sessionsFromEntries, trendChips, type MuscleKey } from "../muscle/muscleData";
-import { BarChart, CardFoot, CardHead, DetailCard, TrendsCard, TrendsReplayContext } from "./parts";
+import {
+  BarChart,
+  CardFoot,
+  CardHead,
+  ChartHead,
+  DetailCard,
+  StatRow,
+  TrendsCard,
+  TrendsReplayContext,
+  type StatCard,
+} from "./parts";
 import { ScrubOverlay } from "./scrub";
 import {
-  RANGE_N,
+  chartStats,
+  ordinal,
   rangeEnd,
   readBuckets,
-  recordedAverage,
   weightPoints,
   weightSeries,
   yearCounters,
@@ -116,9 +126,12 @@ export function TrendsPanel() {
   };
 
   // ── labels ────────────────────────────────────────────────────────────────
-  // Axis labels on W and Y only — 30 columns leave no room for text (prototype `labsOn`).
+  // W = weekday initial · M = the day number every 5th column (30 labels don't fit)
+  // · Y = month initial.
   const axisLabels =
-    range === "M" ? undefined : buckets.map((b) => initial(b.date, range === "Y" ? "month" : "weekday"));
+    range === "M"
+      ? buckets.map((b, i) => ((n - 1 - i) % 5 === 0 ? String(b.date.getDate()) : ""))
+      : buckets.map((b) => initial(b.date, range === "Y" ? "month" : "weekday"));
 
   const bucketLabel = (i: number): string => {
     const d = buckets[i]!.date;
@@ -148,41 +161,89 @@ export function TrendsPanel() {
     return line ? line.split(" · ") : [t("trends.detail.none")];
   }
 
-  /** A month/year pin describes the RANGE, not one day (the prototype's `else` branch). */
-  function rangeLines(values: number[], fmt: (v: number) => string): string[] {
-    const periods = buckets.filter((b) => b.recorded).length;
-    // "lowest" reads the periods that carry a value — a zero bucket is an absence,
-    // not a low. Falls back to the raw series when nothing was ever recorded.
-    const lows = values.some((v) => v > 0) ? values.filter((v) => v > 0) : values;
-    const avg = Math.round(values.reduce((a, b) => a + b, 0) / Math.max(1, values.length));
-    return [
-      t("trends.detail.avg", { v: fmt(avg) }),
-      t("trends.detail.highLow", { hi: fmt(Math.max(...values)), lo: fmt(Math.min(...lows)) }),
-      t("trends.detail.periods", { n: periods, m: values.length }),
-    ];
-  }
-
-  /** One chart card: head → bars → (pinned) detail → caption. */
-  function chart(id: string, label: string, values: number[], color: string, fmt: (v: number) => string, note: string, footer: string) {
+  /**
+   * One chart card, three levels (handoff v4.1 §3): headline number → annotated chart
+   * → stat cards that navigate. Nothing on it appears twice — the tooltip carries the
+   * date because the header carries the value, and the running text block survives on
+   * Week ONLY, where it holds that day's real log instead of restating the summary.
+   *
+   * `isCount` is the additive series (movement on Year): only that one may show a
+   * Total. Summing twelve monthly kcal/ml averages would be a number with no meaning.
+   */
+  function chart(
+    id: string,
+    label: string,
+    values: number[],
+    color: string,
+    fmt: (v: number) => string,
+    isCount: boolean,
+    footer: string,
+  ) {
+    const s = chartStats(values);
     const i = pinOf(id);
+    const sel = i != null ? values[i]! : null;
+    const unit = t(range === "Y" ? "trends.unit.months" : "trends.unit.days");
+    const rank = i != null ? s.rank(i) : null;
+    const delta = sel != null ? Math.round(sel - s.avg) : 0;
+    // Which average the number IS — the Year buckets are already daily averages.
+    const avgWord = isCount
+      ? t("trends.head.avgMonth")
+      : range === "Y"
+        ? t("trends.head.avgDayByMonth")
+        : t(s.recorded < s.n ? "trends.head.avgRecordedDay" : "trends.head.avgDay");
+    const sub =
+      i != null
+        ? `${bucketLabel(i)} · ${rank != null ? t("trends.head.rank", { ord: ordinal(rank), n: s.recorded, unit }) : t("trends.head.noRecord")}`
+        : `${avgWord} · ${t("trends.head.coverage", { recorded: s.recorded, n: s.n, unit })}`;
+
+    const clear = () => setPin(null);
+    const pinTo = (index: number) => () => setPin({ chart: id, index });
+    // The leading card: Total only where summing is legitimate, Per week on the Month.
+    const lead: StatCard[] = isCount
+      ? [{ key: "total", label: t("trends.stat.total"), value: fmt(Math.round(s.total)), sub: t("trends.stat.thisYear"), on: false, onPress: clear }]
+      : range === "M"
+        ? [{ key: "week", label: t("trends.stat.perWeek"), value: fmt(Math.round(s.perWeek)), sub: t("trends.stat.recorded"), on: false, onPress: clear }]
+        : [];
+    // A range with nothing in it has no highest and no lowest — an empty row beats
+    // "Highest 0 kcal · Jun 3" on a day the user never recorded.
+    const cards: StatCard[] =
+      range === "W" || s.recorded === 0
+        ? []
+        : [
+            ...lead,
+            { key: "hi", label: t("trends.stat.highest"), value: fmt(s.hiValue), sub: bucketLabel(s.hiIndex), on: i === s.hiIndex, onPress: pinTo(s.hiIndex) },
+            { key: "lo", label: t("trends.stat.lowest"), value: fmt(s.loValue), sub: bucketLabel(s.loIndex), on: i === s.loIndex, onPress: pinTo(s.loIndex) },
+          ];
+
     return (
       <TrendsCard>
-        <CardHead label={label} note={note} />
+        <ChartHead
+          label={label}
+          value={fmt(Math.round(sel ?? s.avg))}
+          sub={sub}
+          {...(sel != null && sel > 0
+            ? { pill: t("trends.head.vsAvg", { sign: delta >= 0 ? "+" : "−", v: nf(Math.abs(delta)) }), above: delta >= 0 }
+            : {})}
+          {...(i != null ? { onClear: clear, clearLabel: t("trends.clear") } : {})}
+        />
         <BarChart
           values={values}
           color={color}
           labels={axisLabels}
           pinned={i}
-          {...(i != null ? { tip: `${bucketLabel(i)} · ${fmt(values[i]!)}` } : {})}
+          avg={s.avg}
+          {...(range === "W" ? {} : { peaks: { hi: s.hiIndex, lo: s.loIndex } })}
+          {...(range !== "W" && i != null ? { tip: bucketLabel(i) } : {})}
           {...scrub(id)}
           accessibilityLabel={label}
         />
-        {i != null && (
+        {cards.length > 0 && <StatRow cards={cards} />}
+        {range === "W" && i != null && (
           <DetailCard
-            title={`${bucketLabel(i)} · ${fmt(values[i]!)}`}
-            lines={range === "W" ? dayLines(i) : rangeLines(values, fmt)}
+            title={bucketLabel(i)}
+            lines={dayLines(i)}
             openLabel={t("trends.openDay")}
-            {...(range === "W" && n - 1 - i > 0 ? { onOpenDay: () => openDay(n - 1 - i) } : {})}
+            {...(n - 1 - i > 0 ? { onOpenDay: () => openDay(n - 1 - i) } : {})}
           />
         )}
         <CardFoot>{footer}</CardFoot>
@@ -191,7 +252,8 @@ export function TrendsPanel() {
   }
 
   // ── series ────────────────────────────────────────────────────────────────
-  const recorded = buckets.map((b) => b.recorded);
+  // On Y, `kcal`/`waterMl` come out of the query as DAILY AVERAGES by month (series.ts)
+  // — the only aggregate that means anything for a rate.
   const kcal = buckets.map((b) => b.kcal);
   const water = buckets.map((b) => b.waterMl);
   const moveKcal = buckets.map((b) => b.moveKcal);
@@ -200,10 +262,8 @@ export function TrendsPanel() {
   // session beats a flat empty chart (a logged workout without kcal is still movement).
   const movementIsCount = range === "Y" || moveKcal.every((v) => v === 0);
   const movement = movementIsCount ? workouts : moveKcal;
-
-  const kcalAvg = recordedAverage(kcal, recorded);
-  const waterAvg = recordedAverage(water, recorded);
-  const totalWorkouts = workouts.reduce((a, b) => a + b, 0);
+  /** The ONE additive series: sessions in a year. kcal/ml Year averages never sum. */
+  const moveAdditive = range === "Y";
 
   const fmtKcal = (v: number) => t("trends.kcalV", { v: nf(v) });
   const fmtMl = (v: number) => t("trends.mlV", { v: nf(v) });
@@ -306,42 +366,13 @@ export function TrendsPanel() {
             </View>
           </TrendsCard>
 
-          {domains.meals &&
-            chart(
-              "kcal",
-              t("trends.energy"),
-              kcal,
-              colors.peach,
-              fmtKcal,
-              kcalAvg == null ? t("trends.noAvg") : t("trends.avgKcal", { v: nf(kcalAvg) }),
-              t("trends.scrubHint"),
-            )}
+          {domains.meals && chart("kcal", t("trends.energy"), kcal, colors.peach, fmtKcal, false, t("trends.scrubHint"))}
 
           {domains.water &&
-            chart(
-              "water",
-              t("trends.water"),
-              water,
-              colors.green.fillSoft,
-              fmtMl,
-              range === "W"
-                ? t("trends.litresIn", { v: (water.reduce((a, b) => a + b, 0) / 1000).toFixed(1), n: RANGE_N.W })
-                : waterAvg == null
-                  ? t("trends.noAvg")
-                  : t("trends.avgMl", { v: nf(waterAvg) }),
-              t("trends.waterCap", { n: year.waterDays }),
-            )}
+            chart("water", t("trends.water"), water, colors.green.fillSoft, fmtMl, false, t("trends.waterCap", { n: year.waterDays }))}
 
           {domains.move &&
-            chart(
-              "move",
-              t("trends.movement"),
-              movement,
-              colors.green.fill,
-              fmtMove,
-              t("trends.workoutsIn", { n: totalWorkouts, when: rangeWord }),
-              programLine || t("trends.scrubHint"),
-            )}
+            chart("move", t("trends.movement"), movement, colors.green.fill, fmtMove, moveAdditive, programLine || t("trends.scrubHint"))}
 
           {/* Muscle focus — aggregate map + tappable chips → the per-muscle session sheet. */}
           {domains.move && (

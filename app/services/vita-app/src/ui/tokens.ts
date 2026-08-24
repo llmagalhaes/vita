@@ -119,10 +119,10 @@ export type SceneName = keyof typeof scenes;
 /** Scene geometry + chrome the scenic header paints (README §2 "Scenic scenes"). */
 export const scenic = {
   gradientStops: [0, 0.55, 1] as const,
-  sun: { cx: 196, cy: 46, r: 30, opacity: 0.92, haloR: 48, haloOpacity: 0.22 },
+  // sun/hills.front retired by handoff v4.1 — the sun is positional and the far
+  // hills are two paths now, all in scene.ts `scenery`.
   hills: {
     viewBox: { width: 390, height: 120 },
-    front: { d: "M0 70 Q70 40 140 66 T290 60 T390 74 V120 H0 Z", opacity: 0.85 },
     back: { d: "M0 92 Q90 66 190 88 T390 92 V120 H0 Z", opacity: 1 },
   },
   stars: { count: 8, minR: 1, maxR: 1.5, color: "#F7F0E4", minOpacity: 0.5, maxOpacity: 1, fadeMs: 300 },
