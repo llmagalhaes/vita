@@ -69,7 +69,9 @@ export const muF = (v: number, accent: string): string =>
   v > 0 ? mixOklab(accent, Math.round(16 + v * 70), colors.sandChip) : colors.muscleEmpty;
 
 export type Tier = "primary" | "secondary" | "light";
-export const tierOf = (v: number): Tier => (v >= 0.75 ? "primary" : v >= 0.4 ? "secondary" : "light");
+// CEO 2026-08-24: unified with the v4.1 "As primary" stat cut (handoff §4) — was .75,
+// which let a .70–.74 muscle count in the stat while its session rows showed no badge.
+export const tierOf = (v: number): Tier => (v >= 0.7 ? "primary" : v >= 0.4 ? "secondary" : "light");
 
 /** The slice of a workout the muscle model needs. `WorkoutRecord` (src/day/record) fits as-is. */
 export type WorkoutSession = {
@@ -142,7 +144,7 @@ export type TrendChip = { key: MuscleKey; intensity: number; sessions: number; t
  * Trends chips: the first 8 muscles with an aggregate over .15, strongest first, up to 8.
  * The label is the same session COUNT the sheet's "Sessions" card shows (any intensity —
  * the old ≥ .4 criterion under-counted and contradicted the sheet), and the chip tints
- * at the .4 threshold — not the .75 the per-program chips use.
+ * at the .4 threshold — not the .7 the per-program chips use.
  */
 export function trendChips(sessions: WorkoutSession[]): TrendChip[] {
   const agg = muT(sessions);

@@ -216,6 +216,11 @@ export function scheduledHabits(habits: Habit[] = listHabits()): Habit[] {
 /** Reschedule from the current habit set. Best-effort — never throws into the UI. */
 export async function refreshNotifications(): Promise<void> {
   try {
+    // Android 13+ posts NOTHING without POST_NOTIFICATIONS granted at runtime — ask
+    // here, at the one place every schedule routes through (habit toggle, vacation,
+    // settings hydrate, day-close), so the day-close notification works even for a
+    // user who never touches a habit switch. `ensure` only prompts while undetermined.
+    if (!notificationsPaused()) await ensureNotificationPermission();
     // Paused → cancel everything by syncing an empty set (keep-water keeps one).
     await getNotifier().sync(scheduledHabits());
     // sync() calls cancelAllScheduledNotificationsAsync(), which also wipes tonight's

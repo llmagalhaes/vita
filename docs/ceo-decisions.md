@@ -2,6 +2,14 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-08-24 — Round 15 (v4.1 open questions, session 23)
+
+Answers to the two open items the v4.1 handoff round surfaced:
+
+1. **Primary-muscle cut unified at ≥ .7** ("vamos de recomendado") — `tierOf` drops .75 → .7 so the session-row PRIMARY badge and the sheet's "As primary" count can never disagree (a .70–.74 muscle, e.g. shoulders on Upper body, now shows the badge).
+2. **Trends AVG keeps today's open bucket** ("mantém assim, vamos ser fiel ao mockup") — the header average includes the still-open today bucket, as the v4.1 prototype computes it; the old skip-today `recordedAverage` stays retired.
+3. Same round: **production APK must ship with notifications working out of the box** — permission now requested at the `refreshNotifications` chokepoint (day-close works even if the user never touches a habit switch).
+
 ## 2026-08-18 — Round 14 (backend persistence, session 22)
 
 Answers to `docs/v4/backend-persistence-analysis.md` — all seven defaults CONFIRMED, plus the two open questions:

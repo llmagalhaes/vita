@@ -45,10 +45,10 @@ describe("muF", () => {
 });
 
 describe("tiers", () => {
-  it("splits at .75 and .4", () => {
+  it("splits at .7 and .4 — the v4.1 As-primary cut (CEO 2026-08-24)", () => {
     expect(tierOf(1)).toBe("primary");
-    expect(tierOf(0.75)).toBe("primary");
-    expect(tierOf(0.74)).toBe("secondary");
+    expect(tierOf(0.7)).toBe("primary");
+    expect(tierOf(0.69)).toBe("secondary");
     expect(tierOf(0.4)).toBe("secondary");
     expect(tierOf(0.25)).toBe("light");
   });
