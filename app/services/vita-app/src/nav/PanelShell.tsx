@@ -175,7 +175,10 @@ export function PanelShell() {
           </View>
         </Animated.View>
       </GestureDetector>
-      <PanelTabs panel={active < 0 ? idxRef.current : active} dark={dark} onPick={pick} />
+      {/* Portaled to PopHost (blur target), so the shell's display:none can't hide it —
+          mount it only on panel routes or the pill floats over pushed screens (builders,
+          account, plan-setup; caught by the v4.2 emulator drive). */}
+      {onPanel ? <PanelTabs panel={active} dark={dark} onPick={pick} /> : null}
     </View>
   );
 }

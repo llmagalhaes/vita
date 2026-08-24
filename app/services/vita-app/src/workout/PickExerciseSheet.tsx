@@ -52,8 +52,10 @@ function FamilyCard({ title, sub, active, onPress }: { title: string; sub: strin
 }
 
 function NumberField({ label, value, onChange }: { label: string; value: string; onChange: (s: string) => void }) {
+  // No flex here: as a direct child of the stage-2 column, flex:1 collapses the
+  // field to zero height under the CTA (v4.2 drive finding A). Rows add it.
   return (
-    <View style={{ flex: 1, gap: 6 }}>
+    <View style={{ gap: 6 }}>
       <Text variant="caption" style={{ fontSize: 11 }} color={colors.faint}>
         {label}
       </Text>
@@ -226,11 +228,15 @@ export function PickExerciseSheet({
           </View>
           {fam === "set" ? (
             <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
-              <NumberField label={t("build.program.pick.sets")} value={sets} onChange={setSets} />
+              <View style={{ flex: 1 }}>
+                <NumberField label={t("build.program.pick.sets")} value={sets} onChange={setSets} />
+              </View>
               <Text style={{ fontFamily: fonts.bold, fontSize: 16, paddingBottom: 12 }} color={colors.disabled}>
                 ×
               </Text>
-              <NumberField label={t("build.program.pick.reps")} value={reps} onChange={setReps} />
+              <View style={{ flex: 1 }}>
+                <NumberField label={t("build.program.pick.reps")} value={reps} onChange={setReps} />
+              </View>
             </View>
           ) : (
             <NumberField label={t("build.program.pick.minutes")} value={min} onChange={setMin} />
