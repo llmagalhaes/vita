@@ -9,6 +9,14 @@ On the v4.2 handoff's "Fill in the calories for me" and the exercise catalog:
 1. **Kcal estimation is HYBRID, table-first**: a pre-seeded food table on our side is consulted first; **Claude is asked only for items the table misses** ("perguntar para o Claude somente o que for necessário"). Seed the table from a public database to cut costs (PT-BR coverage matters — CEO types food names in Portuguese).
 2. **Same model for exercises**: the handoff's EXCAT is the starting seed; enrich from a public exercise DB, Claude fallback for unknown names → muscle weights.
 
+**Answers to the 5 consolidated PLAN.md questions (same day):**
+1. TACO licence — **default**: ship now, settle (UNICAMP permission or USDA rebuild) before the Play Store.
+2. "Build it here" over an existing plan/program — **default**: replace, previous kept in history, warning in the route subtitle.
+3. Spoken route for programs — **default**: gone (becomes `Build it here`), per handoff.
+4. **CHANGED from default — hand-built days KEEP the `~kcal` line**: "as kcal vão ser estimadas, tanto pelo usuário quanto pela IA, portanto vamos manter" — the builder lets the user type a day kcal AND offers an estimate (new `POST /v1/estimate/workout-kcal`, D9; `ProgramDay.kcalEstimate` already exists in the contract).
+5. Claude-guessed exercise muscles — **default**: pale band only, low confidence stays "not mapped".
+Also standing from reconciliation: the estimate mark (`~`) persists after save (constitution: estimates labeled as estimates).
+
 ## 2026-08-24 — Round 15 (v4.1 open questions, session 23)
 
 Answers to the two open items the v4.1 handoff round surfaced:

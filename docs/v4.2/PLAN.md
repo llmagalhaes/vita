@@ -37,12 +37,12 @@ Sizes: backend ~3–3.5 days of agent waves; app 19+1 tickets across 3 builder w
 per the house pattern (parallel Opus builders on disjoint files → adversarial lead reviews →
 orchestrator gates/commits).
 
-## Consolidated open questions for the CEO
+## CEO answers (Round 16, 2026-08-24 — ALL DECIDED, nothing open)
 
-1. **TACO licence before the store** — free to consult, no explicit redistribution licence. Default: ship now, settle (UNICAMP permission or USDA rebuild under our own PT-BR name list) before Play Store.
-2. **"Build it here" over an existing plan/program** — default: **replace** (same semantics as "Import a PDF — replaces the plan you have now"; previous plan kept in history), with the warning carried in the route's subtitle; programs today overwrite silently — same default.
-3. **Spoken route for programs** — the handoff turns `Type or speak it` into `Build it here`, deleting the only spoken path into a program. Default: gone, per handoff.
-4. **Hand-built day's `~kcal` line** — hand-built program days have no `kcalEstimate`, so Today's `~{kcal}` line simply doesn't render. Default: fine for v4.2; a movement-estimate endpoint is a later ticket if wanted.
-5. **Claude-guessed exercise muscles** — paint in the **pale band** (same tone as whole-body "split is a guess"), never full tone; low confidence stays `not mapped`. Default: as proposed.
+1. **TACO licence** — default confirmed: ship now, settle (UNICAMP permission or USDA rebuild under our own PT-BR name list) before Play Store.
+2. **"Build it here" over an existing plan/program** — default confirmed: **replace** (same semantics as "Import a PDF — replaces the plan you have now"; previous kept in history), warning in the route subtitle.
+3. **Spoken route for programs** — default confirmed: gone, per handoff.
+4. **CHANGED — hand-built days KEEP the `~kcal` line** ("as kcal vão ser estimadas, tanto pelo usuário quanto pela IA, portanto vamos manter"): the training builder gets a per-day kcal — user-typed OR estimated. **New delta D9: `POST /v1/estimate/workout-kcal`** ({exercises:[{name,fam,sets,reps,min}]} → {kcal, estimated}) feeding the existing `ProgramDay.kcalEstimate` (no schema change there). **New tickets: BE-065 (endpoint, S, needs BE-062's table for meta) + APP-135 (builder day-kcal field + estimate button, S)** — both land in Wave 2 alongside the other estimate wiring.
+5. **Claude-guessed exercise muscles** — default confirmed: pale band only; low confidence stays `not mapped`.
 
 (Resolved without the CEO: estimate mark persists — R1; `traps` added — D6, the chip finally lights; kcal-only now with macros stored in the table from day one — backend Q4 default.)

@@ -2,6 +2,30 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## ⭐ SESSION 24 KICKOFF — V4.2 BUILD ROUND (manual builders). Everything decided; start building.
+
+**The CEO closed session 23 with: "vamos desenvolver em outra [sessão] pois o contexto dessa está muito grande" — this block is the complete brief. Planning is DONE, all CEO questions ANSWERED, specs committed. Read, then launch the build.**
+
+**Read order (all committed, nothing external needed):**
+1. `docs/v4.2/PLAN.md` — the binding reconciliation + roadmap waves + ALL CEO answers (Round 16 — nothing open).
+2. `docs/v4.2/backend-plan.md` — BE-057..065, contract v0.9.0 deltas D1–D9, hybrid estimation design (TACO seed + cache + Claude-misses-only + write-back), V013/V014 migrations, cost model.
+3. `docs/v4.2/app-plan.md` — APP-115..135 in 3 waves, surface map, data flow (builders ride `savePlan`/`saveProgram`), EXCAT placement, `est` flag flow, risks (keyboard!). NB ticket numbers were shifted +2 from the lead's draft (113/114 were taken); APP-134 (plan-surface `~` render) and APP-135 (day-kcal field) were added at reconciliation.
+4. `docs/v4.2/HANDOFF_v4.2_manual_setup.md` — the CEO's Claude-Design handoff, binding visual/copy source (literals, `skel(n)`, EXCAT, `mfill`, §6 = 23 acceptance criteria).
+5. `docs/ceo-decisions.md` Rounds 15–16 — decisions log (hybrid estimation; `~kcal` KEPT on hand-built days via user-typed or `POST /v1/estimate/workout-kcal`; replace-not-merge; TACO now/licence before store; pale band for Claude-guessed muscles; `tierOf` .7; Trends AVG keeps today).
+
+**Build recipe (house pattern, waves from PLAN.md):**
+- **Wave 0:** BE-057 alone (contract v0.9.0 + ADR-0020) → orchestrator commits → app regenerates types (`api:check`).
+- **Wave 1 (parallel Opus builders, disjoint):** backend BE-058/059/060/062 (2 builders: save-paths / tables+seeds) ∥ app APP-115 foundation then the 3 disjoint builders (food builder / training builder / entry-points) per app-plan waves. i18n block lands FIRST (one file = the merge fuse).
+- **Wave 2:** BE-061/063/065 (the 3 estimate endpoints) ∥ app estimation wiring + APP-134 + APP-135.
+- **Wave 3:** app keyboard pass + 23-criteria emulator drive (§6) · adversarial Fable lead reviews → fix pass · BE-064 image + **Terraform deploy → task-def vita:11** + V013/V014 + prod probes · fresh APKs (v42) + iOS sim refresh.
+- Gates every wave: backend `./gradlew check` · app `npx tsc --noEmit` + `npx jest` (baseline **481/482, 1 tz skip**) · `api:check` after type regen. Orchestrator commits (subagents NEVER run git), Asana tickets BE-057..065 / APP-115..135 to file on the boards at kickoff (frontend board `1216519867368576`, backend `1216519867368580`).
+
+**⚠ OPEN INCIDENT (diagnose FIRST or in parallel — CEO's real production test):** CEO reported "algo quebrou quando eu subi o plano" on the prod APK (v41b, Samsung). Orchestrator got as far as: `/health` 200, ECS vita:10 1/1 running, but **CloudWatch `/ecs/vita` has ZERO events since Aug 19** — the CEO's login/upload traffic never reached the backend (or never logged). Hypotheses unranked: app-side upload-leg failure (presigned PUT), wrong APK (mock?), auth failing client-side, or log-config regression. Next step was a probe POST to `/v1/auth/magic-link` + log check (CEO interrupted; not yet run). Get the CEO's device symptoms (screenshot/toast) + `adb logcat` if cabled, and re-run the probe.
+
+**Ops recipes of record:** push = `git -c credential.helper='!gh auth git-credential' push https://github.com/llmagalhaes/vita.git main` · APKs = `expo prebuild --clean` when native/config changes, else `cd android && ANDROID_HOME=~/Library/Android/sdk [VITA_API_BASE_URL=https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/v1] ./gradlew :app:assembleRelease -q`, deliverables in `~/Downloads/vita-v4/` (current: `vita-mock-v41b.apk`/`vita-prod-v41b.apk`), install clean (`adb uninstall com.llmagal.vita`) · emulator = `emulator -avd Pixel_10_Pro -gpu host -no-snapshot-save`; it degrades under xcodebuild CPU load (black screen / input dead) → `adb emu kill; pkill -9 -f "avd Pixel_10_Pro"; adb kill-server && adb start-server; cold boot` · iOS sim = `LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8` for pods, `xcodebuild -workspace ios/Vita.xcworkspace -scheme Vita -configuration Release -sdk iphonesimulator ONLY_ACTIVE_ARCH=YES CODE_SIGNING_ALLOWED=NO`, `open -a Simulator` BEFORE `simctl launch` (hangs headless), prod-URL check = grep `EXConstants.bundle/app.config` NOT main.jsbundle (Hermes) · expo-blur Android = blurMethod `dimezisBlurViewSdk31Plus` + `blurTarget={appBlurTarget}`, never inside its own target, intensity IS the px radius.
+
+**Standing (unchanged):** iOS real-device needs Apple Developer (CEO; free-Apple-ID 7-day Xcode install offered as stopgap) · publishing track OPS-027/028 (CEO: privacy text, keystore, Play Console) + TACO licence before store (Round 16 Q1) · APP-109 (Maestro, DIAG off) · `docs/v4/meal-plan.pdf` untracked pending anonymization · BE-054 backlog · Asana backend-board sweep (stale tickets already in prod).
+
 ## Where we are (2026-08-24, session 23 — CEO device round 2: REAL Android blur + sheet portal + vacation banner + first iOS build)
 
 **4 CEO adjustments from real-Samsung testing, orchestrator-fixed + emulator-verified, plus the first iOS build this project has ever produced.** Commits `06144e7` (fixes) + `4b6c9c0` (blur calibration), **both PUSHED** — and the **171 unpushed local commits from session 22 went up from this shell too**. **Push recipe (no SSH key here; the `gh` keyring works):** `git -c credential.helper='!gh auth git-credential' push https://github.com/llmagalhaes/vita.git main`. Gates: **tsc 0 · Jest 459/460 (1 tz-conditional skip)**.
