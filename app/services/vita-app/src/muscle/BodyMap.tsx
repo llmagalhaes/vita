@@ -15,25 +15,36 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Circle, Rect, Text as SvgText } from "react-native-svg";
 import { useAccent, colors, fonts } from "../ui";
-import { muF, type Intensities } from "./muscleData";
+import { muF, type Intensities, type MuscleKey } from "./muscleData";
 
 const NEUTRAL = colors.muscleEmptyAlt; // #EDE6D8 — head/neck/pelvis/shins
 
 export const BodyMap = memo(function BodyMap({
   intensities,
   maxWidth = 250,
+  labels = true,
+  fill,
 }: {
   intensities: Intensities;
   /** SVG max width in px — 250 workout card · 240 Trends · 225 past day. */
   maxWidth?: number;
+  /**
+   * APP-117: the training builder renders this at 122px wide, where the 8px
+   * captions land at ~5px — illegible. `false` drops them and tightens the
+   * viewBox 150 → 134 to recover the space (handoff v4.2 §3.6, criterion 22).
+   */
+  labels?: boolean;
+  /** Paint from something other than `intensities` — the builder's two-source `mfill`. */
+  fill?: (k: MuscleKey) => string;
 }) {
   const { t } = useTranslation();
   const accent = useAccent();
-  const f = (k: keyof Intensities) => muF(intensities[k] ?? 0, accent);
+  const height = labels ? 150 : 134;
+  const f = (k: MuscleKey) => fill?.(k) ?? muF(intensities[k] ?? 0, accent);
   const [qu, gl, ha, ca, ch, bk, sh, ar, tr, co] = (["qu", "gl", "ha", "ca", "ch", "bk", "sh", "ar", "tr", "co"] as const).map(f);
   return (
-    <View style={{ width: "100%", maxWidth, alignSelf: "center", aspectRatio: 190 / 150 }}>
-      <Svg width="100%" height="100%" viewBox="0 0 190 150">
+    <View style={{ width: "100%", maxWidth, alignSelf: "center", aspectRatio: 190 / height }}>
+      <Svg width="100%" height="100%" viewBox={`0 0 190 ${height}`}>
         {/* ── FRONT ─────────────────────────────────────────────────────────── */}
         <Circle cx={48} cy={11} r={8} fill={NEUTRAL} />
         <Rect x={44} y={18} width={8} height={6} rx={3} fill={NEUTRAL} />
@@ -70,12 +81,16 @@ export const BodyMap = memo(function BodyMap({
         <Rect x={131} y={106} width={9} height={22} rx={4.5} fill={ca} />
         <Rect x={145} y={106} width={9} height={22} rx={4.5} fill={ca} />
         {/* ── Captions ──────────────────────────────────────────────────────── */}
-        <SvgText x={48} y={146} textAnchor="middle" fontSize={8} fontWeight="700" fill={colors.faint} fontFamily={fonts.bold}>
-          {t("muscle.front")}
-        </SvgText>
-        <SvgText x={142} y={146} textAnchor="middle" fontSize={8} fontWeight="700" fill={colors.faint} fontFamily={fonts.bold}>
-          {t("muscle.back")}
-        </SvgText>
+        {labels && (
+          <>
+            <SvgText x={48} y={146} textAnchor="middle" fontSize={8} fontWeight="700" fill={colors.faint} fontFamily={fonts.bold}>
+              {t("muscle.front")}
+            </SvgText>
+            <SvgText x={142} y={146} textAnchor="middle" fontSize={8} fontWeight="700" fill={colors.faint} fontFamily={fonts.bold}>
+              {t("muscle.back")}
+            </SvgText>
+          </>
+        )}
       </Svg>
     </View>
   );

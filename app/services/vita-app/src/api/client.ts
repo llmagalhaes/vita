@@ -2,7 +2,7 @@
  * Typed API client for docs/contracts/vita-api-v0.yaml.
  * Types come from types.gen.ts — regenerate with `npm run api:gen`.
  */
-import type { components } from "./types.gen";
+import type { components, paths } from "./types.gen";
 
 export type Schemas = components["schemas"];
 export type NewEntry = Schemas["NewEntry"];
@@ -42,6 +42,11 @@ export type TokenPair = Schemas["TokenPair"];
 export type Muscle = NonNullable<WorkoutDetail["muscles"]>[number];
 
 export type EntriesPage = { items: LogEntry[]; nextCursor?: string };
+
+/** 0.9.0 (D7) — POST /estimate/food-kcal bodies, straight off the contract. */
+type FoodKcalPost = paths["/estimate/food-kcal"]["post"];
+export type FoodKcalRequest = FoodKcalPost["requestBody"]["content"]["application/json"];
+export type FoodKcalResponse = FoodKcalPost["responses"][200]["content"]["application/json"];
 
 /** POST /uploads → presigned target for a two-phase PDF import (plan/program). */
 export type UploadTarget = { fileRef: string; uploadUrl: string; expiresAt: string };
@@ -84,6 +89,13 @@ export interface Api {
   parseEatingPlan(body: { text?: string; fileRef?: string }): Promise<EatingPlanDraft>;
   /** Onboarding step 4: text (or PDF fileRef) → draft training program for confirmation. */
   parseTrainingProgram(body: { text?: string; fileRef?: string }): Promise<TrainingProgramDraft>;
+  /**
+   * 0.9.0 (D7) — kcal estimates for the manual plan builder's "Fill in the
+   * calories for me". Positional: same length, same order, `kcal: null` for an
+   * item nothing could answer. Numbers come back rounded to a multiple of 5.
+   * Call it through `src/plan/estimateKcal.ts`, which owns the offline fallback.
+   */
+  estimateFoodKcal(body: FoodKcalRequest): Promise<FoodKcalResponse>;
   /** Phase 1 of PDF import: get a presigned S3 PUT target; then PUT bytes (putPresignedFile), then parse({ fileRef }). */
   requestUpload(body: { purpose: "plan_document"; contentType: "application/pdf" }): Promise<UploadTarget>;
   // Persisted eating plan (versioned server-side; PUT is full-doc replace, no patch).
@@ -287,6 +299,7 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
       return doc;
     },
     parseTrainingProgram: (body) => request("POST", "/parse/training-program", { body }),
+    estimateFoodKcal: (body) => request("POST", "/estimate/food-kcal", { body }),
     requestUpload: (body) => request("POST", "/uploads", { body }),
     getPlan: () => request("GET", "/plan"),
     createPlan: (doc) => request("POST", "/plan", { body: doc }),

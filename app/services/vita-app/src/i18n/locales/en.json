@@ -779,5 +779,126 @@
     "exportTo": "Export to…",
     "dataNote": "Your log stays on this device — exports are files you choose to share.",
     "signOut": "Sign out"
+  },
+  "build": {
+    "eatingSheet": {
+      "cardButton": "Import or build your plan",
+      "title": "Your eating plan",
+      "pdf": "Import a PDF",
+      "pdfSub": "replaces the plan you have now",
+      "here": "Build it here",
+      "hereSub": "meal by meal — no document needed",
+      "one": "Add a single meal",
+      "oneSub": "on top of what is already there"
+    },
+    "trainingSheet": {
+      "here": "Build it here",
+      "hereSub": "session by session — lifting, classes, sport"
+    },
+    "stepOf": "{{n}} of {{total}}",
+    "plan": {
+      "eyebrow": "Your eating plan",
+      "reviewStep": "Review",
+      "summary": "Built here, meal by meal",
+      "count": {
+        "question": "How many times a day do you eat?",
+        "sub": "A rough shape is enough. Names and times are yours to change, and meals can come and go later.",
+        "previewFooter": "A starting skeleton — rename, retime or drop any of them as you go.",
+        "cta": "Start with {{n}} meals"
+      },
+      "meals": {
+        "empty": "Nothing here yet. Add what you usually eat — one line per food.",
+        "namePlaceholder": "e.g. Oats",
+        "qtyPlaceholder": "60",
+        "unit": {
+          "g": "g",
+          "ml": "ml",
+          "unit": "unit",
+          "serving": "serving"
+        },
+        "doneAdding": "Done adding",
+        "addFood": "Add food",
+        "addFoodDashed": "+ Add food",
+        "portion": "{{q}} {{u}}",
+        "footer": "Calories come at the end, in one pass — no need to know them now.",
+        "next": "Next meal",
+        "toReview": "Review the plan",
+        "removeFood": "Remove {{name}}"
+      },
+      "review": {
+        "titleEmpty": "Your plan, one screen",
+        "subEmpty": "Calories are still empty. Fill them in yourself, or let the app work them out from a food database.",
+        "titleFilled": "Your plan, with the numbers filled in",
+        "subFilled": "Nothing here is a target — it is what a normal day looks like for you.",
+        "edit": "edit",
+        "fill": "Fill in the calories for me",
+        "working": "Working through the list…",
+        "dayEyebrow": "A day, as planned",
+        "kcal": "kcal",
+        "estimated": "~{{kcal}}",
+        "none": "—",
+        "legend": "Numbers with a dotted line are estimates from a food database, not from your plan. Tap any of them to correct it.",
+        "finish": "Finish setup"
+      },
+      "saved_one": "{{count}} meal saved — your Day is set up",
+      "saved_other": "{{count}} meals saved — your Day is set up"
+    },
+    "program": {
+      "eyebrow": "Your training",
+      "fallbackName": "My program",
+      "dayLetter": "Day {{letter}}",
+      "shape": {
+        "question": "What does a round of training look like?",
+        "sub": "Not a weekly calendar — just the sessions you rotate through. Anything counts: lifting, a run, a class, a match.",
+        "namePlaceholder": "Name it — e.g. Gym + Muay thai",
+        "howMany": "How many different sessions",
+        "empty": "empty",
+        "footer": "You'll fill one at a time. Which day falls where in the week is decided later, on your Day.",
+        "cta": "Fill in {{day}}"
+      },
+      "day": {
+        "empty": "Empty for now — add whatever this session is made of.",
+        "add": "+ Add exercise or activity",
+        "notMapped": "not mapped",
+        "sets": "{{sets}} × {{reps}}",
+        "minutes": "{{min}} min",
+        "remove": "Remove {{name}}",
+        "next": "Next day",
+        "finish": "Finish setup"
+      },
+      "dayKcalLabel": "Calories for this session",
+      "dayKcalPlaceholder": "optional",
+      "dayKcalUnit": "kcal",
+      "dayKcalEstimate": "Work it out for me",
+      "dayKcalWorking": "Working it out…",
+      "dayKcalEstimated": "~{{kcal}}",
+      "dayKcalNone": "—",
+      "dayKcalHint": "A rough number for this session — type your own, or have it worked out from what is in it.",
+      "pick": {
+        "title": "Add to {{day}}",
+        "bySet": "By set",
+        "bySetSub": "sets × reps",
+        "byTime": "By time",
+        "byTimeSub": "minutes",
+        "search": "Search, or type your own",
+        "wholeBody": "WHOLE BODY",
+        "free": "Add “{{query}}”",
+        "freeSub": "your own — no muscles guessed",
+        "hintWhole": "whole body — the split is a guess",
+        "hintFree": "no muscles guessed for this one",
+        "sets": "Sets",
+        "reps": "Reps",
+        "minutes": "Minutes",
+        "back": "Back to list",
+        "add": "Add to day"
+      },
+      "map": {
+        "eyebrow": "What this day touches",
+        "empty": "Nothing yet. The body fills in as you add.",
+        "soft": "Paler tones come from whole-body activities, where the split is a guess."
+      },
+      "saved_one": "{{name}} saved — {{count}} day",
+      "saved_other": "{{name}} saved — {{count}} days"
+    }
   }
 }

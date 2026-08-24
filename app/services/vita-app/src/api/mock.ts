@@ -9,6 +9,7 @@
  */
 import { buildMealRecord, emptyOverlay, minutesOf, toMealEntry } from "../day/record";
 import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
+import { estK } from "../plan/estimateKcal";
 import { uuid } from "../lib/uuid";
 import {
   ApiError,
@@ -735,6 +736,12 @@ export function createMockApi(): Api {
     async parseTrainingProgram({ text }) {
       await delay(LATENCY_MS);
       return mockParseProgram(text);
+    },
+    async estimateFoodKcal({ items }) {
+      await delay(LATENCY_MS);
+      // The SAME on-device table the offline fallback uses (APP-116) — mock and
+      // prod only differ in where the numbers come from, never in their shape.
+      return { items: items.map((it) => ({ kcal: estK(it) })) };
     },
     async requestUpload() {
       await delay(150);

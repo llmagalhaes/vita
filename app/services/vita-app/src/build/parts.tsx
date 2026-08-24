@@ -1,0 +1,189 @@
+/**
+ * APP-118 — the only chrome the two v4.2 builders share (handoff §2/§3, §5 tokens).
+ *
+ * Deliberately three components and one table. The food builder and the training
+ * builder have different rhythms (handoff §7: merging them was rejected), so
+ * anything past the shell, the count row and the phase question belongs to one
+ * builder and lives in its own file.
+ */
+import type { ReactNode } from "react";
+import { ScrollView, View } from "react-native";
+import { BackButton, KeyboardAvoider, PressScale, Text, colors, fonts } from "../ui";
+
+/**
+ * Full-screen builder shell: canvas, the Plan-Setup header (back · eyebrow ·
+ * step label) and a keyboard-aware scroll body. Both builders are ScrollViews
+ * full of small inputs and Android edge-to-edge does not apply `adjustResize`
+ * (see `src/ui/keyboard.tsx`) — `KeyboardAvoider` is the mechanism that works.
+ */
+export function BuilderShell({
+  eyebrow,
+  step,
+  onBack,
+  backLabel,
+  children,
+}: {
+  eyebrow: string;
+  /** Right-hand step label. Empty on the first phase (handoff `bmStepLbl`). */
+  step?: string;
+  /** One button for "back a step" and "leave" alike — the phase decides. */
+  onBack: () => void;
+  backLabel: string;
+  children: ReactNode;
+}) {
+  return (
+    <KeyboardAvoider style={{ backgroundColor: colors.canvas }}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 22, paddingBottom: 60, gap: 16 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View style={{ flexDirection: "row", alignItems: "center" }}>
+          {/* ponytail: the app-wide BackButton (42px, CEO batch #8) rather than the
+              handoff's 34px circle — one back button, one size, everywhere. */}
+          <BackButton onPress={onBack} label={backLabel} />
+          <Text
+            variant="caption"
+            style={{ flex: 1, textAlign: "center", fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: "uppercase" }}
+            color={colors.labelMuted}
+          >
+            {eyebrow}
+          </Text>
+          <View style={{ width: 42, alignItems: "flex-end" }}>
+            <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 11 }} color={colors.labelMuted}>
+              {step ?? ""}
+            </Text>
+          </View>
+        </View>
+        {children}
+      </ScrollView>
+    </KeyboardAvoider>
+  );
+}
+
+/** The 27px phase question and its quiet sub (handoff §5 "Pergunta de fase"). */
+export function PhaseQuestion({ text, sub }: { text: string; sub?: string }) {
+  return (
+    <View style={{ gap: 8 }}>
+      <Text style={{ fontFamily: fonts.semiBold, fontSize: 27, lineHeight: 32.4, letterSpacing: -0.2 }} color={colors.inkHeading}>
+        {text}
+      </Text>
+      {sub ? (
+        <Text variant="caption" style={{ fontSize: 13, lineHeight: 19 }} color={colors.muted}>
+          {sub}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/**
+ * `3 4 5 6 +` (meals) / `1 2 3 4 5 +` (sessions). Above the base row the current
+ * value joins the row as an extra, selected chip; the `+` climbs to `max` and
+ * disappears there (criteria 3 and 15).
+ */
+export function CountChips({
+  values,
+  value,
+  onChange,
+  max = 10,
+  height = 58,
+  fontSize = 20,
+  plusWidth = 50,
+  plusLabel = "+",
+}: {
+  /** The base chips, always shown. */
+  values: number[];
+  value: number;
+  onChange: (n: number) => void;
+  /** Ceiling of the `+` button — 10 meals, 10 sessions. */
+  max?: number;
+  height?: number;
+  fontSize?: number;
+  plusWidth?: number;
+  plusLabel?: string;
+}) {
+  const base = Math.max(...values);
+  const chips = value > base ? [...values, value] : values;
+  return (
+    <View style={{ flexDirection: "row", gap: 9 }}>
+      {chips.map((n) => {
+        const selected = n === value;
+        return (
+          <PressScale
+            key={n}
+            accessibilityRole="button"
+            accessibilityState={{ selected }}
+            accessibilityLabel={String(n)}
+            onPress={() => onChange(n)}
+            style={{
+              flex: 1,
+              height,
+              borderRadius: 20,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: selected ? colors.dark.bg : colors.card,
+              borderWidth: selected ? 0 : 1.5,
+              borderColor: colors.borderControlStrong,
+            }}
+          >
+            <Text style={{ fontFamily: fonts.bold, fontSize }} color={selected ? colors.dark.ink : colors.inkMuted}>
+              {n}
+            </Text>
+          </PressScale>
+        );
+      })}
+      {value < max && (
+        <PressScale
+          accessibilityRole="button"
+          accessibilityLabel={plusLabel}
+          onPress={() => onChange(Math.min(max, value + 1))}
+          style={{
+            width: plusWidth,
+            height,
+            borderRadius: 20,
+            alignItems: "center",
+            justifyContent: "center",
+            borderWidth: 1.5,
+            borderStyle: "dashed",
+            borderColor: colors.dashedBorder,
+          }}
+        >
+          <Text style={{ fontFamily: fonts.bold, fontSize }} color={colors.inkMuted}>
+            {plusLabel}
+          </Text>
+        </PressScale>
+      )}
+    </View>
+  );
+}
+
+/**
+ * Meal slots by priority (handoff §2.2). Not a table per count: `n` meals are
+ * the `n` highest-priority slots, handed back in clock order — so every count
+ * from 3 to 10 produces names a person recognises, instead of "Meal 7".
+ *
+ * These are seeds for a field the user immediately edits, so they stay data
+ * here rather than i18n chrome.
+ */
+export const MSLOT: [name: string, time: string, priority: number][] = [
+  ["Breakfast", "07:00", 0],
+  ["Morning snack", "09:30", 4],
+  ["Late morning", "11:00", 8],
+  ["Lunch", "12:30", 1],
+  ["Early afternoon", "14:30", 9],
+  ["Afternoon snack", "16:00", 3],
+  ["Pre-workout", "17:30", 6],
+  ["Dinner", "19:30", 2],
+  ["Post-workout", "20:30", 7],
+  ["Supper", "21:30", 5],
+];
+
+/** The `n` most important meal slots, in clock order. `n` is clamped to 1…10. */
+export function skel(n: number): [name: string, time: string][] {
+  return MSLOT.slice()
+    .sort((a, b) => a[2] - b[2])
+    .slice(0, Math.max(1, Math.min(10, n)))
+    .sort((a, b) => MSLOT.indexOf(a) - MSLOT.indexOf(b))
+    .map(([name, time]) => [name, time]);
+}
