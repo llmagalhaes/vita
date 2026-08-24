@@ -13,12 +13,12 @@
  * query clears on add, the typed numbers survive a family switch (handoff §4).
  */
 import { useState } from "react";
-import { ScrollView, TextInput, View } from "react-native";
+import { ScrollView, TextInput, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { dominant, search, type CatalogEntry, type Family } from "./exerciseCatalog";
 import type { MuscleKey } from "../muscle/muscleData";
 import type { BwExercise } from "../build/train/draft";
-import { Button, PressScale, SheetOverlay, Text, colors, fonts, radii } from "../ui";
+import { Button, PressScale, SheetOverlay, Text, colors, fonts, radii, useKeyboardHeightState } from "../ui";
 import { selectionTick } from "../lib/haptics";
 
 /** A free-typed entry is a catalog row with no weights and the soft mark. */
@@ -98,6 +98,14 @@ export function PickExerciseSheet({
   const [reps, setReps] = useState("10");
   const [min, setMin] = useState("30");
 
+  // APP-132: `lift` slides the WHOLE sheet above the keyboard, so a tall list
+  // pushes the search field off the top of the screen. The list gets whatever is
+  // left of the 78% budget after the keyboard and the sheet's fixed rows (~260px:
+  // handle, title, family cards, search, padding).
+  const { height } = useWindowDimensions();
+  const keyboard = useKeyboardHeightState();
+  const listMax = Math.max(120, Math.min(300, height * 0.78 - keyboard - 260));
+
   const ql = q.trim().toLowerCase();
   const rows = search(q, fam);
   const freeOn = ql !== "" && !rows.some((e) => e.name.toLowerCase() === ql);
@@ -147,6 +155,7 @@ export function PickExerciseSheet({
           <TextInput
             value={q}
             onChangeText={setQ}
+            returnKeyType="search"
             placeholder={t("build.program.pick.search")}
             placeholderTextColor={colors.faint}
             accessibilityLabel={t("build.program.pick.search")}
@@ -162,10 +171,7 @@ export function PickExerciseSheet({
               color: colors.ink,
             }}
           />
-          {/* ponytail: a fixed max height rather than measuring 78% of the window —
-              the sheet is already bounded by its own padding; revisit if a device
-              pass finds it short on a tall phone. */}
-          <ScrollView style={{ maxHeight: 300 }} keyboardShouldPersistTaps="handled">
+          <ScrollView style={{ maxHeight: listMax }} keyboardShouldPersistTaps="handled">
             <View style={{ gap: 2 }}>
               {freeOn ? (
                 <PressScale

@@ -6,10 +6,47 @@
  * anything past the shell, the count row and the phase question belongs to one
  * builder and lives in its own file.
  */
-import { useEffect, type ReactNode } from "react";
-import { ScrollView, View } from "react-native";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, type ReactNode, type RefObject } from "react";
+import { Keyboard, ScrollView, TextInput, View } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
 import { BackButton, KeyboardAvoider, PressScale, Text, colors, fonts, motion } from "../ui";
+
+/**
+ * APP-132 — the shell's scroll view, handed to the fields inside it.
+ *
+ * `KeyboardAvoider` only SHRINKS the viewport (Android edge-to-edge here never
+ * gets `adjustResize`, see `src/ui/keyboard.tsx`); it does not move a field that
+ * the keyboard now covers. Nothing else in the app scrolls a field into view, so
+ * this is the one mechanism: measure the field against the keyboard's own top and
+ * scroll the difference.
+ */
+const ShellScroll = createContext<{ view: RefObject<ScrollView | null>; offset: { current: number } } | null>(null);
+
+/**
+ * `const f = useFieldVisible()` → `<TextInput ref={f.ref} onFocus={f.onFocus} />`.
+ * A no-op outside a `BuilderShell`, or when the keyboard is not up (hardware
+ * keyboard, tests).
+ */
+export function useFieldVisible() {
+  const ctx = useContext(ShellScroll);
+  const ref = useRef<TextInput>(null);
+  const onFocus = useCallback(() => {
+    // ponytail: one timeout instead of a keyboard subscription per field — focus
+    // fires BEFORE the keyboard frame exists, and 320ms is past both platforms'
+    // show animation. Raise it if a slow device ever measures too early.
+    setTimeout(() => {
+      const view = ctx?.view.current;
+      const node = ref.current;
+      const keyboardTop = Keyboard.metrics?.()?.screenY;
+      if (!view || !keyboardTop || typeof node?.measureInWindow !== "function") return;
+      node.measureInWindow((_x, y, _w, h) => {
+        const hidden = y + h + 16 - keyboardTop; // 16 = breathing room under the field
+        if (hidden > 0) view.scrollTo({ y: (ctx?.offset.current ?? 0) + hidden, animated: true });
+      });
+    }, 320);
+  }, [ctx]);
+  return { ref, onFocus };
+}
 
 /**
  * Full-screen builder shell: canvas, the Plan-Setup header (back · eyebrow ·
@@ -32,32 +69,41 @@ export function BuilderShell({
   backLabel: string;
   children: ReactNode;
 }) {
+  const view = useRef<ScrollView>(null);
+  const offset = useRef(0);
+  const scroll = useMemo(() => ({ view, offset }), []);
+
   return (
     <KeyboardAvoider style={{ backgroundColor: colors.canvas }}>
-      <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 22, paddingBottom: 60, gap: 16 }}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={{ flexDirection: "row", alignItems: "center" }}>
-          {/* ponytail: the app-wide BackButton (42px, CEO batch #8) rather than the
-              handoff's 34px circle — one back button, one size, everywhere. */}
-          <BackButton onPress={onBack} label={backLabel} />
-          <Text
-            variant="caption"
-            style={{ flex: 1, textAlign: "center", fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: "uppercase" }}
-            color={colors.labelMuted}
-          >
-            {eyebrow}
-          </Text>
-          <View style={{ width: 42, alignItems: "flex-end" }}>
-            <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 11 }} color={colors.labelMuted}>
-              {step ?? ""}
+      <ShellScroll.Provider value={scroll}>
+        <ScrollView
+          ref={view}
+          onScroll={(e) => (offset.current = e.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={16}
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingTop: 60, paddingHorizontal: 22, paddingBottom: 60, gap: 16 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            {/* ponytail: the app-wide BackButton (42px, CEO batch #8) rather than the
+                handoff's 34px circle — one back button, one size, everywhere. */}
+            <BackButton onPress={onBack} label={backLabel} />
+            <Text
+              variant="caption"
+              style={{ flex: 1, textAlign: "center", fontFamily: fonts.extraBold, fontSize: 11.5, letterSpacing: 1.4, textTransform: "uppercase" }}
+              color={colors.labelMuted}
+            >
+              {eyebrow}
             </Text>
+            <View style={{ width: 42, alignItems: "flex-end" }}>
+              <Text variant="caption" style={{ fontFamily: fonts.bold, fontSize: 11 }} color={colors.labelMuted}>
+                {step ?? ""}
+              </Text>
+            </View>
           </View>
-        </View>
-        {children}
-      </ScrollView>
+          {children}
+        </ScrollView>
+      </ShellScroll.Provider>
     </KeyboardAvoider>
   );
 }

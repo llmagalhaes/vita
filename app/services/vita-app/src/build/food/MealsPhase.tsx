@@ -10,6 +10,7 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { selectionTick } from "../../lib/haptics";
 import { Button, PressScale, Text, colors, fonts, shadowWaterCard } from "../../ui";
+import { useFieldVisible } from "../parts";
 import { UNITS, type BuildItem, type BuildMeal } from "./draft";
 
 const dashedField = {
@@ -88,6 +89,12 @@ export function MealsPhase({
   const [name, setName] = useState("");
   const [qty, setQty] = useState("");
   const [unit, setUnit] = useState<string>("g");
+  // APP-132: every field here can end up under the keyboard — the card grows with
+  // the meal, and the form sits at its bottom.
+  const mealName = useFieldVisible();
+  const mealTime = useFieldVisible();
+  const foodName = useFieldVisible();
+  const foodQty = useFieldVisible();
 
   const add = () => {
     if (!name.trim()) return;
@@ -115,12 +122,17 @@ export function MealsPhase({
         <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 10 }}>
           <TextInput
             testID="meal-name"
+            ref={mealName.ref}
+            onFocus={mealName.onFocus}
+            returnKeyType="done"
             value={meal.n}
             onChangeText={(v) => onMeal({ n: v })}
             style={{ flex: 1, fontFamily: fonts.bold, fontSize: 20, color: colors.inkHeading, ...dashedField }}
           />
           <TextInput
             testID="meal-time"
+            ref={mealTime.ref}
+            onFocus={mealTime.onFocus}
             value={meal.t}
             onChangeText={(v) => onMeal({ t: v })}
             style={{ width: 66, textAlign: "right", fontFamily: fonts.bold, fontSize: 13, color: colors.muted, ...dashedField }}
@@ -161,6 +173,11 @@ export function MealsPhase({
         {formOpen ? (
           <View style={{ gap: 9 }}>
             <TextInput
+              ref={foodName.ref}
+              onFocus={foodName.onFocus}
+              returnKeyType="next"
+              blurOnSubmit={false}
+              onSubmitEditing={() => foodQty.ref.current?.focus()}
               value={name}
               onChangeText={setName}
               placeholder={t("build.plan.meals.namePlaceholder")}
@@ -169,6 +186,8 @@ export function MealsPhase({
             />
             <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
               <TextInput
+                ref={foodQty.ref}
+                onFocus={foodQty.onFocus}
                 value={qty}
                 onChangeText={setQty}
                 keyboardType="numeric"

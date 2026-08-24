@@ -8,7 +8,7 @@
 import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button, Text, colors, estimateBase, fonts, shadowWaterCard } from "../../ui";
-import { EstimateAction } from "../parts";
+import { EstimateAction, useFieldVisible } from "../parts";
 import { anyK, dayTotal, mealTotal, type BuildMeal } from "./draft";
 
 /** Estimated · typed · empty — three states, three inks (handoff §2.4 table). */
@@ -34,11 +34,17 @@ function KcalCell({
   testID: string;
 }) {
   const { t } = useTranslation();
+  // APP-132: the editor opens wherever the row happens to be — `autoFocus` fires
+  // this and the row scrolls out from under the keyboard.
+  const field = useFieldVisible();
   if (editing) {
     return (
       <TextInput
         testID="kcal-input"
         accessibilityLabel={label}
+        ref={field.ref}
+        onFocus={field.onFocus}
+        returnKeyType="done"
         autoFocus
         value={value}
         onChangeText={onChange}

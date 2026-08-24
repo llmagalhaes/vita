@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -52,6 +52,27 @@ export function useKeyboardHeight(): SharedValue<number> {
       hide.remove();
     };
   }, [height]);
+  return height;
+}
+
+/**
+ * The same height as plain React state — for LAYOUT that has to shrink when the
+ * keyboard is up (a lifted sheet's inner list, APP-132), where the animated
+ * SharedValue above cannot be read. Same events, one re-render per open/close.
+ */
+export function useKeyboardHeightState(): number {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const ios = Platform.OS === "ios";
+    const show = Keyboard.addListener(ios ? "keyboardWillShow" : "keyboardDidShow", (e) =>
+      setHeight(e.endCoordinates.height),
+    );
+    const hide = Keyboard.addListener(ios ? "keyboardWillHide" : "keyboardDidHide", () => setHeight(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
   return height;
 }
 

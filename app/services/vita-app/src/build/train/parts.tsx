@@ -12,7 +12,7 @@ import { BodyMap } from "../../muscle/BodyMap";
 import { MUSCLE_KEYS, type MuscleKey } from "../../muscle/muscleData";
 import { coverage, dominant, mfill, type Family } from "../../workout/exerciseCatalog";
 import { Text, PressScale, colors, fonts, mixOklab, radii, shadowCard, useAccent } from "../../ui";
-import { CountChips, EstimateAction, PhaseQuestion } from "../parts";
+import { CountChips, EstimateAction, PhaseQuestion, useFieldVisible } from "../parts";
 import { dayLetter, type BwDay, type BwExercise } from "./draft";
 
 /** 11.5/800, 1.4 letter-spacing, uppercase, faint (handoff §5 "Eyebrow"). */
@@ -67,10 +67,14 @@ export function ShapePhase({
 }) {
   const { t } = useTranslation();
   const accent = useAccent();
+  const field = useFieldVisible();
   return (
     <View style={{ gap: 18 }}>
       <PhaseQuestion text={t("build.program.shape.question")} sub={t("build.program.shape.sub")} />
       <TextInput
+        ref={field.ref}
+        onFocus={field.onFocus}
+        returnKeyType="done"
         value={name}
         onChangeText={onName}
         placeholder={t("build.program.shape.namePlaceholder")}
@@ -253,6 +257,7 @@ function DayKcalLine({
   onEstimate: () => void;
 }) {
   const { t } = useTranslation();
+  const field = useFieldVisible(); // APP-132 — the day's last line, under the exercises
   const est = day.kcalEst === true && (day.kcal ?? "") !== "";
   return (
     <View style={{ gap: 9 }}>
@@ -265,6 +270,8 @@ function DayKcalLine({
           </Text>
         ) : null}
         <TextInput
+          ref={field.ref}
+          onFocus={field.onFocus}
           value={day.kcal ?? ""}
           onChangeText={onKcal}
           keyboardType="numeric"
@@ -322,10 +329,14 @@ export function DayCard({
   onEstimateKcal: () => void;
 }) {
   const { t } = useTranslation();
+  const field = useFieldVisible();
   return (
     <View style={cardStyle}>
       {/* "Invisible" input (handoff §5): no box, one dashed baseline. */}
       <TextInput
+        ref={field.ref}
+        onFocus={field.onFocus}
+        returnKeyType="done"
         value={day.n}
         onChangeText={onName}
         accessibilityLabel={day.n}
