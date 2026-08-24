@@ -1,10 +1,12 @@
 package com.llmagal.vita.model
 
+import com.llmagal.vita.model.ai.TrainingProgramDraft
+
 /**
- * The closed 11-silhouette muscle vocabulary (contract Exercise.muscles /
+ * The closed 12-silhouette muscle vocabulary (contract Exercise.muscles /
  * muscleRoles), with alias folding and role normalization. Shared by capture
- * parse (EntryService) and plan/program parse (PlanParseService) so the two
- * paths never drift (BE-040). Pure — no Spring, no state.
+ * parse (EntryService), plan/program parse (PlanParseService) and the program
+ * SAVE path (BE-059) so no path can drift. Pure — no Spring, no state.
  */
 object Muscles {
     val VOCAB: List<String> =
@@ -20,10 +22,13 @@ object Muscles {
             "quads",
             "hamstrings",
             "calves",
+            // 0.9.0: traps used to fold into back, which silently deleted a distinction
+            // the app has a chip and a silhouette for (face pull, deadlift, barbell row).
+            "traps",
         )
 
     private val SET = VOCAB.toSet()
-    private val ALIASES = mapOf("lats" to "back", "traps" to "back", "abs" to "core", "obliques" to "core")
+    private val ALIASES = mapOf("lats" to "back", "abs" to "core", "obliques" to "core")
     private val ROLES = setOf("primary", "secondary")
 
     /** One raw muscle → the contract vocabulary, or null if unmappable (dropped). */
@@ -49,6 +54,25 @@ object Muscles {
         val resolvedMuscles = mapAll(muscles) ?: deduped?.map { it.name }
         return Normalized(resolvedMuscles?.takeIf { it.isNotEmpty() }, deduped)
     }
+
+    /**
+     * Every exercise of a program through [normalize] — the one chokepoint for the parse
+     * path AND POST/PUT /program (BE-059). Without it a hand-built program would store a
+     * typo verbatim inside an encrypted blob nobody can grep.
+     */
+    fun normalizeProgram(draft: TrainingProgramDraft): TrainingProgramDraft =
+        draft.copy(
+            days =
+                draft.days.map { day ->
+                    day.copy(
+                        exercises =
+                            day.exercises?.map { ex ->
+                                val n = normalize(ex.muscles, ex.muscleRoles)
+                                ex.copy(muscles = n.muscles, muscleRoles = n.muscleRoles)
+                            },
+                    )
+                },
+        )
 
     private fun normalizeRoles(roles: List<MuscleRole>): List<MuscleRole> {
         val byName = LinkedHashMap<String, String>() // first-seen order; primary wins

@@ -1,5 +1,6 @@
 package com.llmagal.vita.controller.plans
 
+import com.llmagal.vita.model.Muscles
 import com.llmagal.vita.model.ai.EatingPlanDraft
 import com.llmagal.vita.model.ai.TrainingProgramDraft
 import com.llmagal.vita.model.plans.PlanVersion
@@ -93,7 +94,7 @@ class PlanController(
         validateProgram(body)
         return ResponseEntity
             .status(HttpStatus.CREATED)
-            .body(plans.importVersion(PlanTable.TRAINING_PROGRAM, uid(jwt), body))
+            .body(plans.importVersion(PlanTable.TRAINING_PROGRAM, uid(jwt), Muscles.normalizeProgram(body)))
     }
 
     @PutMapping("/v1/program")
@@ -102,7 +103,7 @@ class PlanController(
         @RequestBody body: TrainingProgramDraft,
     ): JsonNode {
         validateProgram(body)
-        return plans.edit(PlanTable.TRAINING_PROGRAM, uid(jwt), body) ?: notFound()
+        return plans.edit(PlanTable.TRAINING_PROGRAM, uid(jwt), Muscles.normalizeProgram(body)) ?: notFound()
     }
 
     @GetMapping("/v1/program/history")
@@ -110,17 +111,22 @@ class PlanController(
         @AuthenticationPrincipal jwt: Jwt,
     ): List<PlanVersion> = plans.history(PlanTable.TRAINING_PROGRAM, uid(jwt))
 
-    /** Contract EatingPlanDraft minimums (mirror the schema so bad edits are 400, not bad data). */
+    /**
+     * Contract EatingPlanDraft minimums (mirror the schema so bad edits are 400, not bad data).
+     * 0.9.0 drops "each meal needs at least one item": a named slot with no food yet is a
+     * legitimate meal (the manual builder lets you add "Supper" before deciding what goes in it).
+     */
     private fun validatePlan(body: EatingPlanDraft) {
         if (body.summary.isBlank()) badRequest("summary is required.")
         if (body.meals.isEmpty()) badRequest("A plan needs at least one meal.")
-        if (body.meals.any { it.items.isEmpty() }) badRequest("Each meal needs at least one item.")
     }
 
     /** Contract TrainingProgramDraft minimums. */
     private fun validateProgram(body: TrainingProgramDraft) {
         if (body.summary.isBlank()) badRequest("summary is required.")
         if (body.days.isEmpty()) badRequest("A program needs at least one day.")
+        val badDuration = body.days.any { day -> day.exercises.orEmpty().any { (it.durationMin ?: 1) < 1 } }
+        if (badDuration) badRequest("durationMin must be >= 1.")
     }
 
     private fun uid(jwt: Jwt): UUID = UUID.fromString(jwt.subject)

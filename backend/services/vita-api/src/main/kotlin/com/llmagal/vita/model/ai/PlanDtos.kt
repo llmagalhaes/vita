@@ -63,6 +63,13 @@ data class PlanItem(
     val id: String? = null,
     val quantity: Double? = null,
     val unit: String? = null,
+    // 0.9.0 (BE-058): TOTAL kcal for this item at its stated quantity — NOT per unit
+    // (that is nutritionPerUnit, independent and unchanged). Pass-through: the server
+    // computes no nutrition, it only carries the client's number.
+    val kcal: Double? = null,
+    // True when `kcal` came from the estimate pass rather than the user or the document;
+    // the flag travels WITH the number so an estimate stays labelled wherever it is shown.
+    val kcalEstimated: Boolean? = null,
     val nutritionPerUnit: MacroTotals? = null,
     // Per-single-unit micros (BE-039), same per-unit basis as nutritionPerUnit.
     val microsPerUnit: MicrosPerUnit? = null,
@@ -151,6 +158,11 @@ data class PlanExercise(
     val sets: Int? = null,
     val reps: Int? = null,
     val loadKg: Double? = null,
+    // 0.9.0 (BE-059): minutes, for exercises measured in TIME rather than sets/reps. The
+    // set/time "family" is derived, not stored — durationMin present = the time family.
+    val durationMin: Int? = null,
+    // "Whole body — the split is a guess": the app paints its pale band instead of the full tone.
+    val wholeBody: Boolean? = null,
     // Per-exercise muscles + roles (BE-040/D-11), normalized by PlanParseService.
     val muscles: List<String>? = null,
     val muscleRoles: List<MuscleRole>? = null,

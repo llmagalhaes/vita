@@ -57,7 +57,7 @@ class PlanParseService(
         )
 
     fun parseTrainingProgram(request: PlanImportRequest): TrainingProgramDraft =
-        decorateProgram(
+        Muscles.normalizeProgram(
             parse(
                 request,
                 ParseSpec(
@@ -70,21 +70,6 @@ class PlanParseService(
                     usable = { it.days.isNotEmpty() },
                 ),
             ),
-        )
-
-    /** Normalize every exercise's muscles + roles onto the shared vocabulary (BE-040). */
-    private fun decorateProgram(draft: TrainingProgramDraft): TrainingProgramDraft =
-        draft.copy(
-            days =
-                draft.days.map { day ->
-                    day.copy(
-                        exercises =
-                            day.exercises?.map { ex ->
-                                val n = Muscles.normalize(ex.muscles, ex.muscleRoles)
-                                ex.copy(muscles = n.muscles, muscleRoles = n.muscleRoles)
-                            },
-                    )
-                },
         )
 
     private fun decoratePlan(draft: EatingPlanDraft): EatingPlanDraft =

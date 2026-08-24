@@ -445,6 +445,119 @@ class PlanFlowTest {
         assertThat(item["portion"]).isEqualTo(mapOf("min" to 0.0, "max" to 3.0, "step" to 1.0))
     }
 
+    // ── BE-058: hand-built eating plans (contract 0.9.0 D1/D2/D3) ───────────
+
+    private fun item(
+        name: String,
+        quantity: Int,
+        unit: String,
+        kcal: Int,
+        estimated: Boolean,
+    ) = mapOf(
+        "name" to name,
+        "quantity" to quantity,
+        "unit" to unit,
+        "kcal" to kcal,
+        "kcalEstimated" to estimated,
+    )
+
+    /** The manual builder's "Finish setup" body, verbatim from backend-plan §1.1. */
+    private fun handBuiltBody() =
+        mapOf(
+            "summary" to "5 meals, built by hand",
+            "status" to "ready",
+            "dailyTotals" to mapOf("kcal" to 2180),
+            "meals" to
+                listOf(
+                    mapOf(
+                        "name" to "Breakfast",
+                        "time" to "07:00",
+                        "kcal" to 465,
+                        "items" to
+                            listOf(
+                                item("Oats", 60, "g", 235, estimated = true),
+                                item("Egg", 2, "unit", 155, estimated = false),
+                            ),
+                    ),
+                    // A named slot with no food yet — legal from 0.9.0 (D1).
+                    mapOf("name" to "Supper", "time" to "21:30", "items" to emptyList<Any>()),
+                ),
+        )
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `a hand-built plan saves with ids, bounds and its empty meal preserved`() {
+        post(handBuiltBody()).expectStatus().isCreated
+
+        val meals = mealsOf(currentDoc())
+        assertThat(meals.map { it["id"] }).containsExactly("m-1", "m-2")
+        val items = meals[0]["items"] as List<Map<String, Any>>
+        assertThat(items.map { it["id"] }).containsExactly("it-1", "it-2")
+        assertThat(items[0]["portion"]).isEqualTo(mapOf("min" to 0.0, "max" to 120.0, "step" to 10.0))
+        assertThat(items[1]["portion"]).isEqualTo(mapOf("min" to 0.0, "max" to 4.0, "step" to 1.0))
+        // The empty meal survives as items: [] — not dropped, not rejected.
+        assertThat(meals[1]["items"] as List<Any>).isEmpty()
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `per-item kcal and kcalEstimated come back exactly as sent`() {
+        post(handBuiltBody()).expectStatus().isCreated
+
+        val items = itemsOf(currentDoc())
+        assertThat(items[0]["kcal"]).isEqualTo(235.0)
+        assertThat(items[0]["kcalEstimated"]).isEqualTo(true)
+        assertThat(items[1]["kcal"]).isEqualTo(155.0)
+        assertThat(items[1]["kcalEstimated"]).isEqualTo(false)
+        // The server computes no nutrition: it stamps ids/bounds and carries the rest through.
+        assertThat(items[0]).doesNotContainKey("nutritionPerUnit")
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    @Test
+    fun `PUT round-trips the ids and the kcal fields`() {
+        post(handBuiltBody()).expectStatus().isCreated
+        val stored = currentDoc()
+
+        put(stored).expectStatus().isOk
+
+        val meals = mealsOf(currentDoc())
+        assertThat(meals.map { it["id"] }).containsExactly("m-1", "m-2")
+        val items = meals[0]["items"] as List<Map<String, Any>>
+        assertThat(items.map { it["id"] }).containsExactly("it-1", "it-2")
+        assertThat(items[0]["kcal"]).isEqualTo(235.0)
+        assertThat(items[0]["kcalEstimated"]).isEqualTo(true)
+        assertThat(meals[1]["items"] as List<Any>).isEmpty()
+    }
+
+    @Test
+    fun `a hand-built plan is born ready and never passes through review`() {
+        post(handBuiltBody()).expectStatus().isCreated
+        assertThat(currentDoc()["status"]).isEqualTo("ready")
+        assertThat(history()).hasSize(1)
+        assertThat(history().map { (it["doc"] as Map<*, *>)["status"] }).containsExactly("ready")
+    }
+
+    @Test
+    fun `kcalEstimated without kcal is 400`() {
+        val body =
+            mapOf(
+                "summary" to "no number to label",
+                "meals" to listOf(mapOf("name" to "M", "items" to listOf(mapOf("name" to "Oats", "kcalEstimated" to true)))),
+            )
+        post(body).expectStatus().isBadRequest
+    }
+
+    @Test
+    fun `negative kcal is 400`() {
+        val body =
+            mapOf(
+                "summary" to "negative",
+                "meals" to listOf(mapOf("name" to "M", "items" to listOf(mapOf("name" to "Oats", "kcal" to -5)))),
+            )
+        post(body).expectStatus().isBadRequest
+    }
+
     @Suppress("UNCHECKED_CAST")
     private fun currentDoc(): Map<String, Any> =
         getCurrent()

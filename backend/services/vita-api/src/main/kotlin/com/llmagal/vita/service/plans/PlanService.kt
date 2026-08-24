@@ -248,6 +248,11 @@ class PlanService(
             }
         }
         allItems(draft).forEach { item ->
+            // 0.9.0: the flag travels with the number — a label with nothing to label is a bug.
+            if (item.kcalEstimated != null && item.kcal == null) {
+                badRequest("kcalEstimated without kcal on '${item.name}': there is no estimate to label.")
+            }
+            if ((item.kcal ?: 0.0) < 0) badRequest("kcal must be >= 0 on '${item.name}'.")
             val swaps = item.swaps.orEmpty()
             if (swaps.size > MAX_SWAPS) badRequest("An item has more than $MAX_SWAPS swaps.")
             item.usualSwapIndex?.let { k ->

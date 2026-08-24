@@ -135,6 +135,179 @@ class ProgramFlowTest {
         }
     }
 
+    // ── BE-059: hand-built programs (contract 0.9.0 D4/D5/D6 + save-path normalization) ──
+
+    /** The manual training builder's body, verbatim from backend-plan §1.2. */
+    private fun handBuiltProgram() =
+        mapOf(
+            "summary" to "Gym + Muay thai",
+            "days" to
+                listOf(
+                    mapOf(
+                        "name" to "Day A",
+                        "exercises" to
+                            listOf(
+                                mapOf(
+                                    "name" to "Squat",
+                                    "sets" to 4,
+                                    "reps" to 8,
+                                    "muscleRoles" to
+                                        listOf(
+                                            mapOf("name" to "quads", "role" to "primary"),
+                                            mapOf("name" to "glutes", "role" to "primary"),
+                                            mapOf("name" to "core", "role" to "secondary"),
+                                        ),
+                                ),
+                                mapOf(
+                                    "name" to "Muay thai",
+                                    "durationMin" to 30,
+                                    "wholeBody" to true,
+                                    "muscleRoles" to
+                                        listOf(
+                                            mapOf("name" to "quads", "role" to "secondary"),
+                                            mapOf("name" to "core", "role" to "secondary"),
+                                        ),
+                                ),
+                                // Nothing matched and nothing guessed — "not mapped".
+                                mapOf("name" to "Pole dance"),
+                            ),
+                    ),
+                ),
+        )
+
+    @Suppress("UNCHECKED_CAST")
+    private fun exercisesOf(doc: Map<String, Any>): List<Map<String, Any>> =
+        (doc["days"] as List<Map<String, Any>>).flatMap { it["exercises"] as List<Map<String, Any>> }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun currentDoc(): Map<String, Any> =
+        current()
+            .expectStatus()
+            .isOk
+            .expectBody(MAP)
+            .returnResult()
+            .responseBody!!
+
+    @Test
+    fun `a hand-built program round-trips durationMin, wholeBody and its muscle roles`() {
+        post(handBuiltProgram()).expectStatus().isCreated
+
+        val ex = exercisesOf(currentDoc())
+        assertThat(ex.map { it["name"] }).containsExactly("Squat", "Muay thai", "Pole dance")
+        assertThat(ex[0]["sets"]).isEqualTo(4)
+        assertThat(ex[0]["reps"]).isEqualTo(8)
+        assertThat(ex[0]["muscleRoles"]).isEqualTo(
+            listOf(
+                mapOf("name" to "quads", "role" to "primary"),
+                mapOf("name" to "glutes", "role" to "primary"),
+                mapOf("name" to "core", "role" to "secondary"),
+            ),
+        )
+        assertThat(ex[1]["durationMin"]).isEqualTo(30)
+        assertThat(ex[1]["wholeBody"]).isEqualTo(true)
+        // A set-family exercise carries no durationMin, and vice versa (the family is derived).
+        assertThat(ex[0]).doesNotContainKey("durationMin")
+        assertThat(ex[1]).doesNotContainKey("sets")
+    }
+
+    @Test
+    fun `an exercise nobody mapped stays unmapped`() {
+        post(handBuiltProgram()).expectStatus().isCreated
+        val poleDance = exercisesOf(currentDoc())[2]
+        assertThat(poleDance).doesNotContainKey("muscles")
+        assertThat(poleDance).doesNotContainKey("muscleRoles")
+    }
+
+    @Test
+    fun `traps survives the save path instead of folding into back`() {
+        val body =
+            mapOf(
+                "summary" to "pull day",
+                "days" to
+                    listOf(
+                        mapOf(
+                            "name" to "Day B",
+                            "exercises" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Face pull",
+                                        "muscleRoles" to listOf(mapOf("name" to "traps", "role" to "primary")),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        post(body).expectStatus().isCreated
+        val ex = exercisesOf(currentDoc())[0]
+        assertThat(ex["muscles"]).isEqualTo(listOf("traps"))
+        assertThat(ex["muscleRoles"]).isEqualTo(listOf(mapOf("name" to "traps", "role" to "primary")))
+    }
+
+    @Test
+    fun `POST normalizes client muscles - unmappables dropped, aliases folded, dupes primary-wins`() {
+        val body =
+            mapOf(
+                "summary" to "typo day",
+                "days" to
+                    listOf(
+                        mapOf(
+                            "name" to "Day C",
+                            "exercises" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Pulldown",
+                                        "muscles" to listOf("lats", "spleen", "BACK"),
+                                        "muscleRoles" to
+                                            listOf(
+                                                mapOf("name" to "lats", "role" to "secondary"),
+                                                mapOf("name" to "lats", "role" to "primary"),
+                                                mapOf("name" to "spleen", "role" to "primary"),
+                                                mapOf("name" to "abs", "role" to "bogus"),
+                                            ),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        post(body).expectStatus().isCreated
+        val ex = exercisesOf(currentDoc())[0]
+        assertThat(ex["muscles"]).isEqualTo(listOf("back")) // lats → back, "spleen" dropped, BACK deduped
+        // One entry, primary winning over the earlier secondary; the invalid role is dropped.
+        assertThat(ex["muscleRoles"]).isEqualTo(listOf(mapOf("name" to "back", "role" to "primary")))
+    }
+
+    @Test
+    fun `PUT normalizes too, and durationMin below 1 is 400`() {
+        post(handBuiltProgram()).expectStatus().isCreated
+        val edited =
+            mapOf(
+                "summary" to "edited",
+                "days" to
+                    listOf(
+                        mapOf(
+                            "name" to "Day A",
+                            "exercises" to
+                                listOf(
+                                    mapOf(
+                                        "name" to "Row",
+                                        "muscleRoles" to listOf(mapOf("name" to "obliques", "role" to "secondary")),
+                                    ),
+                                ),
+                        ),
+                    ),
+            )
+        put(edited).expectStatus().isOk
+        assertThat(exercisesOf(currentDoc())[0]["muscleRoles"])
+            .isEqualTo(listOf(mapOf("name" to "core", "role" to "secondary")))
+
+        val zeroMinutes =
+            mapOf(
+                "summary" to "bad",
+                "days" to listOf(mapOf("name" to "D", "exercises" to listOf(mapOf("name" to "Run", "durationMin" to 0)))),
+            )
+        post(zeroMinutes).expectStatus().isBadRequest
+    }
+
     private companion object {
         val MAP = object : ParameterizedTypeReference<Map<String, Any>>() {}
         val LIST = object : ParameterizedTypeReference<List<Map<String, Any>>>() {}
