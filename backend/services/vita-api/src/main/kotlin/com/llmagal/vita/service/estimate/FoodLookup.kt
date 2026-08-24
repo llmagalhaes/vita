@@ -33,7 +33,7 @@ class FoodLookup(
     /** The seeded row for [rawName], or null when nothing matched well enough. */
     fun find(rawName: String): FoodRow? {
         val key = NameNorm.of(rawName)
-        return if (key.isEmpty()) null else one(EXACT, key) ?: one(BY_ALIAS, key) ?: one(FUZZY, key, key, key)
+        return if (key.isEmpty()) null else one(EXACT, key) ?: one(BY_ALIAS, key) ?: one(FUZZY, key, key, key, key)
     }
 
     /**
@@ -107,12 +107,26 @@ class FoodLookup(
             "SELECT f.name_pt, f.kcal_100g, f.grams_per_unit FROM food_alias a " +
                 "JOIN food f ON f.id = a.food_id WHERE a.name_norm = ?"
 
+        /**
+         * A raw/powder state token, as a whole word. The seed names the STATE of a food
+         * ("Feijão, carioca, cru" vs "…, cozido"), and trigram similarity cannot tell the
+         * two apart — plus the shortest-name tie-break actively prefers "cru"/"pó". So
+         * "feijão carioca" answered 329 kcal (dry beans) and "leite integral" answered 497
+         * (powder). Nobody types a food name meaning the uncooked or powdered form without
+         * saying so.
+         */
+        private const val RAW_STATE = "'(^| )(cru|crua|crus|cruas|po)( |\$)'"
+
         // `name_norm % ?` rides the GIN trigram index (its own default cut is 0.3, well
         // below ours, so it is a pure prefilter); the explicit similarity enforces OUR floor.
+        // The leading ORDER BY term DEMOTES (never excludes) a raw/powder row the query did
+        // not ask for: where a prepared sibling exists it wins, and where the raw row is the
+        // only one — every fruit — it still answers. `false` sorts first in Postgres.
         private const val FUZZY =
             "SELECT $COLS, similarity(name_norm, ?) AS sim FROM food " +
                 "WHERE name_norm % ? AND similarity(name_norm, ?) >= $THRESHOLD " +
-                "ORDER BY sim DESC, length(name_norm), name_norm LIMIT 1"
+                "ORDER BY (name_norm ~ $RAW_STATE AND ? !~ $RAW_STATE), sim DESC, length(name_norm), name_norm " +
+                "LIMIT 1"
 
         /**
          * `max(5, round(k/5)*5)` — server-side by design (ADR-0020 decision 6): roundness is

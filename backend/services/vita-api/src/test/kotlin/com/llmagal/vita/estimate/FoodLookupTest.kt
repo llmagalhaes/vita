@@ -65,6 +65,47 @@ class FoodLookupTest {
         assertThat(lookup.kcal("pao frances", 2.0, "unit")).isEqualTo(300)
     }
 
+    // ── review fix C1: the staples the fuzzy leg used to answer with a raw/powder row ──
+
+    @Test
+    fun `fluid milk answers as milk, not as milk powder`() {
+        // Was: "leite integral" -> "Leite, de vaca, integral, po" (497) -> 200 ml billed at ~995.
+        // TACO publishes no energy for fluid milk, so the seed carries a curated USDA row.
+        assertThat(lookup.find("leite integral")?.namePt).isEqualTo("Leite, de vaca, integral, fluido")
+        assertThat(lookup.kcal("leite integral", 200.0, "ml")).isEqualTo(120)
+        assertThat(lookup.kcal("leite desnatado", 200.0, "ml")).isEqualTo(70)
+    }
+
+    @Test
+    fun `beans answer cooked, not dry`() {
+        // Was: "Feijão, carioca, cru" (329) instead of cozido (76).
+        assertThat(lookup.find("feijão carioca")?.namePt).isEqualTo("Feijão, carioca, cozido")
+        // The fuzzy leg alone gets it right too, for the varieties nobody aliased.
+        assertThat(lookup.find("feijao rosinha")?.namePt).isEqualTo("Feijão, rosinha, cozido")
+    }
+
+    @Test
+    fun `grilled chicken is the breast, not the heart`() {
+        assertThat(lookup.find("frango grelhado")?.namePt).isEqualTo("Frango, peito, sem pele, grelhado")
+    }
+
+    @Test
+    fun `pao de queijo is the baked one and counts by the unit`() {
+        val row = lookup.find("pão de queijo")
+        assertThat(row?.namePt).isEqualTo("Pão, de queijo, assado")
+        assertThat(row?.gramsPerUnit).isEqualTo(30.0)
+        assertThat(lookup.kcal("pão de queijo", 1.0, "unit")).isEqualTo(110)
+    }
+
+    @Test
+    fun `demoting raw rows never costs the foods whose only row IS the raw one`() {
+        // The reason this demotes instead of excluding: every fruit is published raw.
+        assertThat(lookup.find("banana prata")?.namePt).isEqualTo("Banana, prata, crua")
+        assertThat(lookup.find("manga palmer")?.namePt).isEqualTo("Manga, Palmer, crua")
+        // …and a query that DOES say raw is not demoted away from the raw row.
+        assertThat(lookup.find("aveia crua")?.namePt).isEqualTo("Aveia, flocos, crua")
+    }
+
     @Test
     fun `a countable unit without grams_per_unit misses`() {
         assertThat(lookup.find("Arroz, tipo 1, cozido")?.gramsPerUnit).isNull()
@@ -124,7 +165,7 @@ class FoodLookupTest {
     }
 
     private companion object {
-        const val SEED_ROWS = 590
-        const val SEED_ALIASES = 66
+        const val SEED_ROWS = 592 // 590 TACO + 2 curated fluid-milk rows (review fix C1)
+        const val SEED_ALIASES = 74
     }
 }

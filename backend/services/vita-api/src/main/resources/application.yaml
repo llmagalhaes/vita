@@ -84,11 +84,14 @@ vita:
     # BE-061/063/065: the estimate passes (food kcal, exercise muscles, workout kcal). Haiku by
     # design — the question is "how many kcal is 100 g of aveia", not a reasoning task, and the
     # seeded tables answer everything they can for free before the model is asked at all.
-    # 1024 output tokens covers the worst realistic pass (60 fresh misses × ~12 tokens + slack);
+    # The output budget is SIZED PER REQUEST from the batch (EstimateService.budget); this is
+    # only the ceiling it is clamped to. It used to be a flat 1024, which silently truncated any
+    # exercise-muscles batch past ~20 misses (one muscle answer is ~90 output tokens, not 12).
+    # max_tokens is a cap, not a charge, so a high ceiling costs nothing.
     # 20 s is a short leash because the user is watching a progress box, and it keeps the whole
     # request inside API Gateway's 29 s ceiling.
     estimate-model: ${VITA_AI_ESTIMATE_MODEL:claude-haiku-4-5}
-    estimate-max-output-tokens: 1024
+    estimate-max-output-tokens: 8192
     estimate-timeout-seconds: 20
     # V3-D12: how long a running import job may sit before it is reported failed (instance died mid-parse).
     # A legit run is 300 s × 2 attempts ≈ 10 min + queue wait, so 10 overlapped the window → false

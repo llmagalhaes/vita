@@ -51,7 +51,7 @@ abstract class EstimateTestBase {
         wm.resetAll()
         jdbc.update("TRUNCATE food_estimate_cache")
         jdbc.update("TRUNCATE exercise_estimate_cache")
-        val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048, 16384, 300, 1024, 10)
+        val client = ClaudeClient(wm.baseUrl(), "claude-haiku-4-5", 1024, 10, "test-key", 25, 2048, 16384, 300, 8192, 10)
         service =
             EstimateService(
                 foodLookup,

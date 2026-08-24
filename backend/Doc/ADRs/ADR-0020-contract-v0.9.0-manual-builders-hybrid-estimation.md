@@ -120,7 +120,12 @@ relaxation (an old client's documents all still validate). Nine deltas:
    human act (a SQL review when a name proves itself), not a feature. There is
    no correction signal from the app — typing over an estimate is local — so a
    bad cached number persists until someone clears it. Accepted, and precisely
-   why promotion is manual.
+   why promotion is manual. The same applies to an EMPTY answer: when the model
+   returns a line with no muscle it was confident about, that empty map is
+   cached like any other answer, and the exercise stays honestly unmapped until
+   a `TRUNCATE` — by design, since re-asking a question already answered "I
+   don't know" pays again for the same nothing. (A line the model leaves out
+   entirely is not cached, and is asked again next time.)
 
 8. **The estimate cache is USER-LESS plaintext by design.** It stores a
    normalized name, a unit and a number: **no `user_id`, no user-tied

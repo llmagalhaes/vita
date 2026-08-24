@@ -40,6 +40,12 @@ import java.util.UUID
  * live API). Four cases: full match, partial match, no match, and NO PLAN — the last asserting
  * the request is byte-identical to the committed 0.7.0 golden, so a user without a plan pays
  * nothing (not a token, not a behaviour change) for this feature.
+ *
+ * The golden was regenerated ONCE since, deliberately (v4.2 review fix M3): `traps` joined the
+ * muscle list in NUTRITION_PREAMBLE. Contract 0.9.0 (D6) made traps a twelfth silhouette and the
+ * plan/estimate TOOL SCHEMAS pick it up automatically from `Muscles.VOCAB`, but the capture
+ * tool's detail is a bare object — this prose IS the capture path's whole muscle vocabulary, so
+ * the model could not name traps at all. Any other diff against the golden is a regression.
  */
 class PlanAwareParseTest {
     private val plans = mockk<PlanService>()

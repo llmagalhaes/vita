@@ -126,6 +126,39 @@ class EstimateFoodKcalTest : EstimateTestBase() {
     }
 
     @Test
+    fun `a model that answers nothing is a 200 of nulls, not a 422`() {
+        // Review fix M4: 422 means the pass could not RUN (the leg failed and nothing else
+        // answered). A model that succeeded and declined every line ran fine — the honest
+        // answer is "no estimate", same as the exercise leg and the contract's wording.
+        stubTool(EstimatePrompts.FOOD_TOOL_NAME, """{"items":[]}""")
+
+        assertThat(service.foodKcal(listOf(FoodKcalItem("Zzyzx bar", 1.0, "unit")))).containsOnlyNulls()
+    }
+
+    @Test
+    fun `a pass with nothing askable in it is a 200 of nulls and never calls the model`() {
+        val out = service.foodKcal(listOf(FoodKcalItem("Aveia", 0.0, "g"), FoodKcalItem("", 1.0, "unit")))
+
+        verifyModelCalls(0)
+        assertThat(out).containsOnlyNulls()
+    }
+
+    @Test
+    fun `a plural unit and its singular share one cache row`() {
+        // Review fix M5: "2 colheres" used to cache under "colheres" and "1 colher" under
+        // "colher" — the same food asked twice, paid for twice.
+        stubTool(EstimatePrompts.FOOD_TOOL_NAME, """{"items":[{"n":1,"kcal":60}]}""")
+        service.foodKcal(listOf(FoodKcalItem("Zzyzx paste", 2.0, "colheres")))
+        wm.resetRequests()
+
+        val single = service.foodKcal(listOf(FoodKcalItem("Zzyzx paste", 1.0, "colher")))
+
+        verifyModelCalls(0)
+        assertThat(single).containsExactly(60)
+        assertThat(cache.foodKcal("zzyzx paste", "colher")).isEqualTo(60)
+    }
+
+    @Test
     fun `a model answer for a line nobody asked about is ignored`() {
         stubTool(EstimatePrompts.FOOD_TOOL_NAME, """{"items":[{"n":9,"kcal":500},{"n":1,"kcal":283}]}""")
 

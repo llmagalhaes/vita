@@ -1,5 +1,19 @@
 # Backend — Next session
 
+## Review fix pass (2026-08-24, session 24) — 6 v4.2 findings fixed, `check` 336 green
+
+The adversarial review's backend findings are all closed — details in
+`Progress/BE-060-061-review-fixes-Progress.md`. The one that matters for **BE-064**: **V013 was
+regenerated in place** (it has never been applied in prod), so the seed is now **592 rows / 74
+aliases** and the boot probe reads `seed table=food rows=592 aliases=74`. The fuzzy leg now DEMOTES
+a raw/powder row the query did not ask for (feijão/arroz/carne/pão de queijo answer cooked; fruits,
+whose only row IS the raw one, are untouched), two curated USDA fluid-milk rows fill TACO's hole
+("leite integral" was answering 497 kcal/100 g of POWDER), the estimate output budget is sized per
+request instead of a flat 1024 (`estimate-max-output-tokens` is now the 8192 ceiling), `traps` is in
+the capture preamble (golden regenerated deliberately), food 422 now means "the leg failed and
+nothing answered", and "colher"/"colheres" share one cache row. Live eval re-run once:
+`[235, 150, 205, 5]`, repeat 46 ms / 0 tokens.
+
 ## Current state (2026-08-24, session 24) — V4.2 WAVE 2 DONE: BE-061 + BE-063 + BE-065 (the three estimate endpoints)
 
 `POST /v1/estimate/food-kcal` · `/exercise-muscles` · `/workout-kcal` are live in the tree, all three

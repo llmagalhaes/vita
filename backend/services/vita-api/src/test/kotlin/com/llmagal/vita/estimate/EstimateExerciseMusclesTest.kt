@@ -1,6 +1,7 @@
 package com.llmagal.vita.estimate
 
 import com.llmagal.vita.service.estimate.EstimatePrompts
+import com.llmagal.vita.service.estimate.EstimateService
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.jupiter.api.Test
@@ -99,5 +100,32 @@ class EstimateExerciseMusclesTest : EstimateTestBase() {
         val partial = service.exerciseMuscles(listOf("Squat", "Zzyzx press"))
         assertThat(partial[0].estimated).isFalse()
         assertThat(partial[1].muscleRoles).isEmpty()
+    }
+
+    @Test
+    fun `the output budget covers a 60-miss batch's worst-case answer`() {
+        // Review fix M2: the budget was a flat 1024 and a batch this size needs ~5k output
+        // tokens, so the answer came back TRUNCATED — unparseable, and the whole pass empty.
+        // Worst case per exercise: six roles plus wholeBody, at a conservative 3 chars/token.
+        val worstAnswer =
+            """{"n":60,"wholeBody":true,"muscles":[""" +
+                (1..6).joinToString(",") { """{"name":"hamstrings","role":"secondary"}""" } + "]}"
+        val worstCase = 60 * Math.ceilDiv(worstAnswer.length, 3)
+
+        assertThat(EstimateService.budget(60)).isGreaterThanOrEqualTo(worstCase)
+        // …and the configured ceiling does not clamp it back under that.
+        assertThat(CEILING).isGreaterThanOrEqualTo(worstCase)
+        // A one-line pass still asks for a sane minimum, not 96 tokens.
+        assertThat(EstimateService.budget(1)).isGreaterThanOrEqualTo(512)
+
+        // …and it is what actually goes on the wire, not the old flat config value.
+        stubTool(EstimatePrompts.MUSCLE_TOOL_NAME, """{"items":[]}""")
+        service.exerciseMuscles((1..30).map { "Zzyzx $it" })
+        assertThat(lastRequestBody()).contains(""""max_tokens":${EstimateService.budget(30)}""")
+    }
+
+    private companion object {
+        /** `vita.ai.estimate-max-output-tokens` in application.yaml, and EstimateTestBase's. */
+        const val CEILING = 8192
     }
 }

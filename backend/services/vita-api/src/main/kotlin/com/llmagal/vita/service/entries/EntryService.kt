@@ -279,7 +279,7 @@ class EntryService(
         nonNegative("workout kcal", workout.kcal)
         workout.exercises?.forEach(::validateExercise)
         // Closed-vocabulary muscle map (shared Muscles object): model output onto
-        // the 11 silhouettes, aliases folded, unmappable dropped. Per exercise the
+        // the 12 silhouettes, aliases folded, unmappable dropped. Per exercise the
         // roles are normalized too (primary wins on dup) and derive `muscles` when
         // that is absent; the workout-level list has no roles (DESIGN scope).
         val exercises =

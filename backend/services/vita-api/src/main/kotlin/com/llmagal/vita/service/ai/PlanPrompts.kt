@@ -92,7 +92,7 @@ internal object PlanPrompts {
             "required" to listOf("kcal"),
         )
 
-    // Closed 11-silhouette muscle vocabulary + per-exercise roles (BE-040), shared with the
+    // Closed 12-silhouette muscle vocabulary + per-exercise roles (BE-040), shared with the
     // capture path via the same Muscles.VOCAB so the two tool schemas never drift.
     private val MUSCLES_ARRAY =
         mapOf(

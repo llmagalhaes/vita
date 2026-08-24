@@ -109,15 +109,26 @@ GRAMS_PER_UNIT = {
     "Biscoito, salgado, cream cracker": 7,
 }
 
+# Ours, curated — rows TACO cannot answer. This edition publishes NO energy value for
+# fluid milk (the cells are "*"), so the only milk rows were the POWDERS, and every
+# "leite integral" resolved to 497 kcal/100 g. Values are USDA FoodData Central (public
+# domain), per 100 ml. Same shape as a TACO row; `source` tells them apart.
+# (description, kcal, protein, carb, fat, grams_per_unit, source_ref)
+CURATED = [
+    ("Leite, de vaca, integral, fluido", 61, 3.27, 4.63, 3.2, None, "usda:746782"),
+    ("Leite, de vaca, desnatado, fluido", 34, 3.43, 4.96, 0.08, None, "usda:746776"),
+]
+
 # Our own alias list — the free lever when a bare word falls under the trigram
 # floor ("aveia" scores .33 against "Aveia, flocos, crua"). PT first, a few EN.
-# Value = the TACO `description` it resolves to; the script fails if it does not exist.
+# Value = the seeded `description` it resolves to; the script fails if it does not exist.
 ALIASES = {
     "arroz": "Arroz, tipo 1, cozido",
     "arroz branco": "Arroz, tipo 1, cozido",
     "arroz integral": "Arroz, integral, cozido",
     "rice": "Arroz, tipo 1, cozido",
     "feijao": "Feijão, carioca, cozido",
+    "feijao carioca": "Feijão, carioca, cozido",
     "feijao preto": "Feijão, preto, cozido",
     "beans": "Feijão, carioca, cozido",
     "aveia": "Aveia, flocos, crua",
@@ -142,23 +153,27 @@ ALIASES = {
     "pao": "Pão, trigo, francês",
     "pao frances": "Pão, trigo, francês",
     "pao integral": "Pão, trigo, forma, integral",
+    "pao de queijo": "Pão, de queijo, assado",  # the fuzzy leg used to land on the CRU dough
     "bread": "Pão, trigo, francês",
     "frango": "Frango, peito, sem pele, grelhado",
+    "frango grelhado": "Frango, peito, sem pele, grelhado",  # not "Frango, coração, grelhado"
     "peito de frango": "Frango, peito, sem pele, grelhado",
     "chicken": "Frango, peito, sem pele, grelhado",
     "carne": "Carne, bovina, acém, moído, cozido",
     "carne moida": "Carne, bovina, acém, moído, cozido",
     "patinho": "Carne, bovina, patinho, sem gordura, grelhado",
     "beef": "Carne, bovina, acém, moído, cozido",
-    # No "leite" alias: this TACO edition publishes no energy value for whole/skimmed
-    # UHT milk (the cells are "*"), and pointing milk at the POWDER row would be a wrong
-    # answer the table would never re-ask. It misses to the model instead, once.
+    "leite": "Leite, de vaca, integral, fluido",
+    "leite integral": "Leite, de vaca, integral, fluido",
+    "leite desnatado": "Leite, de vaca, desnatado, fluido",
+    "milk": "Leite, de vaca, integral, fluido",
     "iogurte": "Iogurte, natural",
     "yogurt": "Iogurte, natural",
     "queijo": "Queijo, minas, frescal",
     "queijo minas": "Queijo, minas, frescal",
     "cheese": "Queijo, minas, frescal",
     "batata": "Batata, inglesa, cozida",
+    "batata inglesa": "Batata, inglesa, cozida",  # else the fuzzy leg prefers "frita"
     "batata doce": "Batata, doce, cozida",
     "macarrao": "Macarrão, trigo, cru",
     "pasta": "Macarrão, trigo, cru",
@@ -187,7 +202,6 @@ ALIASES = {
 
 def food_sql() -> str:
     rows = fetch(TACO_URL)
-    by_desc = {r["description"]: r for r in rows}
 
     def num(v):
         # TACO marks unmeasured cells "NA" / "Tr" (traces) / "*" / "". All -> NULL.
@@ -222,11 +236,18 @@ def food_sql() -> str:
             )
         )
 
-    missing = [d for d in list(GRAMS_PER_UNIT) + list(ALIASES.values()) if d not in by_desc]
-    if missing:
-        raise SystemExit("hand-seed refers to descriptions TACO does not have:\n  " + "\n  ".join(missing))
+    for desc, kcal, p, c, f, g, ref in CURATED:
+        nn = normalize(desc)
+        if nn in seen:
+            raise SystemExit(f"curated row {desc!r} collides with a seeded name_norm")
+        seen.add(nn)
+        foods.append((det_uuid("food", ref), nn, desc, kcal, p, c, f, g, "curated", ref))
 
     id_by_desc = {f[2]: f[0] for f in foods}
+    missing = [d for d in list(GRAMS_PER_UNIT) + list(ALIASES.values()) if d not in id_by_desc]
+    if missing:
+        raise SystemExit("hand-seed refers to descriptions that were not seeded:\n  " + "\n  ".join(missing))
+
     aliases, alias_keys = [], set()
     for alias, desc in ALIASES.items():
         nn = normalize(alias)
@@ -473,6 +494,11 @@ HEADER_FOOD = """-- V013 - food reference table + alias list + estimate cache (B
 --     * The underlying TACO table itself carries NO explicit redistribution licence.
 --       NEPA/UNICAMP publishes it free for consultation; nothing in the mirror, and
 --       nothing we could find at download time, grants redistribution inside a product.
+--   source = 'curated' -> ours, from USDA FoodData Central (U.S. government work, public
+--   domain), per 100 ml, under our own PT-BR name. Only where TACO cannot answer at all:
+--   this edition publishes no energy for fluid milk, which left the POWDER rows as the
+--   only milk in the table (497 kcal/100 g) - a wrong answer the table would never re-ask.
+--
 --   Conclusion, unchanged from ADR-0020 decision 9: fine for a pre-production
 --   single-user app, NOT settled for the Play Store. Contained by design - provenance
 --   is the per-row source/source_ref pair, the seed is this one migration, and the swap

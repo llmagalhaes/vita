@@ -16,6 +16,11 @@
 --     * The underlying TACO table itself carries NO explicit redistribution licence.
 --       NEPA/UNICAMP publishes it free for consultation; nothing in the mirror, and
 --       nothing we could find at download time, grants redistribution inside a product.
+--   source = 'curated' -> ours, from USDA FoodData Central (U.S. government work, public
+--   domain), per 100 ml, under our own PT-BR name. Only where TACO cannot answer at all:
+--   this edition publishes no energy for fluid milk, which left the POWDER rows as the
+--   only milk in the table (497 kcal/100 g) - a wrong answer the table would never re-ask.
+--
 --   Conclusion, unchanged from ADR-0020 decision 9: fine for a pre-production
 --   single-user app, NOT settled for the Play Store. Contained by design - provenance
 --   is the per-row source/source_ref pair, the seed is this one migration, and the swap
@@ -653,7 +658,9 @@ INSERT INTO food (id, name_norm, name_pt, kcal_100g, protein_100g, carb_100g,
   ('8a7d85d3-ecaa-9b49-c290-6e8f62ea15b4', 'linhaca semente', 'Linhaça, semente', 495.1, 14.08, 43.31, 32.25, NULL, 'taco-4', 'taco4:594'),
   ('7f159093-5d1d-7989-124c-3da0027147d1', 'pinhao cozido', 'Pinhão, cozido', 174.37, 2.98, 43.92, 0.75, NULL, 'taco-4', 'taco4:595'),
   ('16522d10-bcb6-9077-162d-1131ce6f9805', 'pupunha cozida', 'Pupunha, cozida', 218.53, 2.52, 29.57, 12.76, NULL, 'taco-4', 'taco4:596'),
-  ('5fe3a3c0-458b-591c-b028-f8ad37ed63a0', 'noz crua', 'Noz, crua', 620.06, 13.97, 18.36, 59.36, NULL, 'taco-4', 'taco4:597');
+  ('5fe3a3c0-458b-591c-b028-f8ad37ed63a0', 'noz crua', 'Noz, crua', 620.06, 13.97, 18.36, 59.36, NULL, 'taco-4', 'taco4:597'),
+  ('4ab690d3-3e74-4eff-6dd1-89acd47efdd9', 'leite de vaca integral fluido', 'Leite, de vaca, integral, fluido', 61, 3.27, 4.63, 3.2, NULL, 'curated', 'usda:746782'),
+  ('215cc003-f93a-5190-08d1-89c3976f424f', 'leite de vaca desnatado fluido', 'Leite, de vaca, desnatado, fluido', 34, 3.43, 4.96, 0.08, NULL, 'curated', 'usda:746776');
 
 INSERT INTO food_alias (name_norm, food_id) VALUES
   ('arroz', '272e68dc-c647-090e-ec78-6c2253cd4c89'),
@@ -661,6 +668,7 @@ INSERT INTO food_alias (name_norm, food_id) VALUES
   ('arroz integral', '097ac43a-ebcb-2328-5237-261ad2c8c93a'),
   ('rice', '272e68dc-c647-090e-ec78-6c2253cd4c89'),
   ('feijao', 'c8949c84-5ebc-bb31-3f20-400a0f237599'),
+  ('feijao carioca', 'c8949c84-5ebc-bb31-3f20-400a0f237599'),
   ('feijao preto', '99b8807c-a464-a276-7e52-8880a4421ce4'),
   ('beans', 'c8949c84-5ebc-bb31-3f20-400a0f237599'),
   ('aveia', '00cf61ff-3436-af4d-e953-b08ab517df85'),
@@ -685,20 +693,27 @@ INSERT INTO food_alias (name_norm, food_id) VALUES
   ('pao', 'cfc7e8b0-00d2-0e84-70a2-408d5b8b4394'),
   ('pao frances', 'cfc7e8b0-00d2-0e84-70a2-408d5b8b4394'),
   ('pao integral', '895098f4-52a2-71b8-2350-ce5cd41db724'),
+  ('pao de queijo', '853299cf-7413-22fd-ae0c-edb1a8c9c779'),
   ('bread', 'cfc7e8b0-00d2-0e84-70a2-408d5b8b4394'),
   ('frango', '63ab016c-d573-0546-3236-3b3e2afa9275'),
+  ('frango grelhado', '63ab016c-d573-0546-3236-3b3e2afa9275'),
   ('peito de frango', '63ab016c-d573-0546-3236-3b3e2afa9275'),
   ('chicken', '63ab016c-d573-0546-3236-3b3e2afa9275'),
   ('carne', 'c3bc6931-c012-8555-b552-cdb43a922e8c'),
   ('carne moida', 'c3bc6931-c012-8555-b552-cdb43a922e8c'),
   ('patinho', 'd0a109d8-8a2c-fc85-f368-01ba5ec94543'),
   ('beef', 'c3bc6931-c012-8555-b552-cdb43a922e8c'),
+  ('leite', '4ab690d3-3e74-4eff-6dd1-89acd47efdd9'),
+  ('leite integral', '4ab690d3-3e74-4eff-6dd1-89acd47efdd9'),
+  ('leite desnatado', '215cc003-f93a-5190-08d1-89c3976f424f'),
+  ('milk', '4ab690d3-3e74-4eff-6dd1-89acd47efdd9'),
   ('iogurte', '184dc983-0b30-89e5-5ca8-1175bb4d6904'),
   ('yogurt', '184dc983-0b30-89e5-5ca8-1175bb4d6904'),
   ('queijo', '03f0f3e0-3671-32ea-9fc8-e8c68f78fe75'),
   ('queijo minas', '03f0f3e0-3671-32ea-9fc8-e8c68f78fe75'),
   ('cheese', '03f0f3e0-3671-32ea-9fc8-e8c68f78fe75'),
   ('batata', '1b4243fa-257c-f3f2-204b-d1216f4a5697'),
+  ('batata inglesa', '1b4243fa-257c-f3f2-204b-d1216f4a5697'),
   ('batata doce', '391d6545-7b26-65c3-e03f-92c50b411d1e'),
   ('macarrao', 'e1a950a8-bc72-7969-af65-f8b4256b24bb'),
   ('pasta', 'e1a950a8-bc72-7969-af65-f8b4256b24bb'),

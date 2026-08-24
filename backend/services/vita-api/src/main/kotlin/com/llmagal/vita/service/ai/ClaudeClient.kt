@@ -74,10 +74,11 @@ class ClaudeClient(
     // V3-D13: the async eating-plan parse needs minutes + a big output budget — its own knobs.
     @Value("\${vita.ai.plan-async-max-output-tokens:16384}") private val planAsyncMaxTokens: Int,
     @Value("\${vita.ai.plan-async-timeout-seconds:300}") planAsyncTimeoutSeconds: Long,
-    // BE-061/063/065: the estimate passes ask for ~12 output tokens per missed item and must
-    // answer inside a 25 s client timeout. Defaults here so the nine existing test constructions
-    // (and any direct `new`) keep compiling; prod/dev values come from application.yaml.
-    @Value("\${vita.ai.estimate-max-output-tokens:1024}") private val estimateMaxTokens: Int = 1024,
+    // BE-061/063/065: the CEILING for the estimate passes — the per-request budget is sized by
+    // the caller from the batch (EstimateService.budget) and clamped to this. It was a flat
+    // 1024, which truncated any muscle batch past ~20 exercises. Defaults here so the nine
+    // existing test constructions (and any direct `new`) keep compiling.
+    @Value("\${vita.ai.estimate-max-output-tokens:8192}") private val estimateMaxTokens: Int = 8192,
     @Value("\${vita.ai.estimate-timeout-seconds:20}") estimateTimeoutSeconds: Long = 20,
 ) {
     private val log = LoggerFactory.getLogger(ClaudeClient::class.java)
@@ -187,9 +188,12 @@ class ClaudeClient(
         toolName: String,
         userText: String,
         type: Class<T>,
+        maxTokens: Int,
     ): TypedToolCall<T> {
         val content = listOf(mapOf<String, Any?>("type" to "text", "text" to userText))
-        val body = toolRequestBody(model, systemPrompt, tool, toolName, content, estimateMaxTokens)
+        // The caller sizes the budget from the batch (EstimateService.budget); config is the
+        // CEILING, so an ops change can still cap it without editing code.
+        val body = toolRequestBody(model, systemPrompt, tool, toolName, content, maxTokens.coerceAtMost(estimateMaxTokens))
         val response = post(estimateRest, body) ?: return TypedToolCall(null, ClaudeUsage(0, 0))
         return TypedToolCall(extractTyped(response, type), extractUsage(response))
     }
@@ -392,7 +396,7 @@ class ClaudeClient(
               - water: { "amountMl": integer millilitres }. A glass is about 250 ml.
               - workout: { "title", "durationMin"?: integer minutes, "kcal"?: energy estimate,
                 "muscles"?: subset of chest, back, shoulders, biceps, triceps, forearms, core,
-                glutes, quads, hamstrings, calves, "exercises"?: [ { "name", "sets"?, "reps"?,
+                glutes, quads, hamstrings, calves, traps, "exercises"?: [ { "name", "sets"?, "reps"?,
                 "loadKg"?, "muscles"?: the muscles that exercise works, from the same list,
                 "muscleRoles"?: [ { "name": from the same list, "role": "primary" or
                 "secondary" } ] marking each muscle's role in that exercise } ] }.

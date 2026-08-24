@@ -57,9 +57,10 @@ class EstimateService(
 
     /**
      * Positional and total: same length, same order, `null` where nothing could answer.
-     * 422 only when the whole pass came back empty — a model leg that fails while the table
-     * answered some items is still a 200 with nulls for the rest (an estimate pass never puts
-     * the user's plan at risk).
+     * 422 only when the model leg FAILED and nothing else answered either — same rule as the
+     * exercise pass and as the contract's wording. A model that answers "I don't know" for
+     * every line, and a pass with nothing askable in it (every quantity ≤ 0), are honest 200s
+     * full of nulls: the pass ran, the answer is "no estimate".
      */
     fun foodKcal(items: List<FoodKcalItem>): List<Int?> {
         val out = arrayOfNulls<Int>(items.size)
@@ -84,7 +85,8 @@ class EstimateService(
         }
         val cacheHits = out.count { it != null } - tableHits
 
-        val usage = if (unresolved.isEmpty()) ClaudeUsage(0, 0) else askFood(unresolved, items, out)
+        val call = if (unresolved.isEmpty()) null else askFood(unresolved, items, out)
+        val usage = call?.usage ?: ClaudeUsage(0, 0)
         log.info(
             "estimate kind=food items={} tableHits={} cacheHits={} misses={} answered={} inputTokens={} outputTokens={}",
             items.size,
@@ -95,7 +97,8 @@ class EstimateService(
             usage.inputTokens,
             usage.outputTokens,
         )
-        if (out.all { it == null }) unprocessable("No item could be estimated.")
+        val legFailed = call != null && call.value == null
+        if (legFailed && out.all { it == null }) unprocessable("No item could be estimated.")
         return out.toList()
     }
 
@@ -104,7 +107,7 @@ class EstimateService(
         unresolved: Map<Basis, MutableList<Int>>,
         items: List<FoodKcalItem>,
         out: Array<Int?>,
-    ): ClaudeUsage {
+    ): TypedToolCall<EstimatePrompts.FoodToolOutput> {
         val keys = unresolved.keys.toList()
         val lines =
             keys.mapIndexed { n, basis ->
@@ -118,6 +121,7 @@ class EstimateService(
                 EstimatePrompts.FOOD_TOOL_NAME,
                 lines.joinToString("\n"),
                 EstimatePrompts.FoodToolOutput::class.java,
+                budget(keys.size),
             )
         call.value?.items.orEmpty().forEach { answer ->
             val basis = answer.n?.let { keys.getOrNull(it - 1) } ?: return@forEach
@@ -128,7 +132,7 @@ class EstimateService(
             cache.putFoodKcal(basis.nameNorm, basis.unit, perBasis)
             unresolved.getValue(basis).forEach { out[it] = total(perBasis, basis, items[it]) }
         }
-        return call.usage
+        return call
     }
 
     private fun quantityOf(item: FoodKcalItem): Double = item.quantity ?: 1.0
@@ -146,13 +150,18 @@ class EstimateService(
 
     /**
      * The cache key's unit: mass units collapse onto one 100-g basis, count units onto one
-     * per-unit basis, and anything else keeps the word the user typed ("1 colher of X").
+     * per-unit basis, and anything else keeps the word the user typed, folded to the singular
+     * ("2 colheres" and "1 colher" are one cache row, and both are ASKED as "1 colher").
      */
     private fun basisUnit(raw: String?): String {
         val unit = raw?.trim()?.lowercase().orEmpty()
         return when {
             unit.isEmpty() || unit in FoodLookup.COUNT_UNITS -> COUNT_BASIS
             unit in FoodLookup.MASS_UNITS -> MASS_BASIS
+            // pt-BR plurals: "colheres" → "colher", "copos" → "copo". Wrong for a handful of
+            // words, harmless when it is: the key only has to be STABLE, not grammatical.
+            unit.endsWith("es") -> unit.dropLast(2)
+            unit.endsWith("s") -> unit.dropLast(1)
             else -> unit
         }
     }
@@ -222,6 +231,7 @@ class EstimateService(
                 EstimatePrompts.MUSCLE_TOOL_NAME,
                 lines.joinToString("\n"),
                 EstimatePrompts.MuscleToolOutput::class.java,
+                budget(keys.size),
             )
         call.value?.items.orEmpty().forEach { answer ->
             val key = answer.n?.let { keys.getOrNull(it - 1) } ?: return@forEach
@@ -281,6 +291,7 @@ class EstimateService(
                     EstimatePrompts.WORKOUT_TOOL_NAME,
                     lines.joinToString("\n"),
                     EstimatePrompts.WorkoutToolOutput::class.java,
+                    budget(1), // one number for the whole day, whatever the day's length
                 )
             usage = call.usage
             answer = call.value?.kcal
@@ -351,15 +362,17 @@ class EstimateService(
      * The one model leg. A transport failure is NOT an error the user sees: the table answers
      * stand and the misses come back empty (the 422 decision is the caller's, above).
      */
+    @Suppress("LongParameterList") // one prompt triple + the typed result + the sized budget
     private fun <T : Any> ask(
         system: String,
         tool: Map<String, Any>,
         toolName: String,
         userText: String,
         type: Class<T>,
+        maxTokens: Int,
     ): TypedToolCall<T> =
         try {
-            val call = client.callEstimateTool(model, system, tool, toolName, userText, type)
+            val call = client.callEstimateTool(model, system, tool, toolName, userText, type, maxTokens)
             val outcome = if (call.value == null) "estimate-uninterpretable" else "estimate"
             metrics.record(outcome, call.usage.inputTokens, call.usage.outputTokens)
             call
@@ -382,23 +395,36 @@ class EstimateService(
         val wholeBody: Boolean = false,
     )
 
-    private companion object {
-        const val MASS_BASIS = "g" // the cached number is per 100 g/ml
-        const val COUNT_BASIS = "unit" // …or per one of whatever the unit names
-        const val GRAMS_BASIS = 100.0
+    companion object {
+        /**
+         * The output budget for a batch of [answers]. `max_tokens` is a CAP, not a charge, so
+         * this errs high: the only failure it exists to prevent is a TRUNCATED answer, and the
+         * flat 1024 it replaces silently cut off any muscle batch past ~20 exercises (a single
+         * muscle answer with six roles is ~90 output tokens).
+         */
+        fun budget(answers: Int): Int = (answers * TOKENS_PER_ANSWER + SLACK_TOKENS).coerceIn(MIN_BUDGET, MAX_BUDGET)
 
-        const val SET_FAMILY = "set"
-        const val TIME_FAMILY = "time"
-        const val SECONDS_PER_MIN = 60.0
+        private const val TOKENS_PER_ANSWER = 96
+        private const val SLACK_TOKENS = 256
+        private const val MIN_BUDGET = 512
+        private const val MAX_BUDGET = 8192 // the ceiling in application.yaml clamps it again
+
+        private const val MASS_BASIS = "g" // the cached number is per 100 g/ml
+        private const val COUNT_BASIS = "unit" // …or per one of whatever the unit names
+        private const val GRAMS_BASIS = 100.0
+
+        private const val SET_FAMILY = "set"
+        private const val TIME_FAMILY = "time"
+        private const val SECONDS_PER_MIN = 60.0
 
         // Calibration knobs (BE-065). Round numbers on purpose — the answer is rounded to 5.
-        const val SECONDS_PER_REP = 4
-        const val REST_SECONDS = 75
-        const val DEFAULT_SETS = 3
-        const val DEFAULT_REPS = 10
-        const val DEFAULT_MIN = 20
-        const val STRENGTH_KCAL_PER_MIN = 6.0
-        const val CARDIO_KCAL_PER_MIN = 8.0
-        const val WHOLE_BODY_KCAL_PER_MIN = 10.0
+        private const val SECONDS_PER_REP = 4
+        private const val REST_SECONDS = 75
+        private const val DEFAULT_SETS = 3
+        private const val DEFAULT_REPS = 10
+        private const val DEFAULT_MIN = 20
+        private const val STRENGTH_KCAL_PER_MIN = 6.0
+        private const val CARDIO_KCAL_PER_MIN = 8.0
+        private const val WHOLE_BODY_KCAL_PER_MIN = 10.0
     }
 }
