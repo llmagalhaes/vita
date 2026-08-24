@@ -1,5 +1,5 @@
 import { type ComponentProps } from "react";
-import { Pressable } from "react-native";
+import { Platform, Pressable } from "react-native";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { BlurView } from "expo-blur";
 import { appBlurTarget } from "./blurTarget";
@@ -39,13 +39,18 @@ export function SheetBackdrop({
   // from the mockup (2026-08-24), so both platforms now share the real blur + the
   // prototype's see-through tint.
   const scrimBg = dark ? "rgba(60,50,38,0.38)" : "rgba(247,242,233,0.45)";
+  // Android's `intensity` IS the dimezis blur radius (BlurModule.kt: setBlurRadius(intensity)),
+  // so it takes the prototype's real radii — blur(13) light / blur(4) deck — while iOS keeps
+  // its 0-100 material scale. 52 on Android meant a 52px soup + a 0.40 white overlay on top
+  // of the scrim (tint alpha = 0.78 × intensity/100) — the CEO's "ainda bem longe" wash.
+  const androidIntensity = dark ? 4 : 13;
   return (
     <Animated.View
       entering={style ? undefined : FadeIn.duration(motion.fade.durationMs)}
       style={[{ position: "absolute", inset: 0 }, style]}
     >
       <BlurView
-        intensity={dark ? 16 : intensity}
+        intensity={Platform.OS === "android" ? androidIntensity : dark ? 16 : intensity}
         tint={dark ? "dark" : "light"}
         blurReductionFactor={1}
         blurMethod="dimezisBlurViewSdk31Plus"
