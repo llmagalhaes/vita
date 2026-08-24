@@ -248,3 +248,36 @@ test("pruneOverlayAfterEdit (A5): removed pruned, edited reset, untouched surviv
   const pruned = pruneOverlayAfterEdit(oldDoc, newDoc, { a: 3, b: 120, c: 2 });
   expect(pruned).toEqual({ a: 3 });
 });
+
+/**
+ * APP-134 / contract 0.9.0 (D2) — a hand-built plan states each item's TOTAL kcal
+ * and NO macros. Every surface still reads `nutritionPerUnit`, so the fallback has
+ * to live in `effectivePerUnit`, once, or the whole plan renders as zeros.
+ */
+describe("hand-built items (PlanItem.kcal)", () => {
+  const oats: PlanItem = { id: "h1", name: "Oats", quantity: 60, unit: "g", kcal: 235, kcalEstimated: true };
+  const egg: PlanItem = { id: "h2", name: "Egg", quantity: 2, unit: "unit", kcal: 156 };
+
+  it("prices the stated total at its stated quantity", () => {
+    expect(itemTotals(oats).kcal).toBeCloseTo(235);
+    expect(itemTotals(egg).kcal).toBeCloseTo(156);
+    // No macros were ever stated — the app shows nothing rather than a zero it invented.
+    expect(itemTotals(oats).proteinG).toBe(0);
+  });
+
+  it("scales with the portion slider like any other item", () => {
+    expect(itemTotals(oats, 30).kcal).toBeCloseTo(117.5);
+    expect(itemTotals(egg, 3).kcal).toBeCloseTo(234);
+  });
+
+  it("sums into meal and day totals (which are `~`-labelled everywhere)", () => {
+    const doc: EatingPlanDraft = { summary: "built here", meals: [{ name: "Breakfast", items: [oats, egg] }] };
+    expect(mealTotals(doc.meals[0]!).kcal).toBeCloseTo(391);
+    expect(planDailyTotals(doc).kcal).toBeCloseTo(391);
+    expect(kcalLabel(planDailyTotals(doc).kcal)).toBe("~391");
+  });
+
+  it("states nothing when there is no number at all", () => {
+    expect(itemTotals({ name: "Coffee", quantity: 1 }).kcal).toBe(0);
+  });
+});

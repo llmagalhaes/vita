@@ -12,7 +12,7 @@ import { BodyMap } from "../../muscle/BodyMap";
 import { MUSCLE_KEYS, type MuscleKey } from "../../muscle/muscleData";
 import { coverage, dominant, mfill, type Family } from "../../workout/exerciseCatalog";
 import { Text, PressScale, colors, fonts, mixOklab, radii, shadowCard, useAccent } from "../../ui";
-import { CountChips, PhaseQuestion } from "../parts";
+import { CountChips, EstimateAction, PhaseQuestion } from "../parts";
 import { dayLetter, type BwDay, type BwExercise } from "./draft";
 
 /** 11.5/800, 1.4 letter-spacing, uppercase, faint (handoff §5 "Eyebrow"). */
@@ -233,16 +233,93 @@ function ExerciseRow({ e, onRemove }: { e: BwExercise; onRemove: () => void }) {
   );
 }
 
+/**
+ * APP-135 / CEO Round-16 #4 — the day's `~kcal`, "estimadas tanto pelo usuário
+ * quanto pela IA". One discreet line: type it, or have it worked out from what is
+ * in the day. Empty stays empty — no line reaches the Day surface at all.
+ *
+ * A typed number is NEVER overwritten: the estimate control only exists while the
+ * field is empty, so "never overwritten" is structural rather than a check.
+ */
+function DayKcalLine({
+  day,
+  onKcal,
+  busy,
+  onEstimate,
+}: {
+  day: BwDay;
+  onKcal: (s: string) => void;
+  busy: boolean;
+  onEstimate: () => void;
+}) {
+  const { t } = useTranslation();
+  const est = day.kcalEst === true && (day.kcal ?? "") !== "";
+  return (
+    <View style={{ gap: 9 }}>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <Eyebrow text={t("build.program.dayKcalLabel")} />
+        <View style={{ flex: 1 }} />
+        {est ? (
+          <Text style={{ fontFamily: fonts.bold, fontSize: 15 }} color={colors.estimateInk}>
+            ~
+          </Text>
+        ) : null}
+        <TextInput
+          value={day.kcal ?? ""}
+          onChangeText={onKcal}
+          keyboardType="numeric"
+          placeholder={t("build.program.dayKcalPlaceholder")}
+          placeholderTextColor={colors.disabled}
+          accessibilityLabel={t("build.program.dayKcalLabel")}
+          style={{
+            minWidth: 58,
+            textAlign: "right",
+            paddingVertical: 3,
+            fontFamily: fonts.bold,
+            fontSize: 15,
+            color: est ? colors.estimateInk : colors.inkHeading,
+            borderBottomWidth: 1,
+            borderStyle: "dashed",
+            // The estimate mark IS this baseline going amber (§2.4) — the same
+            // dashed line the day-name input wears, so nothing new appears.
+            borderBottomColor: est ? colors.estimateDash : colors.dashedBorder,
+          }}
+        />
+        <Text style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={colors.labelMuted}>
+          {t("build.program.dayKcalUnit")}
+        </Text>
+      </View>
+      {day.ex.length > 0 && (busy || (day.kcal ?? "") === "") ? (
+        <EstimateAction
+          busy={busy}
+          label={t("build.program.dayKcalEstimate")}
+          working={t("build.program.dayKcalWorking")}
+          onPress={onEstimate}
+        />
+      ) : null}
+      <Text variant="caption" style={{ fontSize: 11, lineHeight: 15 }} color={colors.labelMuted}>
+        {t("build.program.dayKcalHint")}
+      </Text>
+    </View>
+  );
+}
+
 export function DayCard({
   day,
   onName,
   onRemove,
   onAdd,
+  onKcal,
+  kcalBusy,
+  onEstimateKcal,
 }: {
   day: BwDay;
   onName: (s: string) => void;
   onRemove: (i: number) => void;
   onAdd: () => void;
+  onKcal: (s: string) => void;
+  kcalBusy: boolean;
+  onEstimateKcal: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -263,6 +340,7 @@ export function DayCard({
         }}
       />
       <MuscleMapCard exercises={day.ex} />
+      <DayKcalLine day={day} onKcal={onKcal} busy={kcalBusy} onEstimate={onEstimateKcal} />
       {day.ex.length === 0 ? (
         <Text variant="caption" style={{ fontSize: 12.5, lineHeight: 18 }} color={colors.muted}>
           {t("build.program.day.empty")}

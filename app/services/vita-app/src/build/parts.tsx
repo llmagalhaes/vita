@@ -6,9 +6,10 @@
  * anything past the shell, the count row and the phase question belongs to one
  * builder and lives in its own file.
  */
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { ScrollView, View } from "react-native";
-import { BackButton, KeyboardAvoider, PressScale, Text, colors, fonts } from "../ui";
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
+import { BackButton, KeyboardAvoider, PressScale, Text, colors, fonts, motion } from "../ui";
 
 /**
  * Full-screen builder shell: canvas, the Plan-Setup header (back · eyebrow ·
@@ -155,6 +156,61 @@ export function CountChips({
         </PressScale>
       )}
     </View>
+  );
+}
+
+/**
+ * "Fill in the calories for me" / "Work it out for me" — the quiet estimate
+ * control both builders wear (handoff §2.4, CEO Round-16 #4). Deliberately NOT
+ * the CTA of its screen: it is one of two ways to fill a column, the other being
+ * typing the number yourself.
+ *
+ * Working state is `vtBreath` — the box swells 7% and back, 1.6s, forever. No
+ * spinner, no percentage, no step log: the app is not narrating itself.
+ */
+export function EstimateAction({
+  busy,
+  label,
+  working,
+  onPress,
+}: {
+  busy: boolean;
+  label: string;
+  working: string;
+  onPress: () => void;
+}) {
+  const scale = useSharedValue(1);
+  useEffect(() => {
+    if (!busy) return;
+    scale.value = withRepeat(
+      withTiming(motion.vtBreath.toScale, { duration: motion.vtBreath.durationMs / 2, easing: Easing.inOut(Easing.ease) }),
+      -1,
+      true,
+    );
+    return () => void (scale.value = 1);
+  }, [busy, scale]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const box = { height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center" } as const;
+
+  if (busy) {
+    return (
+      <Animated.View accessibilityRole="progressbar" style={[box, { backgroundColor: colors.well }, style]}>
+        <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={colors.muted}>
+          {working}
+        </Text>
+      </Animated.View>
+    );
+  }
+  return (
+    <PressScale
+      accessibilityRole="button"
+      onPress={onPress}
+      style={{ ...box, backgroundColor: colors.card, borderWidth: 1.5, borderColor: "rgba(120,100,75,0.18)" }}
+    >
+      <Text style={{ fontFamily: fonts.bold, fontSize: 13.5 }} color={colors.inkMuted}>
+        {label}
+      </Text>
+    </PressScale>
   );
 }
 

@@ -5,39 +5,11 @@
  * it is one of two ways to fill a column. And every number it produces stays
  * marked as an estimate (`~`, dashed, `#A66A3F`) all the way into the saved plan.
  */
-import { useEffect } from "react";
 import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from "react-native-reanimated";
-import { Button, PressScale, Text, colors, fonts, motion, shadowWaterCard } from "../../ui";
+import { Button, Text, colors, estimateBase, fonts, shadowWaterCard } from "../../ui";
+import { EstimateAction } from "../parts";
 import { anyK, dayTotal, mealTotal, type BuildMeal } from "./draft";
-
-/** `vtBreath` — the working box swells 7% and back, 1.6s, forever. No spinner,
- *  no percentage, no step log: the app is not narrating itself. */
-function WorkingBox({ label }: { label: string }) {
-  const scale = useSharedValue(1);
-  useEffect(() => {
-    scale.value = withRepeat(
-      withTiming(motion.vtBreath.toScale, { duration: motion.vtBreath.durationMs / 2, easing: Easing.inOut(Easing.ease) }),
-      -1,
-      true,
-    );
-  }, [scale]);
-  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  return (
-    <Animated.View
-      accessibilityRole="progressbar"
-      style={[
-        { height: 46, borderRadius: 23, alignItems: "center", justifyContent: "center", backgroundColor: colors.well },
-        style,
-      ]}
-    >
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={colors.muted}>
-        {label}
-      </Text>
-    </Animated.View>
-  );
-}
 
 /** Estimated · typed · empty — three states, three inks (handoff §2.4 table). */
 function KcalCell({
@@ -90,15 +62,7 @@ function KcalCell({
   }
   const estimated = k != null && est;
   return (
-    <View
-      // The dashed base is a border, not a text decoration: Android ignores
-      // `textDecorationStyle`, and this is the one mark that may not go missing.
-      style={{
-        borderBottomWidth: estimated ? 1 : 0,
-        borderBottomColor: "rgba(166,106,63,0.55)",
-        borderStyle: "dashed",
-      }}
-    >
+    <View style={estimated ? estimateBase : null}>
       <Text
         testID={testID}
         accessibilityRole="button"
@@ -217,27 +181,14 @@ export function ReviewPhase({
         );
       })}
 
-      {busy ? (
-        <WorkingBox label={t("build.plan.review.working")} />
-      ) : filled ? null : (
-        <PressScale
-          accessibilityRole="button"
+      {busy || !filled ? (
+        <EstimateAction
+          busy={busy}
+          label={t("build.plan.review.fill")}
+          working={t("build.plan.review.working")}
           onPress={onEstimate}
-          style={{
-            height: 46,
-            borderRadius: 23,
-            alignItems: "center",
-            justifyContent: "center",
-            backgroundColor: colors.card,
-            borderWidth: 1.5,
-            borderColor: "rgba(120,100,75,0.18)",
-          }}
-        >
-          <Text style={{ fontFamily: fonts.bold, fontSize: 13.5 }} color={colors.inkMuted}>
-            {t("build.plan.review.fill")}
-          </Text>
-        </PressScale>
-      )}
+        />
+      ) : null}
 
       {filled ? (
         <View style={{ gap: 6 }}>

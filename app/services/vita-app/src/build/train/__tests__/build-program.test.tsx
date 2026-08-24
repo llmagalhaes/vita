@@ -2,12 +2,12 @@
  * APP-124/125/126/127 — the training builder end to end on the route
  * (handoff v4.2 §3, criteria 15, 16, 17, 18, 19, 21, 22, 23).
  */
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../../../i18n";
 import BuildProgramScreen from "../../../../app/(main)/build-program";
 import { PopHost } from "../../../ui/popHost";
 import { coverage, mfill } from "../../../workout/exerciseCatalog";
-import { getAccent } from "../../../ui";
+import { colors, getAccent } from "../../../ui";
 import { resetDbForTests } from "../../../db/db";
 import { getCachedProgram } from "../../../db/plan";
 import en from "../../../i18n/locales/en.json";
@@ -200,6 +200,62 @@ describe("day card and finish", () => {
       { name: "Squat", sets: 3, reps: 10, muscleRoles: [{ name: "quads", role: "primary" }, { name: "glutes", role: "primary" }, { name: "core", role: "secondary" }] },
     ]);
     expect(mockBack).toHaveBeenCalled();
+  });
+});
+
+/**
+ * APP-135 / CEO Round-16 #4 — the day keeps its `~kcal`: typed, or worked out from
+ * what is in the session. Estimated wears the mark; typed is solid and untouchable.
+ */
+describe("the day's kcal", () => {
+  it("estimates an empty field, marks it, and saves it as the day's kcalEstimate", async () => {
+    await renderScreen();
+    await toDays();
+    await addExercise("Squat"); // 3 × 10 → the mock's 3*10*0.5 = 15
+
+    const field = screen.getByLabelText("Calories for this session");
+    expect(field.props.value).toBe(""); // no kcal field pressure while building
+
+    await fireEvent.press(screen.getByText("Work it out for me"));
+    expect(screen.getByText("Working it out…")).toBeOnTheScreen();
+    await waitFor(() => expect(screen.getByLabelText("Calories for this session").props.value).toBe("15"), { timeout: 8000 });
+
+    // The mark: `~` prefix, estimate ink, amber dashed base (handoff §2.4).
+    expect(screen.getByText("~")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Calories for this session")).toHaveStyle({
+      color: colors.estimateInk,
+      borderBottomColor: colors.estimateDash,
+    });
+    // Filled → nothing left to press, so no estimate can ever land on it again.
+    expect(screen.queryByText("Work it out for me")).toBeNull();
+
+    await fireEvent.press(screen.getByText("Next day"));
+    await fireEvent.press(screen.getByText("Next day"));
+    await fireEvent.press(screen.getByText("Finish setup"));
+    expect(getCachedProgram()!.days[0]!.kcalEstimate).toBe(15);
+    expect(getCachedProgram()!.days[1]!.kcalEstimate).toBeUndefined(); // empty stays empty
+  }, 30000);
+
+  it("a typed number is solid, unmarked and never offered to the estimator", async () => {
+    await renderScreen();
+    await toDays();
+    await addExercise("Squat");
+    await fireEvent.changeText(screen.getByLabelText("Calories for this session"), "420");
+
+    expect(screen.queryByText("~")).toBeNull();
+    expect(screen.getByLabelText("Calories for this session")).toHaveStyle({ color: colors.inkHeading });
+    expect(screen.queryByText("Work it out for me")).toBeNull();
+
+    await fireEvent.press(screen.getByText("Next day"));
+    await fireEvent.press(screen.getByText("Next day"));
+    await fireEvent.press(screen.getByText("Finish setup"));
+    expect(getCachedProgram()!.days[0]!.kcalEstimate).toBe(420);
+  });
+
+  it("offers nothing to estimate from an empty day", async () => {
+    await renderScreen();
+    await toDays();
+    expect(screen.queryByText("Work it out for me")).toBeNull();
   });
 });
 

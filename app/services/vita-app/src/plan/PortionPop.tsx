@@ -12,7 +12,7 @@ import { useTranslation } from "react-i18next";
 import Animated, { FadeIn, useAnimatedProps, useSharedValue } from "react-native-reanimated";
 import type { MacroTotals, PlanItem } from "../api/client";
 import { barPct, boundsOf, effectiveName, effectivePerUnit, effectiveUnit, itemTotals, kcalLabel, portionRange, qtyLabel } from "./compute";
-import { Button, Card, EditableText, Slider, Text, colors, fonts, shadowPop, tint, useAccent } from "../ui";
+import { Button, Card, EditableText, Slider, Text, colors, estimateBase, fonts, shadowPop, tint, useAccent } from "../ui";
 
 /** TextInput whose text is written from the UI thread — the big qty readout tracks
  *  the slider finger with no per-frame React re-render. */
@@ -160,7 +160,12 @@ export function PortionPop({
             </View>
             <View style={{ alignItems: "flex-end", gap: 4 }}>
               <View style={{ flexDirection: "row", alignItems: "baseline", gap: 4 }}>
-                <Text style={{ fontFamily: fonts.light, fontSize: 22 }}>~{kcal}</Text>
+                {/* PLAN R1: an estimated kcal wears its mark here too. */}
+                <View style={item.kcalEstimated ? estimateBase : null}>
+                  <Text style={{ fontFamily: fonts.light, fontSize: 22 }} color={item.kcalEstimated ? colors.estimateInk : undefined}>
+                    ~{kcal}
+                  </Text>
+                </View>
                 <Text variant="caption" style={{ fontFamily: fonts.semiBold, fontSize: 12 }} color={colors.muted}>
                   {t("common.kcal")}
                 </Text>

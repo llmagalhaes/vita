@@ -5,6 +5,7 @@ import { PopHost } from "../ui/popHost";
 import { api, type EatingPlanDraft } from "../api";
 import { getCachedPlan, savePlan } from "../db/plan";
 import { resetDbForTests } from "../db/db";
+import { colors, estimateBase } from "../ui";
 
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: jest.fn(), replace: jest.fn(), push: jest.fn(), canGoBack: () => true }),
@@ -87,4 +88,41 @@ test("View mode: tapping an item opens the portion modal and a slider drag persi
   const key = Object.keys(getPortions())[0]!;
   expect(getPortions()[key]).toBe(3); // overlay carries the new qty, keyed by the item id
   portionSpy.mockRestore();
+});
+
+/**
+ * APP-134 (PLAN R1) — the estimate mark PERSISTS. A number the builder's estimate
+ * pass produced is still an estimate on the saved plan, and says so; a number the
+ * user typed is a plain number. The `~` on totals is app-wide and predates this.
+ */
+test("a hand-built plan marks only its estimated numbers", async () => {
+  await savePlan({
+    summary: "Built here",
+    meals: [
+      {
+        name: "Breakfast",
+        time: "08:00",
+        items: [
+          { name: "Oats", quantity: 60, unit: "g", kcal: 235, kcalEstimated: true },
+          { name: "Egg", quantity: 2, unit: "unit", kcal: 156 },
+        ],
+      },
+    ],
+  });
+  await render(<><EatingPlanScreen /><PopHost /></>);
+
+  // The numbers are there at all — a hand-built item carries no `nutritionPerUnit`.
+  const estimated = screen.getByText("~235");
+  const typed = screen.getByText("~156");
+  expect(estimated).toHaveStyle({ color: colors.estimateInk });
+  expect(typed).toHaveStyle({ color: colors.muted });
+  // The dashed base is the mark that may not go missing (Android ignores dashed
+  // text decoration, so it is a border on the wrapper).
+  expect(estimated.parent).toHaveStyle(estimateBase);
+  expect(typed.parent).not.toHaveStyle(estimateBase);
+
+  // Meal and day totals: 235 + 156, and both already wear the `~` every plan
+  // number wears — a total containing an estimate is itself an estimate.
+  expect(screen.getByText("~391 kcal")).toBeOnTheScreen();
+  expect(screen.getByText("~391")).toBeOnTheScreen();
 });

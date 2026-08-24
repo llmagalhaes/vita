@@ -39,6 +39,7 @@ import {
   PressScale,
   Text,
   colors,
+  estimateBase,
   fonts,
   hit,
   mixOklab,
@@ -492,9 +493,17 @@ export function MealNode({
                 <Text style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={colors.muted}>
                   {isAdLib(r.lens) ? (effectiveUnit(r.lens) ?? "") : qtyLabel(effectiveUnit(r.lens), r.qty)}
                 </Text>
-                <Text style={{ fontSize: 11, minWidth: 50, textAlign: "right" }} color={colors.faint}>
-                  {r.skipped ? "—" : t("timeline.kcal", { n: r.kcal.toLocaleString("en-US") })}
-                </Text>
+                {/* PLAN R1 — the estimate mark travels with the number. A RECORD row
+                    has no flag (a record states what was eaten, and the wire carries
+                    none), so only plan rows can light up here. */}
+                <View style={r.lens.kcalEstimated && !r.skipped ? estimateBase : null}>
+                  <Text
+                    style={{ fontSize: 11, minWidth: 50, textAlign: "right" }}
+                    color={r.lens.kcalEstimated && !r.skipped ? colors.estimateInk : colors.faint}
+                  >
+                    {r.skipped ? "—" : t("timeline.kcal", { n: r.kcal.toLocaleString("en-US") })}
+                  </Text>
+                </View>
               </Pressable>
             );
           })}

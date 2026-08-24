@@ -1,7 +1,7 @@
 /**
  * APP-128 — builder draft → `TrainingProgramDraft` (handoff v4.2 §3.7, app-plan §B).
  */
-import { dayLetter, resizeDays, rolesOf, toProgramDraft, type BwDay, type BwExercise } from "../draft";
+import { dayLetter, resizeDays, rolesOf, toProgramDraft, workoutKcalBody, type BwDay, type BwExercise } from "../draft";
 import { EXCAT } from "../../../workout/exerciseCatalog";
 
 const cat = (name: string) => EXCAT.find((e) => e.name === name)!;
@@ -81,9 +81,14 @@ describe("toProgramDraft", () => {
     expect(e.reps).toBeUndefined();
   });
 
-  it("carries a day kcal through when one is set (Round-16 #4 seam, APP-135)", () => {
+  it("carries a day kcal through when one is set (Round-16 #4, APP-135)", () => {
+    // CEO decision 4: typed and estimated alike land in `kcalEstimate` — the field
+    // is an estimate by name, and a hand-typed session kcal is one too.
     expect(toProgramDraft("", [{ n: "Day A", ex: [], kcal: "420" }], "My program").days[0]!.kcalEstimate).toBe(420);
+    expect(toProgramDraft("", [{ n: "Day A", ex: [], kcal: "300", kcalEst: true }], "My program").days[0]!.kcalEstimate).toBe(300);
+    // Empty stays empty: no line reaches the Day surface at all.
     expect(toProgramDraft("", [day("Day A", [])], "My program").days[0]!.kcalEstimate).toBeUndefined();
+    expect(toProgramDraft("", [{ n: "Day A", ex: [], kcal: "" }], "My program").days[0]!.kcalEstimate).toBeUndefined();
   });
 });
 
@@ -94,5 +99,20 @@ describe("resizeDays", () => {
     expect(grown.map((d) => d.n)).toEqual(["Push", "Pull", "Day C", "Day D"]);
     expect(grown[0]!.ex).toHaveLength(1);
     expect(resizeDays(grown, 1, (i) => `Day ${dayLetter(i)}`).map((d) => d.n)).toEqual(["Push"]);
+  });
+});
+
+describe("workoutKcalBody (APP-135 / D9)", () => {
+  it("sends only the active family's measure", () => {
+    expect(workoutKcalBody(day("Day A", [ex("Squat"), ex("Football", { sets: "4", reps: "8", min: "45" })]))).toEqual([
+      { name: "Squat", fam: "set", sets: 3, reps: 10 },
+      { name: "Football", fam: "time", min: 45 },
+    ]);
+  });
+
+  it("drops a measure that never became a number", () => {
+    expect(workoutKcalBody(day("Day A", [ex("Squat", { sets: "", reps: "abc" })]))).toEqual([
+      { name: "Squat", fam: "set", sets: undefined, reps: undefined },
+    ]);
   });
 });

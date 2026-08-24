@@ -62,14 +62,26 @@ export const isAdLib = (item: PlanItem): boolean => {
 };
 
 /**
+ * Contract 0.9.0 (D2): a HAND-BUILT item states its TOTAL kcal at its stated
+ * quantity and carries no macros at all. Priced per unit here, once, so the
+ * portion slider, every meal card and every daily total keep reading the single
+ * `nutritionPerUnit` path — nothing downstream learns about the new field.
+ */
+const perUnitFromKcal = (item: PlanItem): MacroTotals | undefined => {
+  const q = item.quantity ?? 1;
+  return item.kcal != null && q > 0 ? { kcal: item.kcal / q } : undefined;
+};
+
+/**
  * Per-unit macros of the effective composition. Original item → its own perUnit.
  * A usual swap → the equivalence estimate (undefined when the swap has no usable
  * quantity, e.g. "as much as you like" — the app shows no number, `~` covers it).
  */
 export function effectivePerUnit(item: PlanItem): MacroTotals | undefined {
   const sw = effectiveSwap(item);
-  if (!sw) return item.nutritionPerUnit;
-  const per = item.nutritionPerUnit;
+  const own = item.nutritionPerUnit ?? perUnitFromKcal(item);
+  if (!sw) return own;
+  const per = own;
   const baseQty = item.quantity ?? 1;
   const swQty = sw.quantity;
   if (!per || swQty == null || swQty <= 0) return undefined;

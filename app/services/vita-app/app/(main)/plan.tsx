@@ -29,6 +29,7 @@ import {
   PopOverlay,
   Text,
   colors,
+  estimateBase,
   fonts,
   tint,
   useAccent,
@@ -264,9 +265,17 @@ export default function EatingPlanScreen() {
                         {qtyLabel(it.unit, q)}
                       </Text>
                     </View>
-                    <Text variant="caption" style={{ fontSize: 12.5, minWidth: 44, textAlign: "right" }} color={colors.muted}>
-                      ~{round(itemTotals(it, q).kcal)}
-                    </Text>
+                    {/* PLAN R1: a number the estimate pass produced keeps its mark
+                        for as long as it is shown, saved plan included. */}
+                    <View style={it.kcalEstimated ? estimateBase : null}>
+                      <Text
+                        variant="caption"
+                        style={{ fontSize: 12.5, minWidth: 44, textAlign: "right" }}
+                        color={it.kcalEstimated ? colors.estimateInk : colors.muted}
+                      >
+                        ~{round(itemTotals(it, q).kcal)}
+                      </Text>
+                    </View>
                     {editing && (
                       <Pressable
                         accessibilityRole="button"

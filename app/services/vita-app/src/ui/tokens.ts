@@ -53,6 +53,7 @@ export const colors = {
   peachSoft: "#E8B48C",
   estimateBg: "#F7E7D4",
   estimateInk: "#A66A3F",
+  estimateDash: "rgba(166,106,63,0.55)",
   sun: "#F2B45C",
 
   // ── Sand / neutral fills ────────────────────────────────────────────────────
@@ -192,6 +193,18 @@ import { mixOklab } from "./oklab";
  * backs this alias. Import `mixOklab` directly; this goes after the v4 wave.
  */
 export const tint = mixOklab;
+
+/**
+ * The dashed base under an estimated number (handoff v4.2 §2.4, PLAN R1) — worn
+ * for as long as the number is shown, not just on the screen that produced it.
+ * A border, not `textDecorationLine`: Android ignores `textDecorationStyle:"dashed"`,
+ * and this is the one mark that may not go missing. Wrap the `Text` in a `View`.
+ */
+export const estimateBase = {
+  borderBottomWidth: 1,
+  borderBottomColor: colors.estimateDash,
+  borderStyle: "dashed",
+} as const;
 
 /** Soft card shadow lifted from the prototype (`0 10px 26px rgba(105,84,60,.08)`). */
 export const shadow = {

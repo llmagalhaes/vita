@@ -5,7 +5,7 @@
  * Pure: no React, no db. The builder edits `BwDay[]`; `toProgramDraft` is the
  * only place that knows the wire.
  */
-import type { Exercise, Muscle, TrainingProgramDraft } from "../../api/client";
+import type { Exercise, Muscle, TrainingProgramDraft, WorkoutKcalRequest } from "../../api/client";
 import type { ExWeights, Family } from "../../workout/exerciseCatalog";
 import { tierOf, type MuscleKey } from "../../muscle/muscleData";
 
@@ -29,11 +29,13 @@ export type BwDay = {
   n: string;
   ex: BwExercise[];
   /**
-   * Round-16 #4 / APP-135 (wave 2): a hand-built day keeps the `~kcal` line —
-   * typed here or answered by POST /estimate/workout-kcal. Absent until then;
-   * the conversion below already carries it through.
+   * Round-16 #4 / APP-135: a hand-built day keeps the `~kcal` line — typed here
+   * or answered by POST /estimate/workout-kcal. Absent/empty = no line at all.
    */
   kcal?: string;
+  /** True only while `kcal` came from the endpoint (renders `~`, dashed, ink).
+   *  Typing over it clears the flag: a corrected estimate is not an estimate. */
+  kcalEst?: boolean;
 };
 
 /** `Day A … Day J` — the ceiling of 10 sessions is exactly the letter J (criterion 15). */
@@ -83,6 +85,18 @@ function toExercise(e: BwExercise): Exercise {
     ...(roles.length > 0 ? { muscleRoles: roles } : null),
   };
 }
+
+/**
+ * One day's exercises as `POST /estimate/workout-kcal` wants them (D9). Only the
+ * ACTIVE family's measure travels, for the same reason `toExercise` does it: a
+ * `min` left over from a family switch is not what this day is made of.
+ */
+export const workoutKcalBody = (day: BwDay): WorkoutKcalRequest["exercises"] =>
+  day.ex.map((e) => ({
+    name: e.n,
+    fam: e.fam,
+    ...(e.fam === "set" ? { sets: num(e.sets), reps: num(e.reps) } : { min: num(e.min) }),
+  }));
 
 /** The whole builder → the contract doc. `fallback` is `t("build.program.fallbackName")`. */
 export function toProgramDraft(name: string, days: BwDay[], fallback: string): TrainingProgramDraft {
