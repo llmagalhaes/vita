@@ -1686,6 +1686,296 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/estimate/food-kcal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimate kcal for a list of plan items
+         * @description 0.9.0 (D7). Stateless, like /parse/* — items in, numbers out; nothing
+         *     about the user is stored (ADR-0005, ADR-0020). Backs the manual eating
+         *     plan builder's "Fill in the calories for me".
+         *
+         *     Every number returned is an ESTIMATE, never a target. The caller marks
+         *     each value it accepts with `PlanItem.kcalEstimated: true` so the label
+         *     survives into the saved plan.
+         *
+         *     Lookup order per item (ADR-0020): normalized exact match on the seeded
+         *     food table → alias → trigram fuzzy match → estimate cache → the model,
+         *     for misses only and in ONE batched call for the whole pass. A pass that
+         *     the table answers in full makes no outbound call at all and returns in
+         *     milliseconds. Model answers are cached (user-less, see ADR-0020) so a
+         *     given name is a miss exactly once.
+         *
+         *     Rounding is server-side, on table hits and model answers alike:
+         *     `max(5, round(k/5)*5)`. A `237` would suggest a precision the estimate
+         *     does not have, so the boundary launders it into a `235`.
+         *
+         *     Synchronous — the worst realistic pass (60 fresh misses) is well inside
+         *     the gateway ceiling. One call counts against the same per-user daily
+         *     parse quota as /parse/text; there is no separate limiter and no
+         *     idempotency key (the endpoint writes no user data).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The items to price, in the caller's own order. 0 or more than 60 → 400; a longer plan is two passes behind the same progress box. The app sends ONLY the items whose kcal is still empty — a number the user typed is never sent and therefore can never be overwritten. */
+                        items: {
+                            /** @description As typed ("Pão francês", "Aveia"). */
+                            name: string;
+                            quantity?: number;
+                            /** @description "g" / "ml" / "unit" / "serving". A count-unit resolves from the table only when the matched food knows its grams-per-unit; otherwise it is a miss and the model answers, which is what keeps one unit of bread and one unit of watermelon apart. */
+                            unit?: string;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Positional results — same length and same order as the request, always. An item nothing could answer comes back `{"kcal": null}` and the caller leaves its dash; the array is never shifted or filtered. Partial by design: if the model leg fails while the table answered some items, this is still a 200 with nulls for the rest — an estimate pass never puts the user's plan at risk. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** @description Total kcal for the item at its stated quantity — the value for PlanItem.kcal. Integer, multiple of 5, floor 5. Null = no answer (leave the field empty; do NOT substitute a zero). */
+                                kcal?: number | null;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Empty item list, or more than 60 items. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Nothing could be estimated — the model leg failed AND the table answered nothing, so the response would be all nulls. Same semantics as /parse/text's 422; the plan is untouched either way. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/estimate/exercise-muscles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimate which muscles an exercise works
+         * @description 0.9.0 (D8). Stateless, same lookup order, same cache policy and same
+         *     quota as /estimate/food-kcal, over the seeded exercise catalog instead
+         *     of the food table. Backs the training builder: a free-typed exercise
+         *     stops reading "not mapped" without pretending to catalog confidence.
+         *
+         *     The answer is an estimate of a body map, not a measurement. When the
+         *     model is not confident the response is an EMPTY muscleRoles list and
+         *     the app keeps "not mapped" — guessing would invent data. Names that
+         *     come back are normalized onto the closed muscle vocabulary before they
+         *     leave (and before they reach the cache); anything unmappable is
+         *     dropped rather than approximated.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Exercise names as typed. 0 or >60 → 400. */
+                        names: string[];
+                    };
+                };
+            };
+            responses: {
+                /** @description Positional results — same length, same order as `names`. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            items: {
+                                /** @description Exactly the shape of Exercise.muscleRoles, ready to copy onto the exercise. EMPTY when nothing was matched and nothing was confidently guessed — the honest answer, rendered as "not mapped". */
+                                muscleRoles: {
+                                    /** @enum {string} */
+                                    name: "chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves" | "traps";
+                                    /** @enum {string} */
+                                    role: "primary" | "secondary";
+                                }[];
+                                /** @description The value for Exercise.wholeBody — "the split is a guess" (muay thai, swimming). */
+                                wholeBody: boolean;
+                                /** @description True = nobody curated this mapping; the model guessed it. The app must paint an estimated mapping in the PALE band, never the full tone a catalog entry gets: an estimate stays labeled as an estimate. False = it came from the curated catalog. The flag does not reach the saved program document — the app folds it into the existing pale/soft rendering flag before saving. */
+                                estimated: boolean;
+                            }[];
+                        };
+                    };
+                };
+                /** @description Empty name list, or more than 60 names. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Nothing could be estimated (model leg failed with zero catalog hits). Same semantics as /estimate/food-kcal. */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/estimate/workout-kcal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Estimate the energy of one hand-built training day
+         * @description 0.9.0 (D9 — CEO Round 16). A hand-built training day keeps its
+         *     `~kcal` line, typed by the user or estimated here, and the answer
+         *     feeds the EXISTING `ProgramDay.kcalEstimate` — no schema change to the
+         *     program document.
+         *
+         *     One day per call: the whole day's exercises go in, one number comes
+         *     out, because energy is a property of the session, not a sum of
+         *     independent rows. The estimate is built from the catalog's metadata
+         *     for the exercises it recognizes (family, whole-body) plus the volume
+         *     the caller states; the model is asked only about what the catalog
+         *     misses. Same quota, same cache policy, same server-side multiple-of-5
+         *     rounding as /estimate/food-kcal.
+         *
+         *     The response is always flagged `estimated: true` — this endpoint has
+         *     no other kind of answer. It is a rough energy figure for a plan the
+         *     user wrote, not a goal, not a budget, and nothing in Vita compares it
+         *     to anything.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description The day's exercises. 0 or >60 → 400. */
+                        exercises: {
+                            name: string;
+                            /**
+                             * @description Which family the row is measured in — `set` reads sets/reps, `time` reads min. Absent → derived from whichever fields are present.
+                             * @enum {string}
+                             */
+                            fam?: "set" | "time";
+                            sets?: number;
+                            reps?: number;
+                            /** @description Minutes, for the time family. */
+                            min?: number;
+                        }[];
+                    };
+                };
+            };
+            responses: {
+                /** @description The day's energy estimate. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            /** @description Whole-day estimate for ProgramDay.kcalEstimate. Integer, multiple of 5, floor 5 — rounded server-side for the same reason as food kcal. */
+                            kcal: number;
+                            /** @description Always true. Present so the value can never travel without its label, and so a caller reading only the payload cannot mistake it for a measurement. */
+                            estimated: boolean;
+                        };
+                    };
+                };
+                /** @description Empty exercise list, or more than 60 exercises. */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                /** @description Nothing usable to estimate from (no recognizable exercise, model leg failed). */
+                422: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/problem+json": components["schemas"]["Problem"];
+                    };
+                };
+                429: components["responses"]["TooManyRequests"];
+                default: components["responses"]["Problem"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1837,8 +2127,8 @@ export interface components {
             durationMin?: number;
             /** @description Energy estimate. */
             kcal?: number;
-            /** @description Closed vocabulary — exactly the 11 silhouettes the body-map UI supports (app review pt 6). Backend maps model output onto this list and drops anything unmappable ("lats"/"traps" → back, "abs"/"obliques" → core). */
-            muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves")[];
+            /** @description Closed vocabulary — exactly the 12 silhouettes the body-map UI supports (app review pt 6). Backend maps model output onto this list and drops anything unmappable ("lats" → back, "abs"/"obliques" → core). 0.9.0 adds `traps`: it used to fold into `back`, which silently deleted a distinction the app has a chip and a silhouette for (face pull, deadlift). Clients that predate 0.9.0 simply never see the value. */
+            muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves" | "traps")[];
             exercises?: components["schemas"]["Exercise"][];
             /** @description The ProgramDay.name this session fulfils ("Leg day"). Absent for an off-program workout. Programs have no stable day ids, so the name is the pointer — same staleness caveat as MealDetail.planMealId. */
             planDay?: string;
@@ -1854,12 +2144,16 @@ export interface components {
             reps?: number;
             /** @description Always kg on the wire; the app converts for imperial display. */
             loadKg?: number;
+            /** @description 0.9.0. Minutes, for exercises measured in TIME rather than sets/reps (a 30-minute muay thai round, a 20-minute row). The set/time "family" is derived, not stored: `durationMin` present = the time family, `sets`/`reps` present = the set family. The builder keeps every field the user typed locally so switching family loses nothing, but only the active family's fields go on the wire. */
+            durationMin?: number;
+            /** @description 0.9.0. "Whole body — the split is a guess." Set when the exercise works the body broadly enough that naming primaries would invent precision (muay thai, swimming, football). The app paints the body map in its pale band instead of the full tone: an honest estimate rendered as an estimate, never a measurement. Absent or false = the muscleRoles stand as given. */
+            wholeBody?: boolean;
             /** @description Same closed vocabulary as WorkoutDetail.muscles, but per exercise — drives per-exercise muscle tinting in the app (0.5.0). Optional; the backend maps model output onto this list and drops anything unmappable. The workout-level `muscles` stays for back-compat. */
-            muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves")[];
-            /** @description Same closed 11-silhouette vocabulary as `muscles`, with each muscle's role in THIS exercise. Feeds the body-map opacities and the PRIMARY/SECONDARY banner tag (design handoff §2.2). Optional. When present and `muscles` is absent, the backend derives `muscles` from the role names; roles are never derived from a bare `muscles` list. Backend maps model output onto the vocabulary (lats/traps → back, abs/obliques → core) and drops unmappables. */
+            muscles?: ("chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves" | "traps")[];
+            /** @description Same closed 12-silhouette vocabulary as `muscles`, with each muscle's role in THIS exercise. Feeds the body-map opacities and the PRIMARY/SECONDARY banner tag (design handoff §2.2). Optional. When present and `muscles` is absent, the backend derives `muscles` from the role names; roles are never derived from a bare `muscles` list. Backend maps model output onto the vocabulary (lats → back, abs/obliques → core; `traps` is its own value from 0.9.0) and drops unmappables. 0.9.0 also runs POST/PUT /program through the same normalizer, not just the parse path — a hand-built program cannot store a muscle name off the vocabulary. */
             muscleRoles?: {
                 /** @enum {string} */
-                name: "chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves";
+                name: "chest" | "back" | "shoulders" | "biceps" | "triceps" | "forearms" | "core" | "glutes" | "quads" | "hamstrings" | "calves" | "traps";
                 /** @enum {string} */
                 role: "primary" | "secondary";
             }[];
@@ -1950,6 +2244,7 @@ export interface components {
             name: string;
             /** @description Local time-of-day (HH:MM) the plan suggests, when it states one. */
             time?: string;
+            /** @description 0.9.0 relaxes this from minItems 1: a named slot with no food in it yet is a legitimate plan meal (the manual builder lets you add "Supper" before you decide what goes in it), exactly as 0.8.0 relaxed MealDetail.items for a skipped meal. */
             items: components["schemas"]["PlanItem"][];
             /** @description Per-meal kcal for the DEFAULT composition — stated report-page value when present ("Almoço … 702 Kcal"), else estimate. */
             kcal?: number;
@@ -1966,6 +2261,10 @@ export interface components {
             quantity?: number;
             /** @description Free-form ("g", "ml", "slice"). Display verbatim. */
             unit?: string;
+            /** @description 0.9.0. TOTAL kcal for this item at its stated `quantity` — NOT per unit (that is `nutritionPerUnit`, which is unchanged and independent). 60 g of oats is one `kcal: 235`, not 3.9 × 60. An integer, and a multiple of 5 whenever it came from the estimate pass: the server rounds on the way out of /estimate/food-kcal because a `237` claims a precision no estimate has. A number the user typed is stored verbatim. This is an estimate of what the plan suggests, never a target — Vita has no goals and no scores. */
+            kcal?: number;
+            /** @description 0.9.0. True when `kcal` came from the estimate pass rather than from the user or the source document; the app renders it as `~235` with a dashed underline wherever it appears. The flag travels WITH the number and persists in the saved plan — the constitution requires estimates to stay labeled as estimates for as long as they are shown, not just on the screen that produced them. Sending `kcalEstimated` without `kcal` is a 400: there is no estimate to label. */
+            kcalEstimated?: boolean;
             nutritionPerUnit?: components["schemas"]["MacroTotals"];
             microsPerUnit?: components["schemas"]["MicrosPerUnit"];
             portion?: components["schemas"]["PortionBounds"];
@@ -2009,7 +2308,7 @@ export interface components {
             /** @description Day label, e.g. "Day 1 - Push", "Upper A". */
             name: string;
             exercises: components["schemas"]["Exercise"][];
-            /** @description Optional per-day energy estimate (v3 reconciliation add) — powers the Today workout tab's "~{kcal}" line. Absent → the app omits the line (no client-side computation). */
+            /** @description Optional per-day energy estimate (v3 reconciliation add) — powers the Today workout tab's "~{kcal}" line. Absent → the app omits the line (no client-side computation). 0.9.0: a hand-built day fills this field too — typed by the user or answered by POST /estimate/workout-kcal. Estimate, never a target; the "~" is part of the label, not decoration. */
             kcalEstimate?: number;
         };
         /** @description One stored eating-plan version (history). Frozen — display only. */

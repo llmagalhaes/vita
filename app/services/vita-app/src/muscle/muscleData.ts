@@ -54,6 +54,7 @@ const KEY_OF: Record<Muscle, MuscleKey> = {
   biceps: "ar",
   triceps: "ar",
   forearms: "ar",
+  traps: "tr",
   core: "co",
   glutes: "gl",
   quads: "qu",
