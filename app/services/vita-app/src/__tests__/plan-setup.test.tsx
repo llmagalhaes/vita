@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../i18n";
+import { PopHost } from "../ui/popHost";
 import PlanSetupScreen from "../../app/(main)/plan-setup";
 import { api } from "../api";
 import { handoffPlanV3 } from "../api/mock";
@@ -27,7 +28,7 @@ beforeEach(() => {
 
 async function renderReview() {
   await savePlan({ ...handoffPlanV3(), status: "review" }, "pdf");
-  await render(<PlanSetupScreen />);
+  await render(<><PlanSetupScreen /><PopHost /></>);
   // Step 1 = Pre-workout, with the review intro.
   await screen.findByText("Pre-workout");
 }
@@ -35,7 +36,7 @@ async function renderReview() {
 test("parse mode: findings appear then it auto-advances to the review", async () => {
   jest.useRealTimers();
   mockParams = { mode: "parse" };
-  await render(<PlanSetupScreen />);
+  await render(<><PlanSetupScreen /><PopHost /></>);
   expect(screen.getByText("Reading your plan…")).toBeTruthy();
   // Real counts from the fetched doc (5 meals; Σ swaps across items + options).
   await screen.findByText(/5 meals · \d+ swap options/, {}, { timeout: 4000 });

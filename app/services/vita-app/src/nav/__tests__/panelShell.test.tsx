@@ -5,6 +5,7 @@
  */
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import "../../i18n";
+import { PopHost } from "../../ui/popHost";
 import { PanelShell } from "../PanelShell";
 import { resetDbForTests } from "../../db/db";
 import { setNavSwiped } from "../../db/plan";
@@ -23,7 +24,7 @@ beforeEach(() => {
 });
 
 test("mounts Trends, Day and Library together, with the tabs and the hint", async () => {
-  await render(<PanelShell />);
+  await render(<><PanelShell /><PopHost /></>);
   // Placeholder panels still show their title next to the tab label; the Day panel
   // is real now (APP-097) — it opens on the scenic greeting, not a "Today" heading,
   // so its proof of mounting is the Overview zone label.
@@ -37,7 +38,7 @@ test("mounts Trends, Day and Library together, with the tabs and the hint", asyn
 
 test("the hint is retired once the user has swiped", async () => {
   setNavSwiped();
-  await render(<PanelShell />);
+  await render(<><PanelShell /><PopHost /></>);
   expect(screen.queryByText(/swipe left or right/i)).toBeNull();
 });
 
@@ -51,7 +52,7 @@ test("the hint is retired once the user has swiped", async () => {
  * advances, so the motion itself is proven on the device, not here.
  */
 test("a tab tap routes without pre-recording the panel (and is not a swipe)", async () => {
-  await render(<PanelShell />);
+  await render(<><PanelShell /><PopHost /></>);
   fireEvent.press(screen.getAllByRole("tab")[2]!); // Trends · Day · Library
   expect(mockReplace).toHaveBeenCalledWith("/library");
   expect(screen.getByText(/swipe left or right/i)).toBeTruthy();

@@ -7,6 +7,7 @@ import { useSheetTransition } from "./useSheetDrag";
 import { KeyboardLift } from "./keyboard";
 import { SheetBackdrop } from "./SheetBackdrop";
 import { useSheetPresence } from "./sheetPresence";
+import { usePortal } from "./popHost";
 
 /**
  * The app's one bottom-sheet chrome (Fable A4): dimmed backdrop and a sheet that
@@ -32,8 +33,12 @@ export function SheetOverlay({
 }) {
   const { rendered, sheetStyle, backdropStyle, dragGesture, onSheetLayout } = useSheetTransition(visible, onClose);
   useSheetPresence(visible); // hide the floating tab bar while this sheet is up (CEO #1)
-  if (!rendered) return null;
-  return (
+  // Portal to the app root: a sheet declared inside a panel's ScrollView would anchor
+  // its absolute-fill to the tall scroll CONTENT, not the screen, opening half
+  // off-screen (session-21 PopOverlay lesson; the CEO hit it again on VacationSheet).
+  // Routing every sheet through the popHost fixes the whole class at the chokepoint.
+  return usePortal(
+    !rendered ? null : (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end", zIndex: 50 }}>
       <SheetBackdrop onClose={onClose} closeLabel={closeLabel} style={backdropStyle} />
       <KeyboardLift enabled={lift}>
@@ -60,5 +65,6 @@ export function SheetOverlay({
         </GestureDetector>
       </KeyboardLift>
     </View>
+    ),
   );
 }

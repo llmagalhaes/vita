@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react-native";
 import "../i18n";
+import { PopHost } from "../ui/popHost";
 import i18n from "../i18n";
 import Account from "../../app/(main)/account";
 import { resetDbForTests } from "../db/db";
@@ -26,7 +27,7 @@ beforeEach(() => {
 const t = (k: string) => i18n.t(k);
 
 test("renders the account sections, name and export entry", async () => {
-  await render(<Account />);
+  await render(<><Account /><PopHost /></>);
   expect(screen.getByText("Sam")).toBeOnTheScreen();
   expect(screen.getByText(t("account.yourSetup"))).toBeOnTheScreen();
   expect(screen.getByText(t("account.exportTo"))).toBeOnTheScreen();
@@ -43,7 +44,7 @@ test("ending vacation asks for confirmation before actually ending it (APP-046)"
   saveVacation({ ranges: [{ start: dayOffset(-1), end: dayOffset(1) }], duration: "thisWeek", keepWater: false });
   expect(isVacationActive()).toBe(true);
 
-  await render(<Account />);
+  await render(<><Account /><PopHost /></>);
   await fireEvent.press(screen.getByText(t("account.end"))); // the "End" button on the vacation card
 
   // confirm sheet is up; the trip must still be active — no immediate end

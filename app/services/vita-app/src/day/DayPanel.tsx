@@ -37,6 +37,7 @@ import { WeightCard } from "./overview/WeightCard";
 import { dayCounters } from "./state";
 import { ZERO, dayKey, dayMeals } from "./record";
 import { DayBanners } from "./DayBanners";
+import { VacationBanner } from "../vacation/VacationBanner";
 import { DayDock } from "./dock/DayDock";
 import { PastDay } from "./PastDay";
 import { useSelectedDate } from "./selection";
@@ -139,6 +140,10 @@ export function DayPanel() {
       />
 
       <SwipeHint />
+
+      {/* Vacation banner (prototype 331–336) — a trip is a NOW state, so it shows
+          on any day the dock travels to. */}
+      <VacationBanner />
 
       {/* Offline-review + "your meal plan is in" — the two surfaces the deleted v3 Home
           owned. Today only: both are about what is waiting for you right now. */}

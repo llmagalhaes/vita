@@ -15,7 +15,6 @@ import { useMemo } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { SheetOverlay, Text, colors, fonts, useAccent } from "../ui";
-import { usePortal } from "../ui/popHost";
 import { dayKey } from "./record";
 import { monthStatuses, type DayStatus } from "./statuses";
 
@@ -154,8 +153,7 @@ export function CalendarSheet({
     </SheetOverlay>
   );
 
-  // The dock lives inside the Day panel's ScrollView, so a sheet declared here would
-  // anchor to the tall scroll CONTENT instead of the screen — portal it to the app-root
-  // PopHost (the same fix PopOverlay uses; RN Modal ANRs with Reanimated + gestures).
-  return usePortal(sheet);
+  // SheetOverlay now portals itself to the app-root PopHost, so rendering in place
+  // is safe even inside the Day panel's ScrollView.
+  return sheet;
 }

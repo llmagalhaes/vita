@@ -19,6 +19,7 @@ import { drainOutbox } from "../src/db/outbox";
 import { seedDemoDataOnce } from "../src/db/seed";
 import { syncSettings } from "../src/db/settingsSync";
 import { colors, PopHost } from "../src/ui";
+import { AppBlurTarget } from "../src/ui/blurTarget";
 import "../src/i18n";
 
 export default function RootLayout() {
@@ -51,12 +52,16 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <StatusBar style="dark" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: colors.bg },
-        }}
-      />
+      {/* Everything Android BlurViews blur sits inside this target; the overlay
+          host stays OUTSIDE so a backdrop never blurs itself (src/ui/blurTarget). */}
+      <AppBlurTarget>
+        <Stack
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: colors.bg },
+          }}
+        />
+      </AppBlurTarget>
       {/* Centered pop-ups (PopOverlay) portal here — root level, inside the gesture
           root — so they center on the screen and the slider's Pan still fires. */}
       <PopHost />

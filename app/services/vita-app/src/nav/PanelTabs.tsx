@@ -14,6 +14,8 @@ import { BlurView } from "expo-blur";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeOut, interpolateColor, useAnimatedStyle, useDerivedValue, withTiming } from "react-native-reanimated";
 import { colors, fonts, letterSpacing, panelTabs, shadowPanelTabs, shadowTab, Text, useAccent } from "../ui";
+import { appBlurTarget } from "../ui/blurTarget";
+import { usePortal } from "../ui/popHost";
 import { isNavSwiped } from "../db/plan";
 
 const TOP = 48;
@@ -21,13 +23,12 @@ const TAB_KEYS = ["trends", "day", "library"] as const;
 const TWEEN = { duration: 300 }; // prototype `transition:all .3s`
 
 /**
- * Android blur ladder (APP-096 D1). The translucent fill is the shipped default —
- * expo-blur on Android has been weak/unreliable since APP-063 and now also wants a
- * `BlurTargetView` host. Flip this to `true` for the device pass to try the real
- * blur; if the CEO likes it on the Samsung, it becomes the default.
+ * Android blur ladder (APP-096 D1). CEO device round 2 (2026-08-24): the plain
+ * translucent fill read as washed-out/"apagado" — real blur is now the default
+ * (same `experimentalBlurMethod` the SheetBackdrop uses).
  * ponytail: one boolean, not a settings surface.
  */
-const ANDROID_BLUR = false;
+const ANDROID_BLUR = true;
 const blurOn = Platform.OS !== "android" || ANDROID_BLUR;
 
 function Tab({ label, active, dark, accent, onPress }: { label: string; active: boolean; dark: boolean; accent: string; onPress: () => void }) {
@@ -87,7 +88,10 @@ export function PanelTabs({ panel, dark, onPick }: { panel: number; dark: boolea
     overflow: "hidden",
   } as const;
 
-  return (
+  // Portaled to the app-root PopHost: on Android the BlurView blurs `appBlurTarget`,
+  // and a blur view INSIDE its own target makes hwui recurse until the RenderThread
+  // stack overflows (device-verified SIGSEGV). The host sits outside the target.
+  return usePortal(
     <View pointerEvents="box-none" style={{ position: "absolute", top: TOP, left: 0, right: 0, alignItems: "center", zIndex: 50 }}>
       <View style={shadowPanelTabs}>
         {blurOn ? (
@@ -95,7 +99,8 @@ export function PanelTabs({ panel, dark, onPick }: { panel: number; dark: boolea
             intensity={panelTabs.light.blur}
             tint={dark ? "dark" : "light"}
             blurReductionFactor={1}
-            experimentalBlurMethod="dimezisBlurView"
+            blurMethod="dimezisBlurViewSdk31Plus"
+            blurTarget={appBlurTarget}
             style={[shell, { backgroundColor: variant.bg }]}
           >
             {inner}
@@ -106,7 +111,7 @@ export function PanelTabs({ panel, dark, onPick }: { panel: number; dark: boolea
           <View style={[shell, { backgroundColor: variant.bg }]}>{inner}</View>
         )}
       </View>
-    </View>
+    </View>,
   );
 }
 
