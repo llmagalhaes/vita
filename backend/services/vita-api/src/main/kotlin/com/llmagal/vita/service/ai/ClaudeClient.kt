@@ -74,6 +74,11 @@ class ClaudeClient(
     // V3-D13: the async eating-plan parse needs minutes + a big output budget — its own knobs.
     @Value("\${vita.ai.plan-async-max-output-tokens:16384}") private val planAsyncMaxTokens: Int,
     @Value("\${vita.ai.plan-async-timeout-seconds:300}") planAsyncTimeoutSeconds: Long,
+    // BE-061/063/065: the estimate passes ask for ~12 output tokens per missed item and must
+    // answer inside a 25 s client timeout. Defaults here so the nine existing test constructions
+    // (and any direct `new`) keep compiling; prod/dev values come from application.yaml.
+    @Value("\${vita.ai.estimate-max-output-tokens:1024}") private val estimateMaxTokens: Int = 1024,
+    @Value("\${vita.ai.estimate-timeout-seconds:20}") estimateTimeoutSeconds: Long = 20,
 ) {
     private val log = LoggerFactory.getLogger(ClaudeClient::class.java)
 
@@ -94,6 +99,10 @@ class ClaudeClient(
     // Async eating-plan parse (V3-D2/D13): runs in a background worker, no API GW in the
     // path, so it gets a multi-minute read timeout for the full v3 model of a real plan.
     private val planAsyncRest: RestClient = restClient(baseUrl, planAsyncTimeoutSeconds)
+
+    // BE-061: the batched estimate call — small output, short leash (the user is watching a
+    // "Working through the list…" box), still inside API Gateway's 29 s ceiling.
+    private val estimateRest: RestClient = restClient(baseUrl, estimateTimeoutSeconds)
 
     private fun restClient(
         baseUrl: String,
@@ -163,6 +172,25 @@ class ClaudeClient(
         val client = if (longRun) planAsyncRest else planRest
         val body = toolRequestBody(model, systemPrompt, tool, toolName, userContent, maxTokens)
         val response = post(client, body) ?: return TypedToolCall(null, ClaudeUsage(0, 0))
+        return TypedToolCall(extractTyped(response, type), extractUsage(response))
+    }
+
+    /**
+     * BE-061/063/065 — one batched, tool-forced estimate call: a plain text list in, a small
+     * structured answer out, on the estimate budget/timeout. Same wire shape as [callTool];
+     * separate only because the budget differs and the caller has no content blocks to build.
+     */
+    fun <T : Any> callEstimateTool(
+        model: String,
+        systemPrompt: String,
+        tool: Map<String, Any>,
+        toolName: String,
+        userText: String,
+        type: Class<T>,
+    ): TypedToolCall<T> {
+        val content = listOf(mapOf<String, Any?>("type" to "text", "text" to userText))
+        val body = toolRequestBody(model, systemPrompt, tool, toolName, content, estimateMaxTokens)
+        val response = post(estimateRest, body) ?: return TypedToolCall(null, ClaudeUsage(0, 0))
         return TypedToolCall(extractTyped(response, type), extractUsage(response))
     }
 

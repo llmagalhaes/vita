@@ -96,8 +96,10 @@ class FoodLookup(
         private const val GRAMS_BASIS = 100.0
         private const val STEP = 5.0
 
-        private val MASS_UNITS = setOf("g", "gram", "grams", "grama", "gramas", "ml", "milliliter", "millilitre")
-        private val COUNT_UNITS = setOf("unit", "units", "unidade", "unidades", "serving", "servings")
+        // Shared with BE-061's cache key: one unit vocabulary, or the table leg and the cache
+        // leg would disagree about what "unidade" means.
+        val MASS_UNITS = setOf("g", "gram", "grams", "grama", "gramas", "ml", "milliliter", "millilitre")
+        val COUNT_UNITS = setOf("unit", "units", "unidade", "unidades", "serving", "servings")
 
         private const val COLS = "name_pt, kcal_100g, grams_per_unit"
         private const val EXACT = "SELECT $COLS FROM food WHERE name_norm = ?"

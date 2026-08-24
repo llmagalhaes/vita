@@ -1,6 +1,36 @@
 # Backend — Next session
 
-## Current state (2026-08-24, session 24) — V4.2 WAVE 0 DONE: BE-057 (contract v0.9.0 + ADR-0020)
+## Current state (2026-08-24, session 24) — V4.2 WAVE 2 DONE: BE-061 + BE-063 + BE-065 (the three estimate endpoints)
+
+`POST /v1/estimate/food-kcal` · `/exercise-muscles` · `/workout-kcal` are live in the tree, all three
+riding one ladder: **seeded table → estimate cache → ONE batched Haiku call for the misses only →
+automatic write-back**. Rounding (`max(5, round(k/5)*5)`) is server-side on every leg; the abuse cap
+is the **existing** `ParseQuota` (no new limiter); the three `vita.ai.estimate-*` knobs are in
+`application.yaml` and no new env var was added.
+
+**Gates:** `./gradlew check` **327 green** (300 baseline + 27 new). **Live evals green, run once**
+(≈$0.01): `[235, 150, 190, 5]` for Aveia 60 g / Pão francês 1 unit / **Coxinha 1 unit (the model
+miss)** / Água 500 ml — 1089 ms cold, and **16 ms with 0 tokens on the repeat**, which is the cache
+write-back proved end to end. "Pole dance" → an honest empty map, `estimated: true`. A 4-exercise
+hand-built day → 530 kcal.
+
+**BE-065's estimator (the documented choice):** a local MET-style formula prices any day the catalog
+knows in full for **free**; the moment one name is unknown the WHOLE day goes out in **one** call and
+that number wins. Rates and per-set timing are named calibration knobs. No cache leg — the only
+reusable key would be the whole day's composition.
+
+**One thing the next ticket must not "fix":** the food cache stores a **basis** value (per 100 g/ml,
+or per one `<unit>`), never a total — V013 has no quantity column, so a cached total would be wrong
+for every other quantity. See `Progress/BE-061-063-065-estimate-endpoints-Progress.md` for the full
+deviation list (6, all reported).
+
+**Next: BE-064** — image + devops tag bump to task-def `vita:11` + prod probes. The probe grep is
+`estimate kind=food … misses=N`; the "same 12 foods again" probe must log `misses=0 inputTokens=0`.
+Asana BE-061/063/065 → **In progress** (DoD = in production; they flip to Done with BE-064).
+
+---
+
+## Previous state (2026-08-24, session 24) — V4.2 WAVE 0 DONE: BE-057 (contract v0.9.0 + ADR-0020)
 
 `docs/contracts/vita-api-v0.yaml` **0.8.0 → 0.9.0**, additive except D1 (a relaxation — every 0.8.0
 document still validates). Exactly the nine deltas: **D1** `PlanMeal.items` minItems 1→0 · **D2**
