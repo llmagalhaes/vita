@@ -20,6 +20,7 @@ import { useLogVersion } from "../../db/notify";
 import { kcalLabel, mealUsualTotals, planDailyTotals } from "../../plan/compute";
 import { importPdf } from "../../onboarding/planImport";
 import { FormInput, IconWell, PillButton, SectionLabel } from "../parts";
+import { EatingPlanSheet } from "../EatingPlanSheet";
 
 /** Prototype's two-leaf glyph. */
 const LeafGlyph = () => (
@@ -44,6 +45,7 @@ export function EatingPlan() {
   const meta = getPlanMeta();
 
   const [expanded, setExpanded] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [name, setName] = useState("");
   const [time, setTime] = useState("19:30");
@@ -174,18 +176,32 @@ export function EatingPlan() {
           </Animated.View>
         ) : null}
 
-        <View style={{ flexDirection: "row", gap: 8 }}>
-          <PillButton label={t("library.plan.addMeal")} onPress={openForm} flex={1} />
-          <PillButton
-            label={busy ? t("common.importing") : doc ? t("library.plan.replacePdf") : t("common.importPdf")}
-            onPress={() => void replace()}
-            tone="tinted"
-            accent={accent}
-            flex={1.15}
-            disabled={busy}
-          />
-        </View>
+        {/* v4.2 §1.1: one button, three routes behind it — not three loose buttons. */}
+        <PillButton
+          label={busy ? t("common.importing") : t("build.eatingSheet.cardButton")}
+          onPress={() => setSheetOpen(true)}
+          tone="tinted"
+          accent={accent}
+          disabled={busy}
+        />
       </View>
+
+      <EatingPlanSheet
+        visible={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onPdf={() => {
+          setSheetOpen(false);
+          void replace();
+        }}
+        onBuild={() => {
+          setSheetOpen(false);
+          router.push("/build-plan");
+        }}
+        onAddMeal={() => {
+          setSheetOpen(false);
+          openForm();
+        }}
+      />
     </>
   );
 }

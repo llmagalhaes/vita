@@ -24,6 +24,7 @@ import { setSelectedDay } from "../../db/plan";
 import { BodyMap } from "../../muscle/BodyMap";
 import { MuscleSheet } from "../../muscle/MuscleSheet";
 import { intensitiesOf, programChips, sessionsFromEntries, type MuscleKey } from "../../muscle/muscleData";
+import { exerciseMeasure } from "../../workout/exerciseLabel";
 import { Chevron, PressScale, Text, colors, fonts, hit, mixOklab, radii, shadowCard, shadowCta, useAccent } from "../../ui";
 import { showToast } from "../../ui/toast";
 import { atMinutes, dayKey, workoutEntryId, type DayRecord, type MealState, type RecordedState, type WorkoutRecord } from "../record";
@@ -75,9 +76,6 @@ function Tick({ color }: { color: string }) {
   );
 }
 
-/** "3 × 10" / "3 sets" / "" — whatever the program actually carries. */
-const setsLabel = (ex: Exercise): string =>
-  ex.sets != null && ex.reps != null ? `${ex.sets} × ${ex.reps}` : ex.sets != null ? `${ex.sets}` : "";
 
 export function WorkoutNode({
   date,
@@ -360,7 +358,7 @@ export function WorkoutNode({
                       {ex.name}
                     </Text>
                     <Text style={{ fontFamily: fonts.bold, fontSize: 11.5 }} color={colors.faint}>
-                      {setsLabel(ex)}
+                      {exerciseMeasure(ex)}
                     </Text>
                   </Pressable>
                 );

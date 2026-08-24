@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import type { TrainingProgramDraft } from "../../src/api";
+import type { Exercise, TrainingProgramDraft } from "../../src/api";
+import { exerciseMeasure } from "../../src/workout/exerciseLabel";
 import { getCachedProgram, updateProgram } from "../../src/db/plan";
 import { logChanged, useLogVersion } from "../../src/db/notify";
 import { EditHeader } from "../../src/plan/editor";
@@ -10,10 +11,10 @@ import { Button, Card, EditableText, KeyboardAvoider, Text, colors, fonts } from
 
 const clone = (p: TrainingProgramDraft): TrainingProgramDraft => JSON.parse(JSON.stringify(p));
 
-/** sets×reps @load — compact exercise line in view mode. */
-function exerciseLabel(sets?: number, reps?: number, loadKg?: number): string {
-  const sr = sets != null && reps != null ? `${sets} × ${reps}` : sets != null ? `${sets}` : reps != null ? `${reps}` : "";
-  return loadKg != null ? `${sr}${sr ? " · " : ""}${loadKg} kg` : sr;
+/** sets×reps (or "30 min" for a hand-built time session) @load — the view-mode line. */
+function exerciseLabel(ex: Exercise): string {
+  const sr = exerciseMeasure(ex);
+  return ex.loadKg != null ? `${sr}${sr ? " · " : ""}${ex.loadKg} kg` : sr;
 }
 
 export default function TrainingProgramScreen() {
@@ -173,7 +174,7 @@ export default function TrainingProgramScreen() {
                 </View>
               ) : (
                 <Text variant="caption" style={{ fontFamily: fonts.semiBold }} color={colors.muted}>
-                  {exerciseLabel(ex.sets, ex.reps, ex.loadKg)}
+                  {exerciseLabel(ex)}
                 </Text>
               )}
             </View>

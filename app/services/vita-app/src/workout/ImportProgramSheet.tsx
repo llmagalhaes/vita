@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
 import { api } from "../api";
 import type { TrainingProgramDraft } from "../api/client";
 import { importPdf } from "../onboarding/planImport";
@@ -20,6 +21,7 @@ type Phase = "choose" | "describing" | "parsing" | "confirm";
 
 export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  const router = useRouter();
   const [phase, setPhase] = useState<Phase>("choose");
   const [draft, setDraft] = useState<TrainingProgramDraft | null>(null);
   const [text, setText] = useState("");
@@ -75,7 +77,20 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
             {t("library.programs.importTitle")}
           </Text>
           <Button label={t("common.importPdf")} onPress={runPdf} />
-          <Button label={t("common.typeOrSpeak")} variant="ghost" onPress={() => setPhase("describing")} />
+          {/* v4.2 §1.2: the second route stops being a fake parse and opens the real
+              builder. `describing` is not deleted — the confirm card's Adjust still
+              reaches it, so the PDF path keeps its way to fix a bad transcription. */}
+          <Button
+            label={t("build.trainingSheet.here")}
+            variant="ghost"
+            onPress={() => {
+              onClose();
+              router.push("/build-program");
+            }}
+          />
+          <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>
+            {t("build.trainingSheet.hereSub")}
+          </Text>
         </View>
       ) : null}
 

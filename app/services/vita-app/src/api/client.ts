@@ -48,6 +48,16 @@ type FoodKcalPost = paths["/estimate/food-kcal"]["post"];
 export type FoodKcalRequest = FoodKcalPost["requestBody"]["content"]["application/json"];
 export type FoodKcalResponse = FoodKcalPost["responses"][200]["content"]["application/json"];
 
+/** 0.9.0 (D8) — POST /estimate/exercise-muscles. */
+type ExerciseMusclesPost = paths["/estimate/exercise-muscles"]["post"];
+export type ExerciseMusclesRequest = ExerciseMusclesPost["requestBody"]["content"]["application/json"];
+export type ExerciseMusclesResponse = ExerciseMusclesPost["responses"][200]["content"]["application/json"];
+
+/** 0.9.0 (D9, CEO Round 16) — POST /estimate/workout-kcal. One day in, one number out. */
+type WorkoutKcalPost = paths["/estimate/workout-kcal"]["post"];
+export type WorkoutKcalRequest = WorkoutKcalPost["requestBody"]["content"]["application/json"];
+export type WorkoutKcalResponse = WorkoutKcalPost["responses"][200]["content"]["application/json"];
+
 /** POST /uploads → presigned target for a two-phase PDF import (plan/program). */
 export type UploadTarget = { fileRef: string; uploadUrl: string; expiresAt: string };
 
@@ -96,6 +106,19 @@ export interface Api {
    * Call it through `src/plan/estimateKcal.ts`, which owns the offline fallback.
    */
   estimateFoodKcal(body: FoodKcalRequest): Promise<FoodKcalResponse>;
+  /**
+   * 0.9.0 (D8) — muscle map for exercise names the on-device catalog misses.
+   * Positional. `estimated: true` means nobody curated it: the app paints the
+   * PALE band (it folds the flag into the existing whole-body/`soft` flag, so
+   * nothing new reaches the saved program). Empty `muscleRoles` = "not mapped".
+   */
+  estimateExerciseMuscles(body: ExerciseMusclesRequest): Promise<ExerciseMusclesResponse>;
+  /**
+   * 0.9.0 (D9) — one hand-built training day's `~kcal`, feeding the existing
+   * `ProgramDay.kcalEstimate`. Energy is a property of the session, so it is one
+   * call per day, not per exercise. Always comes back flagged `estimated`.
+   */
+  estimateWorkoutKcal(body: WorkoutKcalRequest): Promise<WorkoutKcalResponse>;
   /** Phase 1 of PDF import: get a presigned S3 PUT target; then PUT bytes (putPresignedFile), then parse({ fileRef }). */
   requestUpload(body: { purpose: "plan_document"; contentType: "application/pdf" }): Promise<UploadTarget>;
   // Persisted eating plan (versioned server-side; PUT is full-doc replace, no patch).
@@ -300,6 +323,8 @@ export function createHttpApi(baseUrl: string, auth?: AuthHooks): Api {
     },
     parseTrainingProgram: (body) => request("POST", "/parse/training-program", { body }),
     estimateFoodKcal: (body) => request("POST", "/estimate/food-kcal", { body }),
+    estimateExerciseMuscles: (body) => request("POST", "/estimate/exercise-muscles", { body }),
+    estimateWorkoutKcal: (body) => request("POST", "/estimate/workout-kcal", { body }),
     requestUpload: (body) => request("POST", "/uploads", { body }),
     getPlan: () => request("GET", "/plan"),
     createPlan: (doc) => request("POST", "/plan", { body: doc }),

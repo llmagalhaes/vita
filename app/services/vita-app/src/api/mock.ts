@@ -10,12 +10,16 @@
 import { buildMealRecord, emptyOverlay, minutesOf, toMealEntry } from "../day/record";
 import { allPlanItems, pruneOverlayAfterEdit } from "../plan/compute";
 import { estK } from "../plan/estimateKcal";
+import { EXCAT } from "../workout/exerciseCatalog";
+import type { MuscleKey } from "../muscle/muscleData";
 import { uuid } from "../lib/uuid";
 import {
   ApiError,
   type Api,
   type EatingPlanDraft,
   type Exercise,
+  type ExerciseMusclesResponse,
+  type WorkoutKcalRequest,
   type LogEntry,
   type NewEntry,
   type ParseResult,
@@ -627,6 +631,50 @@ function maxItemId(doc: EatingPlanDraft): number {
   return nums.length ? Math.max(...nums) : 0;
 }
 
+/**
+ * The app's map keys → the contract's muscle vocabulary (backend-plan §1.3). The
+ * arm capsule covers both biceps and triceps, so `ar` fans out to two names.
+ * ponytail: mock-local on purpose — this is the *server's* half of the mapping
+ * (weights never go on the wire), and the real backend owns it in prod.
+ */
+const WIRE_OF: Record<MuscleKey, ExerciseMusclesResponse["items"][number]["muscleRoles"][number]["name"][]> = {
+  ch: ["chest"],
+  bk: ["back"],
+  sh: ["shoulders"],
+  ar: ["biceps", "triceps"],
+  tr: ["traps"],
+  co: ["core"],
+  gl: ["glutes"],
+  qu: ["quads"],
+  ha: ["hamstrings"],
+  ca: ["calves"],
+};
+
+/** One catalog lookup → the wire shape. Unknown name = the honest empty answer. */
+function mockExerciseMuscles(name: string): ExerciseMusclesResponse["items"][number] {
+  const hit = EXCAT.find((e) => e.name.toLowerCase() === name.trim().toLowerCase());
+  if (!hit) return { muscleRoles: [], wholeBody: false, estimated: true };
+  return {
+    // CEO Round 15's single cut: w >= .7 is primary, everything else secondary —
+    // the same .7 as tierOf, so the builder map and the session badge agree.
+    muscleRoles: (Object.entries(hit.mus) as [MuscleKey, number][]).flatMap(([k, w]) =>
+      WIRE_OF[k].map((name) => ({ name, role: w >= 0.7 ? ("primary" as const) : ("secondary" as const) })),
+    ),
+    wholeBody: hit.whole,
+    estimated: false, // it came from the curated catalog
+  };
+}
+
+/**
+ * A day's energy, mock-side: volume × a flat cost, rounded like the server
+ * (multiple of 5, floor 5). ponytail: deliberately crude — the real number comes
+ * from the backend's catalog metadata; this only has to be stable and plausible.
+ */
+function mockWorkoutKcal(exercises: WorkoutKcalRequest["exercises"]): number {
+  const raw = exercises.reduce((sum, e) => sum + (e.sets ?? 0) * (e.reps ?? 0) * 0.5 + (e.min ?? 0) * 6, 0);
+  return Math.max(5, Math.round(raw / 5) * 5);
+}
+
 export function createMockApi(): Api {
   let me: User = {
     id: uuid(),
@@ -742,6 +790,14 @@ export function createMockApi(): Api {
       // The SAME on-device table the offline fallback uses (APP-116) — mock and
       // prod only differ in where the numbers come from, never in their shape.
       return { items: items.map((it) => ({ kcal: estK(it) })) };
+    },
+    async estimateExerciseMuscles({ names }) {
+      await delay(LATENCY_MS);
+      return { items: names.map(mockExerciseMuscles) };
+    },
+    async estimateWorkoutKcal({ exercises }) {
+      await delay(LATENCY_MS);
+      return { kcal: mockWorkoutKcal(exercises), estimated: true };
     },
     async requestUpload() {
       await delay(150);
