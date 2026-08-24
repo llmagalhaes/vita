@@ -1,6 +1,40 @@
 # Backend — Next session
 
-## Current state (2026-08-18, session 22b) — V4 BUILD OPEN: BE-047 DONE (contract v0.8.0 + ADR-0019), 9 tickets filed
+## Current state (2026-08-24, session 24) — V4.2 WAVE 0 DONE: BE-057 (contract v0.9.0 + ADR-0020)
+
+`docs/contracts/vita-api-v0.yaml` **0.8.0 → 0.9.0**, additive except D1 (a relaxation — every 0.8.0
+document still validates). Exactly the nine deltas: **D1** `PlanMeal.items` minItems 1→0 · **D2**
+`PlanItem.kcal` (**TOTAL at the stated quantity, not per-unit**; integer, multiple of 5 when
+estimated) · **D3** `PlanItem.kcalEstimated` (label persists with the number; without `kcal` → 400) ·
+**D4** `Exercise.durationMin` · **D5** `Exercise.wholeBody` · **D6** `traps` in all three muscle enums
+(11→12 silhouettes; the `Muscles.VOCAB`/alias-drop **code** change is BE-059's) · **D7**
+`POST /estimate/food-kcal` · **D8** `POST /estimate/exercise-muscles` · **D9**
+`POST /estimate/workout-kcal` → the **existing** `ProgramDay.kcalEstimate`. New `estimate` tag.
+ADR: `Doc/ADRs/ADR-0020-contract-v0.9.0-manual-builders-hybrid-estimation.md`.
+Ledger: `Progress/BE-057-contract-v0.9.0-Progress.md`.
+
+**Gates:** redocly lint **valid, exit 0** — 49 warnings vs 45 baseline, the +4 all pre-existing
+cosmetic classes (3× operationId, 1× tag-description for the new tag). `openapi-typescript 7.13.0`
+regenerates cleanly. **App-team note:** the estimate `kcal` is OpenAPI **3.1** `type: [integer,
+"null"]` (3.1 has no `nullable` keyword) → `kcal?: number | null`.
+
+**Three rules the follow-up tickets must not re-litigate** (they are in the contract): estimate
+responses are **positional** (same length, same order, `null` for no answer); rounding is
+**server-side** `max(5, round(k/5)*5)` on table hits and model answers alike; a failed model leg
+**with** table hits is a partial **200**, and only zero hits *and* a failed leg is a **422**.
+
+**Wave order from here:** `BE-057 ✅ → {BE-058, BE-059, BE-060, BE-062} in parallel (disjoint files)
+→ {BE-061 (needs 060), BE-063 (needs 062), BE-065 (needs 062)} → BE-064 image + devops tag bump
+(task-def vita:11)`. **Migrations claimed: V013** (food tables + `pg_trgm`, BE-060) · **V014**
+(exercise tables, BE-062) — both expand-only, both hold **no user data**.
+
+Asana: BE-057 → **In progress** (DoD = in production; it flips to Done with BE-064). BE-058..065 sit
+in Backlog awaiting the orchestrator's wave launch. No CEO questions from this ticket — Round 16
+answered all five.
+
+---
+
+## Previous state (2026-08-18, session 22b) — V4 BUILD OPEN: BE-047 DONE (contract v0.8.0 + ADR-0019), 9 tickets filed
 
 CEO approved the v4 plan (Rounds 13+14 in `docs/ceo-decisions.md`); planning is closed. This session
 did JOB A (file the backend tickets) and JOB B (execute BE-047). No git — orchestrator commits.
