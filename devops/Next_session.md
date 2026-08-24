@@ -1,5 +1,33 @@
 # DevOps — Next session
 
+## 2026-08-24 — BE-064: V4.2 backend DEPLOYED to prod (image 5be5a54 → task-def vita:11, Flyway v014, probes GREEN)
+Ledger: `Progress/BE-064-v42-deploy-Progress.md` (every command + output).
+- **Image** `vita-api:5be5a54` (arm64, digest `sha256:8b8657fef7c7e98fdabc49ca22eb453eeffb8211594b1be3fff4dc8b50b1341b`,
+  151.9 MB, manifest v2). Recipe unchanged from vita:10 and **no new gotchas** — `--provenance=false --sbom=false`
+  produced a plain manifest on the first push, so no delete-and-repush. Host `./gradlew bootJar -x test` →
+  staged minimal context → buildx --push, scoped `DOCKER_CONFIG` + `cliPluginsExtraDirs`.
+- **Terraform**: one line, `envs/prod-eu/variables.tf app_image_tag 05c5e6b→5be5a54`. Plan was exactly
+  **1 add / 1 change / 1 destroy** (`['update'] module.ecs.aws_ecs_service.this` +
+  `['delete','create'] module.ecs.aws_ecs_task_definition.this`), only forcing diff the image tag.
+  Applied → **task-def vita:11**, rollout COMPLETED 1/1, vita:10 drained. Zero drift found.
+- **Migrations V013 (food tables) + V014 (exercise tables) are expand-only** — CREATE TABLE + seed INSERT +
+  `CREATE EXTENSION IF NOT EXISTS pg_trgm`, nothing dropped or altered → no CEO approval needed. Boot log:
+  `Successfully applied 2 migrations … now at version v014`, then `seed table=food rows=592 aliases=74` and
+  `seed table=exercise rows=915 muscles=2534 aliases=53`. `/health` 200.
+- **Probes GREEN** on a disposable probe account (`probe-be064-20260824@example.com`; the CEO's real account
+  was never touched): hand-built plan POST → 201 with `m-1`/`m-2` + `it-1`/`it-2`, Oats `portion {0,120,10}`,
+  **empty meal preserved as `items: []`** (D1 live), `kcal`/`kcalEstimated` verbatim on GET · program POST →
+  `durationMin` + `wholeBody` through and **`traps` surviving as its own muscle** (D6 alias drop live) ·
+  12 PT-BR foods → 12 rounded multiples of 5 in 2.27 s (`tableHits=11 misses=1`), **arroz = 130** so the C1
+  fuzzy fix is holding in prod, água = 5 floor · the same 12 again → **198 ms, misses=0, zero tokens**
+  (write-back cache) · exercise-muscles: squat `estimated:false` w/ quads+glutes primary, pole dance
+  `muscleRoles:[] estimated:true` · workout-kcal: 155 kcal all-catalog day (zero tokens, 425 ms) and 520 kcal
+  with an unknown name (one model call, 8.2 s).
+- Observation relayed to the app team (BE-063 comment): a model answer can carry **`wholeBody: true` with an
+  empty `muscleRoles`** — the two are not coupled; an empty list still means "not mapped".
+- No entries created, nothing deleted. Probe account + its plan/program stay in the prod DB (A2 precedent).
+- **Left dirty for the orchestrator**: `variables.tf` (tag bump), this file, the BE-064 ledger.
+
 ## 2026-08-19 — OPS-025 + BE-052: V4 backend DEPLOYED to prod (image 05c5e6b → task-def vita:10, Flyway v012, probes GREEN)
 Ledger: `Progress/OPS-025-v4-deploy-Progress.md` (every command + output).
 - **Image** `vita-api:05c5e6b` (arm64, digest `sha256:cda12085427c6225ba5884fbcd44d95aea5377479cbdc22e3bd0699900cc8fee`,
