@@ -105,7 +105,14 @@ function createExpoNotifier(): Notifier {
 
   return {
     async getPermission() {
-      return toStatus((await N().getPermissionsAsync()).status);
+      // Android maps a never-asked POST_NOTIFICATIONS to status:"denied" (not
+      // "undetermined" like iOS) — areNotificationsEnabled() is simply false before
+      // the first grant. `canAskAgain` is what distinguishes "never asked / can
+      // prompt" from a real user denial, so fold it in or `ensure` never prompts
+      // on Android at all (device-verified: no dialog, granted=false).
+      const p = await N().getPermissionsAsync();
+      if (p.status !== "granted" && p.canAskAgain) return "undetermined";
+      return toStatus(p.status);
     },
     async requestPermission() {
       return toStatus((await N().requestPermissionsAsync()).status);

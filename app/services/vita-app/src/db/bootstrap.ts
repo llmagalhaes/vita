@@ -15,6 +15,7 @@
 import { api } from "../api";
 import { refreshHealthConnect } from "../health/healthConnect";
 import { logChanged } from "./notify";
+import { refreshNotifications } from "../notify/notifier";
 import { syncPlan, syncProgram } from "./plan";
 import { restoreLog } from "./restore";
 import { syncVacation } from "./vacation";
@@ -27,4 +28,8 @@ export function startAppSync(): void {
   // Today's Health Connect totals, when that source is connected (no-op otherwise).
   void refreshHealthConnect();
   void restoreLog(api).catch(() => {});
+  // Habit reminders + the day-close one-shot on a FRESH install (CEO round 15:
+  // notifications work out of the box) — nothing else schedules until a habit or
+  // setting changes, and this is also what pops the Android 13+ permission ask.
+  void refreshNotifications();
 }

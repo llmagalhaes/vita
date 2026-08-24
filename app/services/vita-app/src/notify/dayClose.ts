@@ -23,7 +23,7 @@ import { recapEnabled, recapStartHour } from "../db/settings";
 import { closeDay } from "../day/close";
 import { dayKey, dayMeals, type DayMeal, type DayRecord } from "../day/record";
 import { pendingMeals } from "../day/state";
-import { DAY_CLOSE_ACTION, getNotifier, notificationsPaused, type PlannedDayClose } from "./notifier";
+import { DAY_CLOSE_ACTION, ensureNotificationPermission, getNotifier, notificationsPaused, type PlannedDayClose } from "./notifier";
 
 /** Per-habit reminder body — the only habit copy the notifier still needs. */
 export const habitBody = (h: Habit): string => i18n.t("notify.habit", { name: h.name });
@@ -77,6 +77,10 @@ export async function syncDayClose(now: Date = new Date()): Promise<void> {
     gates: { enabled: recapEnabled(), paused: notificationsPaused(), closed: isDayClosed(date) },
   });
   try {
+    // Boot path reaches here WITHOUT refreshNotifications (startDayClose calls this
+    // directly), and Android 13+ posts nothing un-asked — ensure at the moment there
+    // is actually a notification to deliver. No-op once decided.
+    if (planned) await ensureNotificationPermission();
     await getNotifier().syncDayClose?.(planned);
   } catch {
     // scheduling is non-critical to the in-app flow (Expo Go may warn)
