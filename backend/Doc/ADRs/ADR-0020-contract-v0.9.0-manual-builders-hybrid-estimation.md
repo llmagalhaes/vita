@@ -147,6 +147,35 @@ relaxation (an old client's documents all still validate). Nine deltas:
    (ODbL share-alike) and wger (CC-BY-SA) were evaluated and **rejected on
    licence terms**; `free-exercise-db` was taken because it is public domain.
 
+   **Licence text as actually re-read at import time (BE-060/BE-062, 2026-08-24):**
+   - **TACO** — imported from the mirror `github.com/marcelosanto/tabela_taco`
+     (`TACO.json`, 597 rows, seeded as 590 after dropping 6 rows with no published
+     energy value and 1 duplicate name). That repository ships an **MIT** `LICENSE`
+     ("Copyright (c) 2023 Marcelo Santos") and its README states the project is under
+     MIT. **That grant is the repository owner's, over the repository — it is not, and
+     cannot be, a grant from NEPA/UNICAMP**, who hold the rights to the underlying
+     table. The TACO table itself still carries **no explicit redistribution licence**:
+     nothing in the mirror, and nothing findable at download time, permits shipping it
+     inside a product. Decision 9 stands unchanged — ship now, settle before the store.
+     Recorded per row as `source = 'taco-4'`, `source_ref = 'taco4:<row id>'`.
+   - **free-exercise-db** — `github.com/yuhonas/free-exercise-db`, `dist/exercises.json`,
+     873 rows. Declares **The Unlicense** (GitHub reports SPDX `Unlicense`; `LICENSE.md`
+     carries the standard Unlicense text; the README badges it and calls the project an
+     "Open Public Domain Exercise Dataset"). A public-domain dedication with a permissive
+     fallback: **no attribution obligation, no share-alike, nothing to settle before
+     publishing.** Recorded as `source = 'free-exercise-db'`, `source_ref = <its id>`.
+   - **wger** was not downloaded at all, so its CC-BY-SA terms were not re-read; the
+     rejection in this decision stands on the licence type alone.
+
+   **One deviation from the plan's table shapes, taken under this decision's own rule
+   that "the lever is aliases (ours, free), never a lower threshold":** V014 also creates
+   an **`exercise_alias`** table, mirroring `food_alias`. Two reasons, both found only at
+   import: (a) EXCAT and free-exercise-db are **entirely English**, so every Portuguese
+   name the CEO types would miss on first use; (b) free-exercise-db contains **no
+   "Bulgarian" row at all** — the nearest, "Split Squats", scores 0.435 against
+   "bulgarian split squat", just under the 0.45 floor. 53 curated aliases (PT-BR plus
+   that one) close both without touching the threshold.
+
 10. **A guessed exercise mapping paints pale, never full** (CEO Round 16 answer
     5). `/estimate/exercise-muscles` returns `estimated: true` when nobody
     curated the mapping, and the app must render it in the same pale band as
