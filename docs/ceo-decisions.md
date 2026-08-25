@@ -2,6 +2,12 @@
 
 Dated, append-only. Newest first. Teams read this to know what is decided vs open.
 
+## 2026-08-25 — Round 17 (v4.2 drive flags, session 24 close)
+
+1. **Estimate button persists while any item is empty, and fills ONLY the empty ones** — supersedes the prototype's `bmEstIdle = !anyK` gate (type one number and the button used to vanish forever). Gate is now `emptySlots > 0`; `mergeEstimates` already wrote only `k == null` slots, typed numbers stay untouched.
+2. **Review-phase partial day total — OPEN**: today the day total renders as soon as any kcal exists, so with items still `—` it shows a partial sum (prototype-faithful, `bmAnyK` gate). Orchestrator explained the trade-off; decision pending.
+3. **Training sheet gets the eating sheet's icon-well chrome** ("quero fiel ao mockup") — `SheetRow` (38×38 well, per-row subtitle) shared from `EatingPlanSheet`; PDF row carries "from your gym or trainer", Build-it-here carries the replace warning per Round 16 #2.
+
 ## 2026-08-24 — Round 16 (v4.2 manual setup, session 23)
 
 On the v4.2 handoff's "Fill in the calories for me" and the exercise catalog:

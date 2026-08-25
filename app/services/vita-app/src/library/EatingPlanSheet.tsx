@@ -16,7 +16,7 @@ import { SheetOverlay, Text, colors, fonts, useAccent } from "../ui";
 import { IconWell, tinted } from "./parts";
 
 /** Arrow into a tray — "this comes from a document you already have". */
-const DownloadGlyph = () => (
+export const DownloadGlyph = () => (
   <Svg width={17} height={17}>
     <Path
       d="M8.5 2.6 v7.2 M5.2 6.8 L8.5 10.1 L11.8 6.8 M3.4 12.9 h10.2"
@@ -30,14 +30,15 @@ const DownloadGlyph = () => (
 );
 
 /** A glyph that is just two characters ("Aa", "+") — no icon file for a letterform. */
-const GlyphText = ({ ink, children }: { ink: string; children: string }) => (
+export const GlyphText = ({ ink, children }: { ink: string; children: string }) => (
   <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={ink}>
     {children}
   </Text>
 );
 
-/** One route: 38×38 well, title, subtitle. Padding 15, radius 20, hairline border. */
-function Row({
+/** One route: 38×38 well, title, subtitle. Padding 15, radius 20, hairline border.
+ * Shared with the training sheet (CEO Round 17: both sheets carry the same chrome). */
+export function SheetRow({
   bg,
   glyph,
   title,
@@ -100,21 +101,21 @@ export function EatingPlanSheet({
       <Text variant="title" style={{ fontSize: 17 }}>
         {t("build.eatingSheet.title")}
       </Text>
-      <Row
+      <SheetRow
         bg={colors.green.bg}
         glyph={<DownloadGlyph />}
         title={t("build.eatingSheet.pdf")}
         sub={t("build.eatingSheet.pdfSub")}
         onPress={onPdf}
       />
-      <Row
+      <SheetRow
         bg={colors.amber.bg}
         glyph={<GlyphText ink={colors.amber.ink}>Aa</GlyphText>}
         title={t("build.eatingSheet.here")}
         sub={t("build.eatingSheet.hereSub")}
         onPress={onBuild}
       />
-      <Row
+      <SheetRow
         bg={tinted(accent)}
         glyph={<GlyphText ink={accent}>+</GlyphText>}
         title={t("build.eatingSheet.one")}

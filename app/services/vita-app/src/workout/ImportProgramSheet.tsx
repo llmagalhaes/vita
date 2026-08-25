@@ -15,6 +15,7 @@ import { saveProgram } from "../db/plan";
 import { logChanged } from "../db/notify";
 import { getRecognizer } from "../capture/speech";
 import { Button, SheetOverlay, Text, colors, fonts } from "../ui";
+import { DownloadGlyph, GlyphText, SheetRow } from "../library/EatingPlanSheet";
 import { showToast } from "../ui/toast";
 
 type Phase = "choose" | "describing" | "parsing" | "confirm";
@@ -76,21 +77,27 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
           <Text variant="title" style={{ fontSize: 17 }}>
             {t("library.programs.importTitle")}
           </Text>
-          <Button label={t("common.importPdf")} onPress={runPdf} />
-          {/* v4.2 §1.2: the second route stops being a fake parse and opens the real
-              builder. `describing` is not deleted — the confirm card's Adjust still
-              reaches it, so the PDF path keeps its way to fix a bad transcription. */}
-          <Button
-            label={t("build.trainingSheet.here")}
-            variant="ghost"
+          {/* CEO Round 17: same icon-well row chrome as the eating sheet (handoff §1.1/§1.2).
+              v4.2 §1.2: the second route opens the real builder. `describing` is not
+              deleted — the confirm card's Adjust still reaches it, so the PDF path
+              keeps its way to fix a bad transcription. */}
+          <SheetRow
+            bg={colors.green.bg}
+            glyph={<DownloadGlyph />}
+            title={t("common.importPdf")}
+            sub={t("build.trainingSheet.pdfSub")}
+            onPress={runPdf}
+          />
+          <SheetRow
+            bg={colors.amber.bg}
+            glyph={<GlyphText ink={colors.amber.ink}>Aa</GlyphText>}
+            title={t("build.trainingSheet.here")}
+            sub={t("build.trainingSheet.hereSub")}
             onPress={() => {
               onClose();
               router.push("/build-program");
             }}
           />
-          <Text variant="caption" style={{ textAlign: "center" }} color={colors.labelMuted}>
-            {t("build.trainingSheet.hereSub")}
-          </Text>
         </View>
       ) : null}
 

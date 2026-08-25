@@ -9,7 +9,7 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button, Text, colors, estimateBase, fonts, shadowWaterCard } from "../../ui";
 import { EstimateAction, useFieldVisible } from "../parts";
-import { anyK, dayTotal, mealTotal, type BuildMeal } from "./draft";
+import { anyK, dayTotal, emptySlots, mealTotal, type BuildMeal } from "./draft";
 
 /** Estimated · typed · empty — three states, three inks (handoff §2.4 table). */
 function KcalCell({
@@ -187,7 +187,9 @@ export function ReviewPhase({
         );
       })}
 
-      {busy || !filled ? (
+      {/* CEO Round 17: the button stays as long as ANY item is empty and fills only
+          the empty ones (mergeEstimates already writes only k==null slots). */}
+      {busy || emptySlots(meals).length > 0 ? (
         <EstimateAction
           busy={busy}
           label={t("build.plan.review.fill")}
