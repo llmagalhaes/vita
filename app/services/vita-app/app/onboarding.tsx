@@ -6,13 +6,16 @@ import Animated, { FadeIn, FadeInUp } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { api } from "../src/api";
 import { DOMAIN_KEYS } from "../src/db/domains";
+import { useLogVersion } from "../src/db/notify";
 import { saveSettings, setOnboarded, type Domains } from "../src/db/settings";
+import { EatingStep, TrainingStep, planDone, programDone } from "../src/onboarding/SetupSteps";
 import {
   BackButton,
   Button,
   KeyboardAvoider,
   PressScale,
   Text,
+  ToastHost,
   colors,
   fonts,
   mixOklab,
@@ -23,11 +26,15 @@ import {
 } from "../src/ui";
 
 /**
- * Onboarding — two steps, name → what Vita keeps (APP-105; README §4 screen 1,
- * prototype lines 63–92). Plan and program imports moved to the Library / empty
- * states, so nothing here is a fake step: both taps write something real.
+ * Onboarding — name → what Vita keeps (APP-105; README §4 screen 1, prototype
+ * lines 63–92), then APP-137's two setup steps: your eating plan, your training.
+ * Nothing here is a fake step — every tap either writes a flag or opens the real
+ * flow the Library opens, and every one of them can be skipped.
+ *
+ * The setup steps only appear for what you kept: turn "meals" off and there is no
+ * eating step to skip. So the step list is derived, never a constant.
  */
-const TOTAL_STEPS = 2;
+type Step = "name" | "keep" | "plan" | "program";
 
 /** Every flag default ON, matching `getDomains()`'s absent-field fallback. */
 const ALL_ON: Domains = { meals: true, water: true, move: true, habits: true, weight: true };
@@ -39,6 +46,16 @@ export default function Onboarding() {
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [domains, setDomains] = useState<Domains>(ALL_ON);
+  // A plan/program saved by a pushed flow lands in the db while this screen sits
+  // underneath it; the write bumps this version, so the step re-reads on return.
+  void useLogVersion();
+
+  const steps: Step[] = ["name", "keep", ...(domains.meals ? (["plan"] as const) : []), ...(domains.move ? (["program"] as const) : [])];
+  // Going back and turning a domain off can shorten the list under our feet — the
+  // clamp, not `step`, is what the screen renders and advances from.
+  const idx = Math.min(step, steps.length - 1);
+  const kind = steps[idx];
+  const setupDone = kind === "plan" ? planDone() : kind === "program" ? programDone() : false;
 
   function finish() {
     const trimmed = name.trim();
@@ -51,20 +68,21 @@ export default function Onboarding() {
     router.replace("/day");
   }
 
-  const last = step === TOTAL_STEPS - 1;
+  const last = idx === steps.length - 1;
+  const skipping = !last && (kind === "plan" || kind === "program") && !setupDone;
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.canvas, paddingTop: 70, paddingBottom: 30 }}>
-      {/* 2-segment progress: done green · current accent · upcoming faint */}
+      {/* progress: done green · current accent · upcoming faint */}
       <View style={{ flexDirection: "row", gap: 5, paddingHorizontal: 26 }}>
-        {Array.from({ length: TOTAL_STEPS }, (_, i) => (
+        {Array.from({ length: steps.length }, (_, i) => (
           <View
             key={i}
             style={{
               flex: 1,
               height: 4,
               borderRadius: 2,
-              backgroundColor: i < step ? colors.green.fill : i === step ? accent : colors.progressUpcoming,
+              backgroundColor: i < idx ? colors.green.fill : i === idx ? accent : colors.progressUpcoming,
             }}
           />
         ))}
@@ -77,8 +95,8 @@ export default function Onboarding() {
           keyboardShouldPersistTaps="handled"
         >
           {/* vtIn — each step rises 16px while fading in */}
-          <Animated.View key={step} entering={FadeInUp.duration(motion.vtIn.longMs)}>
-            {step === 0 ? (
+          <Animated.View key={idx} entering={FadeInUp.duration(motion.vtIn.longMs)}>
+            {kind === "name" ? (
               <View style={{ gap: spacing.lg }}>
                 <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={accent}>
                   {t("onboarding.welcome.eyebrow")}
@@ -106,7 +124,7 @@ export default function Onboarding() {
                   {t("onboarding.welcome.note")}
                 </Text>
               </View>
-            ) : (
+            ) : kind === "keep" ? (
               <View style={{ gap: spacing.md }}>
                 <Title>{t("onboarding.keep.title")}</Title>
                 <Text style={{ fontSize: 14, marginTop: -4 }} color={colors.muted}>
@@ -127,21 +145,46 @@ export default function Onboarding() {
                   {t("onboarding.keep.note")}
                 </Text>
               </View>
+            ) : (
+              /* APP-137 — the same shape for both setup steps: the Library's routes,
+                 or nothing at all. `setupDone` collapses the rows to one line. */
+              <View style={{ gap: spacing.md }}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={accent}>
+                  {t(`onboarding.${kind}.eyebrow`)}
+                </Text>
+                <Title style={{ marginTop: -8 }}>{t(`onboarding.${kind}.title`)}</Title>
+                <Text style={{ fontSize: 14, marginTop: -4 }} color={colors.muted}>
+                  {t(`onboarding.${kind}.subtitle`)}
+                </Text>
+                {kind === "plan" ? <EatingStep /> : <TrainingStep />}
+                {setupDone ? null : (
+                  <Text variant="caption" style={{ fontSize: 11.5, lineHeight: 17 }} color={colors.faint}>
+                    {t("onboarding.setup.skipNote")}
+                  </Text>
+                )}
+              </View>
             )}
           </Animated.View>
         </ScrollView>
       </KeyboardAvoider>
 
       <View style={{ flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 26, paddingTop: 14 }}>
-        {last && <BackButton label={t("onboarding.back")} onPress={() => setStep(0)} />}
+        {idx > 0 && <BackButton label={t("onboarding.back")} onPress={() => setStep(idx - 1)} />}
         <View style={{ flex: 1 }}>
+          {/* Skipping is not a lesser path, so it is the same button: quiet while
+              there is nothing to continue from, solid the moment there is. The last
+              step keeps "Open Vita →" either way — that IS its skip. */}
           <Button
-            label={last ? t("onboarding.openVita") : t("onboarding.continue")}
-            disabled={!last && name.trim() === ""}
-            onPress={() => (last ? finish() : setStep(1))}
+            label={last ? t("onboarding.openVita") : skipping ? t("onboarding.setup.skip") : t("onboarding.continue")}
+            variant={skipping ? "ghost" : "primary"}
+            disabled={kind === "name" && name.trim() === ""}
+            onPress={() => (last ? finish() : setStep(idx + 1))}
           />
         </View>
       </View>
+      {/* The (main) shell's host is not mounted here — without this, an import error
+          on a setup step would fail silently (the APP-061 class of bug). */}
+      <ToastHost />
     </View>
   );
 }

@@ -102,8 +102,14 @@ export default function PlanSetupScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const accent = useAccent();
-  const params = useLocalSearchParams<{ mode?: string; fileRef?: string; text?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; fileRef?: string; text?: string; ob?: string }>();
   const isParse = params.mode === "parse";
+  /**
+   * APP-137 — pushed from the onboarding eating step (`ob=1`). Onboarding is still
+   * mounted underneath, holding the name and the domain flags, so leaving means
+   * popping back to it; replacing to the Day would strand the user mid-setup.
+   */
+  const exit = () => (params.ob === "1" && router.canGoBack() ? router.back() : router.replace("/day"));
 
   const [phase, setPhase] = useState<"parsing" | "review" | "error">(isParse ? "parsing" : "review");
   const [findings, setFindings] = useState<string[]>([]);
@@ -177,16 +183,16 @@ export default function PlanSetupScreen() {
     return (
       <View style={{ flex: 1, justifyContent: "center", paddingHorizontal: 22 }}>
         <ErrorCard
-          onRetry={isParse ? () => (setFindings([]), setPhase("parsing")) : () => router.replace("/day")}
-          onType={() => router.replace("/day")}
+          onRetry={isParse ? () => (setFindings([]), setPhase("parsing")) : exit}
+          onType={exit}
         />
       </View>
     );
   }
-  return <Review doc={doc} accent={accent} />;
+  return <Review doc={doc} accent={accent} onExit={exit} />;
 }
 
-function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
+function Review({ doc, accent, onExit }: { doc: EatingPlanDraft; accent: string; onExit: () => void }) {
   const { t } = useTranslation();
   const router = useRouter();
   const nMeals = doc.meals.length;
@@ -208,7 +214,7 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
   });
 
   const back = () => {
-    if (step === 0) return router.canGoBack() ? router.back() : router.replace("/day");
+    if (step === 0) return router.canGoBack() ? router.back() : onExit();
     setSwapOpen(null);
     setStep((s) => s - 1);
   };
@@ -267,7 +273,7 @@ function Review({ doc, accent }: { doc: EatingPlanDraft; accent: string }) {
 
     // 3. Navigate + toast.
     const n = next.meals.length;
-    router.replace("/day");
+    onExit();
     if (created > 0) showToast(t("planSetup.planReady", { n, m: created }));
     else showToast(t("planSetup.planReadyKcal", { n, kcal: Math.round(planDailyTotals(next).kcal) }));
   };

@@ -4,7 +4,7 @@
  * list) → Save. Rides SheetOverlay. Shared by Today's workout none-state and the
  * Workout hub's empty state.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -20,10 +20,16 @@ import { showToast } from "../ui/toast";
 
 type Phase = "choose" | "describing" | "parsing" | "confirm";
 
-export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
+/**
+ * `autoPdf` (APP-137): the caller already offered the two routes itself (the
+ * onboarding training step shows the same rows inline), so the sheet opens
+ * straight on the PDF leg and a cancel/failure closes it instead of falling back
+ * to a chooser the user would be seeing twice.
+ */
+export function ImportProgramSheet({ onClose, autoPdf = false }: { onClose: () => void; autoPdf?: boolean }) {
   const { t } = useTranslation();
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>("choose");
+  const [phase, setPhase] = useState<Phase>(autoPdf ? "parsing" : "choose");
   const [draft, setDraft] = useState<TrainingProgramDraft | null>(null);
   const [text, setText] = useState("");
 
@@ -37,16 +43,18 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
     setDraft(d);
     setPhase("confirm");
   };
+  /** Where a cancel lands: the chooser normally, out of the sheet when it was skipped. */
+  const abort = () => (autoPdf ? onClose() : setPhase("choose"));
   // A parse/upload failure used to drop silently back to the chooser — tell the user.
   const fail = () => {
-    setPhase("choose");
+    abort();
     showToast(t("library.programs.parseError"));
   };
 
   const runPdf = async () => {
     setPhase("parsing");
     const out = await importPdf();
-    if (out.status === "cancelled") return setPhase("choose");
+    if (out.status === "cancelled") return abort();
     if (out.status !== "ready") return fail();
     try {
       parsed(await api.parseTrainingProgram({ fileRef: out.fileRef }));
@@ -54,6 +62,9 @@ export function ImportProgramSheet({ onClose }: { onClose: () => void }) {
       fail();
     }
   };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- one shot on mount by design
+  useEffect(() => void (autoPdf && runPdf()), []);
   const runText = async (phrase: string) => {
     setPhase("parsing");
     try {

@@ -61,7 +61,7 @@
       "eyebrow": "Welcome to Vita",
       "title": "What should we call you?",
       "nameLabel": "Your name",
-      "note": "Two steps — that's the whole setup. Plans, programs and habits come later, when you need them."
+      "note": "A few short steps — that's the whole setup. Everything after this is yours to add whenever you feel like it."
     },
     "keep": {
       "title": "What should Vita keep?",
@@ -74,6 +74,28 @@
         "habits": "your own habits, one tap a day",
         "weight": "morning readings · a weight trend"
       }
+    },
+    "setup": {
+      "skip": "Skip for now",
+      "skipNote": "You can do this anytime from the Library — nothing here has to happen today."
+    },
+    "plan": {
+      "eyebrow": "Your eating plan",
+      "title": "Bring your eating plan?",
+      "subtitle": "A PDF from your nutritionist, or build it meal by meal — Vita shapes your Day around it.",
+      "pdfSub": "from your nutritionist",
+      "hereSub": "meal by meal, at your own pace",
+      "done_one": "{{count}} meal · saved",
+      "done_other": "{{count}} meals · saved"
+    },
+    "program": {
+      "eyebrow": "Your training",
+      "title": "Bring your training?",
+      "subtitle": "A PDF from your gym or trainer, or build it session by session — your Day shows the one that comes next.",
+      "pdfSub": "from your gym or trainer",
+      "hereSub": "session by session, at your own pace",
+      "done_one": "{{name}} · {{count}} day",
+      "done_other": "{{name}} · {{count}} days"
     }
   },
   "day": {

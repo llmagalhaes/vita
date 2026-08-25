@@ -16,12 +16,16 @@ jest.mock("expo-router", () => ({
   usePathname: () => "/day",
 }));
 
+const mockImportPdf = jest.fn();
+jest.mock("../../onboarding/planImport", () => ({ importPdf: () => mockImportPdf() }));
+
 const t = (k: string) => i18n.t(k) as string;
 const onClose = jest.fn();
 
 beforeEach(() => {
   mockPush.mockClear();
   onClose.mockClear();
+  mockImportPdf.mockReset();
 });
 
 const open = () => render(<><ImportProgramSheet onClose={onClose} /><PopHost /></>);
@@ -43,6 +47,16 @@ test("Build it here closes the sheet and opens the builder in one transition", a
 test("the PDF route is untouched", async () => {
   await open();
   expect(screen.getByText(t("common.importPdf"))).toBeOnTheScreen();
+});
+
+/** APP-137: onboarding shows the two routes itself, so it opens this sheet on the
+ *  PDF leg — and a cancel there must close it, not reveal a second chooser. */
+test("autoPdf runs the picker on mount and a cancel closes the sheet", async () => {
+  mockImportPdf.mockResolvedValue({ status: "cancelled" });
+  await render(<><ImportProgramSheet onClose={onClose} autoPdf /><PopHost /></>);
+  expect(mockImportPdf).toHaveBeenCalled();
+  expect(onClose).toHaveBeenCalled();
+  expect(screen.queryByText(t("build.trainingSheet.here"))).toBeNull();
 });
 
 describe("exerciseMeasure", () => {
