@@ -108,6 +108,9 @@ export function ReviewPhase({
 }) {
   const { t } = useTranslation();
   const filled = anyK(meals);
+  // CEO Round 17 #2: the day total only shows once EVERY item has a number —
+  // half a sum reads as a wrong total (matches the wire: dailyTotals only saves complete).
+  const complete = filled && emptySlots(meals).length === 0;
   return (
     <View style={{ gap: 16 }}>
       <View style={{ gap: 8 }}>
@@ -198,7 +201,7 @@ export function ReviewPhase({
         />
       ) : null}
 
-      {filled ? (
+      {complete ? (
         <View style={{ gap: 6 }}>
           <Text style={{ fontFamily: fonts.extraBold, fontSize: 11, letterSpacing: 1.1, textTransform: "uppercase" }} color={colors.labelMuted}>
             {t("build.plan.review.dayEyebrow")}
