@@ -51,8 +51,18 @@ export type PlannedDayClose = {
   actions: { close: string; adjust: string };
 };
 
-/** What a tapped notification hands back. `actionId` is the OS default on a plain tap. */
-export type NotificationResponse = { actionId: string; data: Record<string, unknown> };
+/**
+ * What a tapped notification hands back. `actionId` is the OS default on a plain tap.
+ * `id` is the delivered notification's own identifier (so the handler can dismiss it)
+ * and `firedAt` is when the OS delivered it — load-bearing for a weekly habit alarm
+ * answered the next morning: the answer belongs to the day it FIRED, not to today.
+ */
+export type NotificationResponse = {
+  actionId: string;
+  data: Record<string, unknown>;
+  id?: string;
+  firedAt?: number;
+};
 
 export interface Notifier {
   getPermission(): Promise<PermissionStatus>;
@@ -63,6 +73,10 @@ export interface Notifier {
   syncDayClose?(planned: PlannedDayClose | null): Promise<void>;
   /** Subscribe to notification taps / action buttons. Returns an unsubscribe. */
   onResponse?(cb: (r: NotificationResponse) => void): () => void;
+  /** Take the notification off the shade once its answer has been applied. */
+  dismiss?(id: string): Promise<void>;
+  /** The response the OS queued while no JS listener existed (cold start). */
+  lastResponse?(): NotificationResponse | null;
 }
 
 /** Identifier for the one-shot day-close notification (so it can be replaced/cancelled). */
@@ -70,6 +84,21 @@ export const DAY_CLOSE_ID = "day-close";
 /** Category carrying the two lock-screen buttons (best-effort — dev build only). */
 export const DAY_CLOSE_CATEGORY = "vita-day-close";
 export const DAY_CLOSE_ACTION = { close: "close-as-planned", adjust: "adjust" } as const;
+
+/**
+ * APP-136 — the habit check-in category: Yes / No answered from the shade, without
+ * opening the app. No `:` or `-` in the identifier (expo-notifications' own docs warn
+ * those break category lookup).
+ */
+export const HABIT_CATEGORY = "vitahabitcheckin";
+export const HABIT_ACTION = { yes: "habityes", no: "habitno" } as const;
+
+/**
+ * Stable id per habit + weekday. Scheduling the same id again REPLACES the alarm
+ * instead of adding a second one — the other half of the duplicate-notification fix
+ * (the first half is serializing `refreshNotifications`).
+ */
+export const habitNotifId = (habitId: string, weekday: number): string => `habit.${habitId}.${weekday}`;
 
 /**
  * Pure: expand habits into concrete alarms. days index 0 = Sunday maps to expo
@@ -119,11 +148,31 @@ function createExpoNotifier(): Notifier {
     },
     async sync(habits) {
       const Notifications = N();
-      const { habitBody } = require("./dayClose") as typeof import("./dayClose");
+      const { habitBody, habitActions } = require("./dayClose") as typeof import("./dayClose");
       await Notifications.cancelAllScheduledNotificationsAsync();
-      for (const p of plannedNotifications(habits, habitBody)) {
+      const planned = plannedNotifications(habits, habitBody);
+      if (planned.length) {
+        try {
+          const a = habitActions();
+          await Notifications.setNotificationCategoryAsync(HABIT_CATEGORY, [
+            { identifier: HABIT_ACTION.yes, buttonTitle: a.yes, options: { opensAppToForeground: false } },
+            { identifier: HABIT_ACTION.no, buttonTitle: a.no, options: { opensAppToForeground: false } },
+          ]);
+        } catch {
+          // ponytail: no categories here → no buttons, and a plain tap still opens the app.
+        }
+      }
+      for (const p of planned) {
         await Notifications.scheduleNotificationAsync({
-          content: { title: p.title, body: p.body, data: { habitId: p.habitId } },
+          identifier: habitNotifId(p.habitId, p.weekday),
+          content: {
+            title: p.title,
+            body: p.body,
+            categoryIdentifier: HABIT_CATEGORY,
+            // No `date` here: a WEEKLY trigger has no single day. The answer is dated
+            // from the response's own fire time instead (see NotificationResponse.firedAt).
+            data: { habitId: p.habitId },
+          },
           trigger: {
             type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
             weekday: p.weekday,
@@ -161,14 +210,36 @@ function createExpoNotifier(): Notifier {
       });
     },
     onResponse(cb) {
-      const sub = N().addNotificationResponseReceivedListener(
-        (r: { actionIdentifier: string; notification: { request: { content: { data?: Record<string, unknown> } } } }) =>
-          cb({ actionId: r.actionIdentifier, data: r.notification?.request?.content?.data ?? {} }),
-      );
+      const sub = N().addNotificationResponseReceivedListener((r: RawResponse) => cb(toResponse(r)));
       return () => sub.remove();
+    },
+    async dismiss(id) {
+      // Android does NOT auto-cancel a notification when an action button is pressed
+      // (setAutoCancel only covers the body tap) — we take it off the shade ourselves.
+      await N().dismissNotificationAsync(id).catch(() => {});
+    },
+    lastResponse() {
+      try {
+        const r = N().getLastNotificationResponse() as RawResponse | null;
+        return r ? toResponse(r) : null;
+      } catch {
+        return null;
+      }
     },
   };
 }
+
+type RawResponse = {
+  actionIdentifier: string;
+  notification?: { date?: number; request?: { identifier?: string; content?: { data?: Record<string, unknown> } } };
+};
+
+const toResponse = (r: RawResponse): NotificationResponse => ({
+  actionId: r.actionIdentifier,
+  data: r.notification?.request?.content?.data ?? {},
+  id: r.notification?.request?.identifier,
+  firedAt: r.notification?.date,
+});
 
 let current: Notifier | null = null;
 
@@ -220,8 +291,24 @@ export function scheduledHabits(habits: Habit[] = listHabits()): Habit[] {
   return vacationKeepsWater() ? habits.filter(isWaterHabit) : [];
 }
 
-/** Reschedule from the current habit set. Best-effort — never throws into the UI. */
-export async function refreshNotifications(): Promise<void> {
+/**
+ * Reschedule from the current habit set. Best-effort — never throws into the UI.
+ *
+ * SERIALIZED, and that is the whole APP-136 duplicate fix. `sync()` is
+ * cancel-all-then-reschedule, so two callers overlapping across an `await` interleave
+ * as cancel · cancel · schedule · schedule and leave **two alarms per habit** — the
+ * CEO's two identical check-ins stamped 10:45. Boot alone fires three callers
+ * (startAppSync, syncVacation → refreshNotifications, syncSettings → refreshNotifications),
+ * plus habit toggles and plan setup. One chain, one schedule pass; stable per-habit
+ * identifiers (`habitNotifId`) make even a missed serialization replace, not duplicate.
+ */
+let refreshChain: Promise<void> = Promise.resolve();
+export function refreshNotifications(): Promise<void> {
+  refreshChain = refreshChain.then(runRefresh, runRefresh);
+  return refreshChain;
+}
+
+async function runRefresh(): Promise<void> {
   try {
     // Android 13+ posts NOTHING without POST_NOTIFICATIONS granted at runtime — ask
     // here, at the one place every schedule routes through (habit toggle, vacation,
@@ -242,29 +329,40 @@ export async function refreshNotifications(): Promise<void> {
 
 /** A no-op recorder — the STT/OIDC-style stub for environments without the native module. */
 export function stubNotifier(): Notifier & {
-  calls: { sync: Habit[][]; dayClose: (PlannedDayClose | null)[] };
+  calls: { sync: Habit[][]; dayClose: (PlannedDayClose | null)[]; dismissed: string[] };
   fire: (r: NotificationResponse) => void;
+  queued: NotificationResponse | null;
 } {
-  const calls = { sync: [] as Habit[][], dayClose: [] as (PlannedDayClose | null)[] };
+  const calls = { sync: [] as Habit[][], dayClose: [] as (PlannedDayClose | null)[], dismissed: [] as string[] };
   const subs = new Set<(r: NotificationResponse) => void>();
-  return {
+  const self = {
     calls,
-    fire: (r) => subs.forEach((cb) => cb(r)),
-    async getPermission() {
+    queued: null as NotificationResponse | null,
+    fire: (r: NotificationResponse) => subs.forEach((cb) => cb(r)),
+    async dismiss(id: string) {
+      calls.dismissed.push(id);
+    },
+    lastResponse() {
+      return self.queued;
+    },
+    async getPermission(): Promise<PermissionStatus> {
       return "granted";
     },
-    async requestPermission() {
+    async requestPermission(): Promise<PermissionStatus> {
       return "granted";
     },
-    async sync(habits) {
+    async sync(habits: Habit[]) {
       calls.sync.push(habits);
     },
-    async syncDayClose(planned) {
+    async syncDayClose(planned: PlannedDayClose | null) {
       calls.dayClose.push(planned);
     },
-    onResponse(cb) {
+    onResponse(cb: (r: NotificationResponse) => void) {
       subs.add(cb);
-      return () => subs.delete(cb);
+      return () => {
+        subs.delete(cb);
+      };
     },
   };
+  return self;
 }

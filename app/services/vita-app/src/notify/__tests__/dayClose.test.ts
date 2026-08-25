@@ -16,8 +16,10 @@ import { buildMealRecord, dayKey, dayMeals, emptyDay, emptyOverlay, type DayReco
 import { getEntry } from "../../db/entries";
 import { mealEntryId } from "../../day/record";
 import { isDayClosed } from "../../db/dayRecord";
-import { applyDayCloseAction, plannedDayClose, syncDayClose } from "../dayClose";
-import { DAY_CLOSE_ACTION, setNotifier, stubNotifier } from "../notifier";
+import { createHabit } from "../../db/habits";
+import { dateKey, getCheckin, pendingCheckins } from "../../habits/checkins";
+import { applyDayCloseAction, plannedDayClose, startDayClose, syncDayClose } from "../dayClose";
+import { DAY_CLOSE_ACTION, HABIT_ACTION, habitNotifId, setNotifier, stubNotifier } from "../notifier";
 
 jest.mock("expo-router", () => ({ router: { replace: jest.fn() }, useRouter: () => ({ replace: jest.fn() }), usePathname: () => "/day" }));
 
@@ -150,6 +152,41 @@ describe("syncDayClose drives the notifier seam", () => {
 
     await syncDayClose(at(12));
     expect(stub.calls.dayClose[0]!.at.getHours()).toBe(21);
+  });
+});
+
+// ── APP-136: a habit check-in answered from the notification ─────────────────────
+
+describe("startDayClose routes the habit Yes/No buttons", () => {
+  beforeEach(() => resetDbForTests());
+
+  test("a Yes from the shade records the check-in and dismisses the notification", () => {
+    const stub = stubNotifier();
+    setNotifier(stub);
+    const h = createHabit({ name: "Ômega-3", days: [true, true, true, true, true, true, true], time: "10:45", enabled: true });
+    const stop = startDayClose();
+
+    stub.fire({ actionId: HABIT_ACTION.yes, data: { habitId: h.id }, id: habitNotifId(h.id, 1) });
+
+    expect(getCheckin(h.id, dateKey(new Date()))).not.toBeNull();
+    expect(stub.calls.dismissed).toEqual([habitNotifId(h.id, 1)]);
+    stop();
+  });
+
+  test("an answer pressed while the app was dead is applied at boot, before the card renders", () => {
+    const stub = stubNotifier();
+    setNotifier(stub);
+    const h = createHabit({ name: "Ômega-3", days: [true, true, true, true, true, true, true], time: "10:45", enabled: true });
+    stub.queued = { actionId: HABIT_ACTION.no, data: { habitId: h.id }, id: "n1" };
+
+    const stop = startDayClose();
+    expect((getCheckin(h.id, dateKey(new Date()))!.detail as { answer: string }).answer).toBe("no");
+    expect(pendingCheckins([h], new Date())).toHaveLength(0);
+
+    // …and the same response replayed through the live listener changes nothing.
+    stub.fire(stub.queued);
+    expect((getCheckin(h.id, dateKey(new Date()))!.detail as { answer: string }).answer).toBe("no");
+    stop();
   });
 });
 

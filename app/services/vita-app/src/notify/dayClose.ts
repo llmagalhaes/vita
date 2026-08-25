@@ -23,10 +23,23 @@ import { recapEnabled, recapStartHour } from "../db/settings";
 import { closeDay } from "../day/close";
 import { dayKey, dayMeals, type DayMeal, type DayRecord } from "../day/record";
 import { pendingMeals } from "../day/state";
-import { DAY_CLOSE_ACTION, ensureNotificationPermission, getNotifier, notificationsPaused, type PlannedDayClose } from "./notifier";
+import {
+  DAY_CLOSE_ACTION,
+  ensureNotificationPermission,
+  getNotifier,
+  notificationsPaused,
+  type NotificationResponse,
+  type PlannedDayClose,
+} from "./notifier";
 
 /** Per-habit reminder body — the only habit copy the notifier still needs. */
 export const habitBody = (h: Habit): string => i18n.t("notify.habit", { name: h.name });
+
+/** The two buttons on a habit reminder (APP-136). Same words as the in-app row. */
+export const habitActions = (): { yes: string; no: string } => ({
+  yes: i18n.t("notify.habitYes"),
+  no: i18n.t("notify.habitNo"),
+});
 
 /**
  * The notification to schedule for today, or null to cancel. Gated by: the recap
@@ -115,6 +128,25 @@ export function applyDayCloseAction(actionId: string, date: string = dayKey(), n
 }
 
 /**
+ * The app's ONE notification-response handler: day-close, or a habit check-in answered
+ * from the shade (APP-136). A plain tap on a habit reminder falls through to nothing —
+ * the app is already opening, and Vita never answers on the user's behalf.
+ */
+function handleResponse(r: NotificationResponse): void {
+  if (r.data?.dayClose) {
+    applyDayCloseAction(r.actionId, typeof r.data.date === "string" ? r.data.date : undefined);
+    return;
+  }
+  const habitId = typeof r.data?.habitId === "string" ? r.data.habitId : null;
+  if (!habitId) return;
+  const { applyCheckinAction } = require("../habits/checkins") as typeof import("../habits/checkins");
+  if (!applyCheckinAction(r.actionId, habitId, r.firedAt)) return;
+  // No congratulation, no navigation, no toast — it just goes away (product philosophy).
+  // Android does not cancel a notification when an action button is pressed, so we do.
+  if (r.id) void getNotifier().dismiss?.(r.id);
+}
+
+/**
  * Mount-time wiring (called once from the main layout, like `startReconnectDrain`):
  * schedule now, reschedule on every log change so the body never goes stale, and
  * handle taps. Returns an unsubscribe.
@@ -124,10 +156,12 @@ export function startDayClose(): () => void {
   const offLog = onChange(() => {
     void syncDayClose();
   });
-  const offResp =
-    getNotifier().onResponse?.((r) => {
-      if (r.data?.dayClose) applyDayCloseAction(r.actionId, typeof r.data.date === "string" ? r.data.date : undefined);
-    }) ?? (() => {});
+  // Cold start: a Yes/No pressed while the app was dead is queued by the OS with no JS
+  // listener to hear it. Drain it here, synchronously, BEFORE the Day's habit card reads
+  // the db — an answered check-in must never come back as a pending one.
+  const queued = getNotifier().lastResponse?.();
+  if (queued) handleResponse(queued);
+  const offResp = getNotifier().onResponse?.(handleResponse) ?? (() => {});
   return () => {
     offLog();
     offResp();

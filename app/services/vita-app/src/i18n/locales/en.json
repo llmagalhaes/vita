@@ -733,6 +733,8 @@
   },
   "notify": {
     "habit": "{{name}} — a quick check-in",
+    "habitYes": "Done",
+    "habitNo": "Not today",
     "dayClose": {
       "title": "Close your day?",
       "pending": "{{names}} still marked planned.",

@@ -12,7 +12,8 @@ import { api } from "../api";
 import { getEntry, upsertCheckin, type LocalEntry } from "../db/entries";
 import { logChanged } from "../db/notify";
 import { drainOutbox } from "../db/outbox";
-import type { Habit } from "../db/habits";
+import { getHabit, type Habit } from "../db/habits";
+import { HABIT_ACTION } from "../notify/notifier";
 
 export type Answer = "yes" | "not_quite";
 
@@ -91,4 +92,33 @@ export function answerCheckin(habit: Habit, answer: Answer, now = new Date()): v
       if (synced > 0) logChanged();
     })
     .catch(() => {}); // fire-and-forget: a drain failure must not surface as an unhandled rejection
+}
+
+/**
+ * APP-136 — an answer pressed on the notification itself. Same chokepoint as the Day
+ * card (`answerCheckin` → entry → outbox); this only maps the action id and decides
+ * WHICH day the answer belongs to.
+ *
+ * `firedAt` is when the OS delivered the reminder, not when the button was pressed:
+ * a habit notification sits on the shade until answered, so "Done" tapped at 07:00 the
+ * next morning must land on the day it was asked about (same rule as the day-close one).
+ *
+ * Returns whether an answer was written — false is the guard, and it does double duty:
+ * an unknown action (a plain tap), a deleted habit, and **already answered**. That last
+ * one is what makes this safe to call twice, which it will be: Android hands the same
+ * response to the live listener AND to `getLastNotificationResponse()` on a cold start,
+ * and the user may have answered in-app in between (the in-app answer wins).
+ */
+export function applyCheckinAction(actionId: string, habitId: string, firedAt?: number): boolean {
+  const answer: Answer | null =
+    actionId === HABIT_ACTION.yes ? "yes" : actionId === HABIT_ACTION.no ? "not_quite" : null;
+  if (!answer) return false;
+
+  const when = firedAt ? new Date(firedAt) : new Date();
+  const habit = getHabit(habitId);
+  if (!habit) return false;
+  if (getCheckin(habitId, dateKey(when))) return false;
+
+  answerCheckin(habit, answer, when);
+  return true;
 }

@@ -4,6 +4,7 @@ import { createHabit, type Habit, type HabitInput } from "../../db/habits";
 import { habitBody } from "../dayClose";
 import {
   ensureNotificationPermission,
+  habitNotifId,
   plannedNotifications,
   refreshNotifications,
   setNotifier,
@@ -64,6 +65,28 @@ test("refreshNotifications drives the injected Notifier with the live habit set"
   expect(stub.calls.sync[0]!.map((h) => h.name)).toEqual(["Stretch", "Water"]);
   // The day-close one-shot is re-scheduled after the cancel-all inside sync().
   expect(stub.calls.dayClose).toHaveLength(1);
+});
+
+// ── APP-136: the CEO's duplicated check-in notification ───────────────────────────
+test("two concurrent refreshNotifications leave ONE alarm per habit+weekday", async () => {
+  resetDbForTests();
+  // A fake OS store with the real shape: cancel-all wipes it, scheduling is keyed by
+  // identifier, and there is an await between the two — the interleave point where the
+  // old (unserialized, random-id) code left two alarms per habit.
+  const os = new Map<string, string>();
+  setNotifier({
+    getPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    async sync(habits) {
+      os.clear();
+      await Promise.resolve();
+      for (const p of plannedNotifications(habits, habitBody)) os.set(habitNotifId(p.habitId, p.weekday), p.body);
+    },
+  });
+  createHabit(input({ name: "Stretch", days: [true, true, false, false, false, false, false] }));
+
+  await Promise.all([refreshNotifications(), refreshNotifications(), refreshNotifications()]);
+  expect(os.size).toBe(2); // Sunday + Monday, once each — not six
 });
 
 test("ensureNotificationPermission only prompts when undetermined", async () => {

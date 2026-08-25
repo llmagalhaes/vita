@@ -4,7 +4,8 @@ import { resetDbForTests } from "../../db/db";
 import { getEntry, upsertCheckin } from "../../db/entries";
 import { drainOutbox } from "../../db/outbox";
 import { createHabit, type HabitInput } from "../../db/habits";
-import { answerCheckin, answeredCheckins, dateKey, getCheckin, habitDots, pendingCheckins } from "../checkins";
+import { HABIT_ACTION } from "../../notify/notifier";
+import { applyCheckinAction, answerCheckin, answeredCheckins, dateKey, getCheckin, habitDots, pendingCheckins } from "../checkins";
 
 const everyDay = [true, true, true, true, true, true, true];
 const habitInput = (over: Partial<HabitInput> = {}): HabitInput => ({
@@ -73,6 +74,47 @@ test("pending → answered flip and today's dot fills on yes", () => {
   const dots = habitDots(h, today);
   expect(dots[13]).toBe("yes"); // today is the last dot
   expect(getCheckin(h.id, dateKey(today))).not.toBeNull();
+});
+
+// ── APP-136: Yes / No pressed on the notification itself ──────────────────────────
+describe("applyCheckinAction", () => {
+  test("writes the same check-in the in-app row writes, and the habit stops being pending", () => {
+    const h = createHabit(habitInput());
+    const today = new Date();
+
+    expect(applyCheckinAction(HABIT_ACTION.yes, h.id)).toBe(true);
+    expect((getCheckin(h.id, dateKey(today))!.detail as { answer: string }).answer).toBe("yes");
+    expect(pendingCheckins([h], today)).toHaveLength(0);
+
+    const other = createHabit(habitInput({ name: "Stretch" }));
+    expect(applyCheckinAction(HABIT_ACTION.no, other.id)).toBe(true);
+    expect((getCheckin(other.id, dateKey(today))!.detail as { answer: string }).answer).toBe("no");
+  });
+
+  test("the same response applied twice writes once (listener + cold-start replay)", () => {
+    const h = createHabit(habitInput());
+    expect(applyCheckinAction(HABIT_ACTION.yes, h.id)).toBe(true);
+    expect(applyCheckinAction(HABIT_ACTION.yes, h.id)).toBe(false);
+    // …and it never overwrites an answer the user already gave in the app.
+    answerCheckin(h, "not_quite");
+    expect(applyCheckinAction(HABIT_ACTION.yes, h.id)).toBe(false);
+    expect((getCheckin(h.id, dateKey(new Date()))!.detail as { answer: string }).answer).toBe("no");
+  });
+
+  test("a plain tap or an unknown habit answers nothing", () => {
+    const h = createHabit(habitInput());
+    expect(applyCheckinAction("expo.modules.notifications.actions.DEFAULT", h.id)).toBe(false);
+    expect(applyCheckinAction(HABIT_ACTION.yes, "gone")).toBe(false);
+    expect(getCheckin(h.id, dateKey(new Date()))).toBeNull();
+  });
+
+  test("the answer lands on the day the reminder FIRED, not on the day it was pressed", () => {
+    const h = createHabit(habitInput());
+    const firedAt = new Date(2026, 7, 19, 21, 0, 0); // yesterday 21:00
+    expect(applyCheckinAction(HABIT_ACTION.yes, h.id, firedAt.getTime())).toBe(true);
+    expect(getCheckin(h.id, "2026-08-19")).not.toBeNull();
+    expect(getCheckin(h.id, dateKey(new Date()))).toBeNull();
+  });
 });
 
 test("a disabled or off-day habit is not pending", () => {
