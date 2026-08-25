@@ -1,5 +1,38 @@
 # DevOps — Next session
 
+## 2026-08-25 — PROD DB WIPED CLEAN (CEO order, ahead of his first real production test)
+CEO: "limpe o banco de prod". Covered by the Round-13 pre-production blanket (truncate/recreate from zero
+whenever it is the shortest path). Session-24 forensics had confirmed prod held **only orchestrator probe
+accounts** (`probe-ops025@…`, `probe-be064-*`, `probe-logcheck-*`, `vita-probe*-20260722`) — the CEO's real
+account never reached prod, so nothing of his was lost.
+
+**Method — one-off Fargate task, no Terraform, no SG/RDS change.** Ephemeral task-def family
+`vita-db-admin` (Fargate ARM64 256/512, `public.ecr.aws/docker/library/postgres:16-alpine`, same
+`vita-ecs-execution` role, `PGPASSWORD` from the app's own SSM param `/vita/prod/db-credentials`, awslogs
+`/ecs/vita` prefix `dbadmin`), run with the **service's exact network config**
+(`subnet-0d6a14147b5b830db`, `subnet-0766e78761e619c15`, `sg-0642c4529d86f52cb`, public IP) so the RDS SG
+admitted it with no rule change. SQL: `DROP SCHEMA public CASCADE; CREATE SCHEMA public; GRANT ALL ON SCHEMA
+public TO public;`
+- Task `8fa7ed38ea914e038c79813c6eae3626` → **exit 0**, `EssentialContainerExited`. Log:
+  `drop cascades to 22 other objects` (flyway_schema_history, users, user_keys, log_entry, magic_link_token,
+  refresh_token, job, eating_plan, training_program, vacation, oidc_identity, plan_portions, plan_parse_job,
+  user_settings, extension pg_trgm, food, food_alias, food_estimate_cache, exercise, exercise_muscle,
+  exercise_alias, exercise_estimate_cache) then `DROP SCHEMA / CREATE SCHEMA / GRANT`.
+
+**Rebuild** — `update-service --force-new-deployment` (task-def untouched at **vita:11**), services-stable 1/1,
+one deployment. Boot log: `Successfully applied 13 migrations to schema "public", now at version v014`
+(**13, not 14 — there is no V011**; V001..V010 + V012..V014 = the complete set), then
+`seed table=food rows=592 aliases=74` and `seed table=exercise rows=915 muscles=2534 aliases=53`.
+
+**Verification** — `/health` 200 `{"status":"up"}` · magic link for `probe-dbwipe-20260825@example.com`
+(SES sandbox 403 → fail-safe log path, as designed) → JWT · `GET /v1/plan` **404** (fresh DB, nothing left) ·
+`POST /v1/estimate/food-kcal` `arroz 100 g` → **130** (seed + pg_trgm recreated and live).
+One probe account now exists in the fresh DB (single row, A2 precedent); no other data created.
+
+**Cleanup** — `vita-db-admin:1` deregistered, family has **0 ACTIVE revisions**, nothing left unmanaged.
+Service still `vita:11`, running 1/1. Terraform untouched, zero drift introduced (the ephemeral family was
+never in TF and no longer exists as ACTIVE).
+
 ## 2026-08-24 — BE-064: V4.2 backend DEPLOYED to prod (image 5be5a54 → task-def vita:11, Flyway v014, probes GREEN)
 Ledger: `Progress/BE-064-v42-deploy-Progress.md` (every command + output).
 - **Image** `vita-api:5be5a54` (arm64, digest `sha256:8b8657fef7c7e98fdabc49ca22eb453eeffb8211594b1be3fff4dc8b50b1341b`,
