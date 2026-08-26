@@ -89,7 +89,7 @@ export function ReviewSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal: 24 }}>
-      <SheetBackdrop onClose={closeReview} closeLabel={t("common.cancel")} style={backdropStyle} />
+      <SheetBackdrop onClose={closeReview} closeLabel={t("common.cancel")} style={backdropStyle} inline />
       <GestureDetector gesture={dragGesture}>
         <Animated.View
           onLayout={onSheetLayout}

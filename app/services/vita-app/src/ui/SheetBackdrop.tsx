@@ -18,6 +18,7 @@ export function SheetBackdrop({
   intensity,
   scrim = "light",
   style,
+  inline = false,
 }: {
   onClose: () => void;
   closeLabel?: string;
@@ -31,6 +32,12 @@ export function SheetBackdrop({
   /** Driven opacity from the sheet transition. When set, it (not FadeIn) owns the fade,
    *  so the backdrop fades OUT in step with the sheet's slide-out on a programmatic close. */
   style?: ComponentProps<typeof Animated.View>["style"];
+  /** Set by callers that render IN PLACE inside `AppBlurTarget` (CaptureSheet, ReviewSheet)
+   *  instead of portaling to `PopHost`. On Android a BlurView inside its own blur target is
+   *  an hwui infinite recursion → RenderThread SIGSEGV (session 23; hit again on the capture
+   *  pill, session 24) — so inline Android backdrops keep the scrim and drop the blur.
+   *  iOS has no target mechanism and keeps the real material either way. */
+  inline?: boolean;
 }) {
   const light = scrim === "light";
   // Android needs blurMethod+blurTarget or expo-blur renders NO blur (the root cause
@@ -47,14 +54,16 @@ export function SheetBackdrop({
       entering={style ? undefined : FadeIn.duration(motion.fade.durationMs)}
       style={[{ position: "absolute", inset: 0 }, style]}
     >
-      <BlurView
-        intensity={Platform.OS === "android" ? recipe.radius : (intensity ?? recipe.ios)}
-        tint={light ? "light" : "dark"}
-        blurReductionFactor={1}
-        blurMethod="dimezisBlurViewSdk31Plus"
-        blurTarget={appBlurTarget}
-        style={{ position: "absolute", inset: 0 }}
-      />
+      {Platform.OS === "android" && inline ? null : (
+        <BlurView
+          intensity={Platform.OS === "android" ? recipe.radius : (intensity ?? recipe.ios)}
+          tint={light ? "light" : "dark"}
+          blurReductionFactor={1}
+          blurMethod="dimezisBlurViewSdk31Plus"
+          blurTarget={appBlurTarget}
+          style={{ position: "absolute", inset: 0 }}
+        />
+      )}
       <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={onClose} style={{ flex: 1, backgroundColor: recipe.bg }} />
     </Animated.View>
   );

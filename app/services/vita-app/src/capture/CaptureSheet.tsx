@@ -513,7 +513,7 @@ export function CaptureSheet() {
 
   return (
     <View style={{ position: "absolute", inset: 0, justifyContent: "flex-end" }}>
-      <SheetBackdrop onClose={capture.close} closeLabel={t("common.cancel")} scrim="capture" style={backdropStyle} />
+      <SheetBackdrop onClose={capture.close} closeLabel={t("common.cancel")} scrim="capture" style={backdropStyle} inline />
       {/* Only the text state opens a keyboard; the lift is off for every other state. */}
       <KeyboardLift enabled={view.status === "text"}>
       <GestureDetector gesture={dragGesture}>
