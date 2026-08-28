@@ -30,13 +30,40 @@ export function atTime(s: string, now: Date = new Date()): Date {
 export const is24h = (): boolean => !/[ap]\.?\s?m/i.test(new Date(2020, 0, 1, 13).toLocaleTimeString());
 
 /**
+ * The OS time picker, without any chrome: `open()` shows it, `picker` is the node
+ * to render (iOS draws a wheel inline, Android a modal dialog — so the caller puts
+ * `picker` BELOW its own row, never inside it). One picker, two very different
+ * fields: the habit's boxed pill and the plan editor's dashed underline (APP-139
+ * reuses this instead of forking a second one).
+ */
+export function useTimePicker(value: string, onChange: (hhmm: string) => void, testID = "habit-time-picker") {
+  const [open, setOpen] = useState(false);
+  return {
+    open: () => setOpen(true),
+    picker: open ? (
+      <DateTimePicker
+        testID={testID}
+        value={atTime(value)}
+        mode="time"
+        is24Hour={is24h()}
+        display={Platform.OS === "ios" ? "spinner" : "default"}
+        onChange={(e, d) => {
+          // Android's dialog is modal and one-shot; iOS' wheel stays and streams changes.
+          if (Platform.OS !== "ios") setOpen(false);
+          if (d && e.type !== "dismissed") onChange(hhmm(d));
+        }}
+      />
+    ) : null,
+  };
+}
+
+/**
  * The whole "Reminder time" row: the tappable value, the hint beside it, and the
- * picker underneath (iOS renders a wheel inline, Android a dialog over the app —
- * hence the picker sits below the row, not inside it).
+ * picker underneath.
  */
 export function TimeField({ value, onChange }: { value: string; onChange: (hhmm: string) => void }) {
   const { t } = useTranslation();
-  const [open, setOpen] = useState(false);
+  const time = useTimePicker(value, onChange);
 
   return (
     <View style={{ gap: 11 }}>
@@ -45,7 +72,7 @@ export function TimeField({ value, onChange }: { value: string; onChange: (hhmm:
           accessibilityRole="button"
           accessibilityLabel={t("library.habits.timeLabel")}
           accessibilityValue={{ text: value }}
-          onPress={() => setOpen(true)}
+          onPress={time.open}
           style={{
             borderWidth: 1,
             borderColor: colors.borderControlStrong,
@@ -64,20 +91,7 @@ export function TimeField({ value, onChange }: { value: string; onChange: (hhmm:
           {t("library.habits.timeHint")}
         </Text>
       </View>
-      {open ? (
-        <DateTimePicker
-          testID="habit-time-picker"
-          value={atTime(value)}
-          mode="time"
-          is24Hour={is24h()}
-          display={Platform.OS === "ios" ? "spinner" : "default"}
-          onChange={(e, d) => {
-            // Android's dialog is modal and one-shot; iOS' wheel stays and streams changes.
-            if (Platform.OS !== "ios") setOpen(false);
-            if (d && e.type !== "dismissed") onChange(hhmm(d));
-          }}
-        />
-      ) : null}
+      {time.picker}
     </View>
   );
 }
