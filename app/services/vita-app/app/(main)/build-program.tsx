@@ -8,15 +8,15 @@
  * the shape, then out.
  */
 import { useEffect, useRef, useState } from "react";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { api } from "../../src/api";
-import { saveProgram } from "../../src/db/plan";
+import { getCachedProgram, saveProgram } from "../../src/db/plan";
 import { logChanged } from "../../src/db/notify";
 import { PickExerciseSheet } from "../../src/workout/PickExerciseSheet";
 import { BuilderShell } from "../../src/build/parts";
 import { DayCard, ShapePhase } from "../../src/build/train/parts";
-import { dayLetter, resizeDays, toProgramDraft, workoutKcalBody, type BwDay, type BwExercise } from "../../src/build/train/draft";
+import { dayLetter, fromProgramDoc, resizeDays, toProgramDraft, workoutKcalBody, type BwDay, type BwExercise } from "../../src/build/train/draft";
 import { Button } from "../../src/ui";
 import { showToast } from "../../src/ui/toast";
 
@@ -25,11 +25,24 @@ const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export default function BuildProgramScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const [phase, setPhase] = useState<"shape" | "days">("shape");
-  const [name, setName] = useState("");
-  const [dayN, setDayN] = useState(3);
+  /**
+   * `?edit=1` (APP-138) — the builder IS the editor: the saved program is read
+   * ONCE into the same draft, and the screen opens on Day A instead of the shape
+   * (which is still one Back away, and still restarts from a skeleton if the
+   * number of sessions changes). Finish saves a NEW version; the old one stays in
+   * history — that is the undo.
+   */
+  const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
+  const [seed] = useState(() => {
+    const doc = editParam === "1" ? getCachedProgram() : null;
+    return doc && doc.days.length > 0 ? fromProgramDoc(doc) : null;
+  });
+
+  const [phase, setPhase] = useState<"shape" | "days">(seed ? "days" : "shape");
+  const [name, setName] = useState(seed?.name ?? "");
+  const [dayN, setDayN] = useState(seed ? Math.min(10, seed.days.length) : 3); // the stepper's ceiling is Day J
   const [step, setStep] = useState(0);
-  const [days, setDays] = useState<BwDay[]>([]);
+  const [days, setDays] = useState<BwDay[]>(seed ? seed.days : []);
   const [pick, setPick] = useState(false);
   const [kcalBusy, setKcalBusy] = useState(false);
 

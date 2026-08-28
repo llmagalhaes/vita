@@ -19,6 +19,7 @@ import { getCachedPlan, getPlanMeta, savePlan, updatePlan } from "../../db/plan"
 import { useLogVersion } from "../../db/notify";
 import { kcalLabel, mealUsualTotals, planDailyTotals } from "../../plan/compute";
 import { importPdf } from "../../onboarding/planImport";
+import { hasSwapsOrOptions } from "../../build/food/draft";
 import { FormInput, IconWell, PillButton, SectionLabel } from "../parts";
 import { EatingPlanSheet } from "../EatingPlanSheet";
 
@@ -201,6 +202,17 @@ export function EatingPlan() {
           setSheetOpen(false);
           openForm();
         }}
+        // APP-138: nothing to edit until there is a plan — no row rather than a
+        // row that opens an empty builder.
+        onEdit={
+          doc
+            ? () => {
+                setSheetOpen(false);
+                router.push("/build-plan?edit=1");
+              }
+            : undefined
+        }
+        editLossy={!!doc && hasSwapsOrOptions(doc)}
       />
     </>
   );

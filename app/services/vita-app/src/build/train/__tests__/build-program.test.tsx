@@ -9,12 +9,14 @@ import { PopHost } from "../../../ui/popHost";
 import { coverage, mfill } from "../../../workout/exerciseCatalog";
 import { colors, getAccent } from "../../../ui";
 import { resetDbForTests } from "../../../db/db";
-import { getCachedProgram } from "../../../db/plan";
+import { getCachedProgram, saveProgram } from "../../../db/plan";
 import en from "../../../i18n/locales/en.json";
 
 const mockBack = jest.fn();
+let mockParams: Record<string, string> = {};
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack, replace: jest.fn(), push: jest.fn(), canGoBack: () => true }),
+  useLocalSearchParams: () => mockParams,
 }));
 
 /** The map's own maths is APP-115's suite; here we check the CARD wires into it. */
@@ -54,6 +56,7 @@ beforeEach(() => {
   resetDbForTests();
   mockBack.mockClear();
   mockBodyMapProps = {};
+  mockParams = {};
 });
 
 describe("shape phase", () => {
@@ -266,5 +269,57 @@ describe("criterion 23", () => {
     for (const word of ["warning", "unbalanc", "imbalance", "you should", "we suggest", "missing", "try adding", "recommend"]) {
       expect(copy).not.toContain(word);
     }
+  });
+});
+
+/** APP-138 — `?edit=1`: the builder IS the editor. */
+describe("edit mode", () => {
+  const saved = {
+    summary: "Gym + Muay thai",
+    days: [
+      { name: "Legs", exercises: [{ name: "Squat", sets: 4, reps: 8, muscleRoles: [{ name: "quads" as const, role: "primary" as const }] }], kcalEstimate: 420 },
+      { name: "Ring", exercises: [{ name: "Muay thai", durationMin: 45, wholeBody: true }] },
+    ],
+  };
+
+  it("opens on the first day, prefilled, with the shape one Back away", async () => {
+    await saveProgram(saved);
+    mockParams = { edit: "1" };
+    await renderScreen();
+
+    expect(screen.getByText("1 of 2")).toBeOnTheScreen(); // straight past the shape
+    expect(screen.getByLabelText("Legs")).toBeOnTheScreen();
+    expect(screen.getByText("Squat")).toBeOnTheScreen();
+    expect(screen.getByText("4 × 8")).toBeOnTheScreen();
+    expect(screen.getByLabelText("Calories for this session").props.value).toBe("420");
+
+    await fireEvent.press(screen.getByLabelText("Back"));
+    expect(screen.getByDisplayValue("Gym + Muay thai")).toBeOnTheScreen(); // the shape, named
+  });
+
+  it("saves a new version carrying the untouched days through", async () => {
+    await saveProgram(saved);
+    mockParams = { edit: "1" };
+    await renderScreen();
+
+    await fireEvent.press(screen.getByLabelText("Remove Squat"));
+    await addExercise("Deadlift");
+    await fireEvent.press(screen.getByText("Next day"));
+    await fireEvent.press(screen.getByText("Finish setup"));
+
+    const doc = getCachedProgram()!;
+    expect(doc.summary).toBe("Gym + Muay thai");
+    expect(doc.days[0]!.name).toBe("Legs");
+    expect(doc.days[0]!.exercises[0]!.name).toBe("Deadlift");
+    expect(doc.days[0]!.kcalEstimate).toBe(420);
+    // Day B rode through untouched — and its catalog name gave its muscles back.
+    expect(doc.days[1]!.name).toBe("Ring");
+    expect(doc.days[1]!.exercises[0]).toMatchObject({ name: "Muay thai", durationMin: 45, wholeBody: true });
+  });
+
+  it("ignores the flag when there is nothing saved yet", async () => {
+    mockParams = { edit: "1" };
+    await renderScreen();
+    expect(screen.getByText("Fill in Day A")).toBeOnTheScreen();
   });
 });

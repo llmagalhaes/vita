@@ -1,7 +1,7 @@
 /**
  * APP-128 — builder draft → `TrainingProgramDraft` (handoff v4.2 §3.7, app-plan §B).
  */
-import { dayLetter, resizeDays, rolesOf, toProgramDraft, workoutKcalBody, type BwDay, type BwExercise } from "../draft";
+import { dayLetter, fromProgramDoc, resizeDays, rolesOf, toProgramDraft, workoutKcalBody, type BwDay, type BwExercise } from "../draft";
 import { EXCAT } from "../../../workout/exerciseCatalog";
 
 const cat = (name: string) => EXCAT.find((e) => e.name === name)!;
@@ -122,5 +122,77 @@ describe("workoutKcalBody (APP-135 / D9)", () => {
     expect(workoutKcalBody(day("Day A", [ex("Squat", { sets: "", reps: "abc" })]))).toEqual([
       { name: "Squat", fam: "set", sets: undefined, reps: undefined },
     ]);
+  });
+});
+
+/**
+ * APP-138 — the way back in: a saved program becomes the same draft the builder
+ * types out. The catalog wins on name; anything else rebuilds from its roles.
+ */
+describe("fromProgramDoc", () => {
+  it("round-trips a program the builder itself made", () => {
+    const doc = toProgramDraft(
+      "Gym + Muay thai",
+      [
+        { n: "Legs", ex: [ex("Squat", { sets: "4", reps: "8" }), ex("Muay thai", { min: "45" })], kcal: "420", kcalEst: true },
+        { n: "Rest-ish", ex: [{ n: "Capoeira", fam: "time", mus: {}, soft: true, sets: "", reps: "", min: "60" }] },
+      ],
+      "My program",
+    );
+    const back = fromProgramDoc(doc);
+    expect(back.name).toBe("Gym + Muay thai");
+    expect(toProgramDraft(back.name, back.days, "My program")).toEqual(doc);
+  });
+
+  it("takes the catalog's weights by name and the contract's rule for the family", () => {
+    const { days } = fromProgramDoc({
+      summary: "s",
+      days: [{ name: "A", exercises: [{ name: "squat", sets: 5, reps: 5, muscleRoles: [{ name: "quads", role: "primary" }] }] }],
+    });
+    // Name match wins over the saved roles — the table is deterministic.
+    expect(days[0]!.ex[0]).toEqual({ n: "squat", fam: "set", mus: cat("Squat").mus, soft: false, sets: "5", reps: "5", min: "" });
+  });
+
+  it("rebuilds weights from roles for an exercise off the catalog", () => {
+    const { days } = fromProgramDoc({
+      summary: "s",
+      days: [
+        {
+          name: "A",
+          exercises: [
+            { name: "Kettlebell swing", sets: 3, reps: 15, muscleRoles: [{ name: "glutes", role: "primary" }, { name: "biceps", role: "secondary" }, { name: "triceps", role: "primary" }] },
+            { name: "Capoeira", durationMin: 60 },
+          ],
+        },
+      ],
+    });
+    // The arm capsule holds both arms: the stronger role wins, nothing is summed.
+    expect(days[0]!.ex[0]!.mus).toEqual({ gl: 0.9, ar: 0.9 });
+    expect(days[0]!.ex[0]!.soft).toBe(false);
+    // .9/.45 sit either side of tierOf's .7 cut, so a re-save gives the roles back.
+    expect(rolesOf(days[0]!.ex[0]!.mus)).toEqual([
+      { name: "glutes", role: "primary" },
+      { name: "biceps", role: "primary" },
+      { name: "triceps", role: "primary" },
+    ]);
+    // Claims no muscles → free-typed → soft, and it still claims nothing on save.
+    expect(days[0]!.ex[1]).toEqual({ n: "Capoeira", fam: "time", mus: {}, soft: true, sets: "", reps: "", min: "60" });
+  });
+
+  it("brings the day's kcal back as the estimate the contract calls it", () => {
+    const { days } = fromProgramDoc({ summary: "s", days: [{ name: "A", exercises: [], kcalEstimate: 300 }, { name: "B", exercises: [] }] });
+    expect(days[0]!.kcal).toBe("300");
+    expect(days[0]!.kcalEst).toBe(true);
+    expect(days[1]!.kcal).toBeUndefined();
+  });
+
+  it("drops what the builder has no field for", () => {
+    const { days } = fromProgramDoc({
+      summary: "s",
+      splitDescription: "Push / Pull / Legs",
+      days: [{ name: "A", exercises: [{ name: "Bench press", sets: 3, reps: 8, loadKg: 60, muscles: ["chest"] }] }],
+    });
+    expect(days[0]!.ex[0]).not.toHaveProperty("loadKg");
+    expect(toProgramDraft("s", days, "f")).not.toHaveProperty("splitDescription");
   });
 });

@@ -5,7 +5,8 @@
  * rows collapse to a quiet `done` / `not today` chip. The footer is the whole
  * philosophy: "One tap a day — never a streak."
  */
-import { View } from "react-native";
+import { useReducer } from "react";
+import { InteractionManager, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Path } from "react-native-svg";
 import { answerCheckin, answeredCheckins, dateKey, pendingCheckins } from "../../habits/checkins";
@@ -46,17 +47,24 @@ function Check({ color }: { color: string }) {
 export function HabitsCard({ habits, today = new Date() }: { habits: Habit[]; today?: Date }) {
   const { t } = useTranslation();
   const accent = useAccent();
+  // R18-E — the answer is a synchronous local write, so THIS card re-reading it is the
+  // whole optimistic update: no mirrored state to reconcile, no spinner. The app-wide
+  // `logChanged()` fan-out (Day + Trends + Library + syncDayClose) waits for the frame
+  // inside `answerCheckin`, so it can no longer sit between the tap and the chip.
+  const [, repaint] = useReducer((n: number) => n + 1, 0);
   const rows = habitRows(habits, today);
   if (rows.length === 0) return null;
 
   const answer = (habit: Habit, yes: boolean) => {
     answerCheckin(habit, yes ? "yes" : "not_quite", today);
+    repaint();
     showToast(yes ? t("overview.habits.doneToast", { name: habit.name }) : t("overview.habits.notTodayToast"), {
       undo: () => {
         // The check-in is written under `${habitId}:${date}` — deleting it puts the
         // row back to unanswered and cancels/reverses whatever the outbox queued.
         deleteEntry(`${habit.id}:${dateKey(today)}`);
-        logChanged();
+        repaint();
+        InteractionManager.runAfterInteractions(logChanged);
       },
     });
   };

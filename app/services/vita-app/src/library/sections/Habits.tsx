@@ -8,24 +8,33 @@
  * (`Habit.days[0] = Sunday`, matching `Date.getDay()`), so the order is a view
  * concern only.
  */
-import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { useReducer, useState } from "react";
+import { InteractionManager, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { Text, Toggle, colors, fonts, radii, shadowCard, showToast, useAccent } from "../../ui";
 import { createHabit, deleteHabit, listHabits, restoreHabit, updateHabit, type Habit } from "../../db/habits";
 import { logChanged, useLogVersion } from "../../db/notify";
 import { refreshNotifications } from "../../notify/notifier";
+import { TimeField } from "../../habits/timeField";
 import { CardNote, FormInput, ListCard, ListRow, PillButton, SectionLabel, tinted } from "../parts";
 
 /** Display order Mon→Sun over Sunday-first storage. */
 const MON_FIRST = [1, 2, 3, 4, 5, 6, 0];
 const EVERY_DAY = () => [true, true, true, true, true, true, true];
 
-/** After any habit change: re-read screens and reschedule notifications. */
+/**
+ * After any habit change: re-read screens and reschedule notifications — both AFTER
+ * the frame (R18-E). The habit table is already written synchronously, so this section
+ * repaints from it on its own `repaint()`; what used to sit between the tap and the
+ * switch moving was the app-wide `logChanged()` fan-out (Day + Trends + Library +
+ * `syncDayClose`) plus a cancel-all-and-reschedule pass over every alarm.
+ */
 function afterChange() {
-  logChanged();
-  void refreshNotifications();
+  InteractionManager.runAfterInteractions(() => {
+    logChanged();
+    void refreshNotifications();
+  });
 }
 
 function daysLabel(h: Habit, letters: string[], allLabel: string): string {
@@ -67,10 +76,7 @@ function AddForm({ onDone }: { onDone: () => void }) {
         {t("library.habits.formTitle")}
       </Text>
       <FormInput value={name} onChangeText={setName} placeholder={t("library.habits.namePlaceholder")} label={t("library.habits.nameLabel")} />
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        <FormInput value={time} onChangeText={setTime} label={t("library.habits.timeLabel")} width={78} center />
-        <Text style={{ fontSize: 11, lineHeight: 16, flex: 1 }} color={colors.labelMuted}>{t("library.habits.timeHint")}</Text>
-      </View>
+      <TimeField value={time} onChange={setTime} />
       <View style={{ flexDirection: "row", gap: 5, justifyContent: "space-between" }}>
         {MON_FIRST.map((d) => {
           const on = days[d];
@@ -110,12 +116,16 @@ export function Habits() {
   const accent = useAccent();
   const version = useLogVersion();
   void version;
+  // The writes below are synchronous local SQLite, so re-reading them in THIS section is
+  // the optimistic update — the switch flips now, the app-wide re-read follows the frame.
+  const [, repaint] = useReducer((n: number) => n + 1, 0);
   const habits = listHabits();
   const letters = t("library.habits.dayLetters", { returnObjects: true }) as string[];
   const [formOpen, setFormOpen] = useState(false);
 
   const toggleNotif = (h: Habit) => {
     updateHabit(h.id, { enabled: !h.enabled });
+    repaint();
     afterChange();
     showToast(h.enabled ? t("library.habits.notifOff") : t("library.habits.notifOn", { time: h.time }));
   };
@@ -123,10 +133,12 @@ export function Habits() {
   // Remove is undoable and never touches the check-ins the habit produced.
   const remove = (h: Habit) => {
     deleteHabit(h.id);
+    repaint();
     afterChange();
     showToast(t("library.habits.removedToast", { name: h.name }), {
       undo: () => {
         restoreHabit(h);
+        repaint();
         afterChange();
       },
     });

@@ -9,6 +9,8 @@ import i18n from "../../i18n";
 import { ImportProgramSheet } from "../ImportProgramSheet";
 import { exerciseMeasure } from "../exerciseLabel";
 import { PopHost } from "../../ui/popHost";
+import { resetDbForTests } from "../../db/db";
+import { saveProgram } from "../../db/plan";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
@@ -23,6 +25,7 @@ const t = (k: string) => i18n.t(k) as string;
 const onClose = jest.fn();
 
 beforeEach(() => {
+  resetDbForTests();
   mockPush.mockClear();
   onClose.mockClear();
   mockImportPdf.mockReset();
@@ -72,5 +75,22 @@ describe("exerciseMeasure", () => {
 
   it("prefers sets/reps when a document somehow carries both", () => {
     expect(exerciseMeasure({ sets: 3, reps: 10, durationMin: 30 })).toBe("3 × 10");
+  });
+});
+
+/** APP-138 — the third route: edit the program you already have. */
+describe("Edit your program", () => {
+  it("is not offered until there is a program", async () => {
+    await open();
+    expect(screen.queryByText(t("build.trainingSheet.edit"))).toBeNull();
+  });
+
+  it("closes the sheet and opens the builder in edit mode", async () => {
+    await saveProgram({ summary: "Mine", days: [{ name: "A", exercises: [{ name: "Squat", sets: 3, reps: 10 }] }] });
+    await open();
+    expect(screen.getByText(t("build.trainingSheet.editSub"))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText(t("build.trainingSheet.edit")));
+    expect(onClose).toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith("/build-program?edit=1");
   });
 });

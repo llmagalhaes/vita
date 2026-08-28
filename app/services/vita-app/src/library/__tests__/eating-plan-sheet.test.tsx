@@ -10,6 +10,7 @@ import { EatingPlan } from "../sections/EatingPlan";
 import { PopHost } from "../../ui/popHost";
 import { resetDbForTests } from "../../db/db";
 import { importPdf } from "../../onboarding/planImport";
+import { savePlan } from "../../db/plan";
 
 const mockPush = jest.fn();
 jest.mock("expo-router", () => ({
@@ -78,4 +79,32 @@ test("Add a single meal closes the sheet and opens the inline form that already 
   expect(screen.getByText(t("library.plan.formTitle"))).toBeOnTheScreen();
   expect(screen.getByText(t("library.plan.addToPlan"))).toBeOnTheScreen();
   expect(mockPush).not.toHaveBeenCalled();
+});
+
+/**
+ * APP-138 — the fourth route: edit the plan you already have. Absent while there
+ * is nothing to edit, and honest about what a hand-rebuild costs a parsed plan.
+ */
+describe("Edit your plan", () => {
+  const plain = { summary: "Mine", status: "ready" as const, meals: [{ name: "Lunch", items: [{ name: "Rice", quantity: 100, unit: "g", kcal: 130 }] }] };
+
+  it("is not offered until there is a plan", async () => {
+    await open();
+    expect(screen.queryByText(t("build.eatingSheet.edit"))).toBeNull();
+  });
+
+  it("opens the builder in edit mode", async () => {
+    await savePlan(plain, "manual");
+    await open();
+    expect(screen.getByText(t("build.eatingSheet.editSub"))).toBeOnTheScreen();
+    await fireEvent.press(screen.getByText(t("build.eatingSheet.edit")));
+    expect(mockPush).toHaveBeenCalledWith("/build-plan?edit=1");
+  });
+
+  it("warns when the plan carries swaps or options a hand-rebuild would drop", async () => {
+    await savePlan({ ...plain, meals: [{ ...plain.meals[0]!, items: [{ ...plain.meals[0]!.items[0]!, swaps: [{ name: "Pasta", quantity: 80 }] }] }] }, "pdf");
+    await open();
+    expect(screen.getByText(t("build.eatingSheet.editSubLossy"))).toBeOnTheScreen();
+    expect(screen.queryByText(t("build.eatingSheet.editSub"))).toBeNull();
+  });
 });

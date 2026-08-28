@@ -157,7 +157,7 @@
       "sourceNone": "no reading yet — log it yourself",
       "modalTitle": "Log weight",
       "typedLabel": "Weight in kilograms",
-      "dualHint": "kg — slide roughly or type it exactly",
+      "hint": "kg — type it exactly, comma or dot ({{min}}–{{max}})",
       "save": "Save",
       "savedToast": "Weight logged — {{kg}} kg"
     },
@@ -502,7 +502,7 @@
       "namePlaceholder": "e.g. Train legs · Read 20 pages",
       "nameLabel": "Habit name",
       "timeLabel": "Reminder time",
-      "timeHint": "daily notification time — optional, per habit",
+      "timeHint": "tap to pick the daily notification time, per habit",
       "save": "Save habit",
       "addedToast": "\"{{name}}\" added — it’s yours, Vita never suggests",
       "notifOn": "Daily reminder at {{time}}",
@@ -813,12 +813,17 @@
       "here": "Build it here",
       "hereSub": "meal by meal — replaces the plan you have now",
       "one": "Add a single meal",
-      "oneSub": "on top of what is already there"
+      "oneSub": "on top of what is already there",
+      "edit": "Edit your plan",
+      "editSub": "change meals, foods or numbers",
+      "editSubLossy": "rebuilds as a simple plan — swaps and options don't carry over"
     },
     "trainingSheet": {
       "pdfSub": "from your gym or trainer",
       "here": "Build it here",
-      "hereSub": "session by session — replaces your current program"
+      "hereSub": "session by session — replaces your current program",
+      "edit": "Edit your program",
+      "editSub": "change days, exercises or numbers"
     },
     "stepOf": "{{n}} of {{total}}",
     "plan": {

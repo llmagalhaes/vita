@@ -11,11 +11,11 @@ import { useRouter } from "expo-router";
 import { api } from "../api";
 import type { TrainingProgramDraft } from "../api/client";
 import { importPdf } from "../onboarding/planImport";
-import { saveProgram } from "../db/plan";
+import { getCachedProgram, saveProgram } from "../db/plan";
 import { logChanged } from "../db/notify";
 import { getRecognizer } from "../capture/speech";
 import { Button, SheetOverlay, Text, colors, fonts } from "../ui";
-import { DownloadGlyph, GlyphText, SheetRow } from "../library/EatingPlanSheet";
+import { DownloadGlyph, GlyphText, PencilGlyph, SheetRow } from "../library/EatingPlanSheet";
 import { showToast } from "../ui/toast";
 
 type Phase = "choose" | "describing" | "parsing" | "confirm";
@@ -109,6 +109,21 @@ export function ImportProgramSheet({ onClose, autoPdf = false }: { onClose: () =
               router.push("/build-program");
             }}
           />
+          {/* APP-138: the builder is also the editor — only offered once there is
+              a program to edit. Nothing is lost on the way in: a program holds
+              exactly what the builder holds. */}
+          {getCachedProgram() ? (
+            <SheetRow
+              bg={colors.well}
+              glyph={<PencilGlyph />}
+              title={t("build.trainingSheet.edit")}
+              sub={t("build.trainingSheet.editSub")}
+              onPress={() => {
+                onClose();
+                router.push("/build-program?edit=1");
+              }}
+            />
+          ) : null}
         </View>
       ) : null}
 

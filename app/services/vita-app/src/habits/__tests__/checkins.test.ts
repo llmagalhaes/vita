@@ -4,6 +4,7 @@ import { resetDbForTests } from "../../db/db";
 import { getEntry, upsertCheckin } from "../../db/entries";
 import { drainOutbox } from "../../db/outbox";
 import { createHabit, type HabitInput } from "../../db/habits";
+import { onChange } from "../../db/notify";
 import { HABIT_ACTION } from "../../notify/notifier";
 import { applyCheckinAction, answerCheckin, answeredCheckins, dateKey, getCheckin, habitDots, pendingCheckins } from "../checkins";
 
@@ -74,6 +75,19 @@ test("pending → answered flip and today's dot fills on yes", () => {
   const dots = habitDots(h, today);
   expect(dots[13]).toBe("yes"); // today is the last dot
   expect(getCheckin(h.id, dateKey(today))).not.toBeNull();
+});
+
+test("the answer is readable on the tap tick, the app-wide fan-out is not on it (R18-E)", () => {
+  const h = createHabit(habitInput());
+  let fanouts = 0;
+  const off = onChange(() => fanouts++);
+
+  answerCheckin(h, "yes");
+  // Written and visible immediately — the row (and applyCheckinAction's guard) read this.
+  expect(getCheckin(h.id, dateKey(new Date()))).not.toBeNull();
+  // …but Day/Trends/Library/syncDayClose were NOT re-read on the tap frame.
+  expect(fanouts).toBe(0);
+  off();
 });
 
 // ── APP-136: Yes / No pressed on the notification itself ──────────────────────────

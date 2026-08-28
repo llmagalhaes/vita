@@ -11,16 +11,20 @@
  */
 import { api } from "../api";
 import type { WeightDetail } from "../api/client";
+import { numOf } from "../build/parts";
 import { deleteEntry, entriesInRange, getEntry, upsertEntry, type LocalEntry } from "../db/entries";
 import { logChanged } from "../db/notify";
 import { drainOutbox } from "../db/outbox";
 import { dayKey } from "./record";
 
-/** Manual modal: the slider covers the common band, the typed input the honest one. */
-export const WEIGHT_SLIDER = { min: 60, max: 100, step: 0.1 } as const;
-/** Typed entry is clamped, never rejected (dual input is non-negotiable). */
-export const WEIGHT_TYPED = { min: 30, max: 200 } as const;
-/** Where the slider starts when there is no reading yet (prototype `wtVal` seed). */
+/**
+ * R18-D — the modal is a typed field, full stop. It used to be a slider 60–100 kg
+ * with a typed field beside it; the slider's ceiling excluded anyone above 100 kg
+ * (CEO, device round 18), and a per-keystroke clamp made the field unusable anyway
+ * (typing "8" jumped to the floor). One input, one honest range.
+ */
+export const WEIGHT_TYPED = { min: 20, max: 300 } as const;
+/** Where the field starts when there is no reading yet (prototype `wtVal` seed). */
 export const WEIGHT_DEFAULT = 78.4;
 
 export const weightEntryId = (date: string): string => `weight:${date}`;
@@ -28,9 +32,15 @@ export const weightEntryId = (date: string): string => `weight:${date}`;
 /** Round to the 0.1 kg the slider and the readout both speak. */
 export const roundKg = (kg: number): number => Math.round(kg * 10) / 10;
 
-/** Clamp a typed value into the honest range (30–200 kg), then round. */
-export const clampTypedKg = (kg: number): number =>
-  roundKg(Math.min(WEIGHT_TYPED.max, Math.max(WEIGHT_TYPED.min, kg)));
+/**
+ * A reading as the user typed it — comma or dot (`numOf`), rounded to 0.1 kg.
+ * `null` for anything that isn't a weight, so a half-typed "8" disables Save
+ * instead of silently becoming 20 kg.
+ */
+export const parsedKg = (text: string): number | null => {
+  const kg = roundKg(numOf(text));
+  return kg >= WEIGHT_TYPED.min && kg <= WEIGHT_TYPED.max ? kg : null;
+};
 
 export type WeightReading = { kg: number; at: string };
 

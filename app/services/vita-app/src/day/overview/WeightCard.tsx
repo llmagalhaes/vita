@@ -1,20 +1,18 @@
 /**
  * APP-097 — Overview · Weight (prototype lines 504–518 + the "Log weight" modal).
  *
- * A value and where it came from. `+` opens the centered manual modal: slider
- * 60–100 step 0.1 **and** a typed field clamped 30–200 — either one is a real entry
- * (dual input). The reading is written under `weight:<date>`, so logging twice
- * corrects today rather than stacking readings; the toast offers undo.
+ * A value and where it came from. `+` opens the centered manual modal: one typed
+ * field, 20–300 kg, comma or dot (R18-D — the slider stopped at 100 kg and excluded
+ * people). The reading is written under `weight:<date>`, so logging twice corrects
+ * today rather than stacking readings; the toast offers undo.
  */
 import { useEffect, useState } from "react";
 import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import Svg, { Path, Rect } from "react-native-svg";
-import { useSharedValue } from "react-native-reanimated";
 import {
   PopOverlay,
   PressScale,
-  Slider,
   Text,
   colors,
   fonts,
@@ -25,10 +23,9 @@ import {
 import { showToast } from "../../ui/toast";
 import {
   WEIGHT_DEFAULT,
-  WEIGHT_SLIDER,
-  clampTypedKg,
+  WEIGHT_TYPED,
+  parsedKg,
   recordWeight,
-  roundKg,
   todaysWeight,
   type WeightReading,
 } from "../weight";
@@ -48,22 +45,15 @@ function ScaleGlyph() {
 function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: () => void; seed: number }) {
   const { t } = useTranslation();
   const accent = useAccent();
-  const [kg, setKg] = useState(seed);
-  const live = useSharedValue(seed);
+  // The raw text is the state: clamping per keystroke made the field untypeable.
+  const [txt, setTxt] = useState(() => seed.toFixed(1));
   useEffect(() => {
-    if (visible) {
-      setKg(seed);
-      live.value = seed;
-    }
-  }, [visible, seed, live]);
-
-  const commit = (next: number) => {
-    const v = roundKg(next);
-    setKg(v);
-    live.value = v;
-  };
+    if (visible) setTxt(seed.toFixed(1));
+  }, [visible, seed]);
+  const kg = parsedKg(txt);
 
   const save = () => {
+    if (kg === null) return;
     const { undo } = recordWeight(kg);
     onClose();
     showToast(t("overview.weight.savedToast", { kg: kg.toFixed(1) }), { undo });
@@ -77,39 +67,31 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
             {t("overview.weight.modalTitle")}
           </Text>
           <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color={colors.inkHeading}>
-            {t("overview.weight.value", { kg: kg.toFixed(1) })}
+            {kg === null ? "—" : t("overview.weight.value", { kg: kg.toFixed(1) })}
           </Text>
         </View>
-        <Slider
-          value={kg}
-          live={live}
-          min={WEIGHT_SLIDER.min}
-          max={WEIGHT_SLIDER.max}
-          step={WEIGHT_SLIDER.step}
-          onCommit={commit}
-          accessibilityLabel={t("overview.weight.modalTitle")}
-        />
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
           <TextInput
-            value={String(kg)}
+            value={txt}
             keyboardType="decimal-pad"
-            onChangeText={(txt) => commit(clampTypedKg(Number(txt.replace(",", ".").replace(/[^0-9.]/g, "")) || 0))}
+            selectTextOnFocus
+            onChangeText={setTxt}
             accessibilityLabel={t("overview.weight.typedLabel")}
             style={{
               borderWidth: 1,
-              borderColor: colors.borderControlStrong,
+              borderColor: kg === null ? colors.amber.ink : colors.borderControlStrong,
               backgroundColor: colors.input,
               borderRadius: 12,
-              paddingVertical: 9,
-              width: 74,
+              paddingVertical: 11,
+              width: 96,
               textAlign: "center",
               fontFamily: fonts.bold,
-              fontSize: 14,
+              fontSize: 18,
               color: colors.ink,
             }}
           />
           <Text style={{ fontFamily: fonts.bold, fontSize: 12, flex: 1 }} color={colors.muted}>
-            {t("overview.weight.dualHint")}
+            {t("overview.weight.hint", { min: WEIGHT_TYPED.min, max: WEIGHT_TYPED.max })}
           </Text>
         </View>
         <View style={{ flexDirection: "row", gap: 10 }}>
@@ -125,7 +107,8 @@ function LogWeightPop({ visible, onClose, seed }: { visible: boolean; onClose: (
           <PressScale
             accessibilityRole="button"
             onPress={save}
-            style={{ flex: 1.2, height: 44, borderRadius: 22, backgroundColor: accent, alignItems: "center", justifyContent: "center" }}
+            disabled={kg === null}
+            style={{ flex: 1.2, height: 44, borderRadius: 22, backgroundColor: accent, alignItems: "center", justifyContent: "center", opacity: kg === null ? 0.45 : 1 }}
           >
             <Text style={{ fontFamily: fonts.bold, fontSize: 14 }} color="#FFF9F1">
               {t("overview.weight.save")}

@@ -1,7 +1,7 @@
 /**
  * APP-097 — the Day panel's Overview zone: the pure card maths, the domain gating
- * (a flag off HIDES the card, it never deletes), and the dual-input acceptance
- * (slider AND typed field both write).
+ * (a flag off HIDES the card, it never deletes), and the typed weight field
+ * (R18-D: no slider, no 100 kg ceiling, comma decimals).
  */
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../../i18n";
@@ -13,7 +13,7 @@ import { addLocalEntry, getEntry } from "../../db/entries";
 import { saveSettings, type Settings } from "../../db/settings";
 import { msUntilNextScene, sceneFor } from "../../ui/scene";
 import { clampTypedMl, waterPct } from "../water";
-import { clampTypedKg, roundKg, weightEntryId } from "../weight";
+import { parsedKg, roundKg, weightEntryId } from "../weight";
 import { dayKey } from "../record";
 import { macroPct } from "../overview/MacrosCard";
 import { habitSub } from "../overview/HabitsCard";
@@ -46,12 +46,19 @@ test("the vessel fills against 2500 ml and never overflows", () => {
   expect(waterPct(4000)).toBe(100);
 });
 
-test("typed water is clamped 0–2000, typed weight 30–200", () => {
+test("typed water is clamped 0–2000; typed weight parses 20–300 and rejects the rest", () => {
   expect(clampTypedMl(5000)).toBe(2000);
   expect(clampTypedMl(-40)).toBe(0);
-  expect(clampTypedKg(400)).toBe(200);
-  expect(clampTypedKg(2)).toBe(30);
   expect(roundKg(78.44)).toBe(78.4);
+  // R18-D: no 100 kg ceiling any more, and a PT-BR comma is a decimal point.
+  expect(parsedKg("118")).toBe(118);
+  expect(parsedKg("104,6")).toBe(104.6);
+  expect(parsedKg("78.44")).toBe(78.4);
+  // Not readings: half-typed, empty, nonsense, out of range.
+  expect(parsedKg("8")).toBeNull();
+  expect(parsedKg("")).toBeNull();
+  expect(parsedKg("abc")).toBeNull();
+  expect(parsedKg("400")).toBeNull();
 });
 
 test("a macro bar with no plan behind it is empty, not a division by zero", () => {
@@ -105,7 +112,7 @@ test("with every flag off the Overview zone label goes too", async () => {
  * this renderer unusable for a *later* `render()` in the same file, so the quick-add
  * and the weight modal share a mount rather than being ordered by luck.
  */
-test("quick-add logs a drink, and the weight modal accepts a TYPED value (dual input)", async () => {
+test("quick-add logs a drink, and the weight modal accepts a comma decimal over 100 kg", async () => {
   addLocalEntry({
     type: "water",
     occurredAt: new Date().toISOString(),
@@ -126,13 +133,13 @@ test("quick-add logs a drink, and the weight modal accepts a TYPED value (dual i
   expect(await screen.findByText(t("overview.water.value", { ml: "750" }))).toBeOnTheScreen();
 
   fireEvent.press(screen.getByLabelText(t("overview.weight.modalTitle")));
-  fireEvent.changeText(await screen.findByLabelText(t("overview.weight.typedLabel")), "81.3");
+  fireEvent.changeText(await screen.findByLabelText(t("overview.weight.typedLabel")), "104,6");
   // The typed value has to reach the pop's own tree before Save can carry it.
-  expect(await screen.findByDisplayValue("81.3")).toBeOnTheScreen();
+  expect(await screen.findByDisplayValue("104,6")).toBeOnTheScreen();
   fireEvent.press(screen.getByText(t("overview.weight.save")));
 
   await waitFor(() => expect(getEntry(weightEntryId(dayKey()))).not.toBeNull());
   const rec = getEntry(weightEntryId(dayKey()));
   expect(rec?.type).toBe("weight");
-  expect((rec?.detail as { kg: number }).kg).toBe(81.3);
+  expect((rec?.detail as { kg: number }).kg).toBe(104.6);
 });

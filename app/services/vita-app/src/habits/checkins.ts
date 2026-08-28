@@ -8,6 +8,7 @@
  * APP-108: v4 has one kind of habit and one place to answer it — the Day overview's
  * ✓/— row. The v3 check-in deck and the "plan" habit that auto-logged a meal are gone.
  */
+import { InteractionManager } from "react-native";
 import { api } from "../api";
 import { getEntry, upsertCheckin, type LocalEntry } from "../db/entries";
 import { logChanged } from "../db/notify";
@@ -75,6 +76,14 @@ export function habitDots(habit: Habit, today: Date): Dot[] {
  * Record an answer. Writes the `checkin` entry (durable via outbox) — that is the
  * whole action: no auto-logged meal, no follow-up sheet. The Day overview row owns
  * the undo (it deletes `habitId:date`).
+ *
+ * R18-E — the write stays synchronous (every reader, and `applyCheckinAction`'s
+ * double-apply guard, must see the answer the instant it is given), but the two
+ * things AFTER it wait for the frame: `logChanged()` fans out to every pre-mounted
+ * panel (Day re-reads the rebuilt day record + the whole plan doc, Trends recomputes
+ * its ranges, Library re-reads its sections) and to `syncDayClose()`, and the drain's
+ * own prologue reads the outbox before its first await. None of that is visible, and
+ * all of it used to run before the pressed row could paint — the CEO's "slow button".
  */
 export function answerCheckin(habit: Habit, answer: Answer, now = new Date()): void {
   upsertCheckin(habit.id, dateKey(now), {
@@ -86,12 +95,14 @@ export function answerCheckin(habit: Habit, answer: Answer, now = new Date()): v
     detail: { habitId: habit.id, habitName: habit.name, kind: CHECKIN_KIND, answer: answer === "yes" ? "yes" : "no" },
   });
 
-  logChanged();
-  void drainOutbox(api)
-    .then(({ synced }) => {
-      if (synced > 0) logChanged();
-    })
-    .catch(() => {}); // fire-and-forget: a drain failure must not surface as an unhandled rejection
+  InteractionManager.runAfterInteractions(() => {
+    logChanged();
+    void drainOutbox(api)
+      .then(({ synced }) => {
+        if (synced > 0) logChanged();
+      })
+      .catch(() => {}); // fire-and-forget: a drain failure must not surface as an unhandled rejection
+  });
 }
 
 /**

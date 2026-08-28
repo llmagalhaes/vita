@@ -5,20 +5,23 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../../../i18n";
 import BuildPlanScreen from "../../../../app/(main)/build-plan";
-import { getCachedPlan, getPlanMeta } from "../../../db/plan";
+import { getCachedPlan, getPlanMeta, savePlan } from "../../../db/plan";
 import { resetDbForTests } from "../../../db/db";
 import { getToast } from "../../../ui/toast";
 
 const mockBack = jest.fn();
 const mockReplace = jest.fn();
+let mockParams: Record<string, string> = {};
 jest.mock("expo-router", () => ({
   useRouter: () => ({ back: mockBack, replace: mockReplace, push: jest.fn(), canGoBack: () => true }),
+  useLocalSearchParams: () => mockParams,
 }));
 
 beforeEach(() => {
   resetDbForTests();
   mockBack.mockClear();
   mockReplace.mockClear();
+  mockParams = {};
 });
 
 /** count → meals with `n` meals, standing on the first meal's open food form. */
@@ -175,4 +178,50 @@ test("Finish setup saves a manual, ready plan and toasts the count", async () =>
   expect(doc.meals[0]!.items[0]!.name).toBe("Oats");
   expect(doc.meals[1]!.items).toEqual([]); // an empty meal stays a named slot
   expect(getPlanMeta()?.source).toBe("manual");
+});
+
+/** APP-138 — `?edit=1`: the builder IS the editor, opening on the whole plan. */
+describe("edit mode", () => {
+  const saved = {
+    summary: "Nutri plan",
+    status: "ready" as const,
+    meals: [
+      { name: "Breakfast", time: "08:00", items: [{ name: "Oats", quantity: 60, unit: "g", kcal: 235 }] },
+      { name: "Lunch", time: "12:30", items: [{ name: "Rice", quantity: 100, unit: "g", nutritionPerUnit: { kcal: 1.3 } }] },
+    ],
+  };
+
+  it("opens on review with every meal filled in, and each card reachable", async () => {
+    await savePlan(saved, "pdf");
+    mockParams = { edit: "1" };
+    await render(<BuildPlanScreen />);
+
+    expect(screen.getByText("Your plan, with the numbers filled in")).toBeTruthy(); // straight to review
+    expect(screen.getByTestId("kcal-0-0").props.children).toBe("235"); // stated, solid
+    expect(screen.getByTestId("kcal-1-0").props.children).toBe("~130"); // priced per-unit, marked
+    expect(screen.getByText("60 g")).toBeTruthy();
+
+    // The review's edit link still reaches the meal card it names.
+    await fireEvent.press(screen.getByLabelText("edit Lunch"));
+    expect(screen.getByDisplayValue("Lunch")).toBeTruthy();
+    expect(screen.getByText("2 of 2")).toBeTruthy();
+  });
+
+  it("saves a new version under the plan's own name", async () => {
+    await savePlan(saved, "pdf");
+    mockParams = { edit: "1" };
+    await render(<BuildPlanScreen />);
+    await fireEvent.press(screen.getByText("Finish setup"));
+
+    const doc = getCachedPlan()!;
+    expect(doc.summary).toBe("Nutri plan"); // not the builder's byline
+    expect(doc.meals.map((m) => m.name)).toEqual(["Breakfast", "Lunch"]);
+    expect(doc.meals[1]!.items[0]).toMatchObject({ name: "Rice", quantity: 100, kcal: 130, kcalEstimated: true });
+  });
+
+  it("ignores the flag when there is no plan yet", async () => {
+    mockParams = { edit: "1" };
+    await render(<BuildPlanScreen />);
+    expect(screen.getByText("How many times a day do you eat?")).toBeTruthy();
+  });
 });
