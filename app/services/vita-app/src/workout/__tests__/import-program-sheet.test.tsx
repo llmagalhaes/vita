@@ -7,6 +7,7 @@ import { fireEvent, render, screen } from "@testing-library/react-native";
 import "../../i18n";
 import i18n from "../../i18n";
 import { ImportProgramSheet } from "../ImportProgramSheet";
+import { Programs } from "../../library/sections/Programs";
 import { exerciseMeasure } from "../exerciseLabel";
 import { PopHost } from "../../ui/popHost";
 import { resetDbForTests } from "../../db/db";
@@ -78,19 +79,34 @@ describe("exerciseMeasure", () => {
   });
 });
 
-/** APP-138 — the third route: edit the program you already have. */
-describe("Edit your program", () => {
-  it("is not offered until there is a program", async () => {
-    await open();
-    expect(screen.queryByText(t("build.trainingSheet.edit"))).toBeNull();
+/**
+ * APP-141 (v4.3 §1.2, criterion 4) — the Training programs card owns the two
+ * routes now: the editor, and this sheet. The sheet itself no longer offers an
+ * "edit" row (the builder is a builder again).
+ */
+describe("the Training programs card", () => {
+  const program = { summary: "Mine", days: [{ name: "A", exercises: [{ name: "Squat", sets: 3, reps: 10 }] }] };
+
+  it("offers only the import button until there is a program", async () => {
+    await render(<><Programs /><PopHost /></>);
+    expect(screen.queryByText(t("library.programs.editButton"))).toBeNull();
+    expect(screen.getByText(t("library.programs.import"))).toBeOnTheScreen();
   });
 
-  it("closes the sheet and opens the builder in edit mode", async () => {
-    await saveProgram({ summary: "Mine", days: [{ name: "A", exercises: [{ name: "Squat", sets: 3, reps: 10 }] }] });
+  it("opens the dedicated editor, and the second button still opens this sheet", async () => {
+    await saveProgram(program);
+    await render(<><Programs /><PopHost /></>);
+    await fireEvent.press(screen.getByText(t("library.programs.editButton")));
+    expect(mockPush).toHaveBeenCalledWith("/edit-program");
+
+    await fireEvent.press(screen.getByText(t("library.programs.importButton")));
+    expect(screen.getByText(t("library.programs.importTitle"))).toBeOnTheScreen();
+  });
+
+  it("the sheet no longer carries an edit row", async () => {
+    await saveProgram(program);
     await open();
-    expect(screen.getByText(t("build.trainingSheet.editSub"))).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText(t("build.trainingSheet.edit")));
-    expect(onClose).toHaveBeenCalled();
-    expect(mockPush).toHaveBeenCalledWith("/build-program?edit=1");
+    expect(screen.queryByText("Edit your program")).toBeNull();
+    expect(mockPush).not.toHaveBeenCalledWith("/build-program?edit=1");
   });
 });

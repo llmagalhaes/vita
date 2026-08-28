@@ -3,8 +3,9 @@
  *
  * Recorded grams per macro against the plan's day, each bar `recorded/plan` capped at
  * 100%. It is a comparison, never a target: the footer says "estimates" and no state
- * of the bar is ever good or bad. Tapping opens the Macros **pop** (PopOverlay,
- * session-21 rule) — the existing `MacrosSheet`, which is already that pop.
+ * of the bar is ever good or bad. Tapping opens the Macros **pop** — the existing
+ * `MacrosSheet`, which since R19 is `PopOverlay native`: an OS-presented transparent
+ * modal screen, not a JS entrance.
  */
 import { useState } from "react";
 import { Pressable, View } from "react-native";

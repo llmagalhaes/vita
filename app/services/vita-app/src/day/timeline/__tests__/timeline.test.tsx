@@ -15,7 +15,7 @@ import { resetDbForTests } from "../../../db/db";
 import { getEntry } from "../../../db/entries";
 import { kvSet } from "../../../db/kv";
 import { saveSettings, type Settings } from "../../../db/settings";
-import { PopHost } from "../../../ui";
+import { PopScreenContent } from "../../../ui";
 import { getToast } from "../../../ui/toast";
 import { getDayRecord, recordMeals, setOverlay } from "../../../db/dayRecord";
 import { getExpandedMeal, signalExpandMeal } from "../../../capture/CaptureContext";
@@ -27,7 +27,7 @@ import { itemRows, recordRows } from "../MealNode";
 import { workoutState } from "../WorkoutNode";
 
 jest.mock("expo-router", () => ({
-  useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
+  useRouter: () => ({ replace: jest.fn(), push: jest.fn(), back: jest.fn() }),
   usePathname: () => "/day",
 }));
 
@@ -272,11 +272,13 @@ test("adjusting a recorded meal edits the record — a captured swap is never re
     totals: { kcal: 317, proteinG: 5, carbsG: 66, fatG: 2 },
   };
   recordMeals([twoItems]);
-  // PortionPop rides PopOverlay, which portals to the app-root PopHost.
+  // R19: PortionPop rides `PopOverlay native`, which hands its card to the `/pop`
+  // transparent-modal screen. `router.push` is mocked away here, so the screen's body
+  // is mounted directly — the same trick the PopHost suites use.
   await render(
     <>
       <Timeline />
-      <PopHost />
+      <PopScreenContent />
     </>,
   );
   fireEvent.press(await screen.findByLabelText("Dinner"));

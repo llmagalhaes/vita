@@ -60,7 +60,22 @@ export default function RootLayout() {
             headerShown: false,
             contentStyle: { backgroundColor: colors.bg },
           }}
-        />
+        >
+          {/* R19 (APP-142): the centered pops are OS-presented screens now. Root level
+              on purpose — `PanelShell` renders above `(main)`'s Stack, so a modal
+              declared there would open behind the panels. `transparentModal` keeps the
+              screen below visible (rnscreens `isTranslucent`), `fade` is the platform
+              animation, and the content background MUST be transparent or the screen
+              paints `colors.bg` over the app. */}
+          <Stack.Screen
+            name="pop"
+            options={{
+              presentation: "transparentModal",
+              animation: "fade",
+              contentStyle: { backgroundColor: "transparent" },
+            }}
+          />
+        </Stack>
       </AppBlurTarget>
       {/* Centered pop-ups (PopOverlay) portal here — root level, inside the gesture
           root — so they center on the screen and the slider's Pan still fires. */}

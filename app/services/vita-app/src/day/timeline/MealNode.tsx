@@ -7,8 +7,9 @@
  * confirm — Vita never records something that hasn't happened.
  *
  * Expanded: the option chips ("any of these is on plan"), one row per item (tap →
- * the portion modal, which rides PopOverlay so it centers on the SCREEN, not on the
- * tall Day scroll content) and "Didn't have this meal".
+ * the portion modal — `PopOverlay native`, so since R19 the OS presents it as a
+ * transparent modal SCREEN instead of a JS tween over the tall Day scroll content)
+ * and "Didn't have this meal".
  *
  * Every write goes through the APP-094 model: state changes are `recordMeals`
  * (deterministic entry ids, idempotent), composition tweaks are `setOverlay` — the
@@ -521,7 +522,7 @@ export function MealNode({
         </Animated.View>
       ) : null}
 
-      <PopOverlay visible={sel != null} onClose={closePortion} closeLabel={t("common.cancel")}>
+      <PopOverlay native visible={sel != null} onClose={closePortion} closeLabel={t("common.cancel")}>
         {sel && selRow ? (
           <PortionPop
             item={selRow.lens}

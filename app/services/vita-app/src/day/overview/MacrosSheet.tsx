@@ -34,7 +34,7 @@ export function MacrosSheet({
   ] as const;
 
   return (
-    <PopOverlay visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
+    <PopOverlay native visible={visible} onClose={onClose} closeLabel={t("common.cancel")}>
       <View
         style={{
           backgroundColor: colors.card,

@@ -470,6 +470,8 @@
       "formHint": "time · ~kcal, your estimate",
       "addToPlan": "Add to plan",
       "addedToast": "\"{{name}}\" added to your plan",
+      "editButton": "Edit this plan",
+      "importButton": "Import or build",
       "importError": "Couldn't import that PDF — try again, or type it instead."
     },
     "programs": {
@@ -478,6 +480,8 @@
       "daySubKcal": "{{n}} exercises · ~{{kcal}} kcal (estimate)",
       "none": "No program yet — import one from your gym or trainer, or just describe it.",
       "import": "Import or type a program",
+      "editButton": "Edit these sessions",
+      "importButton": "Import or type",
       "parseError": "That didn't parse — try again or type it instead.",
       "importedToast": "Program imported — {{n}} workouts found",
       "importTitle": "No training program yet",
@@ -813,17 +817,12 @@
       "here": "Build it here",
       "hereSub": "meal by meal — replaces the plan you have now",
       "one": "Add a single meal",
-      "oneSub": "on top of what is already there",
-      "edit": "Edit your plan",
-      "editSub": "change meals, foods or numbers",
-      "editSubLossy": "rebuilds as a simple plan — swaps and options don't carry over"
+      "oneSub": "on top of what is already there"
     },
     "trainingSheet": {
       "pdfSub": "from your gym or trainer",
       "here": "Build it here",
-      "hereSub": "session by session — replaces your current program",
-      "edit": "Edit your program",
-      "editSub": "change days, exercises or numbers"
+      "hereSub": "session by session — replaces your current program"
     },
     "stepOf": "{{n}} of {{total}}",
     "plan": {
@@ -927,6 +926,56 @@
       },
       "saved_one": "{{name}} saved — {{count}} day",
       "saved_other": "{{name}} saved — {{count}} days"
+    }
+  },
+  "edit": {
+    "plan": {
+      "eyebrow": "Your eating plan",
+      "editing": "Editing",
+      "title": "Change what is already there",
+      "sub_one": "{{count}} meal · {{kcal}} kcal a day — nothing is replaced, nothing starts over. Open a meal to rename it, move its time, change portions or drop a food.",
+      "sub_other": "{{count}} meals · {{kcal}} kcal a day — nothing is replaced, nothing starts over. Open a meal to rename it, move its time, change portions or drop a food.",
+      "emptyMeal": "nothing in it yet",
+      "namePlaceholder": "Meal name",
+      "timeLabel": "Meal time",
+      "removeFood": "Remove {{name}}",
+      "addFoodDashed": "+ Add food",
+      "removeMeal": "Remove meal",
+      "foodPlaceholder": "e.g. Greek yogurt",
+      "qtyPlaceholder": "170",
+      "doneAdding": "Done adding",
+      "addFood": "Add food",
+      "formNote": "Calories are worked out from a food database — correct them here any time.",
+      "addMeal": "+ Add a meal",
+      "newMeal": "New meal",
+      "save": "Save the changes",
+      "clean": "Nothing changed yet",
+      "saved_one": "{{count}} meal saved — your plan is updated",
+      "saved_other": "{{count}} meals saved — your plan is updated"
+    },
+    "program": {
+      "eyebrow": "Your training",
+      "editing": "Editing",
+      "title": "Change the sessions you already have",
+      "sub": "Adjust sets, reps and minutes, drop what you stopped doing, add what you picked up. Records you already logged stay as they were.",
+      "sessionSub_one": "{{count}} exercise · tap one to change it",
+      "sessionSub_other": "{{count}} exercises · tap one to change it",
+      "map": {
+        "eyebrow": "What this session touches",
+        "empty": "Empty session — the body has nothing to fill in.",
+        "soft": "Paler tones come from whole-body activities, where the split is a guess."
+      },
+      "sets": "Sets",
+      "reps": "Reps",
+      "minutes": "Minutes",
+      "remove": "Remove from session",
+      "emptySession": "Nothing left in this session. Add something, or leave it empty and it counts as rest.",
+      "add": "+ Add exercise or activity",
+      "save": "Save the changes",
+      "clean": "Nothing changed yet",
+      "note": "Session names and how many sessions you rotate through are set when you build a program.",
+      "saved_one": "{{count}} session saved — your program is updated",
+      "saved_other": "{{count}} sessions saved — your program is updated"
     }
   }
 }

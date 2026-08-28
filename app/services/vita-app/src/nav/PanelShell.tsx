@@ -51,7 +51,7 @@ import { usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { colors, isDarkScene, motion, useAnySheetOpen, useSceneName } from "../ui";
+import { POP_ROUTE, colors, isDarkScene, motion, useAnySheetOpen, useSceneName } from "../ui";
 import { setNavSwiped } from "../db/plan";
 import { DayPanel } from "../day/DayPanel";
 import { LibraryPanel } from "../library/LibraryPanel";
@@ -68,6 +68,10 @@ export function PanelShell() {
   const { width } = useWindowDimensions();
   const active = panelIndex(pathname);
   const onPanel = active >= 0;
+  /** R19 (APP-142): `/pop` is a TRANSPARENT modal screen on the root stack — the panel
+   *  it was opened from is what shows through it, so the shell must keep drawing (it
+   *  already takes no touches off-panel). Without this the pop opens over bare canvas. */
+  const under = pathname === POP_ROUTE;
   const scene = useSceneName();
   // A sheet owns the screen while it is up: no panning underneath it.
   const sheetOpen = useAnySheetOpen();
@@ -233,11 +237,11 @@ export function PanelShell() {
         right: 0,
         bottom: 0,
         backgroundColor: colors.canvas,
-        display: onPanel ? "flex" : "none",
+        display: onPanel || under ? "flex" : "none",
         overflow: "hidden",
       }}
     >
-      {onPanel ? <StatusBar style={dark ? "light" : "dark"} /> : null}
+      {onPanel || under ? <StatusBar style={dark ? "light" : "dark"} /> : null}
       <GestureDetector gesture={pan}>
         <Animated.View style={[{ flexDirection: "row", flex: 1, width: width * PANEL_ROUTES.length }, rowStyle]}>
           {panels}
