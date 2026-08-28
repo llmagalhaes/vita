@@ -1,7 +1,7 @@
 /**
  * APP-140 — the training editor on the route (handoff v4.3 §3, criteria 22–35).
  */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react-native";
 import "../../../i18n";
 import EditProgramScreen from "../../../../app/(main)/edit-program";
 import { PopHost } from "../../../ui/popHost";
@@ -91,6 +91,16 @@ it("maps every exercise of the default plan, name fallback included (criterion 2
   // Walking lunges → Lunges, Standing calf raise → Calf raise.
   expect(screen.getByText("Quads · Glutes · Hamstrings")).toBeOnTheScreen();
   expect(screen.getAllByText("Calves").length).toBeGreaterThan(0); // the row AND the chip
+});
+
+/** Handoff §6.5: the chips read in MGN order (torso down, then legs), never by weight. */
+it("lists the map's chips in MGN order, not MUSCLE_KEYS order (F4)", async () => {
+  await open();
+  const chips = () => within(screen.getByTestId("session-chips")).getAllByText(/.+/).map((n) => n.props.children);
+  expect(chips()).toEqual(["Back", "Core", "Quads", "Hamstrings", "Glutes", "Calves"]);
+
+  await fireEvent.press(screen.getByLabelText("Upper body"));
+  expect(chips()).toEqual(["Chest", "Back", "Shoulders", "Arms", "Traps"]);
 });
 
 it("switches sessions and repaints the map (criterion 25)", async () => {

@@ -8,7 +8,7 @@
 import { ScrollView, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { BodyMap } from "../../muscle/BodyMap";
-import { MUSCLE_KEYS, type MuscleKey } from "../../muscle/muscleData";
+import { type MuscleKey } from "../../muscle/muscleData";
 import { coverage, dominant, mfill } from "../../workout/exerciseCatalog";
 import { FamilyBadge } from "../../build/train/parts";
 import { useFieldVisible } from "../../build/parts";
@@ -16,14 +16,10 @@ import { Chevron, PressScale, Text, colors, fonts, radii, shadowCard, useAccent 
 import type { EpExercise } from "./draft";
 
 /**
- * Handoff §6 "soft destructive ink" — deliberately NOT `colors.danger` (#B0563F,
- * "Delete my data"): dropping a row from a draft nobody has saved yet does not carry
- * that weight. Local rather than a token, so this ticket touches no shared file.
+ * Handoff §6.5 — the map's chip order is `MGN`'s (top-down, then legs), NOT
+ * `MUSCLE_KEYS`, which starts at the quads for the Trends map.
  */
-const REMOVE_INK = "#A05F4A";
-const REMOVE_BORDER = "rgba(150,90,70,0.18)";
-/** Handoff §6 "inert block" — the resting half of the footer. */
-const INERT_BG = "#F0E9DB";
+const CHIP_ORDER = ["ch", "bk", "sh", "ar", "tr", "co", "qu", "ha", "gl", "ca"] as const satisfies readonly MuscleKey[];
 
 /** Uppercase field label — 10/800, the same eyebrow the builders wear, one size down. */
 function FieldLabel({ text }: { text: string }) {
@@ -100,7 +96,7 @@ export function SessionMap({ ex }: { ex: EpExercise[] }) {
   const { t } = useTranslation();
   const accent = useAccent();
   const cov = coverage(ex);
-  const covered = MUSCLE_KEYS.filter((k) => (cov.covS[k] ?? 0) > 0 || (cov.covD[k] ?? 0) > 0);
+  const covered = CHIP_ORDER.filter((k) => (cov.covS[k] ?? 0) > 0 || (cov.covD[k] ?? 0) > 0);
   const anySoft = covered.some((k) => !(cov.covS[k] ?? 0));
   return (
     <View
@@ -135,9 +131,9 @@ export function SessionMap({ ex }: { ex: EpExercise[] }) {
           </Text>
         ) : (
           <>
-            {/* MGN order, not intensity order — sorting by weight would make the
+            {/* `CHIP_ORDER`, not intensity order — sorting by weight would make the
                 chips dance every time an exercise is added or dropped. */}
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
+            <View testID="session-chips" style={{ flexDirection: "row", flexWrap: "wrap", gap: 5 }}>
               {covered.map((k) => {
                 const strong = (cov.covS[k] ?? 0) > 0;
                 return (
@@ -275,10 +271,10 @@ export function ExerciseRow({
               paddingHorizontal: 16,
               justifyContent: "center",
               borderWidth: 1.5,
-              borderColor: REMOVE_BORDER,
+              borderColor: colors.softDestructive.border,
             }}
           >
-            <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={REMOVE_INK}>
+            <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.softDestructive.ink}>
               {t("edit.program.remove")}
             </Text>
           </PressScale>
@@ -295,7 +291,7 @@ export function ExerciseRow({
  */
 export function NothingChanged({ label }: { label: string }) {
   return (
-    <View style={{ height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: INERT_BG }}>
+    <View style={{ height: 52, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.inertBlock }}>
       <Text style={{ fontFamily: fonts.bold, fontSize: 13.5 }} color={colors.faint}>
         {label}
       </Text>

@@ -19,14 +19,6 @@ import { itemKcal, mealKcal, newItem, type EditItem, type EditMeal } from "./dra
 
 const dashed = { borderBottomWidth: 1, borderBottomColor: colors.divider, borderStyle: "dashed" as const };
 
-/**
- * Handoff §6 "ink destrutivo suave" — NOT `colors.danger` (#B0563F, "Delete my
- * data"): dropping a line from a draft nobody has saved yet does not carry that
- * weight. ponytail: local until the training editor needs it too — then it is one
- * token in `ui/tokens.ts`.
- */
-const SOFT_DESTRUCTIVE = "#A05F4A";
-
 const boxed = {
   backgroundColor: colors.input,
   borderWidth: 1,
@@ -77,8 +69,11 @@ function ItemRow({ item, onQty, onRemove }: { item: EditItem; onQty: (q: string)
       <Text style={{ width: 26, fontFamily: fonts.bold, fontSize: 10.5 }} color={colors.faint}>
         {item.u}
       </Text>
+      {/* An ad-lib swap ("a piece of fruit") states no quantity, so there is no
+          per-unit to price it with. The Day prints no number for it either — "0 kcal"
+          would read as a claim (F6). */}
       <Text style={{ width: 38, textAlign: "right", fontFamily: fonts.extraBold, fontSize: 11.5 }} color={colors.muted}>
-        {itemKcal(item)}
+        {item.locked && item.per === 0 ? "—" : itemKcal(item)}
       </Text>
       <Text
         accessibilityRole="button"
@@ -321,9 +316,9 @@ export function MealCard({
               <PressScale
                 accessibilityRole="button"
                 onPress={onRemove}
-                style={{ height: 40, paddingHorizontal: 15, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: "rgba(150,90,70,0.18)" }}
+                style={{ height: 40, paddingHorizontal: 15, borderRadius: 20, alignItems: "center", justifyContent: "center", borderWidth: 1.5, borderColor: colors.softDestructive.border }}
               >
-                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={SOFT_DESTRUCTIVE}>
+                <Text style={{ fontFamily: fonts.bold, fontSize: 12.5 }} color={colors.softDestructive.ink}>
                   {t("edit.plan.removeMeal")}
                 </Text>
               </PressScale>

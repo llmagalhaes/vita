@@ -83,8 +83,12 @@ function NativePop({ visible, onClose, children, closeLabel, scrim = "light", pa
   // Pushed every render, like the PopHost portal, so the card's callbacks stay fresh.
   // Only while OPEN: on close the last card must keep drawing through the OS fade-out,
   // and `PopScreenContent`'s unmount is what clears it.
+  // `!pushed.current` is the closed→open transition: this effect runs BEFORE the push
+  // effect below in the same commit, so on the opening render the flag is still false.
+  // It stamps a new open, which is what keeps a still-fading-out previous screen from
+  // closing this one on ITS unmount (F1).
   useEffect(() => {
-    if (visible) setPopScreen(id, node, closeRef);
+    if (visible) setPopScreen(id, node, closeRef, !pushed.current);
   });
 
   useEffect(() => {

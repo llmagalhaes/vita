@@ -69,6 +69,13 @@ export const colors = {
   // ── Danger ──────────────────────────────────────────────────────────────────
   danger: "#B0563F",
   dangerBorder: "rgba(176,86,63,0.35)",
+  /**
+   * Handoff v4.3 §6 "ink destrutivo suave" — deliberately NOT `danger`: dropping a
+   * row from a draft nobody has saved yet does not carry "Delete my data" weight.
+   */
+  softDestructive: { ink: "#A05F4A", border: "rgba(150,90,70,0.18)" },
+  /** Handoff v4.3 §6 "inert block" — the resting half of an editor's footer. */
+  inertBlock: "#F0E9DB",
 
   // ── Dark surfaces ───────────────────────────────────────────────────────────
   dark: {

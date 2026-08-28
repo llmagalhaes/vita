@@ -9,13 +9,14 @@
  * Nothing is written until "Save the changes": back discards, silently, because
  * nothing was ever touched (§2.1 — a confirm dialog here would cost more than it saves).
  */
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeIn } from "react-native-reanimated";
 import { getCachedPlan, updatePlan } from "../../src/db/plan";
 import { setOverlay } from "../../src/db/dayRecord";
+import { logChanged } from "../../src/db/notify";
 import { dayKey } from "../../src/day/record";
 import { BuilderShell } from "../../src/build/parts";
 import { MealCard } from "../../src/edit/plan/MealCard";
@@ -38,7 +39,7 @@ export default function EditPlanScreen() {
   const [draft, setDraft] = useState<EditMeal[]>(seed.draft);
   const [open, setOpen] = useState<number | null>(null);
   const [form, setForm] = useState(-1); // index of the meal whose "add food" form is open
-  const [saving, setSaving] = useState(false);
+  const saved = useRef(false);
 
   const dirty = projection(draft) !== seed.snap;
   const back = () => (router.canGoBack() ? router.back() : router.replace("/library"));
@@ -63,12 +64,14 @@ export default function EditPlanScreen() {
     setForm(-1);
   };
 
-  const save = async () => {
-    if (!seed.doc || saving) return;
-    setSaving(true);
-    // Cache-first, then PUT — offline the doc stays local and dirty, and the next
-    // sync re-pushes it (db/plan.updatePlan owns that; it never throws).
-    await updatePlan(toSaveDoc(seed.doc, draft));
+  const save = () => {
+    if (!seed.doc || saved.current) return; // double-tap guard — one version per commit
+    saved.current = true;
+    // Cache-first, then PUT: `updatePlan` writes the cache (and prunes the overlay)
+    // SYNCHRONOUSLY before its first await, so the new plan is already the truth by the
+    // time this screen goes away. Awaiting the network here would leave Save hanging on
+    // a slow connection for a write that is already done (db/plan owns the re-push).
+    void updatePlan(toSaveDoc(seed.doc, draft)).then(logChanged);
     // §2.6 `qtyOv:{}` — today's portion tweaks would mask the portions that were
     // just made the plan's own. ONLY the qty half: "didn't have this today", a
     // swap picked for today and the option choice are decisions about the day, keyed
@@ -120,14 +123,13 @@ export default function EditPlanScreen() {
             <PressScale
               accessibilityRole="button"
               scale={0.98}
-              onPress={() => void save()}
+              onPress={save}
               style={{
                 height: hit.buttonLarge,
                 borderRadius: 26,
                 alignItems: "center",
                 justifyContent: "center",
                 backgroundColor: accent,
-                opacity: saving ? 0.6 : 1,
                 ...shadowCta(accent),
               }}
             >
@@ -137,7 +139,7 @@ export default function EditPlanScreen() {
             </PressScale>
           </Animated.View>
         ) : (
-          <View style={{ height: hit.buttonLarge, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.track }}>
+          <View style={{ height: hit.buttonLarge, borderRadius: 26, alignItems: "center", justifyContent: "center", backgroundColor: colors.inertBlock }}>
             <Text style={{ fontFamily: fonts.bold, fontSize: 13.5 }} color={colors.faint}>
               {t("edit.plan.clean")}
             </Text>

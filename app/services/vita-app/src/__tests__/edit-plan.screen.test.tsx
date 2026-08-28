@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react-nativ
 import "../i18n";
 import EditPlanScreen from "../../app/(main)/edit-plan";
 import { api, type EatingPlanDraft } from "../api";
-import { savePlan } from "../db/plan";
+import { getCachedPlan, savePlan } from "../db/plan";
 import { getOverlay, setOverlay } from "../db/dayRecord";
 import { dayKey } from "../day/record";
 import { resetDbForTests } from "../db/db";
@@ -112,6 +112,40 @@ test("a new meal opens with its form up, sorts into place at save, and the toast
   expect(put.mock.calls[0]![0]!.meals.map((m) => m.time)).toEqual(["19:30", "20:00"]); // sorted at save
   expect(await screen.findByText("2 meals saved — your plan is updated")).toBeTruthy();
   put.mockRestore();
+});
+
+/**
+ * F2 — Save writes the cache and leaves; it must never sit on the network. `updatePlan`
+ * does its whole local half before its first await, so a PUT that never answers (a
+ * dead tunnel, airplane mode with a captive portal) cannot hold the screen open.
+ */
+test("Save doesn't wait for the PUT — a hung network still closes the screen", async () => {
+  await savePlan(plan());
+  const put = jest.spyOn(api, "updatePlan").mockImplementation(() => new Promise(() => {})); // never settles
+  await render(<EditPlanScreen />);
+
+  await fireEvent.press(screen.getByText("Pre-workout"));
+  await fireEvent.changeText(screen.getByLabelText("Banana"), "150");
+  await fireEvent.press(screen.getByText("Save the changes"));
+
+  expect(back).toHaveBeenCalled(); // same tick as the press, no await in between
+  expect(getCachedPlan()!.meals[0]!.items[0]!.quantity).toBe(150); // the cache is already the truth
+  expect(getOverlay(dayKey()).qty).toEqual({});
+  put.mockRestore();
+});
+
+/** F6 — an ad-lib swap ("a piece of fruit") states no amount, so it has no per-unit. */
+test("a locked ad-lib swap shows no number instead of 0 kcal", async () => {
+  const doc = plan();
+  doc.meals[0]!.items[0]!.swaps = [{ name: "A piece of fruit" }];
+  doc.meals[0]!.items[0]!.usualSwapIndex = 0;
+  await savePlan(doc);
+  await render(<EditPlanScreen />);
+
+  await fireEvent.press(screen.getByText("Pre-workout"));
+  expect(screen.getByText("A piece of fruit")).toBeTruthy();
+  expect(screen.getByText("—")).toBeTruthy();
+  expect(screen.queryByText("0")).toBeNull();
 });
 
 test("back discards the draft silently — no PUT, nothing written", async () => {

@@ -46,7 +46,7 @@ export type EditMeal = {
   t: string;
   items: EditItem[];
   src: PlanMeal | null;
-  /** This meal's projection when the screen opened — "" for a meal added here. */
+  /** This meal's ITEMS as the screen opened them — "" for a meal added here. */
   snap: string;
 };
 
@@ -67,9 +67,11 @@ const toItem = (it: PlanItem): EditItem => ({
   src: it,
 });
 
+/** What the meal is MADE of — the only thing its stated kcal describes (see `saveMeal`). */
+const projItems = (m: EditMeal): string => JSON.stringify(m.items.map((i) => [i.n, i.q, i.u, i.per]));
+
 /** The comparable shape of one meal — `src` is deliberately absent (PLAN R12). */
-const projMeal = (m: EditMeal): string =>
-  JSON.stringify([m.name, m.t, m.items.map((i) => [i.n, i.q, i.u, i.per])]);
+const projMeal = (m: EditMeal): string => JSON.stringify([m.name, m.t, projItems(m)]);
 
 /** The whole draft's comparable shape: the dirty check's only input. */
 export const projection = (d: EditMeal[]): string => JSON.stringify(d.map(projMeal));
@@ -77,7 +79,7 @@ export const projection = (d: EditMeal[]): string => JSON.stringify(d.map(projMe
 export function fromDoc(doc: EatingPlanDraft): EditMeal[] {
   return doc.meals.map((m) => {
     const draft: EditMeal = { name: m.name, t: m.time ?? "", items: usualItems(m).map(toItem), src: m, snap: "" };
-    draft.snap = projMeal(draft);
+    draft.snap = projItems(draft);
     return draft;
   });
 }
@@ -145,10 +147,13 @@ function saveMeal(m: EditMeal): PlanMeal {
   const src = m.src;
   if (!src) return { name, ...(time ? { time } : null), items };
 
-  // A meal whose composition moved loses its STATED kcal (the PDF's transcription);
-  // the Library then falls back to the computed sum. Untouched → src, byte for byte.
+  // A meal whose COMPOSITION moved loses its STATED kcal (the PDF's transcription);
+  // the Library then falls back to the computed sum. Items only: renaming "Lunch" to
+  // "Almoço" or moving it half an hour does not change what is on the plate, and
+  // stripping the number there would silently downgrade a transcribed meal to an
+  // estimate (F3). Untouched → src, byte for byte.
   const { kcal: _k, ...noKcal } = src;
-  const head = { ...(projMeal(m) === m.snap ? src : noKcal), name, ...(time ? { time } : null) };
+  const head = { ...(projItems(m) === m.snap ? src : noKcal), name, ...(time ? { time } : null) };
   const oi = src.usualOptionIndex;
   return oi != null && src.options?.[oi]
     ? { ...head, options: src.options.map((o, k) => (k === oi ? { ...o, items } : o)) }

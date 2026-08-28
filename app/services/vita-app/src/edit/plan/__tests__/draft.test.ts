@@ -83,6 +83,24 @@ test("a changed portion re-prices the item, drops the amount-derived fields, kee
   expect(toSaveDoc(doc, d).meals[1]).toEqual(doc.meals[1]); // untouched meal, untouched
 });
 
+test("the meal's stated kcal survives a rename and a time move — only composition strips it", () => {
+  const doc = plan();
+  const d = fromDoc(doc);
+  d[0]!.name = "Café da manhã";
+  d[0]!.t = "07:10";
+  const renamed = toSaveDoc(doc, d).meals[0]!;
+  // The plate did not move, so the PDF's transcribed 109 is still true (F3).
+  expect(renamed.kcal).toBe(109);
+  expect(renamed.name).toBe("Café da manhã");
+  expect(renamed.time).toBe("07:10");
+  expect(renamed.items[0]).toBe(doc.meals[0]!.items[0]);
+
+  // The other direction: same name, same time, one portion moved → the number goes.
+  const e = fromDoc(doc);
+  e[0]!.items[1]!.q = "12";
+  expect(toSaveDoc(doc, e).meals[0]!.kcal).toBeUndefined();
+});
+
 test("an edited option item is written back INTO its option", () => {
   const doc = plan();
   const d = fromDoc(doc);

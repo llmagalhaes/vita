@@ -29,10 +29,11 @@ import { type MutableRefObject, type ReactNode, useEffect, useSyncExternalStore 
  *  `PanelShell` keeps the panels drawn under it. */
 export const POP_ROUTE = "/pop";
 
-type Entry = { id: string; node: ReactNode; close: MutableRefObject<() => void> };
+type Entry = { id: string; node: ReactNode; close: MutableRefObject<() => void>; seq: number };
 
 let current: Entry | null = null;
-let mounted = false; // the /pop screen is actually on the stack
+let mounted = 0; // how many /pop screens are on the stack — see `fresh` below
+let seq = 0;
 const listeners = new Set<() => void>();
 const emit = () => listeners.forEach((l) => l());
 
@@ -40,13 +41,20 @@ const emit = () => listeners.forEach((l) => l());
  * Push this owner's pop content (or clear it, with `node == null`). The entry is NOT
  * cleared when the pop closes — the screen has to keep drawing the card through the
  * OS fade-out; `PopScreenContent`'s unmount is what clears it.
+ *
+ * `fresh` = this is a closed→open transition (the owner is about to push `/pop`), and
+ * it stamps a new `seq`. React Navigation keeps a POPPED screen mounted until its
+ * dismissal animation ends, so reopening inside that window puts two `/pop` screens
+ * on the stack at once; without the stamp the OLD screen's unmount would close the
+ * NEW pop and strand an empty route (R19 review F1). Same-id reopens count — the id
+ * is the owner's, not the open's.
  */
-export function setPopScreen(id: string, node: ReactNode, close: MutableRefObject<() => void>): void {
+export function setPopScreen(id: string, node: ReactNode, close: MutableRefObject<() => void>, fresh = false): void {
   if (node == null) {
     if (current?.id !== id) return; // not ours to clear — no re-render either
     current = null;
   } else {
-    current = { id, node, close };
+    current = { id, node, close, seq: fresh || current == null ? ++seq : current.seq };
   }
   emit();
 }
@@ -54,7 +62,7 @@ export function setPopScreen(id: string, node: ReactNode, close: MutableRefObjec
 /** True while `/pop` is on the stack — the owner must not `router.back()` otherwise
  *  (a screen dismissed from the inside is already gone, and popping again would take
  *  the panel underneath with it). */
-export const isPopScreenOpen = (): boolean => mounted;
+export const isPopScreenOpen = (): boolean => mounted > 0;
 
 const subscribe = (cb: () => void) => {
   listeners.add(cb);
@@ -69,9 +77,14 @@ const getSnapshot = () => current;
 export function PopScreenContent() {
   const entry = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
   useEffect(() => {
-    mounted = true;
+    mounted += 1;
+    const opened = current?.seq; // the open this screen was pushed for
     return () => {
-      mounted = false;
+      mounted -= 1;
+      // A pop reopened while this screen was still fading out owns the store now: its
+      // screen is already up, and closing ITS owner here would blank a live pop and
+      // leave the empty route behind (F1).
+      if (current?.seq !== opened) return;
       // Every way out ends here — backdrop press, Android hardware back, iOS swipe —
       // so the owner's `visible` always follows the screen. Cleared BEFORE the call so
       // the owner's own close path can't try to pop an already-gone screen.
