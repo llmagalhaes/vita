@@ -130,6 +130,30 @@ export function dominant(mus: ExWeights | undefined, n = 3): MuscleKey[] {
     .map(([k]) => k);
 }
 
+/** Lowercased words of a name — the only tokenisation `lookup` knows. */
+const words = (s: string): string[] => s.toLowerCase().split(/[^a-z]+/).filter(Boolean);
+
+/**
+ * APP-140 (handoff v4.3 §3.2 `exLook`) — a SAVED exercise name → the catalog.
+ *
+ * A plan says "Standing calf raise"; the catalog says "Calf raise". Two passes:
+ * exact name, then every catalog word present in the name, longest catalog name
+ * first — so "Front squat com pausa" resolves to `Front squat`, not `Squat`.
+ * No match returns no muscles: an unknown name paints nothing and reads "not
+ * mapped". Guessing a split for a name the app does not know would be inventing data.
+ */
+export function lookup(name: string): { mus: ExWeights; soft: boolean; fam: Family } {
+  const l = String(name).toLowerCase();
+  const tw = words(l);
+  const hit =
+    EXCAT.find((e) => e.name.toLowerCase() === l) ??
+    EXCAT.filter((e) => {
+      const ct = words(e.name);
+      return ct.length > 0 && ct.every((t) => tw.includes(t));
+    }).sort((a, b) => b.name.length - a.name.length)[0];
+  return hit ? { mus: hit.mus, soft: hit.whole, fam: hit.fam } : { mus: {}, soft: true, fam: "set" };
+}
+
 /** Catalog rows for the pick sheet: the family is the first cut, then the query. */
 export function search(query: string, fam: Family): CatalogEntry[] {
   const q = query.trim().toLowerCase();
