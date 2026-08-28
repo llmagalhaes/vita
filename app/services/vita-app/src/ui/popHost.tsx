@@ -8,7 +8,7 @@
  * GestureHandlerRootView — so the card centers on the screen and the slider's Pan
  * still fires (same gesture root, no separate window). Mirrors the toast store.
  */
-import { type ReactNode, useEffect, useId, useSyncExternalStore } from "react";
+import { Fragment, type ReactNode, useEffect, useId, useSyncExternalStore } from "react";
 
 const nodes = new Map<string, ReactNode>();
 const listeners = new Set<() => void>();
@@ -36,10 +36,11 @@ export function usePortal(node: ReactNode): null {
 }
 
 // A new array only when the set of nodes changes, so useSyncExternalStore is stable.
-let snapshot: ReactNode[] = [];
-function getSnapshot(): ReactNode[] {
-  const next = Array.from(nodes.values());
-  const same = next.length === snapshot.length && next.every((n, i) => n === snapshot[i]);
+// `[id, node]`, not bare nodes: the id is the React KEY below (R18-B).
+let snapshot: [string, ReactNode][] = [];
+function getSnapshot(): [string, ReactNode][] {
+  const next = Array.from(nodes.entries());
+  const same = next.length === snapshot.length && next.every(([id, n], i) => snapshot[i]?.[0] === id && snapshot[i]?.[1] === n);
   if (!same) snapshot = next;
   return snapshot;
 }
@@ -54,5 +55,11 @@ export function PopHost() {
     getSnapshot,
     getSnapshot,
   );
-  return <>{list}</>;
+  // Keyed by the portal id, never by array position. The Map reorders whenever a
+  // portal closes (a `null` node DELETES its key; reopening APPENDS it), so an
+  // unkeyed array made React reconcile portal N against portal N-1's fiber — same
+  // element type, different content: the surviving sheet's subtree gets torn down
+  // and rebuilt, dropping the focused TextInput (keyboard falls) and replaying the
+  // entrance animation ("a card out of nowhere"). Stable keys, no reconciliation.
+  return <>{list.map(([id, node]) => <Fragment key={id}>{node}</Fragment>)}</>;
 }

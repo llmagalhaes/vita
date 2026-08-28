@@ -30,15 +30,24 @@ const ShellScroll = createContext<{ view: RefObject<ScrollView | null>; offset: 
 export function useFieldVisible() {
   const ctx = useContext(ShellScroll);
   const ref = useRef<TextInput>(null);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (timer.current && clearTimeout(timer.current)), []);
   const onFocus = useCallback(() => {
     // ponytail: one timeout instead of a keyboard subscription per field — focus
     // fires BEFORE the keyboard frame exists, and 320ms is past both platforms'
     // show animation. Raise it if a slow device ever measures too early.
-    setTimeout(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
       const view = ctx?.view.current;
       const node = ref.current;
       const keyboardTop = Keyboard.metrics?.()?.screenY;
-      if (!view || !keyboardTop || typeof node?.measureInWindow !== "function") return;
+      // R18-B: 320ms is long enough for the field to have LOST focus — a sheet
+      // opened over the builder (`keyboardShouldPersistTaps="handled"` keeps the
+      // keyboard up when the "+ Add" row is pressed), or another field took over.
+      // Scrolling then jerks a screen the person is no longer looking at, behind
+      // whatever is now on top of it (the CEO's "um card do nada").
+      if (!view || !keyboardTop || node?.isFocused?.() === false) return;
+      if (typeof node?.measureInWindow !== "function") return;
       node.measureInWindow((_x, y, _w, h) => {
         const hidden = y + h + 16 - keyboardTop; // 16 = breathing room under the field
         if (hidden > 0) view.scrollTo({ y: (ctx?.offset.current ?? 0) + hidden, animated: true });

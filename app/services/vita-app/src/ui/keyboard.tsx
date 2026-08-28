@@ -59,10 +59,19 @@ export function useKeyboardHeight(): SharedValue<number> {
  * The same height as plain React state — for LAYOUT that has to shrink when the
  * keyboard is up (a lifted sheet's inner list, APP-132), where the animated
  * SharedValue above cannot be read. Same events, one re-render per open/close.
+ *
+ * `enabled` matters more than it looks: sheets stay MOUNTED while closed (so they
+ * can play their close slide), and an ungated subscription re-renders every one of
+ * them on every keyboard event anywhere in the app — each re-render pushing a fresh
+ * node through the portal host mid-typing (R18-B).
  */
-export function useKeyboardHeightState(): number {
+export function useKeyboardHeightState(enabled = true): number {
   const [height, setHeight] = useState(0);
   useEffect(() => {
+    if (!enabled) {
+      setHeight(0);
+      return;
+    }
     const ios = Platform.OS === "ios";
     const show = Keyboard.addListener(ios ? "keyboardWillShow" : "keyboardDidShow", (e) =>
       setHeight(e.endCoordinates.height),
@@ -72,7 +81,7 @@ export function useKeyboardHeightState(): number {
       show.remove();
       hide.remove();
     };
-  }, []);
+  }, [enabled]);
   return height;
 }
 
