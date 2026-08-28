@@ -89,9 +89,31 @@ export const DAY_CLOSE_ACTION = { close: "close-as-planned", adjust: "adjust" } 
  * APP-136 — the habit check-in category: Yes / No answered from the shade, without
  * opening the app. No `:` or `-` in the identifier (expo-notifications' own docs warn
  * those break category lookup).
+ *
+ * R18-C — the identifier is **versioned**. Android persists a registered category in
+ * `SharedPreferencesNotificationCategoriesStore` (base64 Java serialization) and the
+ * action's PendingIntent is built from THAT store at present time
+ * (`ExpoNotificationBuilder.addActionsToBuilder`), not from the scheduling call. A
+ * category written once with `opensAppToForeground: true` therefore keeps opening the
+ * app on that device until something overwrites it — and SharedPreferences survive app
+ * updates. A new identifier is a guaranteed-fresh write; the stale `vitahabitcheckin`
+ * entry is simply never looked up again.
  */
-export const HABIT_CATEGORY = "vitahabitcheckin";
+export const HABIT_CATEGORY = "vitacheckin2";
 export const HABIT_ACTION = { yes: "habityes", no: "habitno" } as const;
+
+/**
+ * The two shade buttons. Extracted because `options.opensAppToForeground: false` is the
+ * ENTIRE feature and a mis-shaped options object fails silently: Android's
+ * `NotificationActionRecord.Options` defaults the field to `true`
+ * (`ExpoNotificationCategoriesModule.kt:49-52`), and `true` is what routes the press
+ * through `NotificationForwarderActivity` → `openAppToForeground`
+ * (`NotificationsService.kt:478`, `ExpoHandlingDelegate.kt:140`). Unit-tested shape.
+ */
+export const habitCategoryActions = (a: { yes: string; no: string }) => [
+  { identifier: HABIT_ACTION.yes, buttonTitle: a.yes, options: { opensAppToForeground: false } },
+  { identifier: HABIT_ACTION.no, buttonTitle: a.no, options: { opensAppToForeground: false } },
+];
 
 /**
  * Stable id per habit + weekday. Scheduling the same id again REPLACES the alarm
@@ -124,6 +146,12 @@ export function plannedNotifications(habits: Habit[], body: (h: Habit) => string
   return out;
 }
 
+/** True when the OS stored a button that still opens the app (see the call site). */
+export function storedOpensApp(category: unknown): boolean {
+  const actions = (category as { actions?: { options?: { opensAppToForeground?: boolean } }[] } | null)?.actions;
+  return Array.isArray(actions) && actions.some((a) => a?.options?.opensAppToForeground !== false);
+}
+
 const toStatus = (s: string): PermissionStatus =>
   s === "granted" ? "granted" : s === "denied" ? "denied" : "undetermined";
 
@@ -153,11 +181,20 @@ function createExpoNotifier(): Notifier {
       const planned = plannedNotifications(habits, habitBody);
       if (planned.length) {
         try {
-          const a = habitActions();
-          await Notifications.setNotificationCategoryAsync(HABIT_CATEGORY, [
-            { identifier: HABIT_ACTION.yes, buttonTitle: a.yes, options: { opensAppToForeground: false } },
-            { identifier: HABIT_ACTION.no, buttonTitle: a.no, options: { opensAppToForeground: false } },
-          ]);
+          // Re-registered on EVERY sync (so every boot): the store is the only thing the
+          // buttons are built from, so a shape fix only reaches a device by being written
+          // again there.
+          const stored = await Notifications.setNotificationCategoryAsync(
+            HABIT_CATEGORY,
+            habitCategoryActions(habitActions()),
+          );
+          // Device truth instead of a guess: Android serializes the STORED flag straight
+          // back out of the store (`ExpoNotificationsCategoriesSerializer.toBundle`). If
+          // this ever logs, the OS kept `opensAppToForeground: true` and answering from
+          // the shade WILL foreground the app — one `adb logcat -s ReactNativeJS` away.
+          if (storedOpensApp(stored)) {
+            console.warn(`[notify] ${HABIT_CATEGORY} stored opensAppToForeground=true — shade answers will open the app`);
+          }
         } catch {
           // ponytail: no categories here → no buttons, and a plain tap still opens the app.
         }

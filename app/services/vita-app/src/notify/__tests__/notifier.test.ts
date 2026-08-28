@@ -4,10 +4,14 @@ import { createHabit, type Habit, type HabitInput } from "../../db/habits";
 import { habitBody } from "../dayClose";
 import {
   ensureNotificationPermission,
+  habitCategoryActions,
   habitNotifId,
+  HABIT_ACTION,
+  HABIT_CATEGORY,
   plannedNotifications,
   refreshNotifications,
   setNotifier,
+  storedOpensApp,
   stubNotifier,
   type Notifier,
 } from "../notifier";
@@ -87,6 +91,21 @@ test("two concurrent refreshNotifications leave ONE alarm per habit+weekday", as
 
   await Promise.all([refreshNotifications(), refreshNotifications(), refreshNotifications()]);
   expect(os.size).toBe(2); // Sunday + Monday, once each — not six
+});
+
+// ── R18-C: the CEO's "answering from the shade opens the app" ─────────────────────
+test("every check-in button is registered with opensAppToForeground:false", () => {
+  // Android defaults this option to TRUE and a mis-shaped `options` object fails
+  // silently — true is exactly what routes the press through the forwarder Activity.
+  const actions = habitCategoryActions({ yes: "Done", no: "Not today" });
+  expect(actions.map((a) => a.identifier)).toEqual([HABIT_ACTION.yes, HABIT_ACTION.no]);
+  for (const a of actions) expect(a.options.opensAppToForeground).toBe(false);
+  // expo-notifications' own docs: `:` and `-` break category lookup.
+  for (const id of [HABIT_CATEGORY, ...actions.map((a) => a.identifier)]) expect(id).toMatch(/^[a-z0-9]+$/);
+  // …and the read-back guard that reports a device where the OS kept `true`.
+  expect(storedOpensApp({ actions })).toBe(false);
+  expect(storedOpensApp({ actions: [{ options: { opensAppToForeground: true } }] })).toBe(true);
+  expect(storedOpensApp({ actions: [{}] })).toBe(true); // missing = the native default
 });
 
 test("ensureNotificationPermission only prompts when undetermined", async () => {
