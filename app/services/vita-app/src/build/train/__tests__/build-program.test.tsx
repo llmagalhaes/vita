@@ -272,54 +272,10 @@ describe("criterion 23", () => {
   });
 });
 
-/** APP-138 — `?edit=1`: the builder IS the editor. */
-describe("edit mode", () => {
-  const saved = {
-    summary: "Gym + Muay thai",
-    days: [
-      { name: "Legs", exercises: [{ name: "Squat", sets: 4, reps: 8, muscleRoles: [{ name: "quads" as const, role: "primary" as const }] }], kcalEstimate: 420 },
-      { name: "Ring", exercises: [{ name: "Muay thai", durationMin: 45, wholeBody: true }] },
-    ],
-  };
-
-  it("opens on the first day, prefilled, with the shape one Back away", async () => {
-    await saveProgram(saved);
-    mockParams = { edit: "1" };
-    await renderScreen();
-
-    expect(screen.getByText("1 of 2")).toBeOnTheScreen(); // straight past the shape
-    expect(screen.getByLabelText("Legs")).toBeOnTheScreen();
-    expect(screen.getByText("Squat")).toBeOnTheScreen();
-    expect(screen.getByText("4 × 8")).toBeOnTheScreen();
-    expect(screen.getByLabelText("Calories for this session").props.value).toBe("420");
-
-    await fireEvent.press(screen.getByLabelText("Back"));
-    expect(screen.getByDisplayValue("Gym + Muay thai")).toBeOnTheScreen(); // the shape, named
-  });
-
-  it("saves a new version carrying the untouched days through", async () => {
-    await saveProgram(saved);
-    mockParams = { edit: "1" };
-    await renderScreen();
-
-    await fireEvent.press(screen.getByLabelText("Remove Squat"));
-    await addExercise("Deadlift");
-    await fireEvent.press(screen.getByText("Next day"));
-    await fireEvent.press(screen.getByText("Finish setup"));
-
-    const doc = getCachedProgram()!;
-    expect(doc.summary).toBe("Gym + Muay thai");
-    expect(doc.days[0]!.name).toBe("Legs");
-    expect(doc.days[0]!.exercises[0]!.name).toBe("Deadlift");
-    expect(doc.days[0]!.kcalEstimate).toBe(420);
-    // Day B rode through untouched — and its catalog name gave its muscles back.
-    expect(doc.days[1]!.name).toBe("Ring");
-    expect(doc.days[1]!.exercises[0]).toMatchObject({ name: "Muay thai", durationMin: 45, wholeBody: true });
-  });
-
-  it("ignores the flag when there is nothing saved yet", async () => {
-    mockParams = { edit: "1" };
-    await renderScreen();
-    expect(screen.getByText("Fill in Day A")).toBeOnTheScreen();
-  });
+/** APP-141 — a builder again: `?edit=1` is gone (editing lives at `/edit-program`). */
+test("a saved program and a stale ?edit=1 still open the empty shape phase", async () => {
+  await saveProgram({ summary: "Gym + Muay thai", days: [{ name: "Legs", exercises: [{ name: "Squat", sets: 4, reps: 8 }] }] });
+  mockParams = { edit: "1" };
+  await renderScreen();
+  expect(screen.getByText("Fill in Day A")).toBeOnTheScreen();
 });

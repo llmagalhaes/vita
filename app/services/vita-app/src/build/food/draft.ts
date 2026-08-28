@@ -7,9 +7,8 @@
  * edit, no ids. Ids arrive from the server at save (`savePlan` adopts the POST
  * echo), which is exactly why the builder must not invent any.
  */
-import type { EatingPlanDraft, PlanItem } from "../../api/client";
+import type { EatingPlanDraft } from "../../api/client";
 import type { EstimateItem } from "../../plan/estimateKcal";
-import { effectiveName, effectivePerUnit, effectiveSwap, usualItems } from "../../plan/compute";
 import { numOf, skel } from "../parts";
 
 export type BuildItem = {
@@ -139,54 +138,3 @@ export function toDraft(meals: BuildMeal[], summary: string): EatingPlanDraft {
     })),
   };
 }
-
-// ---- the other direction: an existing plan back into the builder (APP-138) ----
-
-/**
- * True when the plan carries structure the BUILDER cannot hold — meal options or
- * item swap lists (anything parsed out of a nutritionist PDF). The sheet says so
- * before opening the builder: rebuilding such a plan by hand keeps the food and
- * the numbers, and drops the alternatives.
- */
-export const hasSwapsOrOptions = (doc: EatingPlanDraft): boolean =>
-  doc.meals.some((m) => (m.options?.length ?? 0) > 0 || m.items.some((it) => (it.swaps?.length ?? 0) > 0));
-
-/**
- * One plan item → the builder's `{ n, q, u, k, est }`, through the SAME effective
- * lens every plan surface reads (a chosen usual swap IS the food you eat, so it
- * arrives under its own name and quantity).
- *
- * kcal: the item's own total when it has one; otherwise priced from
- * `nutritionPerUnit × quantity` and MARKED an estimate — a number derived here is
- * exactly that. Nothing to price (no per-unit, or no stated quantity) stays empty
- * rather than becoming a zero, and the review screen offers to fill it in.
- */
-const itemToBuild = (it: PlanItem): BuildItem => {
-  const sw = effectiveSwap(it);
-  const q = (sw ? sw.quantity : it.quantity) ?? 0;
-  // The item's own total counts only while the item is itself: under a usual swap
-  // the number is the equivalence estimate, in the SWAP's space (session-19's bug
-  // class — a swapped item's per-unit space is not the original's).
-  const own = !sw && it.kcal != null;
-  const per = effectivePerUnit(it)?.kcal;
-  const k = own ? Math.round(it.kcal!) : per != null && q > 0 ? Math.round(per * q) : null;
-  return {
-    n: effectiveName(it),
-    q,
-    u: (sw ? sw.unit : it.unit) ?? "",
-    k,
-    est: own ? it.kcalEstimated === true : k != null,
-  };
-};
-
-/**
- * Saved plan → builder draft. The deliberate, documented losses (the builder has
- * no field for any of them, and `toDraft` would drop them at save anyway):
- *   · meal options — the USUAL composition is the one that comes back
- *   · item swap lists — the chosen usual is folded in as the item itself
- *   · per-item macros beyond kcal, micros, portion bounds, grams
- *   · plan-level note, hydration, supplements, daily macro totals besides kcal
- *   · server ids (a POST assigns fresh ones; the old version stays in history)
- */
-export const fromPlanDoc = (doc: EatingPlanDraft): BuildMeal[] =>
-  doc.meals.map((m) => ({ n: m.name, t: m.time ?? "", items: usualItems(m).map(itemToBuild) }));

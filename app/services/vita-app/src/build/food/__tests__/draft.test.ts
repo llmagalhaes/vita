@@ -4,8 +4,6 @@
  */
 import {
   anyK,
-  fromPlanDoc,
-  hasSwapsOrOptions,
   dayTotal,
   emptySlots,
   mealsFromSkel,
@@ -186,85 +184,5 @@ describe("toDraft", () => {
 
   it("a plan with no food at all carries no daily total", () => {
     expect(toDraft(mealsFromSkel(3), "s").dailyTotals).toBeUndefined();
-  });
-});
-
-/**
- * APP-138 — the way back in: a saved plan becomes the same draft a fresh build
- * types out. What the builder cannot hold is dropped here, deterministically.
- */
-describe("fromPlanDoc", () => {
-  it("round-trips a plan the builder itself made", () => {
-    const doc = toDraft(merge(sample(), [235, 195]), "My plan");
-    expect(toDraft(fromPlanDoc(doc), "My plan")).toEqual(doc);
-  });
-
-  it("keeps a stated total verbatim and prices a per-unit item as an estimate", () => {
-    const meals = fromPlanDoc({
-      summary: "s",
-      meals: [
-        {
-          name: "Breakfast",
-          time: "08:00",
-          items: [
-            { id: "it-1", name: "Oats", quantity: 60, unit: "g", kcal: 235, kcalEstimated: true },
-            { id: "it-2", name: "Egg", quantity: 2, unit: "unit", kcal: 160 },
-            { id: "it-3", name: "Rice", quantity: 100, unit: "g", nutritionPerUnit: { kcal: 1.3, proteinG: 0.03 } },
-            { id: "it-4", name: "Salad", unit: "à vontade" },
-          ],
-        },
-      ],
-    });
-    expect(meals).toEqual([
-      {
-        n: "Breakfast",
-        t: "08:00",
-        items: [
-          { n: "Oats", q: 60, u: "g", k: 235, est: true },
-          { n: "Egg", q: 2, u: "unit", k: 160, est: false },
-          // 1.3 × 100 — derived here, so it wears the mark
-          { n: "Rice", q: 100, u: "g", k: 130, est: true },
-          // nothing to price and no quantity: empty, never a zero
-          { n: "Salad", q: 0, u: "à vontade", k: null, est: false },
-        ],
-      },
-    ]);
-  });
-
-  it("drops what the builder cannot hold: the usual option/swap wins, the rest goes", () => {
-    const doc = {
-      summary: "Nutri",
-      note: "up to 2 meals a week off-plan",
-      hydration: { mlPerDay: 2500 },
-      meals: [
-        {
-          name: "Lunch",
-          items: [{ name: "Rice", quantity: 100, unit: "g", kcal: 130, swaps: [{ name: "Pasta", quantity: 80, unit: "g" }], usualSwapIndex: 0 }],
-          options: [{ name: "Brunch", items: [{ name: "Toast", quantity: 2, unit: "slice", kcal: 180 }] }],
-          usualOptionIndex: 0,
-        },
-      ],
-    };
-    expect(hasSwapsOrOptions(doc)).toBe(true);
-    // The usual composition is the option — that is what this person actually eats.
-    expect(fromPlanDoc(doc)).toEqual([{ n: "Lunch", t: "", items: [{ n: "Toast", q: 2, u: "slice", k: 180, est: false }] }]);
-
-    // Without the option pick, the item's usual SWAP is folded in as the item.
-    const noOption = { ...doc, meals: [{ ...doc.meals[0]!, options: undefined, usualOptionIndex: undefined }] };
-    // Contract equivalence: 80 g of pasta stands in for the whole 130 kcal item —
-    // derived, so it comes back marked an estimate.
-    expect(fromPlanDoc(noOption)[0]!.items).toEqual([{ n: "Pasta", q: 80, u: "g", k: 130, est: true }]);
-
-    // Saving it back keeps the food and the numbers, and nothing else.
-    expect(toDraft(fromPlanDoc(doc), doc.summary)).toEqual({
-      summary: "Nutri",
-      status: "ready",
-      dailyTotals: { kcal: 180 },
-      meals: [{ name: "Lunch", kcal: 180, items: [{ name: "Toast", quantity: 2, unit: "slice", kcal: 180 }] }],
-    });
-  });
-
-  it("says nothing is lost for a plain plan", () => {
-    expect(hasSwapsOrOptions(toDraft(sample(), "s"))).toBe(false);
   });
 });

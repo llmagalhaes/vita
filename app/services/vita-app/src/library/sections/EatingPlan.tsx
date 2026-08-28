@@ -19,7 +19,6 @@ import { getCachedPlan, getPlanMeta, savePlan, updatePlan } from "../../db/plan"
 import { useLogVersion } from "../../db/notify";
 import { kcalLabel, mealUsualTotals, planDailyTotals } from "../../plan/compute";
 import { importPdf } from "../../onboarding/planImport";
-import { hasSwapsOrOptions } from "../../build/food/draft";
 import { FormInput, IconWell, PillButton, SectionLabel } from "../parts";
 import { EatingPlanSheet } from "../EatingPlanSheet";
 
@@ -177,14 +176,36 @@ export function EatingPlan() {
           </Animated.View>
         ) : null}
 
-        {/* v4.2 §1.1: one button, three routes behind it — not three loose buttons. */}
-        <PillButton
-          label={busy ? t("common.importing") : t("build.eatingSheet.cardButton")}
-          onPress={() => setSheetOpen(true)}
-          tone="tinted"
-          accent={accent}
-          disabled={busy}
-        />
+        {/* v4.3 §1.1: editing is the common act (primary, 1.25), importing the rare
+            destructive one (outline). No plan → nothing to edit, so the v4.2 single
+            button stands. Either way import opens the same sheet, unchanged. */}
+        {doc ? (
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <PillButton
+              label={t("library.plan.editButton")}
+              onPress={() => router.push("/edit-plan")}
+              tone="tinted"
+              accent={accent}
+              flex={1.25}
+              fontSize={13.5}
+            />
+            <PillButton
+              label={busy ? t("common.importing") : t("library.plan.importButton")}
+              onPress={() => setSheetOpen(true)}
+              flex={1}
+              fontSize={12.5}
+              disabled={busy}
+            />
+          </View>
+        ) : (
+          <PillButton
+            label={busy ? t("common.importing") : t("build.eatingSheet.cardButton")}
+            onPress={() => setSheetOpen(true)}
+            tone="tinted"
+            accent={accent}
+            disabled={busy}
+          />
+        )}
       </View>
 
       <EatingPlanSheet
@@ -202,17 +223,6 @@ export function EatingPlan() {
           setSheetOpen(false);
           openForm();
         }}
-        // APP-138: nothing to edit until there is a plan — no row rather than a
-        // row that opens an empty builder.
-        onEdit={
-          doc
-            ? () => {
-                setSheetOpen(false);
-                router.push("/build-plan?edit=1");
-              }
-            : undefined
-        }
-        editLossy={!!doc && hasSwapsOrOptions(doc)}
       />
     </>
   );

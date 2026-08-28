@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
 import Svg, { Path } from "react-native-svg";
 import { Text, colors, fonts, radii, shadowCard, useAccent } from "../../ui";
 import { getCachedProgram } from "../../db/plan";
@@ -29,6 +30,7 @@ const BarbellGlyph = ({ accent }: { accent: string }) => (
 
 export function Programs() {
   const { t } = useTranslation();
+  const router = useRouter();
   const accent = useAccent();
   const version = useLogVersion();
   void version;
@@ -68,7 +70,23 @@ export function Programs() {
         ) : (
           <Text style={{ fontSize: 12.5, lineHeight: 19 }} color={colors.muted}>{t("library.programs.none")}</Text>
         )}
-        <PillButton label={t("library.programs.import")} onPress={() => setImporting(true)} tone="tinted" accent={accent} height={44} />
+        {/* v4.3 §1.2: "sessions", plural and concrete — the editor enters a session,
+            not an abstract program. No program → nothing to edit, single button. */}
+        {program?.days.length ? (
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            <PillButton
+              label={t("library.programs.editButton")}
+              onPress={() => router.push("/edit-program")}
+              tone="tinted"
+              accent={accent}
+              flex={1.25}
+              fontSize={13.5}
+            />
+            <PillButton label={t("library.programs.importButton")} onPress={() => setImporting(true)} flex={1} fontSize={12.5} />
+          </View>
+        ) : (
+          <PillButton label={t("library.programs.import")} onPress={() => setImporting(true)} tone="tinted" accent={accent} height={44} />
+        )}
       </View>
       {importing ? <ImportProgramSheet onClose={() => setImporting(false)} /> : null}
     </>

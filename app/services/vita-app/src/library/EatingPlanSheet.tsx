@@ -29,21 +29,6 @@ export const DownloadGlyph = () => (
   </Svg>
 );
 
-/** A pencil at rest — "change what is already there" (APP-138). Same hairline
- *  language as the download arrow, so the rows read as one family. */
-export const PencilGlyph = () => (
-  <Svg width={17} height={17}>
-    <Path
-      d="M4.1 12.9 L3.6 14.4 L5.1 13.9 L13.3 5.7 L11.4 3.8 Z M10.6 4.6 L12.5 6.5"
-      fill="none"
-      stroke={colors.inkMuted}
-      strokeWidth={1.7}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </Svg>
-);
-
 /** A glyph that is just two characters ("Aa", "+") — no icon file for a letterform. */
 export const GlyphText = ({ ink, children }: { ink: string; children: string }) => (
   <Text style={{ fontFamily: fonts.extraBold, fontSize: 15 }} color={ink}>
@@ -102,18 +87,12 @@ export function EatingPlanSheet({
   onPdf,
   onBuild,
   onAddMeal,
-  onEdit,
-  editLossy = false,
 }: {
   visible: boolean;
   onClose: () => void;
   onPdf: () => void;
   onBuild: () => void;
   onAddMeal: () => void;
-  /** APP-138 — absent when there is no plan to edit; the row simply isn't there. */
-  onEdit?: () => void;
-  /** The plan carries options/swaps: editing it by hand rebuilds it without them. */
-  editLossy?: boolean;
 }) {
   const { t } = useTranslation();
   const accent = useAccent();
@@ -143,15 +122,6 @@ export function EatingPlanSheet({
         sub={t("build.eatingSheet.oneSub")}
         onPress={onAddMeal}
       />
-      {onEdit ? (
-        <SheetRow
-          bg={colors.well}
-          glyph={<PencilGlyph />}
-          title={t("build.eatingSheet.edit")}
-          sub={t(editLossy ? "build.eatingSheet.editSubLossy" : "build.eatingSheet.editSub")}
-          onPress={onEdit}
-        />
-      ) : null}
     </SheetOverlay>
   );
 }

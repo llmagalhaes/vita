@@ -82,29 +82,34 @@ test("Add a single meal closes the sheet and opens the inline form that already 
 });
 
 /**
- * APP-138 — the fourth route: edit the plan you already have. Absent while there
- * is nothing to edit, and honest about what a hand-rebuild costs a parsed plan.
+ * APP-141 (v4.3 §1.1, criteria 1–3) — the card's button row: editing is the
+ * common act, importing the rare destructive one, and the import button still
+ * opens the very same sheet. The v4.2 builder-as-editor route is gone.
  */
-describe("Edit your plan", () => {
+describe("the two-button row", () => {
   const plain = { summary: "Mine", status: "ready" as const, meals: [{ name: "Lunch", items: [{ name: "Rice", quantity: 100, unit: "g", kcal: 130 }] }] };
 
-  it("is not offered until there is a plan", async () => {
-    await open();
-    expect(screen.queryByText(t("build.eatingSheet.edit"))).toBeNull();
+  it("is not offered until there is a plan to edit", async () => {
+    await render(<><EatingPlan /><PopHost /></>);
+    expect(screen.queryByText(t("library.plan.editButton"))).toBeNull();
+    expect(screen.getByText(t("build.eatingSheet.cardButton"))).toBeOnTheScreen();
   });
 
-  it("opens the builder in edit mode", async () => {
+  it("opens the dedicated editor, and the second button still opens the sheet", async () => {
     await savePlan(plain, "manual");
-    await open();
-    expect(screen.getByText(t("build.eatingSheet.editSub"))).toBeOnTheScreen();
-    await fireEvent.press(screen.getByText(t("build.eatingSheet.edit")));
-    expect(mockPush).toHaveBeenCalledWith("/build-plan?edit=1");
+    await render(<><EatingPlan /><PopHost /></>);
+    await fireEvent.press(screen.getByText(t("library.plan.editButton")));
+    expect(mockPush).toHaveBeenCalledWith("/edit-plan");
+
+    await fireEvent.press(screen.getByText(t("library.plan.importButton")));
+    expect(screen.getByText(t("build.eatingSheet.title"))).toBeOnTheScreen();
   });
 
-  it("warns when the plan carries swaps or options a hand-rebuild would drop", async () => {
-    await savePlan({ ...plain, meals: [{ ...plain.meals[0]!, items: [{ ...plain.meals[0]!.items[0]!, swaps: [{ name: "Pasta", quantity: 80 }] }] }] }, "pdf");
-    await open();
-    expect(screen.getByText(t("build.eatingSheet.editSubLossy"))).toBeOnTheScreen();
-    expect(screen.queryByText(t("build.eatingSheet.editSub"))).toBeNull();
+  it("no longer offers the builder as an editor", async () => {
+    await savePlan(plain, "manual");
+    await render(<><EatingPlan /><PopHost /></>);
+    await fireEvent.press(screen.getByText(t("library.plan.importButton")));
+    expect(screen.queryByText("Edit your plan")).toBeNull();
+    expect(mockPush).not.toHaveBeenCalledWith("/build-plan?edit=1");
   });
 });

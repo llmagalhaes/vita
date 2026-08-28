@@ -99,6 +99,7 @@ export function PillButton({
   height = 44,
   flex,
   disabled,
+  fontSize = 13,
 }: {
   label: string;
   onPress: () => void;
@@ -107,6 +108,8 @@ export function PillButton({
   height?: number;
   flex?: number;
   disabled?: boolean;
+  /** v4.3 §1: the two-button card rows weight the primary 13.5 against 12.5. */
+  fontSize?: number;
 }) {
   const bg = tone === "accent" ? accent : tone === "tinted" ? tinted(accent) : "transparent";
   const ink =
@@ -130,7 +133,7 @@ export function PillButton({
         opacity: disabled ? 0.5 : 1,
       }}
     >
-      <Text style={{ fontFamily: fonts.bold, fontSize: 13 }} color={ink}>{label}</Text>
+      <Text style={{ fontFamily: fonts.bold, fontSize }} color={ink}>{label}</Text>
     </Pressable>
   );
 }

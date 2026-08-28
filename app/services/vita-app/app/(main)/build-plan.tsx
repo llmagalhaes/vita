@@ -11,10 +11,10 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { View } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import Animated, { FadeInUp } from "react-native-reanimated";
-import { getCachedPlan, savePlan } from "../../src/db/plan";
+import { savePlan } from "../../src/db/plan";
 import { logChanged } from "../../src/db/notify";
 import { estimateKcal } from "../../src/plan/estimateKcal";
 import { colors, mixOklab, useAccent } from "../../src/ui";
@@ -23,7 +23,7 @@ import { BuilderShell } from "../../src/build/parts";
 import { CountPhase } from "../../src/build/food/CountPhase";
 import { MealsPhase } from "../../src/build/food/MealsPhase";
 import { ReviewPhase } from "../../src/build/food/ReviewPhase";
-import { emptySlots, fromPlanDoc, mealsFromSkel, mergeEstimates, saveEdit, toDraft, type BuildItem, type BuildMeal } from "../../src/build/food/draft";
+import { emptySlots, mealsFromSkel, mergeEstimates, saveEdit, toDraft, type BuildItem, type BuildMeal } from "../../src/build/food/draft";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -34,24 +34,12 @@ export default function BuildPlanScreen() {
   const router = useRouter();
   const accent = useAccent();
 
-  /**
-   * `?edit=1` (APP-138) — the builder IS the editor. The plan is read ONCE, into
-   * the same draft a fresh build types out, and the screen opens on review: every
-   * meal at a glance, each "edit" link reaching its card. The count phase is still
-   * behind Back, and reshaping there restarts from a skeleton, as it always did.
-   * Finish saves through `savePlan` (POST = a new version; the old one stays in
-   * history — that is the undo).
-   */
-  const { edit: editParam } = useLocalSearchParams<{ edit?: string }>();
-  const [seed] = useState(() => {
-    const doc = editParam === "1" ? getCachedPlan() : null;
-    return doc && doc.meals.length > 0 ? { meals: fromPlanDoc(doc), summary: doc.summary } : null;
-  });
-
-  const [phase, setPhase] = useState<Phase>(seed ? "review" : "count");
-  const [n, setN] = useState(seed ? seed.meals.length : 5);
+  // A pure builder again (v4.3 R8): editing an existing plan is `/edit-plan`,
+  // which drafts from the doc and PUTs it back with its ids intact.
+  const [phase, setPhase] = useState<Phase>("count");
+  const [n, setN] = useState(5);
   const [step, setStep] = useState(0);
-  const [meals, setMeals] = useState<BuildMeal[]>(seed ? seed.meals : []);
+  const [meals, setMeals] = useState<BuildMeal[]>([]);
   const [form, setForm] = useState(false);
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState<string | null>(null);
@@ -110,9 +98,7 @@ export default function BuildPlanScreen() {
   const finish = () => {
     if (savedRef.current) return; // double-tap guard — no duplicate plan version
     savedRef.current = true;
-    // An edited plan keeps its own summary — it is the plan's name, not this
-    // screen's byline.
-    void savePlan(toDraft(meals, seed?.summary ?? t("build.plan.summary")), "manual").then(() => logChanged());
+    void savePlan(toDraft(meals, t("build.plan.summary")), "manual").then(() => logChanged());
     if (router.canGoBack()) router.back();
     else router.replace("/day");
     showToast(t("build.plan.saved", { count: meals.length }));

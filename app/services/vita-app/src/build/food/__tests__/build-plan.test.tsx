@@ -180,48 +180,11 @@ test("Finish setup saves a manual, ready plan and toasts the count", async () =>
   expect(getPlanMeta()?.source).toBe("manual");
 });
 
-/** APP-138 — `?edit=1`: the builder IS the editor, opening on the whole plan. */
-describe("edit mode", () => {
-  const saved = {
-    summary: "Nutri plan",
-    status: "ready" as const,
-    meals: [
-      { name: "Breakfast", time: "08:00", items: [{ name: "Oats", quantity: 60, unit: "g", kcal: 235 }] },
-      { name: "Lunch", time: "12:30", items: [{ name: "Rice", quantity: 100, unit: "g", nutritionPerUnit: { kcal: 1.3 } }] },
-    ],
-  };
-
-  it("opens on review with every meal filled in, and each card reachable", async () => {
-    await savePlan(saved, "pdf");
-    mockParams = { edit: "1" };
-    await render(<BuildPlanScreen />);
-
-    expect(screen.getByText("Your plan, with the numbers filled in")).toBeTruthy(); // straight to review
-    expect(screen.getByTestId("kcal-0-0").props.children).toBe("235"); // stated, solid
-    expect(screen.getByTestId("kcal-1-0").props.children).toBe("~130"); // priced per-unit, marked
-    expect(screen.getByText("60 g")).toBeTruthy();
-
-    // The review's edit link still reaches the meal card it names.
-    await fireEvent.press(screen.getByLabelText("edit Lunch"));
-    expect(screen.getByDisplayValue("Lunch")).toBeTruthy();
-    expect(screen.getByText("2 of 2")).toBeTruthy();
-  });
-
-  it("saves a new version under the plan's own name", async () => {
-    await savePlan(saved, "pdf");
-    mockParams = { edit: "1" };
-    await render(<BuildPlanScreen />);
-    await fireEvent.press(screen.getByText("Finish setup"));
-
-    const doc = getCachedPlan()!;
-    expect(doc.summary).toBe("Nutri plan"); // not the builder's byline
-    expect(doc.meals.map((m) => m.name)).toEqual(["Breakfast", "Lunch"]);
-    expect(doc.meals[1]!.items[0]).toMatchObject({ name: "Rice", quantity: 100, kcal: 130, kcalEstimated: true });
-  });
-
-  it("ignores the flag when there is no plan yet", async () => {
-    mockParams = { edit: "1" };
-    await render(<BuildPlanScreen />);
-    expect(screen.getByText("How many times a day do you eat?")).toBeTruthy();
-  });
+/** APP-141 — the builder is a builder again: `?edit=1` is gone (editing lives at
+ *  `/edit-plan`), so the flag must not resurrect a seeded draft. */
+test("a saved plan and a stale ?edit=1 still open the empty count phase", async () => {
+  await savePlan({ summary: "Nutri plan", status: "ready", meals: [{ name: "Breakfast", items: [{ name: "Oats", quantity: 60, unit: "g", kcal: 235 }] }] }, "pdf");
+  mockParams = { edit: "1" };
+  await render(<BuildPlanScreen />);
+  expect(screen.getByText("How many times a day do you eat?")).toBeTruthy();
 });
