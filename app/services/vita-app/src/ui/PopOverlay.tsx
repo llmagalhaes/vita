@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useId, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { View } from "react-native";
 import {
   Easing,
@@ -42,14 +42,29 @@ export function PopOverlay({
   const id = useId();
   const progress = useSharedValue(0); // 0 hidden → 1 shown
   const [rendered, setRendered] = useState(visible);
+  const entered = useRef(false); // this open's entrance has been started
+
+  /** Same rule as `useSheetTransition`: the tween starts once the card has actually
+   *  mounted and laid out, never in the effect. `visible` only *schedules* a mount —
+   *  the portal hop plus the card's own children still have to commit, and starting
+   *  the 300ms tween before that made the pop appear mid-flight, in stages (CEO). */
+  const rise = () => {
+    entered.current = true;
+    progress.value = withTiming(1, {
+      duration: motion.pop.durationMs, // 300–350ms — vtPop
+      easing: Easing.bezier(...motion.pop.bezier), // (.2,.8,.3,1)
+    });
+  };
+  const onCardLayout = () => {
+    if (visible && !entered.current) rise();
+  };
 
   useEffect(() => {
     if (visible) {
-      setRendered(true);
-      progress.value = withTiming(1, {
-        duration: motion.pop.durationMs, // 300–350ms — vtPop
-        easing: Easing.bezier(...motion.pop.bezier), // (.2,.8,.3,1)
-      });
+      const mounted = rendered && entered.current; // reopened mid-fade-out: already laid out
+      entered.current = false;
+      if (mounted) rise();
+      else setRendered(true); // rise from onCardLayout
     } else if (rendered) {
       progress.value = withTiming(0, { duration: motion.fade.durationMs }, (finished) => {
         if (finished) runOnJS(setRendered)(false); // unmount only after the fade-out
@@ -70,7 +85,9 @@ export function PopOverlay({
   const overlay: ReactNode = rendered ? (
     <View key={id} style={{ position: "absolute", inset: 0, justifyContent: "center", paddingHorizontal, zIndex: 60 }}>
       <SheetBackdrop onClose={onClose} closeLabel={closeLabel} scrim={scrim} style={backdropStyle} />
-      <Animated.View style={cardStyle}>{children}</Animated.View>
+      <Animated.View onLayout={onCardLayout} style={cardStyle}>
+        {children}
+      </Animated.View>
     </View>
   ) : null;
 

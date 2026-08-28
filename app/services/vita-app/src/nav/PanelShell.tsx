@@ -18,19 +18,34 @@
  *  · CEO batch #1 (device): BOTH ways in were dead on the Samsung.
  *    - Tabs: `settle()` wrote `idxRef.current` BEFORE `router.replace`, so the
  *      route→panel effect below saw `idxRef.current === active` and returned — the
- *      route changed, the tab highlighted, and the row never translated. The drag
- *      path is the ONLY one allowed to pre-write `idxRef` (it already moved the row);
- *      every other move goes through `pick` and lets the effect animate.
+ *      route changed, the tab highlighted, and the row never translated. The rule
+ *      that came out of it and still holds: whoever writes `idxRef` MUST also move
+ *      the row. The drag does it on the UI thread, `pick` does it inline, and the
+ *      route→panel effect below does it for everything external (deep links, "Open
+ *      this day →"), which is why that effect returns early when `idxRef` matches.
  *    - Swipe: the prototype's 34px edge gate is unreachable on Android. Gesture
  *      navigation owns both screen edges (Samsung lets the user widen that inset
  *      further), so an edge drag is swallowed by the system back gesture and the
  *      user lands on the launcher. All three panels now pan from anywhere; the
  *      inner horizontal gestures still win through `blocksExternalGesture`.
+ *  · CEO device round 3 ("leve travadinha", both directions): the DRAG is pure UI
+ *    thread, so the hitch was the SETTLE. `router.replace` fired one frame into the
+ *    300ms snap tween and RN mounts a commit on the UI thread — so the tween shared
+ *    the frame with (i) all three panel trees re-rendering (they were plain children
+ *    of this render), (ii) TrendsPanel's focus epoch re-keying and REMOUNTING every
+ *    chart, (iii) CapturePill + the Stack's screen swap, (iv) `setNavSwiped()`, a
+ *    SYNCHRONOUS sqlite write, on every single commit. Fixes, in order of size:
+ *      1. the three panels are `useMemo`'d, so re-rendering this shell no longer
+ *         re-renders them (same element ref → React bails out of the subtree);
+ *      2. the URL commit is deferred past the snap — nothing on screen depends on it,
+ *         the row is already animating from shared values, and `shown` keeps the tabs
+ *         in step immediately so the chip still tweens with the panel;
+ *      3. the hint write is latched to once per session.
  *
  * All decisions are the pure helpers in `panelPan.ts` (unit-tested); everything
  * here is shared-value work on the UI thread.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BackHandler, View, useWindowDimensions } from "react-native";
 import { usePathname, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -54,13 +69,16 @@ export function PanelShell() {
   const active = panelIndex(pathname);
   const onPanel = active >= 0;
   const scene = useSceneName();
-  // Dark chrome only on the Day panel's evening scene (prototype `darkTop`).
-  const dark = active === DAY_PANEL && isDarkScene(scene);
   // A sheet owns the screen while it is up: no panning underneath it.
   const sheetOpen = useAnySheetOpen();
 
   const startIdx = active < 0 ? DAY_PANEL : active;
   const idxRef = useRef(startIdx);
+  /** The panel the CHROME shows (tabs, status bar). Tracks the row, not the URL —
+   *  the swipe's URL commit is deferred (see below) and the chip must not lag it. */
+  const [shown, setShown] = useState(startIdx);
+  // Dark chrome only on the Day panel's evening scene (prototype `darkTop`).
+  const dark = shown === DAY_PANEL && isDarkScene(scene);
 
   const panel = useSharedValue(startIdx); // committed index, UI thread
   const tx = useSharedValue(-startIdx * width); // row translateX in px
@@ -68,25 +86,61 @@ export function PanelShell() {
   const engaged = useSharedValue(false); // passed |dx| ≥ 8
   const dead = useSharedValue(false); // vertical veto — dead for this gesture
 
-  /** The drag committed: the row is already animating, so record the index here and
-   *  let the route catch up (the effect below then no-ops). */
-  const settle = (to: number) => {
+  const urlTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hintOwed = useRef(false); // a real swipe landed; retire the hint with the URL
+  useEffect(() => () => { if (urlTimer.current) clearTimeout(urlTimer.current); }, []);
+
+  /**
+   * Land on panel `to`: index + chrome now, URL after the snap has finished.
+   * The URL is the only part of the move nothing on screen is waiting for, and
+   * committing it drags a whole React tree (Trends re-keys and REMOUNTS every chart,
+   * the pill re-renders, the Stack swaps its placeholder screen) onto the UI thread
+   * mid-tween — the CEO's "leve travadinha". `idxRef`/`shown` still move instantly, so
+   * the tab chip tweens with the row exactly as before; only the URL lags, invisibly.
+   *
+   * NB the header's rule still holds: whoever pre-writes `idxRef` must also have moved
+   * the row (the drag already did on the UI thread; `pick` does it below).
+   */
+  const goto = (to: number) => {
     idxRef.current = to;
-    setNavSwiped(); // the first real swipe retires the hint
-    if (PANEL_ROUTES[to] !== pathname) router.replace(PANEL_ROUTES[to]);
+    setShown(to); // cheap now: the memoized panels below bail out of this render
+    if (urlTimer.current) clearTimeout(urlTimer.current);
+    urlTimer.current = setTimeout(() => {
+      urlTimer.current = null;
+      if (hintOwed.current) {
+        hintOwed.current = false;
+        setNavSwiped(); // the first real swipe retires the hint (a SYNCHRONOUS sqlite write)
+      }
+      const at = idxRef.current; // a second move may have landed inside the window
+      if (PANEL_ROUTES[at] !== pathname) router.replace(PANEL_ROUTES[at]);
+    }, SNAP.duration);
   };
 
-  /** Tab tap (and anything else that just wants a panel): change the route ONLY —
-   *  the effect below owns the move. Writing `idxRef` here is what killed the tabs. */
-  const pick = (to: number) => {
-    if (PANEL_ROUTES[to] !== pathname) router.replace(PANEL_ROUTES[to]);
+  /** The drag committed: the row is already animating from the UI thread. */
+  const settle = (to: number) => {
+    hintOwed.current = true;
+    goto(to);
   };
+
+  /** Tab tap (and anything else that just wants a panel). It moves the row itself —
+   *  the route→panel effect can't be relied on while the URL is deferred (tapping back
+   *  to the panel the URL still points at would change nothing and leave the tab dead:
+   *  the CEO-batch-#1 bug, one layer down). */
+  const pick = (to: number) => {
+    if (idxRef.current === to) return;
+    panel.value = to;
+    tx.value = withTiming(-to * width, SNAP);
+    goto(to);
+  };
+  const pickRef = useRef(pick);
+  pickRef.current = pick; // the back handler subscribes once; keep it on the live closure
 
   // Route → panel (tab tap, deep link, "Open this day →"). Same timing as the drag
   // snap, never the drag path.
   useEffect(() => {
     if (active < 0 || idxRef.current === active) return;
     idxRef.current = active;
+    setShown(active);
     panel.value = active;
     tx.value = withTiming(-active * width, SNAP);
   }, [active, width, panel, tx]);
@@ -134,18 +188,40 @@ export function PanelShell() {
 
   const rowStyle = useAnimatedStyle(() => ({ transform: [{ translateX: tx.value }] }));
 
-  // Android back: from Trends/Library → Day, instead of exiting mid-flow.
+  /** The three panels are the app. Kept as ONE memoized element so that re-rendering
+   *  this shell (route settle, sheet open/close, scene tick) hands `Animated.View` the
+   *  same child reference and React bails out of all three subtrees instead of running
+   *  a full render pass over them — the bulk of the settle frame. Only a width change
+   *  (rotation) rebuilds them. */
+  const panels = useMemo(
+    () => (
+      <>
+        <View style={{ width, flex: 1 }}>
+          <TrendsPanel />
+        </View>
+        <View style={{ width, flex: 1 }}>
+          <DayPanel />
+        </View>
+        <View style={{ width, flex: 1 }}>
+          <LibraryPanel />
+        </View>
+      </>
+    ),
+    [width],
+  );
+
+  // Android back: from Trends/Library → Day, instead of exiting mid-flow. Goes through
+  // `pick` (not a bare replace) — pressed inside the deferred-URL window the route still
+  // reads "/day" and a replace to it would change nothing, leaving back dead.
   useEffect(() => {
     if (!onPanel) return;
     const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (idxRef.current !== DAY_PANEL) {
-        router.replace(PANEL_ROUTES[DAY_PANEL]);
-        return true;
-      }
-      return false;
+      if (idxRef.current === DAY_PANEL) return false;
+      pickRef.current(DAY_PANEL);
+      return true;
     });
     return () => sub.remove();
-  }, [onPanel, router]);
+  }, [onPanel]);
 
   return (
     <View
@@ -164,21 +240,13 @@ export function PanelShell() {
       {onPanel ? <StatusBar style={dark ? "light" : "dark"} /> : null}
       <GestureDetector gesture={pan}>
         <Animated.View style={[{ flexDirection: "row", flex: 1, width: width * PANEL_ROUTES.length }, rowStyle]}>
-          <View style={{ width, flex: 1 }}>
-            <TrendsPanel />
-          </View>
-          <View style={{ width, flex: 1 }}>
-            <DayPanel />
-          </View>
-          <View style={{ width, flex: 1 }}>
-            <LibraryPanel />
-          </View>
+          {panels}
         </Animated.View>
       </GestureDetector>
       {/* Portaled to PopHost (blur target), so the shell's display:none can't hide it —
           mount it only on panel routes or the pill floats over pushed screens (builders,
           account, plan-setup; caught by the v4.2 emulator drive). */}
-      {onPanel ? <PanelTabs panel={active} dark={dark} onPick={pick} /> : null}
+      {onPanel ? <PanelTabs panel={shown} dark={dark} onPick={pick} /> : null}
     </View>
   );
 }

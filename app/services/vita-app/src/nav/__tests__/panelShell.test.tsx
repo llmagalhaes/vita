@@ -3,7 +3,7 @@
  * lesson — nothing to grow mid-gesture), the tabs render, and the swipe hint is
  * present until `nav.swiped` is set.
  */
-import { fireEvent, render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react-native";
 import "../../i18n";
 import { PopHost } from "../../ui/popHost";
 import { PanelShell } from "../PanelShell";
@@ -45,15 +45,22 @@ test("the hint is retired once the user has swiped", async () => {
 /**
  * CEO batch #1 — the tabs were dead on device: `settle()` wrote `idxRef` before
  * `router.replace`, so the route→panel effect saw "already there" and the row never
- * translated. A tap must go through `pick`: route only, nothing pre-recorded — which
- * is also why a tap must NOT retire the swipe hint (that belongs to a real swipe).
+ * translated. A tap must still reach the route, and must NOT retire the swipe hint
+ * (that belongs to a real swipe).
+ *
+ * R18-A: the URL commit now waits out the 300ms snap (it used to land a whole React
+ * tree on the UI thread mid-tween — the CEO's "leve travadinha"), hence the waitFor.
+ * The highlighted chip no longer comes from the URL at all: `mockPathname` is still
+ * "/day" here, so a chip on Library proves it follows the row (`shown`), not the route.
  *
  * ponytail: the row's translateX is a Reanimated value that this environment never
  * advances, so the motion itself is proven on the device, not here.
  */
-test("a tab tap routes without pre-recording the panel (and is not a swipe)", async () => {
+test("a tab tap routes (after the snap), highlights ahead of the URL, and is not a swipe", async () => {
   await render(<><PanelShell /><PopHost /></>);
   fireEvent.press(screen.getAllByRole("tab")[2]!); // Trends · Day · Library
-  expect(mockReplace).toHaveBeenCalledWith("/library");
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith("/library"));
+  expect(mockPathname).toBe("/day"); // the mock router never moves it — the chip can't be reading it
+  expect(screen.getAllByRole("tab").map((tab) => tab.props.accessibilityState.selected)).toEqual([false, false, true]);
   expect(screen.getByText(/swipe left or right/i)).toBeTruthy();
 });
