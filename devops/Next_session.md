@@ -1,5 +1,69 @@
 # DevOps — Next session
 
+## 2026-09-01 — ⏸ PROD PARKED AT CEO ORDER ("derrube tudo na aws por enquanto") — TEMPORARY, REVERSIBLE
+
+**Nothing was destroyed.** Two reversible switches only: ECS scaled to 0 and RDS stopped. No
+`terraform destroy`, no deletions — RDS instance + data, ECR images, S3 buckets/objects, SSM params,
+API Gateway, Cloud Map, IAM roles, KMS CMKs and log groups are all untouched.
+
+**What was done (region `eu-west-1` — the CLI default is `eu-north-1`, always pass `--region`):**
+- `aws ecs update-service --cluster vita --service vita --desired-count 0 --region eu-west-1`
+  → `services-stable` → **desired 0 / running 0 / pending 0**, `taskArns: []`, service still ACTIVE.
+  **Task-def `vita:11` stays ACTIVE and attached** — unparking needs no re-register, no image rebuild.
+- `aws rds stop-db-instance --db-instance-identifier vita --region eu-west-1`
+  → `stopping` → **`stopped`** after ~8 min. `db.t4g.micro`, 20 GB, `StorageEncrypted: true`,
+  `BackupRetentionPeriod: 14` — encryption and the 60 retained automated backups all intact.
+- `curl https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/health` → **HTTP 500**
+  `{"message":"Internal Server Error"}`. **This is the park working, not a fault**: API GW → VPC Link →
+  Cloud Map SRV has no registered instance while the service runs 0 tasks. It returns 200 again on unpark.
+
+### UNPARK RECIPE (the whole thing — two commands plus their waits)
+```bash
+# 1. RDS first — the app boots straight into Flyway and needs the DB up.
+aws rds start-db-instance --db-instance-identifier vita --region eu-west-1
+aws rds wait db-instance-available --db-instance-identifier vita --region eu-west-1
+
+# 2. Then the service back to one task.
+aws ecs update-service --cluster vita --service vita --desired-count 1 --region eu-west-1
+aws ecs wait services-stable --cluster vita --services vita --region eu-west-1
+
+# 3. Confirm.
+curl -s -w '\nHTTP %{http_code}\n' https://y9d7tlqsnl.execute-api.eu-west-1.amazonaws.com/health
+# expect: {"status":"up"}  HTTP 200
+```
+Order matters (RDS before ECS) — otherwise the task boots against a dead DB and the first attempt fails
+its health check. Nothing else to do: same task-def `vita:11`, same image `5be5a54`, same SSM secrets.
+
+### ⚠ THE 7-DAY GOTCHA — AWS AUTO-RESTARTS A STOPPED RDS
+A stopped RDS instance is **forcibly started by AWS after 7 days** (it is a maintenance mechanism, not
+optional). The instance comes back `available` and **billing for instance hours resumes silently.**
+So the park is *not* self-maintaining: from **2026-09-08** onward, re-run `stop-db-instance` roughly
+weekly for as long as the CEO wants prod down, or say the word and we make the park permanent-ish by
+taking a final snapshot and deleting the instance (that one is destructive and needs explicit CEO
+approval — it is NOT what was ordered here). ECS at desired 0 has no such timer; it stays at 0 forever.
+
+### ⚠ TERRAFORM WILL SHOW DRIFT — DO NOT RECONCILE
+`envs/prod-eu/main.tf:84` holds `desired_count = 1`, and Terraform does not model RDS stop/start at all.
+A `terraform plan` while parked therefore reports a service change back to 1 task, and **`terraform apply`
+would silently UNPARK prod**. Leave the drift alone: it is the intended, documented state and it
+disappears the moment the unpark recipe runs. Do **not** commit `desired_count = 0` — that would make the
+park permanent in code and someone would deploy it by accident later.
+
+### Cost while parked (~$6/mo, down from ~$19/mo)
+| Still billing | ~$/mo |
+|---|---|
+| RDS **storage** 20 GB gp3 + automated backups — stopped instances still bill for storage | 2–3 (free tier may still absorb it) |
+| 2 KMS CMKs @ $1 | 2 |
+| CloudTrail / GuardDuty / audit S3 | 1–2 |
+| ECR storage (1.37 GB of images @ $0.10/GB) | 0.14 |
+| S3 uploads/exports/tfstate | pennies |
+| CloudWatch log storage | pennies |
+| API Gateway HTTP, Cloud Map, SSM Standard | ~0 (per-request / free tier) |
+| **Total parked** | **≈ $6/mo** (≈ $8–9 once the RDS free tier lapses) |
+
+Zeroed by the park: Fargate 0.25 vCPU/1 GB ARM 24/7 (**−$8.4**), the task's public IPv4 (**−$3.6**, the
+ENI is gone with the task), RDS instance hours. Note the IPv4 saving only holds while running count is 0.
+
 ## 2026-08-25 — PROD DB WIPED CLEAN (CEO order, ahead of his first real production test)
 CEO: "limpe o banco de prod". Covered by the Round-13 pre-production blanket (truncate/recreate from zero
 whenever it is the shortest path). Session-24 forensics had confirmed prod held **only orchestrator probe
@@ -152,6 +216,8 @@ restart needed (IAM policy eval is at request time; running task picked it up im
 `Progress/OPS-022-kms-presign-Progress.md`.
 
 ## Current state (BACKEND LIVE — OIDC BUILD `909262c` DEPLOYED — 2026-07-15)
+> ⏸ **SUPERSEDED 2026-09-01: prod is PARKED** (ECS 0 tasks, RDS stopped) — see the top block.
+> Everything below describes the *running* topology, which is exactly what the unpark restores.
 
 **Latest roll (OPS-021):** redeployed to `909262c` (BE-007 Google/Apple OIDC + BE-029 per-exercise
 muscles + Jackson convergence) and wired the OIDC env. Task-def now **`vita:3`**, RUNNING+HEALTHY,
