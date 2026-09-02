@@ -2,6 +2,20 @@
 
 > Read `CLAUDE.md` first (bootstrap + non-negotiables). This file is the orchestrator's state: what just happened, what to do next, without re-reading the whole history. Team-level detail lives in `backend|app|devops/Next_session.md`.
 
+## ⭐ SESSION 25 KICKOFF (handover written 2026-08-28 at session-24 close)
+
+**Where things stand, in one breath:** v4.2 (manual builders) is LIVE in prod vita:11 · the prod DB was wiped clean at CEO order (1 probe account only) · sessions 24's post-close rounds shipped R17, APP-136/137 (actionable notifications + onboarding setup steps), the capture-crash fix, R18 (8 device fixes), and the **v4.3 edit screens** (handoff in `docs/v4.3/`) · `vita-prod-v43b.apk` is **installed clean on the CEO's Samsung** (2026-08-28 16:00) · **AWS is PARKED at CEO order** (ECS 0 tasks, RDS stopped, ~$6/mo; unpark recipe + warnings in `devops/Next_session.md` top block).
+
+**⚠ FIRST THINGS NEXT SESSION:**
+1. **RDS auto-restart timer**: AWS force-starts the stopped RDS **from 2026-09-08** and instance billing resumes silently — if still parked, re-run the stop weekly (`aws rds stop-db-instance --db-instance-identifier vita --region eu-west-1`). CEO was asked "how long is por enquanto?" (≥1 month → snapshot+delete needs his explicit yes; answer pending).
+2. **Do NOT `terraform apply` while parked** — it would silently unpark (desired_count drift is expected and documented).
+3. **CEO device round on v43b is PENDING** — the §7 emulator drive was cancelled by the CEO, so the v4.3 edit screens + native pops (Macros/PortionPop transparentModal) + R18 fixes are unit-tested but NOT screen-verified. With AWS parked, the prod APK can't log in — the CEO walks `vita-mock-v43b.apk` for screens, or unpark first for the REAL production test (login → onboarding PDF upload = the original-incident retest → capture → notification Yes/No).
+4. **Next APK build needs `expo prebuild`** (native dep `@react-native-community/datetimepicker` since R18-D). Recipe of record unchanged otherwise.
+
+**Standing:** TACO licence before store (R16 Q1) · publishing OPS-027/028 (CEO: privacy text, keystore, Play Console; iOS device needs Apple Developer $99) · APP-109 (Maestro, DIAG off) · `docs/v4/meal-plan.pdf` untracked pending anonymization · BE-054 backlog · BE-003 stays open by CEO choice (no CI) · flags the CEO may still answer: R18/v4.3 handoff criterion 27 is mathematically wrong (map is MAX — informed), F5 rounding-order divergence editor-vs-Day (flag-only).
+
+Detail blocks below, newest first. Ops recipes: session-24 kickoff block (push via gh credential helper, APK/emulator/iOS recipes, eu-west-1 not eu-north-1).
+
 ## ⭐ Where we are (2026-08-24, session 24 — V4.2 BUILT + REVIEWED + DEPLOYED vita:11 + incident diagnosed)
 
 **The whole v4.2 round ran in one session: Wave 0 contract → 7 parallel Opus builders in 3 waves → 2 adversarial Fable reviews → 2 fix passes → 23-criteria emulator drive (22/23 + 2 orchestrator fixes) → PROD DEPLOY task-def vita:11 → APKs v42.** Commits `a63250c..c97e33e`+. Gates at close: backend `./gradlew check` **336 green** · app **tsc 0 · Jest 593/594 (1 tz skip)**.
